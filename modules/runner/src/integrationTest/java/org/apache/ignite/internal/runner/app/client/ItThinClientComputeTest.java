@@ -185,6 +185,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         // Task 2 is still queued
         assertThat(execution2.statusAsync(), willBe(jobStatusWithState(QUEUED)));
+
+        // Cleanup
+        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(execution3.cancelAsync(), willBe(true));
     }
 
     @Test
@@ -408,22 +412,33 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
-    void testCancelColocated(int key, int port) {
-        var table = TABLE_NAME;
+    void testCancelColocatedTuple(int key, int port) {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
-        var keyPojo = new TestPojo(key);
-
         int sleepMs = 1_000_000;
+
         JobExecution<String> tupleExecution = client().compute().executeColocatedAsync(
-                table,
+                TABLE_NAME,
                 keyTuple,
                 List.of(),
                 SleepJob.class.getName(),
                 sleepMs
         );
 
+        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        assertThat(tupleExecution.cancelAsync(), willBe(true));
+
+        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
+    void testCancelColocatedPojo(int key, int port) {
+        var keyPojo = new TestPojo(key);
+        int sleepMs = 1_000_000;
+
         JobExecution<String> pojoExecution = client().compute().executeColocatedAsync(
-                table,
+                TABLE_NAME,
                 keyPojo,
                 Mapper.of(TestPojo.class),
                 List.of(),
@@ -431,13 +446,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 sleepMs
         );
 
-        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
         await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
-        assertThat(tupleExecution.cancelAsync(), willBe(true));
         assertThat(pojoExecution.cancelAsync(), willBe(true));
 
-        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
         await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
     }
 
