@@ -39,7 +39,7 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
+import org.apache.ignite.internal.catalog.storage.SnapshotUpdate;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
@@ -276,6 +276,7 @@ public class CatalogTestUtils {
         private final HybridClock clock;
 
         private long lastSeenVersion = 0;
+        private long snapshotVersion = 0;
 
         private volatile OnUpdateHandler onUpdateHandler;
 
@@ -295,7 +296,8 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry) {
+        public CompletableFuture<Boolean> saveSnapshot(SnapshotUpdate snapshotEntry) {
+            snapshotVersion = snapshotEntry.version();
             return CompletableFutures.trueCompletedFuture();
         }
 
@@ -312,6 +314,8 @@ public class CatalogTestUtils {
                         "Handler must be registered prior to component start"
                 );
             }
+
+            lastSeenVersion = snapshotVersion;
 
             return nullCompletedFuture();
         }

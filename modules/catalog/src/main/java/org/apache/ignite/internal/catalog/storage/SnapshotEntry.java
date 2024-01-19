@@ -42,16 +42,14 @@ public class SnapshotEntry implements UpdateEntry {
         schemas = catalog.schemas().toArray(CatalogSchemaDescriptor[]::new);
     }
 
-    public int version() {
-        return version;
-    }
-
     public long time() {
         return activationTime;
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+        assert catalog.version() < version;
+
         return new Catalog(
                 version,
                 activationTime,

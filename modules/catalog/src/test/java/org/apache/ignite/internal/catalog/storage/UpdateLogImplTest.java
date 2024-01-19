@@ -102,6 +102,44 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertThat(actualUpdates, equalTo(expectedUpdates));
     }
 
+    @Test
+    void snapshotAppliedOnStart() throws Exception {
+        // First, let's append a few entries to the update log.
+        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
+
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+
+        List<VersionedUpdate> updates = List.of(
+                singleEntryUpdateOfVersion(1),
+                singleEntryUpdateOfVersion(2),
+                singleEntryUpdateOfVersion(3));
+
+        appendUpdates(updateLogImpl, updates);
+
+        updateLogImpl.saveSnapshot(snapshotEntryOfVersion(2));
+
+        // Let's restart the log and metastore with recovery.
+        updateLogImpl.stop();
+
+        restartMetastore();
+
+        var actualUpdates = new ArrayList<VersionedUpdate>();
+
+        createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
+            actualUpdates.add(update);
+
+            return nullCompletedFuture();
+        });
+
+        List<VersionedUpdate> expectedUpdates = List.of(
+                snapshotEntryOfVersion(2),
+                singleEntryUpdateOfVersion(3)
+        );
+
+        // Let's check that we have recovered to the latest version.
+        assertThat(actualUpdates, equalTo(expectedUpdates));
+    }
+
     private UpdateLogImpl createUpdateLogImpl() {
         return new UpdateLogImpl(metastore);
     }
@@ -257,6 +295,10 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
         return new VersionedUpdate(version, 1, List.of(new TestUpdateEntry("foo_" + version)));
+    }
+
+    private static SnapshotUpdate snapshotEntryOfVersion(int version) {
+        return new SnapshotUpdate(version, new TestUpdateEntry("bar" + version));
     }
 
     static class TestUpdateEntry implements UpdateEntry {

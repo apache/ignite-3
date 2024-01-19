@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -165,7 +164,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry) {
+    public CompletableFuture<Boolean> saveSnapshot(SnapshotUpdate update) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteException(Common.NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -175,7 +174,7 @@ public class UpdateLogImpl implements UpdateLog {
         // If someone bumps snapshot version to a intermediate version in-between, then it means some outdated versions were removed.
         // So, some remove operations may become be no-op, which is ok and we no need to retry.
         try {
-            int snapshotVersion = snapshotEntry.version();
+            int snapshotVersion = update.version();
 
             Entry oldSnapshotEntry = metastore.getLocally(CatalogKey.snapshotVersion(), metastore.appliedRevision());
             int oldSnapshotVersion = oldSnapshotEntry.empty() ? 0 : bytesToInt(Objects.requireNonNull(oldSnapshotEntry.value()));
@@ -192,7 +191,7 @@ public class UpdateLogImpl implements UpdateLog {
             Update saveSnapshotAndDropOutdatedUpdates = ops(Stream.concat(
                     Stream.of(
                             put(CatalogKey.snapshotVersion(), intToBytes(snapshotVersion)),
-                            put(CatalogKey.snapshot(), ByteUtils.toBytes(snapshotEntry))
+                            put(CatalogKey.snapshot(), ByteUtils.toBytes(update))
                     ),
                     IntStream.range(oldSnapshotVersion, snapshotVersion + 1).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
             ).toArray(Operation[]::new)).yield(true);
@@ -214,10 +213,10 @@ public class UpdateLogImpl implements UpdateLog {
 
         int ver = recoverSnapshot(handler, recoveryRevision);
 
-        recoverUpdatesForVersion(handler, recoveryRevision, ver + 1);
+        recoverUpdates(handler, recoveryRevision, ver + 1);
     }
 
-    private void recoverUpdatesForVersion(OnUpdateHandler handler, long recoveryRevision, int ver) {
+    private void recoverUpdates(OnUpdateHandler handler, long recoveryRevision, int ver) {
         // TODO: IGNITE-19790 Read range from metastore
         while (true) {
             ByteArray key = CatalogKey.update(ver++);
@@ -244,13 +243,14 @@ public class UpdateLogImpl implements UpdateLog {
             return 0;
         }
 
-        SnapshotEntry update = fromBytes(Objects.requireNonNull(snapshotEntry.value()));
+        SnapshotUpdate snapshot = fromBytes(Objects.requireNonNull(snapshotEntry.value()));
 
         long revision = snapshotEntry.revision();
 
-        handler.handle(new VersionedUpdate(update.version(), 0, List.of(update)), HybridTimestamp.hybridTimestamp(update.time()), revision);
+        //TODO: Fix timestamp.
+        handler.handle(snapshot, HybridTimestamp.nullableHybridTimestamp(0L), revision);
 
-        return update.version();
+        return snapshot.version();
     }
 
     private static class CatalogKey {
@@ -293,6 +293,10 @@ public class UpdateLogImpl implements UpdateLog {
             var handleFutures = new ArrayList<CompletableFuture<Void>>(entryEvents.size());
 
             for (EntryEvent eventEntry : entryEvents) {
+                if (eventEntry.newEntry().tombstone()) {
+                    continue;
+                }
+
                 byte[] payload = eventEntry.newEntry().value();
 
                 assert payload != null : eventEntry;
