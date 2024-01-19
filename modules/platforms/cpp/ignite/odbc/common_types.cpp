@@ -289,8 +289,8 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Criteria group. Group code: 19
-        case error::code::CRITERIA_CURSOR_NO_MORE_PAGES_ERR:
-        case error::code::CRITERIA_CURSOR_CLOSED_ERR:
+        case error::code::CRITERIA_CURSOR_NO_MORE_PAGES:
+        case error::code::CRITERIA_CURSOR_CLOSED:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 
