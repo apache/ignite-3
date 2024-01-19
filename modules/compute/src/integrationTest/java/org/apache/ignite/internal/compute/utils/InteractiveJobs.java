@@ -297,7 +297,7 @@ public final class InteractiveJobs {
         /**
          * Finishes all {@link InteractiveJob}s.
          */
-        public static void finish() {
+        public void finish() {
             NODE_SIGNALS.forEach((nodeName, channel) -> {
                 try {
                     channel.offer(Signal.RETURN, WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -334,7 +334,7 @@ public final class InteractiveJobs {
         /**
          * Returns the name of the worker node where {@link GlobalInteractiveJob} is running.
          */
-        public static String currentWorkerName() throws InterruptedException {
+        public String currentWorkerName() throws InterruptedException {
             GLOBAL_SIGNALS.offer(Signal.GET_WORKER_NAME);
             String workerName = (String) GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             assertThat(
@@ -347,7 +347,7 @@ public final class InteractiveJobs {
         /**
          * Checks that {@link GlobalInteractiveJob} is alive.
          */
-        public static void assertAlive() throws InterruptedException {
+        public void assertAlive() throws InterruptedException {
             GLOBAL_SIGNALS.offer(Signal.CONTINUE);
             assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ack));
         }
@@ -355,7 +355,7 @@ public final class InteractiveJobs {
         /**
          * Finishes {@link GlobalInteractiveJob}.
          */
-        public static void finish() {
+        public void finish() {
             GLOBAL_SIGNALS.offer(Signal.RETURN);
         }
 

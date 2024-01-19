@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The selector that returns the next worker node to execute job on.
@@ -29,5 +30,5 @@ public interface NextWorkerSelector {
      *
      * @return {@code CompletableFuture} with the next worker node or with {@code null} if there is no candidates left.
      */
-    CompletableFuture<ClusterNode> next();
+    CompletableFuture<@Nullable ClusterNode> next();
 }

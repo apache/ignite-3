@@ -46,6 +46,11 @@ import org.apache.ignite.network.ClusterNode;
  */
 class ComputeJobFailover<T> {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
+
+    /**
+     * Thread to run failover logic. We can not perform time-consuming operations in the same thread where
+     * we discover topology changes (it is network id thread).
+     */
     private static final Executor executor = Executors.newSingleThreadExecutor();
 
     /**
@@ -127,29 +132,27 @@ class ComputeJobFailover<T> {
                 return;
             }
 
-            executor.execute(() -> {
-                nextWorkerSelector.next()
-                        .thenAccept(nextWorker -> {
-                            if (nextWorker == null) {
-                                LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
+            executor.execute(() -> nextWorkerSelector.next()
+                    .thenAccept(nextWorker -> {
+                        if (nextWorker == null) {
+                            LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
 
-                                FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
-                                failSafeJobExecution.completeExceptionally(
-                                        new IgniteInternalException(Compute.COMPUTE_JOB_FAILED_ERR)
-                                );
-                                return;
-                            }
-
-                            LOG.warn(
-                                    "Worker node {} has left the cluster. Restarting the job {} on node {}.",
-                                    leftNode, jobContext.jobClassName(), nextWorker
+                            FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
+                            failSafeJobExecution.completeExceptionally(
+                                    new IgniteInternalException(Compute.COMPUTE_JOB_FAILED_ERR)
                             );
+                            return;
+                        }
 
-                            runningWorkerNode.set(nextWorker);
-                            JobExecution<T> jobExecution = launchJobOn(runningWorkerNode);
-                            jobContext.updateJobExecution(jobExecution);
-                        });
-            });
+                        LOG.warn(
+                                "Worker node {} has left the cluster. Restarting the job {} on node {}.",
+                                leftNode, jobContext.jobClassName(), nextWorker
+                        );
+
+                        runningWorkerNode.set(nextWorker);
+                        JobExecution<T> jobExecution = launchJobOn(runningWorkerNode);
+                        jobContext.updateJobExecution(jobExecution);
+                    }));
         }
     }
 }

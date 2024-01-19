@@ -39,7 +39,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs.AllInteractiveJobsApi;
-import org.apache.ignite.internal.compute.utils.InteractiveJobs.GlobalApi;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -61,6 +60,8 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
      * Map from node name to node index in {@link super#cluster}.
      */
     private static final Map<String, Integer> NODES_NAMES_TO_INDEXES = new HashMap<>();
+
+    private static final String TABLE_NAME = "test";
 
     /**
      * CMG == number of nodes in cluster. We wont lose the leader in tests then.
@@ -111,9 +112,9 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
 
         // Then one of candidates became a worker and run the job.
-        String workerNodeName = GlobalApi.currentWorkerName();
+        String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         // And job is running.
-        GlobalApi.assertAlive();
+        InteractiveJobs.globalJob().assertAlive();
         // And.
         execution.assertExecuting();
 
@@ -128,11 +129,11 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         remoteWorkerCandidates.remove(workerNodeName);
 
         // Then the job is alive: it has been restarted on another candidate.
-        GlobalApi.assertAlive();
+        InteractiveJobs.globalJob().assertAlive();
         // And.
         execution.assertExecuting();
         // And remaining candidate was chosen as a failover worker.
-        String failoverWorker = GlobalApi.currentWorkerName();
+        String failoverWorker = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
 
         // And check create time was not changed but start time changed.
@@ -142,7 +143,7 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         assertThat(execution.idSync(), equalTo(jobIdBeforeFail));
 
         // When finish job.
-        GlobalApi.finish();
+        InteractiveJobs.globalJob().finish();
 
         // Then it is successfully finished.
         execution.assertCompleted();
@@ -164,10 +165,10 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
 
         // Then the job is running on worker node.
-        String workerNodeName = GlobalApi.currentWorkerName();
+        String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(remoteWorkerCandidates, hasItem(workerNodeName));
         // And.
-        GlobalApi.assertAlive();
+        InteractiveJobs.globalJob().assertAlive();
         execution.assertExecuting();
 
         // When stop worker node.
@@ -186,11 +187,11 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, Set.of(entryNode.name()));
 
         // Then the job is running.
-        GlobalApi.assertAlive();
+        InteractiveJobs.globalJob().assertAlive();
         execution.assertExecuting();
 
         // And it is running on entry node.
-        assertThat(GlobalApi.currentWorkerName(), equalTo(entryNode.name()));
+        assertThat(InteractiveJobs.globalJob().currentWorkerName(), equalTo(entryNode.name()));
 
         // When stop entry node.
         stopNode(entryNode.name());
@@ -235,7 +236,7 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         });
 
         // When.
-        AllInteractiveJobsApi.finish();
+        InteractiveJobs.all().finish();
 
         // Then every job ran once because broadcast execution does not require failover.
         AllInteractiveJobsApi.assertEachCalledOnce();
@@ -252,9 +253,9 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
 
         // Then one of candidates became a worker and run the job.
-        String workerNodeName = GlobalApi.currentWorkerName();
+        String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         // And job is running.
-        GlobalApi.assertAlive();
+        InteractiveJobs.globalJob().assertAlive();
         execution.assertExecuting();
 
         // When stop worker node.
@@ -263,10 +264,10 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         remoteWorkerCandidates.remove(workerNodeName);
 
         // Then the job is alive: it has been restarted on another candidate.
-        GlobalApi.assertAlive();
+        InteractiveJobs.globalJob().assertAlive();
         execution.assertExecuting();
         // And remaining candidate was chosen as a failover worker.
-        String failoverWorker = GlobalApi.currentWorkerName();
+        String failoverWorker = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
 
         // When cancel job.
@@ -286,29 +287,29 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         // When start colocated job on node that is not primary replica.
         IgniteImpl entryNode = anyNodeExcept(primaryReplica);
         TestingJobExecution<Object> execution = new TestingJobExecution<>(entryNode.compute().executeColocatedAsync(
-                "test",
+                TABLE_NAME,
                 Tuple.create(1).set("K", 1),
                 List.of(),
                 InteractiveJobs.globalJob().name()
         ));
 
         // Then the job is alive.
-        GlobalApi.assertAlive();
+        InteractiveJobs.globalJob().assertAlive();
         execution.assertExecuting();
 
         // And it is running on primary replica node.
-        String firstWorkerNodeName = GlobalApi.currentWorkerName();
+        String firstWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(firstWorkerNodeName, equalTo(primaryReplica.name()));
 
         // When stop worker node.
         stopNode(primaryReplica);
 
         // Then the job is restarted on another node.
-        GlobalApi.assertAlive();
+        InteractiveJobs.globalJob().assertAlive();
         execution.assertExecuting();
 
         // And it is running on another node.
-        String failoverNodeName = GlobalApi.currentWorkerName();
+        String failoverNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(failoverNodeName, in(allNodeNames()));
         // And this node is the primary replica for K=1.
         primaryReplica = getPrimaryReplica(entryNode);
@@ -318,17 +319,21 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
     }
 
     private ClusterNode getPrimaryReplica(IgniteImpl node) {
-        ReplicaMeta replicaMeta = null;
         try {
             var clock = node.clock();
-            TableImpl table = (TableImpl) node.tables().table("test");
-            replicaMeta = node.placementDriver().getPrimaryReplica(new TablePartitionId(
-                    table.tableId(), table.partition(Tuple.create(1).set("K", 1))), clock.now()).get();
+            TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partition(Tuple.create(1).set("K", 1)));
+
+            ReplicaMeta replicaMeta = node.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();
+            if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
+                throw new RuntimeException("Can not find primary replica for partition.");
+            }
+
+            return nodeByName(replicaMeta.getLeaseholder()).node();
+
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
-        ClusterNode primaryReplica = nodeByName(replicaMeta.getLeaseholder()).node();
-        return primaryReplica;
     }
 
     private void stopNode(ClusterNode clusterNode) {
