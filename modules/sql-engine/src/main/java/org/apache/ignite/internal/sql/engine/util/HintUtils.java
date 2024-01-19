@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.EXPAND_DISTINCT_AGG;
 
 import java.util.Arrays;
@@ -84,7 +85,7 @@ public class HintUtils {
      * @see Hintable#getHints()
      */
     public static List<RelHint> allRelHints(RelNode rel) {
-        return rel instanceof Hintable ? ((Hintable) rel).getHints() : Collections.emptyList();
+        return rel instanceof Hintable ? ((Hintable) rel).getHints() : emptyList();
     }
 
     /**

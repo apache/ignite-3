@@ -45,15 +45,15 @@ public class NoIndexHintPlannerTest extends AbstractPlannerTest {
     public static void setup() {
         SCHEMA = createSchemaFrom(
                 createSimpleTable(TBL1, 100)
-                        .andThen(addUniqueHashIndex(TBL1, "ID"))
-                        .andThen(addUniqueSortIndex(TBL1, "VAL1"))
-                        .andThen(addUniqueSortIndex(TBL1, "VAL2", "VAL3"))
-                        .andThen(addUniqueSortIndex(TBL1, "VAL3")),
+                        .andThen(addUniqueHashIndex("TBL1_IDX", "ID"))
+                        .andThen(addUniqueSortIndex("TBL1_IDX", "VAL1"))
+                        .andThen(addUniqueSortIndex("TBL1_IDX", "VAL2", "VAL3"))
+                        .andThen(addUniqueSortIndex("TBL1_IDX", "VAL3")),
                 createSimpleTable(TBL2, 100_000)
-                        .andThen(addUniqueHashIndex(TBL2, "ID"))
-                        .andThen(addUniqueSortIndex(TBL2, "VAL1"))
-                        .andThen(addUniqueSortIndex(TBL2, "VAL2"))
-                        .andThen(addUniqueSortIndex(TBL2, "VAL3"))
+                        .andThen(addUniqueHashIndex("TBL2_IDX", "ID"))
+                        .andThen(addUniqueSortIndex("TBL2_IDX", "VAL1"))
+                        .andThen(addUniqueSortIndex("TBL2_IDX", "VAL2"))
+                        .andThen(addUniqueSortIndex("TBL2_IDX", "VAL3"))
         );
     }
 
@@ -138,9 +138,9 @@ public class NoIndexHintPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @ValueSource(strings = {"SUM", "AVG", "MIN", "MAX"})
     public void testAggregates(String op) throws Exception {
-        assertNoAnyIndex("SELECT /*+ NO_INDEX */ " + op + "(val1) FROM TBL2 group by val3");
+        assertNoAnyIndex(format("SELECT /*+ NO_INDEX */ %s(val1) FROM TBL2 group by val3", op));
 
-        assertNoCertainIndex("SELECT /*+ NO_INDEX(IDX_VAL3) */ " + op + "(val1) FROM TBL2 group by val3", TBL2, "IDX_VAL3");
+        assertNoCertainIndex(format("SELECT /*+ NO_INDEX(IDX_VAL3) */ %s(val1) FROM TBL2 group by val3", op), TBL2, "IDX_VAL3");
     }
 
     @ParameterizedTest

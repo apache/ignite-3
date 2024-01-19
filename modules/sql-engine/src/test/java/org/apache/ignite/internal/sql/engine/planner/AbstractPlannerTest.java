@@ -1006,10 +1006,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /** Creates a function, which builds sorted index with given column names and with default collation. */
-    protected static UnaryOperator<TableBuilder> addUniqueSortIndex(String tableName, String... columns) {
+    protected static UnaryOperator<TableBuilder> addUniqueSortIndex(@Nullable String prefix, String... columns) {
         return tableBuilder -> {
             SortedIndexBuilder indexBuilder = tableBuilder.sortedIndex();
-            StringBuilder nameBuilder = new StringBuilder(nullOrBlank(tableName) ? "IDX" : tableName.toUpperCase() + "_IDX");
+            StringBuilder nameBuilder = new StringBuilder(nullOrBlank(prefix) ? "IDX" : prefix.toUpperCase());
 
             for (String colName : columns) {
                 String colNameUpperCase = colName.toUpperCase();
@@ -1028,10 +1028,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /** Creates a function, which builds hash index with given column names. */
-    protected static UnaryOperator<TableBuilder> addUniqueHashIndex(String tableName, String... columns) {
+    protected static UnaryOperator<TableBuilder> addUniqueHashIndex(@Nullable String prefix, String... columns) {
         return tableBuilder -> {
             HashIndexBuilder indexBuilder = tableBuilder.hashIndex();
-            StringBuilder nameBuilder = new StringBuilder(nullOrBlank(tableName) ? "IDX" : tableName.toUpperCase() + "_IDX");
+            StringBuilder nameBuilder = new StringBuilder(nullOrBlank(prefix) ? "IDX" : prefix.toUpperCase());
 
             for (String colName : columns) {
                 indexBuilder.addColumn(colName.toUpperCase());

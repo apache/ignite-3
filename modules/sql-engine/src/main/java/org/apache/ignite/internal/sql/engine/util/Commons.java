@@ -157,6 +157,7 @@ public final class Commons {
                                     .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
                                     .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
                                     .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
+                                    .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .build()
                     )
             )
