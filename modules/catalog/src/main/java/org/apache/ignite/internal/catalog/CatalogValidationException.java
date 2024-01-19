@@ -39,6 +39,17 @@ public class CatalogValidationException extends IgniteInternalException {
     /**
      * Constructor.
      *
+     * @param messagePattern Error message pattern.
+     * @param params Error message params.
+     * @see IgniteStringFormatter#format(String, Object...)
+     */
+    public CatalogValidationException(String messagePattern, Object... params) {
+        super(ErrorGroups.Catalog.VALIDATION_ERR, messagePattern, params);
+    }
+
+    /**
+     * Constructor.
+     *
      * @param code Full error code.
      * @param messagePattern Error message pattern.
      * @param params Error message params.

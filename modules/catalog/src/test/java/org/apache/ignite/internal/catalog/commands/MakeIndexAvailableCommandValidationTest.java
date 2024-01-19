@@ -20,21 +20,28 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BEING_BUILT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.IndexAlreadyAvailableValidationException;
+import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests to verify validation of {@link MakeIndexAvailableCommand}. */
 @SuppressWarnings("ThrowableNotThrown")
@@ -54,8 +61,9 @@ public class MakeIndexAvailableCommandValidationTest extends AbstractCommandVali
         );
     }
 
-    @Test
-    void exceptionIsThrownIfIndexIsAlreadyAvailable() {
+    @ParameterizedTest
+    @MethodSource("invalidPreviousIndexStatuses")
+    void exceptionIsThrownIfIndexHasInvalidPreviousStatus(CatalogIndexStatus invalidPreviousIndexStatus) {
         int id = 0;
 
         int tableId = id++;
@@ -68,7 +76,14 @@ public class MakeIndexAvailableCommandValidationTest extends AbstractCommandVali
                         table(tableId, id++, id++, id++, columnName)
                 },
                 new CatalogIndexDescriptor[]{
-                        new CatalogHashIndexDescriptor(indexId, "TEST_INDEX", tableId, false, List.of(columnName), true)
+                        new CatalogHashIndexDescriptor(
+                                indexId,
+                                "TEST_INDEX",
+                                tableId,
+                                false,
+                                List.of(columnName),
+                                invalidPreviousIndexStatus
+                        )
                 },
                 new CatalogSystemViewDescriptor[]{}
         );
@@ -79,9 +94,18 @@ public class MakeIndexAvailableCommandValidationTest extends AbstractCommandVali
 
         assertThrowsWithCause(
                 () -> command.get(catalog),
-                IndexAlreadyAvailableValidationException.class,
-                format("Index is already available '{}'", indexId)
+                ChangeIndexStatusValidationException.class,
+                format(
+                        "It is impossible to change the index status: [indexId={}, from={}, to={}, expectedCurrent={}]",
+                        indexId, invalidPreviousIndexStatus, AVAILABLE, BEING_BUILT
+                )
         );
+    }
+
+    private static Stream<Arguments> invalidPreviousIndexStatuses() {
+        return Stream.of(CatalogIndexStatus.values())
+                .filter(status -> status != BEING_BUILT)
+                .map(Arguments::of);
     }
 
     private static CatalogTableDescriptor table(int tableId, int schemaId, int zoneId, int pkIndexId, String columnName) {

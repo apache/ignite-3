@@ -15,22 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
-
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+package org.apache.ignite.internal.catalog.descriptors;
 
 /**
- * This exception is thrown when an attempt is made to make an index {@link CatalogIndexDescriptor#available() available} a second time.
+ * Index statuses.
+ *
+ * <p>Possible status transitions:</p>
+ * <ul>
+ *     <li>{@link #REGISTERED} -> {@link #BEING_BUILT} -> {@link #AVAILABLE}.</li>
+ *     <li>{@link #AVAILABLE} (PK index).</li>
+ * </ul>
  */
-public class IndexAlreadyAvailableValidationException extends CatalogValidationException {
-    private static final long serialVersionUID = 5482919822886169473L;
+public enum CatalogIndexStatus {
+    /**
+     * Index has been registered and is awaiting the start of building.
+     *
+     * <p>Not readable or writable.</p>
+     */
+    REGISTERED,
 
     /**
-     * Constructor.
+     * Index is in the process of being built.
      *
-     * @param message Error message.
+     * <p>Write only.</p>
      */
-    public IndexAlreadyAvailableValidationException(String message) {
-        super(message);
-    }
+    BEING_BUILT,
+
+    /**
+     * Index is built and ready to use.
+     *
+     * <p>Readable and writable.</p>
+     */
+    AVAILABLE
 }

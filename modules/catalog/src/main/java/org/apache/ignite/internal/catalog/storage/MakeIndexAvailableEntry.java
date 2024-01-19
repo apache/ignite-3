@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.Arrays;
@@ -115,7 +116,7 @@ public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
                 index.tableId(),
                 index.unique(),
                 index.columns(),
-                true
+                AVAILABLE
         );
     }
 
@@ -126,7 +127,7 @@ public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
                 index.tableId(),
                 index.unique(),
                 index.columns(),
-                true
+                AVAILABLE
         );
     }
 }

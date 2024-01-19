@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
@@ -28,7 +30,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
     private final List<String> columns;
 
     /**
-     * Constructs a hash index descriptor in write-only state.
+     * Constructs a hash index descriptor in status {@link CatalogIndexStatus#REGISTERED}.
      *
      * @param id Id of the index.
      * @param name Name of the index.
@@ -38,7 +40,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
     public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        this(id, name, tableId, unique, columns, false);
+        this(id, name, tableId, unique, columns, REGISTERED);
     }
 
     /**
@@ -49,12 +51,11 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param columns A list of indexed columns. Must not contains duplicates.
-     * @param available Availability flag, {@code true} means it is available (the index has been built), otherwise it is registered
-     *      (the index has not yet been built).
+     * @param status Index status.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns, boolean available) {
-        super(id, name, tableId, unique, available);
+    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns, CatalogIndexStatus status) {
+        super(id, name, tableId, unique, status);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }
