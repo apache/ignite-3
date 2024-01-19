@@ -60,7 +60,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private final ReentrantReadWriteLock enlistPartitionLock = new ReentrantReadWriteLock();
 
     /** The future is initialized when this transaction starts committing or rolling back and is finished together with the transaction. */
-    private volatile CompletableFuture<Void> finishFuture;
+    private CompletableFuture<Void> finishFuture;
 
     /**
      * Constructs an explicit read-write transaction.
@@ -145,11 +145,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             if (!hasTxFinalizationBegun()) {
                 assert finishFuture == null : "Transaction is already finished [id=" + id() + ", state=" + state() + "].";
 
-                finishFuture = new CompletableFuture<>();
-
                 CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
 
-                finishFutureInternal.whenComplete((unused, throwable) -> finishFuture.complete(null));
+                finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
 
                 // Return the real future first time.
                 return finishFutureInternal;
