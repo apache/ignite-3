@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DirectMessageWriter implements MessageWriter {
     /** Empty array-based byte buffer. Not read-only. */
-    public static final ByteBuffer EMPTY_BUFFER = ByteBuffer.wrap(ArrayUtils.BYTE_EMPTY_ARRAY);
+    public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.wrap(ArrayUtils.BYTE_EMPTY_ARRAY);
 
     /** State. */
     private final DirectMessageState<StateItem> state;
@@ -484,8 +484,8 @@ public class DirectMessageWriter implements MessageWriter {
     /** {@inheritDoc} */
     @Override
     public void afterInnerMessageWrite(boolean finished) {
-        // Prevent leaks.
-        setBuffer(EMPTY_BUFFER);
+        // Prevent memory leaks.
+        setBuffer(EMPTY_BYTE_BUFFER);
 
         state.backward(finished);
     }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft.util;
 
-import static org.apache.ignite.internal.network.direct.DirectMessageWriter.EMPTY_BUFFER;
+import static org.apache.ignite.internal.network.direct.DirectMessageWriter.EMPTY_BYTE_BUFFER;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -144,7 +144,7 @@ public class OptimizedMarshaller implements Marshaller {
         }
 
         // Prevent holding the reference for too long.
-        stream.setBuffer(EMPTY_BUFFER);
+        stream.setBuffer(EMPTY_BYTE_BUFFER);
 
         byte[] result = Arrays.copyOf(buffer.array(), buffer.position());
 
