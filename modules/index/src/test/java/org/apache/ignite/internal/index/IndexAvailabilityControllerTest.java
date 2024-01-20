@@ -124,6 +124,23 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         awaitTillGlobalMetastoreRevisionIsApplied();
 
+        assertInProgressBuildIndexKeyAbsent(indexId);
+
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
+        }
+    }
+
+    @Test
+    void testMetastoreKeysAfterIndexBuilding() throws Exception {
+        createIndex(INDEX_NAME);
+
+        int indexId = indexId(INDEX_NAME);
+
+        startBuildIndex(indexId);
+
+        awaitTillGlobalMetastoreRevisionIsApplied();
+
         assertInProgressBuildIndexKeyExists(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
@@ -156,10 +173,19 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testMetastoreKeysAfterIndexBuildingForOnlyOnePartition() throws Exception {
+        changePartitionCountInCatalog(1);
+
+        testMetastoreKeysAfterIndexBuilding();
+    }
+
+    @Test
     void testMetastoreKeysAfterFinishBuildIndexForOnePartition() throws Exception {
         createIndex(INDEX_NAME);
 
         int indexId = indexId(INDEX_NAME);
+
+        startBuildIndex(indexId);
 
         finishBuildingIndexForPartition(indexId, 0);
 
@@ -181,6 +207,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         createIndex(INDEX_NAME);
 
         int indexId = indexId(INDEX_NAME);
+
+        startBuildIndex(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertThat(
@@ -291,6 +319,10 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private void createIndex(String indexName) {
         TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
+    }
+
+    private void startBuildIndex(int indexId) {
+        TestIndexManagementUtils.startBuildIndex(catalogManager, indexId);
     }
 
     private void dropIndex(String indexName) {

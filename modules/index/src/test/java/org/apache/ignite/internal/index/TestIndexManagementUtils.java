@@ -37,6 +37,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -136,5 +137,9 @@ class TestIndexManagementUtils {
 
     static boolean isIndexAvailable(CatalogService catalogService, String indexName, HybridClock clock) {
         return TableTestUtils.getIndexStrict(catalogService, indexName, clock.nowLong()).status() == AVAILABLE;
+    }
+
+    static void startBuildIndex(CatalogManager catalogManager, int indexId) {
+        assertThat(catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }
 }

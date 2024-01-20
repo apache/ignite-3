@@ -411,6 +411,12 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(COLUMN_NAME), false);
     }
 
+    private void startBuildInex(String indexName) {
+        CatalogIndexDescriptor index = index(catalogManager.latestCatalogVersion(), indexName);
+
+        TestIndexManagementUtils.startBuildIndex(catalogManager, index.id());
+    }
+
     private void makeIndexAvailable(String indexName) {
         CatalogIndexDescriptor index = index(catalogManager.latestCatalogVersion(), indexName);
 
@@ -429,6 +435,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     private void makeIndexesAvailable(String... indexNames) {
         for (String indexName : indexNames) {
+            startBuildInex(indexName);
             makeIndexAvailable(indexName);
         }
     }
