@@ -64,7 +64,7 @@ class ComputeJobFailover<T> {
     private final LogicalTopologyService logicalTopologyService;
 
     /**
-     * The sector that returns the next worker node to execute job on.
+     * The selector that returns the next worker node to execute job on.
      */
     private final NextWorkerSelector nextWorkerSelector;
 
