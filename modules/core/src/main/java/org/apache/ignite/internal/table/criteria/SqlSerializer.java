@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -155,10 +155,6 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         if (elements.length > 1) {
             append(suffix);
         }
-    }
-
-    private static String quoteIfNeeded(String name) {
-        return name.chars().allMatch(Character::isUpperCase) ? name : quote(name);
     }
 
     /**

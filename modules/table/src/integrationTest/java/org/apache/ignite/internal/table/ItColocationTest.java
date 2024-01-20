@@ -175,7 +175,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
-                    boolean commit,
+                    boolean commitIntent,
                     Map<TablePartitionId, Long> enlistedGroups,
                     UUID txId
             ) {

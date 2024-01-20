@@ -165,6 +165,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
@@ -1198,6 +1199,12 @@ public class IgniteImpl implements Ignite {
     @Nullable
     public BiPredicate<String, NetworkMessage> dropMessagesPredicate() {
         return ((DefaultMessagingService) clusterSvc.messagingService()).dropMessagesPredicate();
+    }
+
+    // TODO IGNITE-18493 - remove/move this
+    @TestOnly
+    public void sendFakeMessage(String recipientConsistentId, NetworkMessage msg) {
+        clusterSvc.messagingService().send(recipientConsistentId, ChannelType.DEFAULT, msg);
     }
 
     // TODO: IGNITE-18493 - remove/move this

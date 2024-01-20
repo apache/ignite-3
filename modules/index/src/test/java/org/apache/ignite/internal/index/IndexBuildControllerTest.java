@@ -299,6 +299,11 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
             throw new UnsupportedOperationException();
         }
 
+        @Override
+        public ReplicaMeta currentLease(ReplicationGroupId groupId) {
+            return primaryReplicaMetaFutureById.get(groupId).join();
+        }
+
         CompletableFuture<Void> setPrimaryReplicaMeta(
                 long causalityToken,
                 TablePartitionId replicaId,

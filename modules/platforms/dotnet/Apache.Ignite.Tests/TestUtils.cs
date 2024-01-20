@@ -20,9 +20,12 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Diagnostics;
     using System.IO;
+    using System.Linq;
     using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Threading.Tasks;
+    using Internal.Buffers;
+    using Internal.Common;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
@@ -75,6 +78,23 @@ namespace Apache.Ignite.Tests
             GetNonPublicField(obj, fieldName).SetValue(obj, value);
 
         public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) => new ConsoleLogger(minLevel);
+
+        public static void CheckByteArrayPoolLeak(int timeoutMs = 1000)
+        {
+#if DEBUG
+            WaitForCondition(
+                condition: () => ByteArrayPool.CurrentlyRentedArrays.IsEmpty,
+                timeoutMs: timeoutMs,
+                messageFactory: () =>
+                {
+                    var bufs = ByteArrayPool.CurrentlyRentedArrays
+                        .Select(x => $"{x.Value.DeclaringType}.{x.Value.Name}")
+                        .StringJoin();
+
+                    return $"Leaked buffers: {bufs}";
+                });
+#endif
+        }
 
         private static FieldInfo GetNonPublicField(object obj, string fieldName)
         {

@@ -29,11 +29,16 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -46,10 +51,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>NB: Binary view doesn't allow null tuples. Methods return either a tuple that represents the value, or {@code null} if no value
  * exists for the given key.
  */
-public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
-    /** Underlying table. */
-    private final ClientTable tbl;
-
+public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tuple>> implements KeyValueView<Tuple, Tuple> {
     /** Tuple serializer. */
     private final ClientTupleSerializer ser;
 
@@ -59,9 +61,8 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @param tbl Table.
      */
     public ClientKeyValueBinaryView(ClientTable tbl) {
-        assert tbl != null;
+        super(tbl);
 
-        this.tbl = tbl;
         ser = new ClientTupleSerializer(tbl.tableId());
     }
 
@@ -460,5 +461,14 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
+        String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
+
+        return (row) -> new IgniteBiTuple<>(new SqlRowProjection(row, meta, keyCols), new SqlRowProjection(row, meta, valCols));
     }
 }

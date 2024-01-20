@@ -26,36 +26,26 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.CursorAdapter;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.AsyncCursor;
-import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Table view implementation for binary objects.
  */
-public class RecordBinaryViewImpl extends AbstractTableView implements RecordView<Tuple> {
+public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements RecordView<Tuple> {
     private final TupleMarshallerCache marshallerCache;
 
     /**
@@ -445,32 +435,5 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
                 (schemaVersion) -> this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Cursor<Tuple> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncCursor<Tuple>> queryAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            @Nullable CriteriaQueryOptions opts
-    ) {
-        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
-
-        return withSchemaSync(tx, (schemaVersion) -> {
-            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
-            SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columnNames(), criteria);
-
-            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
-            Session session = sql.createSession();
-
-            return session.executeAsync(tx, statement, ser.getArguments())
-                    .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
-        });
     }
 }
