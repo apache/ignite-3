@@ -112,6 +112,7 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
     @ValueSource(booleans = {false, true})
     void testChooseForRwTxOperationAfterMakeIndexAvailable(boolean withRecovery) {
         createIndex(INDEX_NAME);
+        startBuildingIndex(INDEX_NAME);
         makeIndexAvailable(INDEX_NAME);
 
         int catalogVersion = catalogManager.latestCatalogVersion();
@@ -148,6 +149,7 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
     @ValueSource(booleans = {false, true})
     void testChooseForRwTxOperationAfterDropAvailableIndex(boolean withRecovery) {
         createIndex(INDEX_NAME);
+        startBuildingIndex(INDEX_NAME);
         makeIndexAvailable(INDEX_NAME);
 
         int catalogVersionAfterMakeIndexAvailable = catalogManager.latestCatalogVersion();
@@ -221,6 +223,12 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
 
     private void createIndex(String indexName) {
         TestIndexManagementUtils.createIndex(catalogManager, TABLE_NAME, indexName, COLUMN_NAME);
+    }
+
+    private void startBuildingIndex(String indexName) {
+        int indexId = indexId(catalogManager, indexName, clock);
+
+        TestIndexManagementUtils.startBuildingIndex(catalogManager, indexId);
     }
 
     private void makeIndexAvailable(String indexName) {

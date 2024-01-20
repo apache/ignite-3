@@ -322,7 +322,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void startBuildIndex(int indexId) {
-        TestIndexManagementUtils.startBuildIndex(catalogManager, indexId);
+        TestIndexManagementUtils.startBuildingIndex(catalogManager, indexId);
     }
 
     private void dropIndex(String indexName) {

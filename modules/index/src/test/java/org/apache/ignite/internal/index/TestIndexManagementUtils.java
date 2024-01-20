@@ -139,7 +139,7 @@ class TestIndexManagementUtils {
         return TableTestUtils.getIndexStrict(catalogService, indexName, clock.nowLong()).status() == AVAILABLE;
     }
 
-    static void startBuildIndex(CatalogManager catalogManager, int indexId) {
+    static void startBuildingIndex(CatalogManager catalogManager, int indexId) {
         assertThat(catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }
 }

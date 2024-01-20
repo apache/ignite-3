@@ -53,7 +53,6 @@ import org.apache.ignite.network.ClusterService;
  *
  * @see CatalogIndexDescriptor#status()
  */
-// TODO: IGNITE-21238 подумать на счет временного перехода автоматом на статуст построения индекска
 public class IndexBuildingManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingManager.class);
 

@@ -32,7 +32,7 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTa
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexId;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.isIndexAvailable;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.makeIndexAvailable;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.startBuildIndex;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.startBuildingIndex;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -118,8 +118,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         int indexId0 = indexId(catalogManager, INDEX_NAME + 0, clock);
         int indexId1 = indexId(catalogManager, INDEX_NAME + 1, clock);
 
-        startBuildIndex(catalogManager, indexId0);
-        startBuildIndex(catalogManager, indexId1);
+        startBuildingIndex(catalogManager, indexId0);
+        startBuildingIndex(catalogManager, indexId1);
 
         makeIndexAvailable(catalogManager, indexId0);
         makeIndexAvailable(catalogManager, indexId1);
@@ -143,7 +143,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
 
-        startBuildIndex(catalogManager, indexId);
+        startBuildingIndex(catalogManager, indexId);
 
         putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
 
@@ -160,7 +160,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
 
-        startBuildIndex(catalogManager, indexId);
+        startBuildingIndex(catalogManager, indexId);
 
         restartComponentsAndPerformRecovery();
 
