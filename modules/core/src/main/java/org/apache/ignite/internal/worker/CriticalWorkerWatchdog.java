@@ -48,6 +48,7 @@ import org.jetbrains.annotations.Nullable;
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(CriticalWorkerWatchdog.class);
 
+    // TODO: IGNITE-21227 - make this configurable.
     private static final long LIVENESS_CHECK_INTERVAL_MS = 200;
     private static final long MAX_ALLOWED_LAG_MS = 500;
 
