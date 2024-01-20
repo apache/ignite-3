@@ -117,7 +117,10 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
 
         Integer txCatalogVersion = txCatalogVersionByBeginTxTs.remove(beginTs);
 
-        assert txCatalogVersion != null : beginTs;
+        // See See the method documentation.
+        if (txCatalogVersion == null) {
+            return;
+        }
 
         txCountByCatalogVersion.compute(txCatalogVersion, (i, txCount) -> {
             assert txCount != null : txCatalogVersion;

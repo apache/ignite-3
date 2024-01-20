@@ -44,7 +44,12 @@ public interface LocalRwTxCounter {
     /**
      * Decreases the count of read-write transactions.
      *
-     * <p>NOTE: Expected to be executed inside {@link #inUpdateRwTxCountLock(Supplier)}.</p>
+     * <p>Notes:</p>
+     * <ul>
+     *     <li>Expected to be executed inside {@link #inUpdateRwTxCountLock(Supplier)}.</li>
+     *     <li>May be called multiple times for the same transaction for example due to the transaction recovery procedure must operate in
+     *     an independent manner.</li>
+     * </ul>
      *
      * @param beginTs Transaction begin timestamp.
      */

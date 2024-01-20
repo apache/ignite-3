@@ -37,7 +37,9 @@ import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStar
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -150,6 +152,29 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
                 id++;
             } while (differences(beforeInserts, partitionSizes()) < 2);
+
+            fakeUpdateCatalog();
+
+            assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
+        });
+
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
+    }
+
+    @ParameterizedTest(name = "commit = {0}")
+    @ValueSource(booleans = {true, false})
+    void testOnePhaseCommitViaKeyValue(boolean commit) {
+        int oldLatestCatalogVersion = latestCatalogVersion();
+
+        runInTx(commit, rwTx -> {
+            KeyValueView<Tuple, Tuple> keyValueView = tableImpl().keyValueView();
+
+            assertThat(
+                    keyValueView.putAsync(rwTx, Tuple.create().set("ID", 0), Tuple.create().set("NAME", "0").set("SALARY", 0.0)),
+                    willCompleteSuccessfully()
+            );
 
             fakeUpdateCatalog();
 
