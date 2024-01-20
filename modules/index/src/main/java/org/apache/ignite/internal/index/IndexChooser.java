@@ -22,6 +22,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for various operations, for example for RW transactions. */
-// TODO: IGNITE-21238 подумтьа на счет этого класса может тут нужно будет поменять я хз
 class IndexChooser implements ManuallyCloseable {
     private static final Comparator<CatalogIndexDescriptor> INDEX_COMPARATOR = comparingInt(CatalogObjectDescriptor::id);
 
@@ -148,8 +148,8 @@ class IndexChooser implements ManuallyCloseable {
     }
 
     /**
-     * Collects a list of table indexes that will need to be used for an update operation in an RW transaction. The list consists of all
-     * indexes (available and registered) on the requested catalog version, as well as all dropped available indexes from previous catalog
+     * Collects a list of table indexes that will need to be used for an update operation in an RW transaction. The list consists of
+     * available and building indexes on the requested catalog version, as well as all dropped available indexes from previous catalog
      * versions.
      *
      * <p>Returned list is sorted by {@link CatalogObjectDescriptor#id()}. The table is expected to exist in the catalog at the requested
@@ -160,7 +160,7 @@ class IndexChooser implements ManuallyCloseable {
      */
     List<CatalogIndexDescriptor> chooseForRwTxUpdateOperation(int catalogVersion, int tableId) {
         return inBusyLock(busyLock, () -> {
-            List<CatalogIndexDescriptor> tableIndexes = catalogService.indexes(catalogVersion, tableId);
+            List<CatalogIndexDescriptor> tableIndexes = collectAvailableAndBuildingIndexes(catalogService.indexes(catalogVersion, tableId));
 
             assert !tableIndexes.isEmpty() : "catalogVersion=" + catalogVersion + ", tableId=" + tableId;
 
@@ -305,5 +305,26 @@ class IndexChooser implements ManuallyCloseable {
         }
 
         return res;
+    }
+
+    private static List<CatalogIndexDescriptor> collectAvailableAndBuildingIndexes(List<CatalogIndexDescriptor> allIndexes) {
+        // Lazy set.
+        List<CatalogIndexDescriptor> result = null;
+
+        for (int i = 0; i < allIndexes.size(); i++) {
+            CatalogIndexDescriptor indexDescriptor = allIndexes.get(i);
+
+            if (indexDescriptor.status() == AVAILABLE || indexDescriptor.status() == BUILDING) {
+                if (result != null) {
+                    result.add(indexDescriptor);
+                }
+            } else {
+                if (result == null) {
+                    result = new ArrayList<>(allIndexes.subList(0, i));
+                }
+            }
+        }
+
+        return result == null ? allIndexes : result;
     }
 }

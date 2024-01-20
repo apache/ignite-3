@@ -89,8 +89,6 @@ public class IndexBuildingManager implements IgniteComponent {
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
 
         indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
-
-        addListeners();
     }
 
     @Override
@@ -105,6 +103,8 @@ public class IndexBuildingManager implements IgniteComponent {
             indexAvailabilityController.recover(recoveryRevision);
 
             startBuildIndexesOnRecoveryBusy();
+
+            addListeners();
 
             return nullCompletedFuture();
         });
