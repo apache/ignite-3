@@ -29,6 +29,7 @@ import org.apache.ignite.internal.network.direct.state.DirectMessageState;
 import org.apache.ignite.internal.network.direct.state.DirectMessageStateItem;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageWriter;
@@ -39,6 +40,9 @@ import org.jetbrains.annotations.Nullable;
  * Message writer implementation.
  */
 public class DirectMessageWriter implements MessageWriter {
+    /** Empty array-based byte buffer. Not read-only. */
+    public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.wrap(ArrayUtils.BYTE_EMPTY_ARRAY);
+
     /** State. */
     private final DirectMessageState<StateItem> state;
 
@@ -480,6 +484,9 @@ public class DirectMessageWriter implements MessageWriter {
     /** {@inheritDoc} */
     @Override
     public void afterInnerMessageWrite(boolean finished) {
+        // Prevent memory leaks.
+        setBuffer(EMPTY_BYTE_BUFFER);
+
         state.backward(finished);
     }
 

@@ -22,18 +22,29 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STAT
 import org.apache.ignite.tx.TransactionException;
 
 /**
- * The exception is thrown when a transaction has already been finished.
+ * The exception is thrown when the transaction result differs from the intended one.
+ *
+ * <p>For example, {@code tx.commit()} is called for a transaction, but the verification logic decided to abort it instead. The transaction
+ * will be finished with {@link TxState#ABORTED} and the call to {@code tx.commit()} will throw this exception.
  */
-public class TransactionAlreadyFinishedException extends TransactionException {
+public class MismatchingTransactionOutcomeException extends TransactionException {
 
     private static final long serialVersionUID = -7953057695915339651L;
 
     /** Stored transaction result. */
     private final TransactionResult transactionResult;
 
-    public TransactionAlreadyFinishedException(String message, TransactionResult transactionResult) {
-        super(TX_UNEXPECTED_STATE_ERR, message);
+    /**
+     * Constructor.
+     */
+    public MismatchingTransactionOutcomeException(int errorCode, String message, TransactionResult transactionResult, Throwable cause) {
+        super(errorCode, message, cause);
+
         this.transactionResult = transactionResult;
+    }
+
+    public MismatchingTransactionOutcomeException(String message, TransactionResult transactionResult) {
+        this(TX_UNEXPECTED_STATE_ERR, message, transactionResult, null);
     }
 
     public TransactionResult transactionResult() {

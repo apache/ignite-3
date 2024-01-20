@@ -133,6 +133,7 @@ namespace Apache.Ignite.Tests
         public void SetUp()
         {
             Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
+            TestUtils.CheckByteArrayPoolLeak();
         }
 
         [TearDown]
@@ -140,10 +141,10 @@ namespace Apache.Ignite.Tests
         {
             Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
 
-            CheckPooledBufferLeak();
-
             _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
+
+            CheckPooledBufferLeak();
 
             Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
@@ -210,6 +211,8 @@ namespace Apache.Ignite.Tests
                 condition: () => listener.BuffersReturned == listener.BuffersRented,
                 timeoutMs: 1000,
                 messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
+
+            TestUtils.CheckByteArrayPoolLeak();
         }
     }
 }

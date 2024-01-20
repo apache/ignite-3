@@ -2050,17 +2050,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 break;
 
             case MSG:
-                try {
-                    if (val != null) {
-                        writer.beforeInnerMessageWrite();
-                    }
-
-                    writeMessage((NetworkMessage) val, writer);
-                } finally {
-                    if (val != null) {
-                        writer.afterInnerMessageWrite(lastFinished);
-                    }
-                }
+                writeMessage((NetworkMessage) val, writer);
 
                 break;
 
