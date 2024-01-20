@@ -42,8 +42,8 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <K> type of the key for the colocated table.
  */
-public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
-    private static final IgniteLogger LOG = Loggers.forClass(NextCollocatedWorkerSelector.class);
+public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
+    private static final IgniteLogger LOG = Loggers.forClass(NextColocatedWorkerSelector.class);
 
     private static final int PRIMARY_REPLICA_ASK_CLOCK_ADDITION_MILLIS = 10_000;
 
@@ -69,7 +69,7 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
 
     private final TableViewInternal table;
 
-    NextCollocatedWorkerSelector(
+    NextColocatedWorkerSelector(
             IgniteTablesInternal tables,
             PlacementDriver placementDriver,
             TopologyService topologyService,
@@ -80,7 +80,7 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
         this(tables, placementDriver, topologyService, clock, tableName, key, keyMapper, null);
     }
 
-    NextCollocatedWorkerSelector(
+    NextColocatedWorkerSelector(
             IgniteTablesInternal tables,
             PlacementDriver placementDriver,
             TopologyService topologyService,
@@ -90,7 +90,7 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
         this(tables, placementDriver, topologyService, clock, tableName, null, null, tuple);
     }
 
-    private NextCollocatedWorkerSelector(
+    private NextColocatedWorkerSelector(
             IgniteTablesInternal tables,
             PlacementDriver placementDriver,
             TopologyService topologyService,

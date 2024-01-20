@@ -59,7 +59,7 @@ class ComputeJobFailover<T> {
     private final ComputeComponent computeComponent;
 
     /**
-     * The failover listens this event source to know when the {@link #runningWorkerNode} has left the cluster.
+     * Topology service is needed to listen logical topology events. This is how we get know that the node has left the cluster.
      */
     private final LogicalTopologyService logicalTopologyService;
 

@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -30,27 +32,27 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link IgniteCompute}.
@@ -166,9 +168,9 @@ public class IgniteComputeImpl implements IgniteCompute {
         @Override
         public CompletableFuture<ClusterNode> next() {
             try {
-                return CompletableFuture.completedFuture(deque.pop());
+                return completedFuture(deque.pop());
             } catch (NoSuchElementException ex) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
         }
     }
@@ -193,11 +195,12 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
-                        .thenApply(table -> primaryReplicaForPartitionByTupleKey(table, tuple))
+                        .thenCompose(table -> primaryReplicaForPartitionByTupleKey(table, tuple))
                         .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                 primaryNode,
-                                new NextCollocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, tuple),
-                                units, jobClassName, args))
+                                new NextColocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, tuple),
+                                units, jobClassName, args
+                        ))
         );
     }
 
@@ -217,11 +220,16 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return new JobExecutionFutureWrapper<>(requiredTable(tableName)
-                .thenApply(table -> primaryReplicaForPartitionByMappedKey(table, key, keyMapper))
-                .thenApply(primaryNode -> executeOnOneNodeWithFailover(primaryNode,
-                        new NextCollocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, key, keyMapper),
-                        units, jobClassName, args)));
+        return new JobExecutionFutureWrapper<>(
+                requiredTable(tableName)
+                        .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, keyMapper))
+                        .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                primaryNode,
+                                new NextColocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, key,
+                                        keyMapper),
+                                units, jobClassName, args)
+                        )
+        );
     }
 
     /** {@inheritDoc} */
@@ -269,26 +277,29 @@ public class IgniteComputeImpl implements IgniteCompute {
                 });
     }
 
-    private @Nullable ClusterNode primaryReplicaForPartitionByTupleKey(TableViewInternal table, Tuple key) {
+    private CompletableFuture<ClusterNode> primaryReplicaForPartitionByTupleKey(TableViewInternal table, Tuple key) {
         return primaryReplicaForPartition(table, table.partition(key));
     }
 
-    private <K> @Nullable ClusterNode primaryReplicaForPartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
+    private <K> CompletableFuture<ClusterNode> primaryReplicaForPartitionByMappedKey(TableViewInternal table, K key,
+            Mapper<K> keyMapper) {
         return primaryReplicaForPartition(table, table.partition(key, keyMapper));
     }
 
-    private @Nullable ClusterNode primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
+    private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
         TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionIndex);
-        try {
-            ReplicaMeta replicaMeta = placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), 30, TimeUnit.SECONDS).get();
-            if (replicaMeta != null && replicaMeta.getLeaseholderId() != null) {
-                return topologyService.getById(replicaMeta.getLeaseholderId());
-            }
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
 
-        return null;
+        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), 30, TimeUnit.SECONDS)
+                .thenApply(replicaMeta -> {
+                    if (replicaMeta != null && replicaMeta.getLeaseholderId() != null) {
+                        return topologyService.getById(replicaMeta.getLeaseholderId());
+                    }
+
+                    throw new ComputeException(
+                            Compute.PRIMARY_REPLICA_RESOLVE_ERR,
+                            "Can not find primary replica for [table=" + table.name() + ", partition=" + partitionIndex + "]."
+                    );
+                });
     }
 
     /** {@inheritDoc} */
@@ -308,6 +319,6 @@ public class IgniteComputeImpl implements IgniteCompute {
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
                         // if worker node has left the cluster.
                         node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
-                                () -> CompletableFuture.completedFuture(null), units, jobClassName, args))));
+                                CompletableFutures::nullCompletedFuture, units, jobClassName, args))));
     }
 }

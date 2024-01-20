@@ -45,7 +45,7 @@ public final class InteractiveJobs {
     /**
      * ACK for {@link Signal#CONTINUE}. Returned by a job that has received the signal. Used to check that the job is alive.
      */
-    private static final Object ack = new Object();
+    private static final Object ACK = new Object();
 
     /**
      * Class-wide queue that is used as a communication channel between {@link GlobalInteractiveJob} and test code. You can send a signal to
@@ -84,7 +84,8 @@ public final class InteractiveJobs {
     private static final AtomicInteger RUNNING_INTERACTIVE_JOBS_CNT = new AtomicInteger(0);
 
     /**
-     * Counts how many times the global job was called. Cleaned up in {@link #clearState}.
+     * This counter indicated how many {@link GlobalInteractiveJob} instances running now. This counter increased each time the
+     * {@link GlobalInteractiveJob} is called and decreased when the job is done (whatever the result is). Checked in {@link #clearState}.
      */
     private static final AtomicInteger RUNNING_GLOBAL_JOBS_CNT = new AtomicInteger(0);
 
@@ -146,13 +147,11 @@ public final class InteractiveJobs {
      */
     private static class GlobalInteractiveJob implements ComputeJob<String> {
         private static Signal listenSignal() {
-            Signal recievedSignal;
             try {
-                recievedSignal = GLOBAL_SIGNALS.take();
+                return GLOBAL_SIGNALS.take();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            return recievedSignal;
         }
 
         @Override
@@ -161,12 +160,12 @@ public final class InteractiveJobs {
 
             try {
                 while (true) {
-                    Signal recievedSignal = listenSignal();
-                    switch (recievedSignal) {
+                    Signal receivedSignal = listenSignal();
+                    switch (receivedSignal) {
                         case THROW:
                             throw new RuntimeException();
                         case CONTINUE:
-                            GLOBAL_CHANNEL.offer(ack);
+                            GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case RETURN:
                             return "Done";
@@ -174,7 +173,7 @@ public final class InteractiveJobs {
                             GLOBAL_CHANNEL.add(context.ignite().name());
                             break;
                         default:
-                            throw new IllegalStateException("Unexpected value: " + recievedSignal);
+                            throw new IllegalStateException("Unexpected value: " + receivedSignal);
                     }
                 }
             } finally {
@@ -189,13 +188,11 @@ public final class InteractiveJobs {
      */
     private static class InteractiveJob implements ComputeJob<String> {
         private static Signal listenSignal(BlockingQueue<Signal> channel) {
-            Signal recievedSignal = null;
             try {
-                recievedSignal = channel.take();
+                return channel.take();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            return recievedSignal;
         }
 
         @Override
@@ -209,12 +206,12 @@ public final class InteractiveJobs {
                 BlockingQueue<Signal> channel = NODE_SIGNALS.get(workerNodeName);
 
                 while (true) {
-                    Signal recievedSignal = listenSignal(channel);
-                    switch (recievedSignal) {
+                    Signal receivedSignal = listenSignal(channel);
+                    switch (receivedSignal) {
                         case THROW:
                             throw new RuntimeException();
                         case CONTINUE:
-                            NODE_CHANNELS.get(workerNodeName).offer(ack);
+                            NODE_CHANNELS.get(workerNodeName).offer(ACK);
                             break;
                         case RETURN:
                             return "Done";
@@ -222,7 +219,7 @@ public final class InteractiveJobs {
                             NODE_CHANNELS.get(workerNodeName).add(context.ignite().name());
                             break;
                         default:
-                            throw new IllegalStateException("Unexpected value: " + recievedSignal);
+                            throw new IllegalStateException("Unexpected value: " + receivedSignal);
                     }
                 }
             } finally {
@@ -232,9 +229,9 @@ public final class InteractiveJobs {
     }
 
     /**
-     * Initializes channels that will be used to communicate with {@link InteractiveJob}. Note: {@link GlobalInteractiveJob}
-     * does not require to call this method before communication but if you want to communicate with {@link InteractiveJob}
-     * then you must call this method first.
+     * Initializes channels that will be used to communicate with {@link InteractiveJob}. Note: {@link GlobalInteractiveJob} does not
+     * require to call this method before communication but if you want to communicate with {@link InteractiveJob} then you must call this
+     * method first.
      *
      * @param nodes the list of cluster nodes.
      */
@@ -266,7 +263,7 @@ public final class InteractiveJobs {
         public void assertAlive() {
             NODE_SIGNALS.get(node.name()).offer(Signal.CONTINUE);
             try {
-                assertThat(NODE_CHANNELS.get(node.name()).poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ack));
+                assertThat(NODE_CHANNELS.get(node.name()).poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -349,7 +346,7 @@ public final class InteractiveJobs {
          */
         public void assertAlive() throws InterruptedException {
             GLOBAL_SIGNALS.offer(Signal.CONTINUE);
-            assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ack));
+            assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
         }
 
         /**
