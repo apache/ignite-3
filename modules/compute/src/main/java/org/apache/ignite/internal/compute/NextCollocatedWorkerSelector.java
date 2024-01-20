@@ -143,13 +143,11 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
     }
 
     private TablePartitionId tablePartitionId() {
-        TablePartitionId tablePartitionId;
         if (key != null && keyMapper != null) {
-            tablePartitionId = new TablePartitionId(table.tableId(), table.partition(key, keyMapper));
+            return new TablePartitionId(table.tableId(), table.partition(key, keyMapper));
         } else {
-            tablePartitionId = new TablePartitionId(table.tableId(), table.partition(tuple));
+            return new TablePartitionId(table.tableId(), table.partition(tuple));
         }
-        return tablePartitionId;
     }
 
     private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
