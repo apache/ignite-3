@@ -700,12 +700,12 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         clearInvocations(localRwTxCounter);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = completedFuture(
-                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)
-        );
+        ReplicaMeta replicaMeta = new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<ReplicaMeta> primaryReplicaMetaFuture = completedFuture(replicaMeta);
 
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(primaryReplicaFuture);
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(primaryReplicaFuture);
+        when(placementDriver.currentLease(any())).thenReturn(replicaMeta);
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(primaryReplicaMetaFuture);
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(primaryReplicaMetaFuture);
 
         var txResult = new TransactionResult(commit ? TxState.COMMITTED : TxState.ABORTED, clock.now());
 
