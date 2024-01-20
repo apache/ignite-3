@@ -394,7 +394,8 @@ public class IgniteImpl implements Ignite {
                 networkConfiguration,
                 nettyBootstrapFactory,
                 serializationRegistry,
-                new VaultStaleIds(vaultMgr)
+                new VaultStaleIds(vaultMgr),
+                criticalWorkerRegistry
         );
 
         clock = new HybridClockImpl();

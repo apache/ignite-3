@@ -259,7 +259,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault)
+                new VaultStaleIds(vault),
+                workerRegistry
         );
 
         var hybridClock = new HybridClockImpl();

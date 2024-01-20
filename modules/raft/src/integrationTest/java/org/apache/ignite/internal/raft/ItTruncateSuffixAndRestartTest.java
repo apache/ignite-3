@@ -60,6 +60,7 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.worker.NullCriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
@@ -174,7 +175,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     networkConfiguration,
                     nettyBootstrapFactory,
                     defaultSerializationRegistry(),
-                    new InMemoryStaleIds()
+                    new InMemoryStaleIds(),
+                    new NullCriticalWorkerRegistry()
             );
 
             clusterSvc.start();

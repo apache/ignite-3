@@ -48,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(CriticalWorkerWatchdog.class);
 
-    private static final long LIVENESS_CHECK_INTERVAL_MS = 500;
+    private static final long LIVENESS_CHECK_INTERVAL_MS = 200;
     private static final long MAX_ALLOWED_LAG_MS = 500;
 
     private final ScheduledExecutorService scheduler;
@@ -90,13 +90,19 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         for (CriticalWorker worker : registeredWorkers) {
             long heartbeatNanos = worker.heartbeatNanos();
 
-            if (heartbeatNanos != CriticalWorker.NOT_MONITORED && nowNanos - heartbeatNanos > TimeUnit.DAYS.toNanos(MAX_ALLOWED_LAG_MS)) {
+            if (heartbeatNanos == CriticalWorker.NOT_MONITORED) {
+                continue;
+            }
+
+            long delayMillis = TimeUnit.NANOSECONDS.toMillis(nowNanos - heartbeatNanos);
+            if (delayMillis > MAX_ALLOWED_LAG_MS) {
                 ThreadMXBean bean = ManagementFactory.getThreadMXBean();
 
                 ThreadInfo[] threadInfos = bean.getThreadInfo(new long[]{worker.threadId()}, true, true, Integer.MAX_VALUE);
                 ThreadInfo threadInfo = threadInfos[0];
                 if (threadInfo != null) {
-                    LOG.error("A critical thread is blocked for more than {} ms, it is {}", MAX_ALLOWED_LAG_MS, threadInfo);
+                    LOG.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
+                            delayMillis, MAX_ALLOWED_LAG_MS, threadInfo);
 
                     // TODO: IGNITE-16899 - invoke failure handler.
                 }

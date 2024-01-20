@@ -31,8 +31,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
@@ -54,6 +54,9 @@ import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
+import org.apache.ignite.internal.worker.CriticalWorker;
+import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -76,6 +79,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /** Class descriptor registry. */
     private final ClassDescriptorRegistry classDescriptorRegistry;
 
+    private final CriticalWorkerRegistry criticalWorkerRegistry;
+
     /** Connection manager that provides access to {@link NettySender}. */
     private volatile ConnectionManager connectionManager;
 
@@ -86,7 +91,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final AtomicLong correlationIdGenerator = new AtomicLong();
 
     /** Executor for outbound messages. */
-    private final ExecutorService outboundExecutor;
+    private final CriticalSingleThreadExecutor outboundExecutor;
 
     /** Executors for inbound messages. */
     private final LazyStripedExecutor inboundExecutors;
@@ -110,18 +115,20 @@ public class DefaultMessagingService extends AbstractMessagingService {
             TopologyService topologyService,
             StaleIdDetector staleIdDetector,
             ClassDescriptorRegistry classDescriptorRegistry,
-            UserObjectMarshaller marshaller
+            UserObjectMarshaller marshaller,
+            CriticalWorkerRegistry criticalWorkerRegistry
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
         this.staleIdDetector = staleIdDetector;
         this.classDescriptorRegistry = classDescriptorRegistry;
         this.marshaller = marshaller;
+        this.criticalWorkerRegistry = criticalWorkerRegistry;
 
-        this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
+        this.outboundExecutor = new CriticalSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound", LOG));
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
-        inboundExecutors = new LazyStripedExecutor(nodeName, "MessagingService-inbound-");
+        inboundExecutors = new CriticalLazyStripedExecutor(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
     }
 
     /**
@@ -480,6 +487,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     /**
+     * STarts the service.
+     */
+    public void start() {
+        criticalWorkerRegistry.register(outboundExecutor);
+    }
+
+    /**
      * Stops the messaging service.
      */
     public void stop() {
@@ -488,6 +502,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         requestsMap.values().forEach(fut -> fut.completeExceptionally(exception));
 
         requestsMap.clear();
+
+        criticalWorkerRegistry.unregister(outboundExecutor);
 
         inboundExecutors.close();
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
@@ -530,5 +546,37 @@ public class DefaultMessagingService extends AbstractMessagingService {
     @TestOnly
     public ConnectionManager connectionManager() {
         return connectionManager;
+    }
+
+    private static class CriticalLazyStripedExecutor extends LazyStripedExecutor {
+        private final CriticalWorkerRegistry workerRegistry;
+
+        private final List<CriticalWorker> registeredWorkers = new CopyOnWriteArrayList<>();
+
+        CriticalLazyStripedExecutor(String nodeName, String poolName, CriticalWorkerRegistry workerRegistry) {
+            super(nodeName, poolName);
+
+            this.workerRegistry = workerRegistry;
+        }
+
+        @Override
+        protected ExecutorService newSingleThreadExecutor(NamedThreadFactory threadFactory) {
+            CriticalSingleThreadExecutor executor = new CriticalSingleThreadExecutor(threadFactory);
+
+            workerRegistry.register(executor);
+
+            registeredWorkers.add(executor);
+
+            return executor;
+        }
+
+        @Override
+        protected void onStoppingInitiated() {
+            super.onStoppingInitiated();
+
+            for (CriticalWorker worker : registeredWorkers) {
+                workerRegistry.unregister(worker);
+            }
+        }
     }
 }
