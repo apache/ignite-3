@@ -46,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  * NOT_MONITORED state, then logging and failure handling notification is triggered.
  */
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
-    private static final IgniteLogger LOG = Loggers.forClass(CriticalWorkerWatchdog.class);
+    private final IgniteLogger log = Loggers.forClass(CriticalWorkerWatchdog.class);
 
     // TODO: IGNITE-21227 - make this configurable.
     private static final long LIVENESS_CHECK_INTERVAL_MS = 200;
@@ -102,7 +102,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
                 ThreadInfo[] threadInfos = bean.getThreadInfo(new long[]{worker.threadId()}, true, true, Integer.MAX_VALUE);
                 ThreadInfo threadInfo = threadInfos[0];
                 if (threadInfo != null) {
-                    LOG.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
+                    log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
                             delayMillis, MAX_ALLOWED_LAG_MS, threadInfo);
 
                     // TODO: IGNITE-16899 - invoke failure handler.
