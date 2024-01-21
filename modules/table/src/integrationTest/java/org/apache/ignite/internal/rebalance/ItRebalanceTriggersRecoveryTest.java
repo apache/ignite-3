@@ -179,8 +179,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });
 
-        assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
-        assertFalse(containsPartition(cluster.node(2)));
+        assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
+        assertFalse(containsPartition(cluster.node(1)));
 
         stopNode(3);
 
@@ -196,7 +196,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 10_000));
 
         // Check that new replica from 'global' zone received the data and rebalance really happened.
-        assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
+        assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
         assertTrue(waitForCondition(
                 (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of())),
                 10_000));
