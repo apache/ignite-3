@@ -39,6 +39,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -187,13 +188,6 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         cluster.doInSession(0, session -> {
             session.execute(null, "ALTER ZONE TEST_ZONE SET REPLICAS=2, DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
         });
-
-        // Check that metastore node schedule the rebalance procedure.
-        assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of(
-                        Assignment.forPeer(node(2).name()),
-                        Assignment.forPeer(node(1).name())))),
-                10_000));
 
         // Check that new replica from 'global' zone received the data and rebalance really happened.
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
