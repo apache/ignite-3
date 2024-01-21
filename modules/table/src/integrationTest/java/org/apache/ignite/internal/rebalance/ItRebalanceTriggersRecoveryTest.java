@@ -170,8 +170,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     void testRebalanceTriggersRecoveryWhenUpdatesWereProcessedByAnotherNodesAlready() throws Exception {
         // The nodes from different regions/zones needed to implement the predictable way of nodes choice.
         startNode(1, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
-        startNode(2, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
-        startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
+        startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
+        startNode(3);
 
         cluster.doInSession(0, session -> {
             session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, DATA_NODES_FILTER='$[?(@.region == \"US\")]'");
@@ -179,13 +179,13 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });
 
-        assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
-        assertFalse(containsPartition(cluster.node(1)));
+        assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
+        assertFalse(containsPartition(cluster.node(2)));
 
         stopNode(3);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE TEST_ZONE SET REPLICAS=2");
+            session.execute(null, "ALTER ZONE TEST_ZONE SET REPLICAS=2, DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
         });
 
         // Check that metastore node schedule the rebalance procedure.
@@ -196,7 +196,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 10_000));
 
         // Check that new replica from 'global' zone received the data and rebalance really happened.
-        assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
+        assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
         assertTrue(waitForCondition(
                 (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of())),
                 10_000));
