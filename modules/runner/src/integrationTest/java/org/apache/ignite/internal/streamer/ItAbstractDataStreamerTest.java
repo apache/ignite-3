@@ -74,7 +74,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().batchSize(batchSize).build();
+            var options = DataStreamerOptions.builder().pageSize(batchSize).build();
             streamerFut = view.streamData(publisher, options);
 
             publisher.submit(tuple(1, "foo"));
@@ -196,7 +196,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().batchSize(33).build();
+            var options = DataStreamerOptions.builder().pageSize(33).build();
             streamerFut = view.streamData(publisher, options);
 
             for (int i = 0; i < 10_000; i++) {
@@ -223,7 +223,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().batchSize(1).build();
+            var options = DataStreamerOptions.builder().pageSize(1).build();
             streamerFut = view.streamData(publisher, options);
 
             publisher.submit(tupleKey(1));
