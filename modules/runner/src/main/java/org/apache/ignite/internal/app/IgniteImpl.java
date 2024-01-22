@@ -1247,4 +1247,20 @@ public class IgniteImpl implements Ignite {
     public ConfigurationRegistry clusterConfigurationRegistry() {
         return clusterCfgMgr.configurationRegistry();
     }
+
+    /**
+     * Returns {@link NettyBootstrapFactory}.
+     */
+    @TestOnly
+    public NettyBootstrapFactory nettyBootstrapFactory() {
+        return nettyBootstrapFactory;
+    }
+
+    /**
+     * Returns the {@link ClusterService}.
+     */
+    @TestOnly
+    public ClusterService clusterService() {
+        return clusterSvc;
+    }
 }

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.OutboundView;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup.NetworkThread;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Netty bootstrap factory. Holds shared {@link EventLoopGroup} instances and encapsulates common Netty {@link Bootstrap} creation logic.
@@ -172,5 +173,14 @@ public class NettyBootstrapFactory implements IgniteComponent {
         clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
         workerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
         bossGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
+    }
+
+
+    /**
+     * Returns worker event loop group.
+     */
+    @TestOnly
+    public NioEventLoopGroup serverEventLoopGroup() {
+        return workerGroup;
     }
 }
