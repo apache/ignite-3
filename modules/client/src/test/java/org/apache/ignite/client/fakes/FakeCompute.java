@@ -179,7 +179,7 @@ public class FakeCompute implements IgniteComputeInternal {
             String jobClassName,
             JobExecutionOptions options,
             Object... args
-            ) {
+    ) {
         return null;
     }
 

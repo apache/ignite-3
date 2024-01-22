@@ -102,7 +102,7 @@ public class ClientCompute implements IgniteCompute {
 
         ClusterNode node = randomNode(nodes);
 
-        return new ClientJobExecution<>(ch, executeOnOneNode(options, node, units, jobClassName, options, args));
+        return new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
