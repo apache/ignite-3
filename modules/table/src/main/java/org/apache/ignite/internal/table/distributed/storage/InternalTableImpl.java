@@ -1381,38 +1381,6 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
-    /**
-     * Closes the cursor on server side.
-     *
-     * @param txId Transaction id.
-     * @param replicaGrpId Replication group id.
-     * @param scanIdFut Future to scan id.
-     * @param recipientNode Server node where the scan was started.
-     * @param commit Commit flag, when the flag is {@code null} the scan was closed manually.
-     * @return The future.
-     */
-    private CompletableFuture<Void> onScanComplete(
-            UUID txId,
-            ReplicationGroupId replicaGrpId,
-            CompletableFuture<Long> scanIdFut,
-            ClusterNode recipientNode,
-            Boolean commit
-    ) {
-        return scanIdFut.thenCompose(scanId -> {
-            if (commit) {
-                ScanCloseReplicaRequest scanCloseReplicaRequest = tableMessagesFactory.scanCloseReplicaRequest()
-                        .groupId(replicaGrpId)
-                        .transactionId(txId)
-                        .scanId(scanId)
-                        .build();
-
-                return replicaSvc.invoke(recipientNode, scanCloseReplicaRequest);
-            }
-
-            return nullCompletedFuture();
-        });
-    }
-
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
@@ -1522,6 +1490,38 @@ public class InternalTableImpl implements InternalTable {
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 (unused, fut) -> fut.thenApply(cursorId -> null));
+    }
+
+    /**
+     * Closes the cursor on server side.
+     *
+     * @param txId Transaction id.
+     * @param replicaGrpId Replication group id.
+     * @param scanIdFut Future to scan id.
+     * @param recipientNode Server node where the scan was started.
+     * @param commit Commit flag, when the flag is {@code null} the scan was closed manually.
+     * @return The future.
+     */
+    private CompletableFuture<Void> onScanComplete(
+            UUID txId,
+            ReplicationGroupId replicaGrpId,
+            CompletableFuture<Long> scanIdFut,
+            ClusterNode recipientNode,
+            Boolean commit
+    ) {
+        return scanIdFut.thenCompose(scanId -> {
+            if (commit) {
+                ScanCloseReplicaRequest scanCloseReplicaRequest = tableMessagesFactory.scanCloseReplicaRequest()
+                        .groupId(replicaGrpId)
+                        .transactionId(txId)
+                        .scanId(scanId)
+                        .build();
+
+                return replicaSvc.invoke(recipientNode, scanCloseReplicaRequest);
+            }
+
+            return nullCompletedFuture();
+        });
     }
 
     /**
