@@ -550,8 +550,9 @@ public class ErrorGroups {
 
         /** Can not resolve primary replica for colocated execution. */
         public static final int PRIMARY_REPLICA_RESOLVE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 12);
+
         /** Cannot change job priority. */
-        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Catalog error group. */

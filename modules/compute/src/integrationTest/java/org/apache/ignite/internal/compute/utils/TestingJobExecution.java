@@ -92,12 +92,12 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
+    public CompletableFuture<Boolean> cancelAsync() {
         return jobExecution.cancelAsync();
     }
 
     @Override
-    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+    public CompletableFuture<Boolean> changePriorityAsync(int newPriority) {
         return jobExecution.changePriorityAsync(newPriority);
     }
 

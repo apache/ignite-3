@@ -495,8 +495,17 @@ namespace Apache.Ignite
             /// <summary> ComputeJobFailed error. </summary>
             public const int ComputeJobFailed = (GroupCode << 16) | (9 & 0xFFFF);
 
+            /// <summary> ChangeJobPriorityNoJob error. </summary>
+            public const int ChangeJobPriorityNoJob = (GroupCode << 16) | (10 & 0xFFFF);
+
+            /// <summary> ChangeJobPriorityJobExecuting error. </summary>
+            public const int ChangeJobPriorityJobExecuting = (GroupCode << 16) | (11 & 0xFFFF);
+
+            /// <summary> PrimaryReplicaResolve error. </summary>
+            public const int PrimaryReplicaResolve = (GroupCode << 16) | (12 & 0xFFFF);
+
             /// <summary> ChangeJobPriority error. </summary>
-            public const int ChangeJobPriority = (GroupCode << 16) | (10 & 0xFFFF);
+            public const int ChangeJobPriority = (GroupCode << 16) | (13 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
