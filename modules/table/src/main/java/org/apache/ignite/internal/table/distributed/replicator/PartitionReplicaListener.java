@@ -148,11 +148,11 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
@@ -562,7 +562,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Void> validateTableExistence(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
         HybridTimestamp opStartTs;
 
-        if (request instanceof ReadWriteScanCloseReplicaRequest) {
+        if (request instanceof ScanCloseReplicaRequest) {
             // We don't need to validate close request for table existence.
             opStartTs = null;
         } else if (request instanceof ReadWriteReplicaRequest) {
@@ -717,8 +717,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         return rows;
                     });
-        } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
-            processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
+        } else if (request instanceof ScanCloseReplicaRequest) {
+            processScanCloseAction((ScanCloseReplicaRequest) request);
 
             return nullCompletedFuture();
         } else if (request instanceof TxFinishReplicaRequest) {
@@ -942,7 +942,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return rows;
                 });
             } else {
-                return completedFuture(rows);
+                return completedFuture(closeCursorIfBatchNotFull(rows, count, cursorId));
             }
         });
     }
@@ -1099,8 +1099,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        txCursors.clear();
-
         if (ex != null) {
             throw ex;
         }
@@ -1111,11 +1109,35 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Scan close request operation.
      */
-    private void processScanCloseAction(ReadWriteScanCloseReplicaRequest request) {
+    private void processScanCloseAction(ScanCloseReplicaRequest request) {
         UUID txId = request.transactionId();
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
+        closeCursor(cursorId);
+    }
+
+    /**
+     * Closes a cursor if the batch is not fully retrieved.
+     *
+     * @param batchSize
+     * @param rows List of retrieved rows.
+     * @param cursorId Cursor id.
+     */
+    private ArrayList<BinaryRow> closeCursorIfBatchNotFull(ArrayList<BinaryRow> rows, int batchSize, IgniteUuid cursorId) {
+        if (rows.size() < batchSize) {
+            closeCursor(cursorId);
+        }
+
+        return rows;
+    }
+
+    /**
+     * Closes a specific cursor.
+     *
+     * @param cursorId Cursor id.
+     */
+    private void closeCursor(IgniteUuid cursorId) {
         Cursor<?> cursor = cursors.remove(cursorId);
 
         if (cursor != null) {
@@ -1123,8 +1145,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 cursor.close();
             } catch (Exception e) {
                 throw new ReplicationException(Replicator.REPLICA_COMMON_ERR,
-                        format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId,
-                                e.getMessage()), e);
+                        format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId, e.getMessage()), e);
             }
         }
     }
@@ -1194,7 +1215,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         Cursor<IndexRow> indexRowCursor = CursorUtils.map(cursor, rowId -> new IndexRowImpl(key, rowId));
 
         return continueReadOnlyIndexScan(schemaAwareIndexStorage, indexRowCursor, timestamp, batchCount, result)
-                .thenCompose(ignore -> completedFuture(result));
+                .thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
     }
 
     private CompletableFuture<List<BinaryRow>> lookupIndex(
@@ -1221,7 +1242,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     var result = new ArrayList<BinaryRow>(batchCount);
 
                                     return continueIndexLookup(txId, cursor, batchCount, result)
-                                            .thenApply(ignore -> result);
+                                            .thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
                                 });
                     });
         });
@@ -1295,7 +1316,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         return continueIndexScan(txId, schemaAwareIndexStorage, indexLocker, cursor, batchCount, result,
                                 isUpperBoundAchieved)
-                                .thenApply(ignore -> result);
+                                .thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
                     });
         });
     }
@@ -1337,7 +1358,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         var result = new ArrayList<BinaryRow>(batchCount);
 
         return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, timestamp, batchCount, result)
-                .thenApply(ignore -> result);
+                .thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
     }
 
     private CompletableFuture<Void> continueReadOnlyIndexScan(

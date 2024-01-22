@@ -97,6 +97,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SwapRowReplicaRequest;
@@ -1354,10 +1355,10 @@ public class InternalTableImpl implements InternalTable {
 
         UUID txId = UUID.randomUUID();
 
+        ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
+
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
-                    ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
-
                     ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
                             .groupId(partGroupId)
                             .readTimestampLong(readTimestamp.longValue())
@@ -1376,7 +1377,40 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (unused, fut) -> fut);
+                (commit, fut) -> onScanComplete(txId, partGroupId, fut, recipientNode, commit)
+        );
+    }
+
+    /**
+     * Closes the cursor on server side.
+     *
+     * @param txId Transaction id.
+     * @param replicaGrpId Replication group id.
+     * @param scanIdFut Future to scan id.
+     * @param recipientNode Server node where the scan was started.
+     * @param commit Commit flag, when the flag is {@code null} the scan was closed manually.
+     * @return The future.
+     */
+    private CompletableFuture<Void> onScanComplete(
+            UUID txId,
+            ReplicationGroupId replicaGrpId,
+            CompletableFuture<Long> scanIdFut,
+            ClusterNode recipientNode,
+            Boolean commit
+    ) {
+        return scanIdFut.thenCompose(scanId -> {
+            if (commit) {
+                ScanCloseReplicaRequest scanCloseReplicaRequest = tableMessagesFactory.scanCloseReplicaRequest()
+                        .groupId(replicaGrpId)
+                        .transactionId(txId)
+                        .scanId(scanId)
+                        .build();
+
+                return replicaSvc.invoke(recipientNode, scanCloseReplicaRequest);
+            }
+
+            return nullCompletedFuture();
+        });
     }
 
     @Override
@@ -1431,7 +1465,7 @@ public class InternalTableImpl implements InternalTable {
                         columnsToInclude,
                         implicit
                 ),
-                (commit, fut) -> postEnlist(fut, commit, actualTx, implicit && !commit)
+                (commit, fut) -> postEnlist(fut.thenApply(cursorId -> null), commit, actualTx, implicit && !commit)
         );
     }
 
@@ -1463,10 +1497,10 @@ public class InternalTableImpl implements InternalTable {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
+        ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
+
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
-                    ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
-
                     ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                             .groupId(partGroupId)
                             .timestampLong(clock.nowLong())
@@ -1487,7 +1521,7 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipient.node(), request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (unused, fut) -> fut);
+                (unused, fut) -> fut.thenApply(cursorId -> null));
     }
 
     /**
@@ -1759,7 +1793,7 @@ public class InternalTableImpl implements InternalTable {
         private final BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch;
 
         /** The closure will be invoked before the cursor closed. */
-        BiFunction<Boolean, CompletableFuture<Void>, CompletableFuture<Void>> onClose;
+        BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose;
 
         /** True when the publisher has a subscriber, false otherwise. */
         private final AtomicBoolean subscribed;
@@ -1773,7 +1807,7 @@ public class InternalTableImpl implements InternalTable {
          */
         PartitionScanPublisher(
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
-                BiFunction<Boolean, CompletableFuture<Void>, CompletableFuture<Void>> onClose
+                BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose
         ) {
             this.retrieveBatch = retrieveBatch;
             this.onClose = onClose;
@@ -1865,20 +1899,19 @@ public class InternalTableImpl implements InternalTable {
              *
              * @param t An exception which was thrown when entries were retrieving from the cursor.
              * @param commit {@code True} to commit.
+             * @return Future to complete.
              */
-            private void cancel(Throwable t, boolean commit) {
+            private void cancel(Throwable t, Boolean commit) {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
 
-                onClose.apply(commit, t == null ? nullCompletedFuture() : failedFuture(t)).handle((ignore, th) -> {
+                onClose.apply(commit, t == null ? completedFuture(scanId) : failedFuture(t)).whenComplete((ignore, th) -> {
                     if (th != null) {
                         subscriber.onError(th);
                     } else {
                         subscriber.onComplete();
                     }
-
-                    return null;
                 });
             }
 
