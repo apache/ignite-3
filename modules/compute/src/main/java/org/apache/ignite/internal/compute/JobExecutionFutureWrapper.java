@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertT
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wraps the future of {@link JobExecution} converting exceptions thrown by the delegate to public.
@@ -41,17 +42,17 @@ class JobExecutionFutureWrapper<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> statusAsync() {
+    public CompletableFuture<@Nullable JobStatus> statusAsync() {
         return convertToPublicFuture(delegate.thenCompose(JobExecution::statusAsync));
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
+    public CompletableFuture<@Nullable Boolean> cancelAsync() {
         return convertToPublicFuture(delegate.thenCompose(JobExecution::cancelAsync));
     }
 
     @Override
-    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return convertToPublicFuture(delegate.thenCompose(jobExecution -> jobExecution.changePriorityAsync(newPriority)));
     }
 }

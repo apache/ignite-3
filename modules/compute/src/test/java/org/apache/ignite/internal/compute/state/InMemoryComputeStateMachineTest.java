@@ -60,7 +60,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void setup() {
-        stateMachine = new InMemoryComputeStateMachine(configuration);
+        stateMachine = new InMemoryComputeStateMachine(configuration, "testNode");
         stateMachine.start();
         jobId = stateMachine.initJob();
     }
@@ -160,7 +160,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
     public void testCleanStates() throws InterruptedException {
         assertThat(configuration.change(change -> change.changeStatesLifetimeMillis(100)), willCompleteSuccessfully());
 
-        stateMachine = new InMemoryComputeStateMachine(configuration);
+        stateMachine = new InMemoryComputeStateMachine(configuration, "testNode");
         stateMachine.start();
 
         jobId = stateMachine.initJob();

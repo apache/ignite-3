@@ -67,6 +67,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
@@ -280,7 +281,7 @@ public class IgniteImpl implements Ignite {
     private final ConfigurationStorage cfgStorage;
 
     /** Compute. */
-    private final IgniteCompute compute;
+    private final IgniteComputeInternal compute;
 
     /** JVM pause detector. */
     private final LongJvmPauseDetector longJvmPauseDetector;
@@ -657,11 +658,13 @@ public class IgniteImpl implements Ignite {
         deploymentManager = deploymentManagerImpl;
 
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY);
-        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg);
+        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         computeComponent = new ComputeComponentImpl(
                 clusterSvc.messagingService(),
+                clusterSvc.topologyService(),
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
-                new ComputeExecutorImpl(this, stateMachine, computeCfg)
+                new ComputeExecutorImpl(this, stateMachine, computeCfg),
+                computeCfg
         );
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);

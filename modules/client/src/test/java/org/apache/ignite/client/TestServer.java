@@ -43,8 +43,8 @@ import org.apache.ignite.client.handler.DummyAuthenticationManager;
 import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ClientClusterNode;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -189,7 +189,7 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteCompute compute = new FakeCompute(nodeName);
+        IgniteComputeInternal compute = new FakeCompute(nodeName);
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
