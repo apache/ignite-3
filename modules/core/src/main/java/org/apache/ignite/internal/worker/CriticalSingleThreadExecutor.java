@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements CriticalWorker {
 
-    private Thread lastSeenThread;
+    private volatile Thread lastSeenThread;
     private volatile long heartbeatNanos = NOT_MONITORED;
 
     public CriticalSingleThreadExecutor(ThreadFactory threadFactory) {
