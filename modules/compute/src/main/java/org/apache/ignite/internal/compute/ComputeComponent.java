@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
@@ -102,6 +103,13 @@ public interface ComputeComponent extends IgniteComponent {
     ) {
         return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
     }
+
+    /**
+     * Retrieves the current status of all jobs on all nodes in the cluster.
+     *
+     * @return The set of all job statuses.
+     */
+    CompletableFuture<Set<JobStatus>> statusesAsync();
 
     /**
      * Retrieves the current status of the job on any node in the cluster. The job status may be deleted and thus return {@code null} if the

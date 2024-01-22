@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -143,6 +144,11 @@ public class ComputeComponentImpl implements ComputeComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    @Override
+    public CompletableFuture<Set<JobStatus>> statusesAsync() {
+        return messaging.broadcastStatusesAsync();
     }
 
     @Override

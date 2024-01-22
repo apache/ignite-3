@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ER
 
 import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.compute.message.JobCancelResponse;
 import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
+import org.apache.ignite.internal.compute.message.JobStatusesResponse;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -139,6 +141,21 @@ public class ComputeUtils {
         }
 
         return completedFuture((R) jobResultResponse.result());
+    }
+
+    /**
+     * Extract compute job statuses from statuses response.
+     *
+     * @param jobStatusesResponse Job statuses result message response.
+     * @return Completable future with result.
+     */
+    public static CompletableFuture<Set<JobStatus>> statusesFromJobStatusesResponse(JobStatusesResponse jobStatusesResponse) {
+        Throwable throwable = jobStatusesResponse.throwable();
+        if (throwable != null) {
+            return failedFuture(throwable);
+        }
+
+        return completedFuture(jobStatusesResponse.statuses());
     }
 
     /**
