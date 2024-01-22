@@ -124,21 +124,15 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private void checkResourcesAreCleared(IgniteImpl ignite) {
-        //  int hashIdxId = getIndexId(ignite, HASH_IDX);
         int sortedIdxId = getIndexId(ignite, SORTED_IDX);
 
         var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getMvPartition(PART_ID);
-
-        // var hashIdxStorage = (TestHashIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
-        //          .internalTable().storage().getIndex(PART_ID, hashIdxId);
-
         var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
         assertTrue(ignite.txManager().lockManager().isEmpty());
         assertEquals(0, partitionStorage.pendingCursors());
-        // assertEquals(0, hashIdxStorage.pendingCursors());
         assertEquals(0, sortedIdxStorage.pendingCursors());
     }
 
@@ -648,12 +642,29 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @throws Exception If failed.
      */
     @ParameterizedTest
-    @CsvSource({"3, 1", "1, 3"})
-    public void testCompositeScanRequest(int requestAmount1, int requestAmount2) throws Exception {
+    @CsvSource({"3, 1, false", "1, 3, false", "3, 1, true", "1, 3, true"})
+    public void testCompositeScanRequest(int requestAmount1, int requestAmount2, boolean readOnly) throws Exception {
         List<BinaryRow> scannedRows = new ArrayList<>();
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null, null, null, null, 0, null);
-        CompletableFuture<Void> scanned = new CompletableFuture<>();
 
+        Publisher<BinaryRow> publisher;
+
+        if (readOnly) {
+            IgniteImpl ignite = CLUSTER.aliveNode();
+
+            var tablePartId = new TablePartitionId(internalTable.tableId(), PART_ID);
+
+            ReplicaMeta primaryReplica = IgniteTestUtils.await(
+                    ignite.placementDriver().awaitPrimaryReplica(tablePartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
+
+            ClusterNode recipientNode = ignite.clusterNodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
+                    .findFirst().get();
+
+            publisher = internalTable.scan(PART_ID, ignite.clock().now(), recipientNode);
+        } else {
+            publisher = internalTable.scan(PART_ID, null, null, null, null, 0, null);
+        }
+
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
         Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 
         subscription.request(requestAmount1);
