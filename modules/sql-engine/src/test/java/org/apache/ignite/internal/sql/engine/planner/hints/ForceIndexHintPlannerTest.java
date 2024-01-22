@@ -26,6 +26,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -42,17 +43,90 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
     @BeforeAll
     public static void setup() {
         SCHEMA = createSchemaFrom(
-                createSimpleTable(TBL1, 10)
-                        .andThen(addUniqueHashIndex("TBL1_IDX", "ID"))
-                        .andThen(addUniqueSortIndex("TBL1_IDX", "VAL1"))
-                        .andThen(addUniqueSortIndex("TBL1_IDX", "VAL2", "VAL3"))
-                        .andThen(addUniqueSortIndex("TBL1_IDX", "VAL3")),
+                createSimpleTable(TBL1, 1)
+                        .andThen(addHashIndex("ID"))
+                        .andThen(addSortIndex("VAL1"))
+                        .andThen(addSortIndex("VAL2", "VAL3"))
+                        .andThen(addSortIndex("VAL3")),
                 createSimpleTable(TBL2, 100_000)
-                        .andThen(addUniqueHashIndex("TBL2_IDX", "ID"))
-                        .andThen(addUniqueSortIndex("TBL2_IDX", "VAL1"))
-                        .andThen(addUniqueSortIndex("TBL2_IDX", "VAL2"))
-                        .andThen(addUniqueSortIndex("TBL2_IDX", "VAL3"))
+                        .andThen(addHashIndex("ID"))
+                        .andThen(addSortIndex("VAL1"))
+                        .andThen(addSortIndex("VAL2"))
+                        .andThen(addSortIndex("VAL3"))
         );
+    }
+
+    @Test
+    public void testWrongIndexName() throws Exception {
+        var sql = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE id = 0 AND val1 = 'v'";
+
+        assertPlan(format(sql, "'tbl1_idx_id'"), SCHEMA, isTableScan(TBL1));
+        assertPlan(format(sql, "\"tbl1_idx_id\""), SCHEMA, isTableScan(TBL1));
+        assertPlan(format(sql, "'unexisting', 'tbl1_idx_id'"), SCHEMA, isTableScan(TBL1));
+        assertPlan(format(sql, "\"unexisting\", \"tbl1_idx_id\""), SCHEMA, isTableScan(TBL1));
+    }
+
+    @Test
+    public void testSingleTable() throws Exception {
+        var sql = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE val2 = 'v' AND val3 = 'v'";
+
+        assertCertainIndex(format(sql, "unexisting, idx_val3"), TBL1, "IDX_VAL3");
+        assertCertainIndex(format(sql, "UNEXISTING, IDX_VAL3"), TBL1, "IDX_VAL3");
+        assertCertainIndex(format(sql, "'UNEXISTING', 'IDX_VAL3'"), TBL1, "IDX_VAL3");
+        assertCertainIndex(format(sql, "\"UNEXISTING\", \"IDX_VAL3\""), TBL1, "IDX_VAL3");
+
+        assertPlan(format(sql, "IDX_VAL2_VAL3, IDX_VAL3"), SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL2_VAL3")
+                .or(isIndexScan(TBL1, "IDX_VAL3"))));
+
+        assertPlan("SELECT /*+ FORCE_INDEX(IDX_VAL2_VAL3), FORCE_INDEX(IDX_VAL3) */ * FROM TBL1 WHERE val2 = 'v' AND val3 = 'v'", SCHEMA,
+                nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL2_VAL3").or(isIndexScan(TBL1, "IDX_VAL3"))));
+    }
+
+    @Test
+    public void testSubquery() throws Exception {
+        var sql1 = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 t2, (SELECT * FROM TBL1 WHERE val2='v' AND val3='v') t1 WHERE t2.val2='v'";
+
+        assertPlan(format(sql1, ""), SCHEMA, nodeOrAnyChild(isTableScan(TBL1)));
+        assertCertainIndex(format(sql1, "IDX_VAL2_VAL3"), TBL1, "IDX_VAL2_VAL3");
+        assertCertainIndex(format(sql1, "IDX_VAL3"), TBL1, "IDX_VAL3");
+
+        var sql2 = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL2 t2 WHERE t2.val2 = (SELECT val2 from TBL1 WHERE val2='v' AND val3='v')";
+
+        assertPlan(format(sql2, ""), SCHEMA, nodeOrAnyChild(isTableScan(TBL1)));
+        assertCertainIndex(format(sql2, "IDX_VAL2_VAL3"), TBL1, "IDX_VAL2_VAL3");
+        assertCertainIndex(format(sql2, "IDX_VAL3"), TBL1, "IDX_VAL3");
+    }
+
+    @Test
+    public void testJoins() throws Exception {
+        var sql1 = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL2 t2 INNER JOIN TBL1 t1 on t1.val2=t2.val2 AND t1.val3=t2.val3";
+
+        assertCertainIndex(format(sql1, "IDX_VAL2_VAL3"), TBL1, "IDX_VAL2_VAL3");
+        assertCertainIndex(format(sql1, "IDX_VAL3"), TBL1, "IDX_VAL3");
+
+        var sql2 = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 t1, TBL2 t2 WHERE t1.val2=t2.val2 AND t1.val3=t2.val3";
+
+        assertCertainIndex(format(sql2, "IDX_VAL2_VAL3"), TBL1, "IDX_VAL2_VAL3");
+        assertCertainIndex(format(sql2, "IDX_VAL3"), TBL1, "IDX_VAL3");
+    }
+
+    @Test
+    public void testOrderBy() throws Exception {
+        assertCertainIndex("SELECT /*+ FORCE_INDEX(IDX_VAL1) */ val2, val3 FROM TBL1 ORDER by val2,val1,val3", TBL1, "IDX_VAL1");
+        assertCertainIndex("SELECT /*+ FORCE_INDEX(IDX_VAL2_VAL3) */ val2, val3 FROM TBL1 ORDER by val2,val1,val3", TBL1,
+                "IDX_VAL2_VAL3");
+        assertCertainIndex("SELECT /*+ FORCE_INDEX(IDX_VAL3) */ val2, val3 FROM TBL1 ORDER by val2,val1,val3", TBL1, "IDX_VAL3");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"SUM", "AVG", "MIN", "MAX"})
+    public void testAggregates(String op) throws Exception {
+        var sql = "SELECT /*+ FORCE_INDEX({}) */ {}(val1) FROM TBL1 where val1=1 group by val2";
+
+        assertCertainIndex(format(sql, "IDX_VAL1", op), TBL1, "IDX_VAL1");
+        assertCertainIndex(format(sql, "IDX_VAL2_VAL3", op), TBL1, "IDX_VAL2_VAL3");
+        assertPlan(format(sql, "IDX_VAL1, IDX_VAL2_VAL3", op), SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL1")
+                .or(nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL2_VAL3")))));
     }
 
     private static UnaryOperator<TableBuilder> createSimpleTable(String name, int sz) {
@@ -63,25 +137,6 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
                 .addColumn("VAL1", NativeTypes.STRING)
                 .addColumn("VAL2", NativeTypes.STRING)
                 .addColumn("VAL3", NativeTypes.STRING);
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"SUM", "AVG", "MIN", "MAX"})
-    public void testAggregates(String op) throws Exception {
-        assertCertainIndex(format("SELECT /*+ FORCE_INDEX(TBL1_IDX_VAL2_VAL3) */ {}(val1) FROM TBL1 where val1=1 group by val2", op), TBL1,
-                "TBL1_IDX_VAL2_VAL3");
-
-        assertCertainIndex(format("SELECT /*+ FORCE_INDEX(TBL1_IDX_VAL2_VAL3) */ {}(val1) FROM TBL1 group by val2", op), TBL1,
-                "TBL1_IDX_VAL2_VAL3");
-
-        assertCertainIndex(format("SELECT /*+ FORCE_INDEX(TBL1_IDX_VAL1) */ {}(val1) FROM TBL1 where val1=1 group by val2", op), TBL1,
-                "TBL1_IDX_VAL1");
-
-        assertCertainIndex(format("SELECT /*+ FORCE_INDEX(TBL1_IDX_VAL2_VAL3) */ {}(val1) FROM TBL1 where val1=1 group by val2", op), TBL1,
-                "TBL1_IDX_VAL2_VAL3");
-
-        assertPlan(format("SELECT /*+ FORCE_INDEX(TBL1_IDX_VAL1, TBL2_IDX_VAL2) */ {}(val1) FROM TBL1 where val1=1 group by val2", op),
-                SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "TBL1_IDX_VAL2")).or(nodeOrAnyChild(isIndexScan(TBL1, "TBL1_IDX_VAL1"))));
     }
 
     private void assertCertainIndex(String sql, String tblName, String idxName) throws Exception {

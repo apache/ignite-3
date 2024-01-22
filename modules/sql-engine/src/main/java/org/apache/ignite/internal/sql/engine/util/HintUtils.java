@@ -17,19 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.EXPAND_DISTINCT_AGG;
 
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.hint.Hintable;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalAggregate;
@@ -71,60 +67,18 @@ public class HintUtils {
     }
 
     /**
-     * @return Hints filtered with {@code hintDefs} and suitable for {@code rel}.
-     * @see HintStrategyTable#apply(List, RelNode)
-     * @see #filterHints(RelNode, Collection, List)
+     * Filter hints suitable for {@code rel}.
+     *
+     * @return Filtered hints suitable for {@code rel}.
      */
-    public static List<RelHint> hints(RelNode rel, IgniteHint... hints) {
+    public static <T extends RelNode & Hintable> List<RelHint> hints(T rel, IgniteHint... types) {
+        Set<String> hintNames = Arrays.stream(types).map(Enum::name).collect(Collectors.toSet());
+
+        List<RelHint> hints = rel.getHints().stream()
+                .filter(hint -> hintNames.contains(hint.hintName))
+                .collect(Collectors.toList());
+
         return rel.getCluster().getHintStrategies()
-                .apply(filterHints(rel, allRelHints(rel), Arrays.asList(hints)), rel);
-    }
-
-    /**
-     * @return Hints of {@code rel} if it is a {@code Hintable}. If is not or has no hints, empty collection.
-     * @see Hintable#getHints()
-     */
-    public static List<RelHint> allRelHints(RelNode rel) {
-        return rel instanceof Hintable ? ((Hintable) rel).getHints() : emptyList();
-    }
-
-    /**
-     * @return Distinct hints within {@code hints} filtered with {@code hintDefs}, {@link HintOptionsChecker} and
-     * removed inherit pathes.
-     * @see HintOptionsChecker
-     * @see RelHint#inheritPath
-     */
-    private static List<RelHint> filterHints(RelNode rel, Collection<RelHint> hints, List<IgniteHint> hintDefs) {
-        Set<String> requiredHintDefs = hintDefs.stream().map(Enum::name).collect(Collectors.toSet());
-
-        List<RelHint> res = hints.stream().filter(h -> requiredHintDefs.contains(h.hintName))
-                .map(h -> {
-                    RelHint.Builder rb = RelHint.builder(h.hintName);
-
-                    if (!h.listOptions.isEmpty()) {
-                        rb.hintOptions(h.listOptions);
-                    } else if (!h.kvOptions.isEmpty()) {
-                        rb.hintOptions(h.kvOptions);
-                    }
-
-                    return rb.build();
-                }).distinct().collect(Collectors.toList());
-
-        // Validate hint options.
-//        Iterator<RelHint> it = res.iterator();
-//
-//        while (it.hasNext()) {
-//            RelHint hint = it.next();
-//
-//            String optsErr = IgniteHint.valueOf(hint.hintName).optionsChecker().apply(hint);
-//
-//            if (!F.isEmpty(optsErr)) {
-//                skippedHint(rel, hint, optsErr);
-//
-//                it.remove();
-//            }
-//        }
-
-        return res;
+                .apply(hints, rel);
     }
 }

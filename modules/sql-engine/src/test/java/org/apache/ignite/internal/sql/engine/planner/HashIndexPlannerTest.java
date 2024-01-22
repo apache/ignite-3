@@ -121,7 +121,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, scan, notNullValue());
-        assertThat(invalidPlanMsg, scan.indexName(), equalTo("idx_VAL0_VAL1"));
+        assertThat(invalidPlanMsg, scan.indexName(), equalTo("IDX_VAL0_VAL1"));
     }
 
     @Test
