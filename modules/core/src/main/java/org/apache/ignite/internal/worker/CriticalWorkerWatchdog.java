@@ -19,6 +19,8 @@ package org.apache.ignite.internal.worker;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.longs.Long2LongMap;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -59,6 +61,8 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     @Nullable
     private volatile ScheduledFuture<?> livenessProbeTaskFuture;
 
+    private final ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+
     public CriticalWorkerWatchdog(ScheduledExecutorService scheduler) {
         this.scheduler = scheduler;
     }
@@ -86,7 +90,27 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     private void probeLiveness() {
+        Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays();
+
+        if (delayedThreadIdsToDelays.isEmpty()) {
+            return;
+        }
+
+        ThreadInfo[] threadInfos = threadMXBean.getThreadInfo(delayedThreadIdsToDelays.keySet().toLongArray(), true, true);
+        for (ThreadInfo threadInfo : threadInfos) {
+            if (threadInfo != null) {
+                log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
+                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()), MAX_ALLOWED_LAG_MS, threadInfo);
+
+                // TODO: IGNITE-16899 - invoke failure handler.
+            }
+        }
+    }
+
+    private Long2LongMap getDelayedThreadIdsAndDelays() {
         long nowNanos = System.nanoTime();
+
+        Long2LongMap delayedThreadIdsToDelays = new Long2LongOpenHashMap();
 
         for (CriticalWorker worker : registeredWorkers) {
             long heartbeatNanos = worker.heartbeatNanos();
@@ -97,18 +121,11 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
             long delayMillis = TimeUnit.NANOSECONDS.toMillis(nowNanos - heartbeatNanos);
             if (delayMillis > MAX_ALLOWED_LAG_MS) {
-                ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-
-                ThreadInfo[] threadInfos = bean.getThreadInfo(new long[]{worker.threadId()}, true, true);
-                ThreadInfo threadInfo = threadInfos[0];
-                if (threadInfo != null) {
-                    log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
-                            delayMillis, MAX_ALLOWED_LAG_MS, threadInfo);
-
-                    // TODO: IGNITE-16899 - invoke failure handler.
-                }
+                delayedThreadIdsToDelays.put(worker.threadId(), delayMillis);
             }
         }
+
+        return delayedThreadIdsToDelays;
     }
 
     @Override
