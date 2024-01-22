@@ -37,12 +37,10 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
 
     @Override
     protected void beforeExecute(Thread t, Runnable r) {
-        try {
-            lastSeenThread = t;
-            heartbeatNanos = System.nanoTime();
-        } finally {
-            super.beforeExecute(t, r);
-        }
+        lastSeenThread = t;
+        heartbeatNanos = System.nanoTime();
+
+        super.beforeExecute(t, r);
     }
 
     @Override
