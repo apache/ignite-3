@@ -162,16 +162,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
         CompletableFuture<Void> fut = accounts.recordView().upsertAsync(tx, makeValue(1, 100.));
-        assertThrows(Exception.class, () -> fut.join());
 
-        CompletableFuture<Void> fut0 = tx.commitAsync();
-        assertThrows(Exception.class, () -> fut0.join());
+        assertThrows(Exception.class, fut::join);
 
-        CompletableFuture<Void> fut1 = tx.rollbackAsync();
-        assertThrows(Exception.class, () -> fut1.join());
+        tx.commitAsync().join();
 
-        CompletableFuture<Void> fut2 = tx.commitAsync();
-        assertThrows(Exception.class, () -> fut2.join());
+        tx.rollbackAsync().join();
+
+        tx.commitAsync().join();
     }
 
     @Test
@@ -183,16 +181,13 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         injectFailureOnNextOperation(accounts);
 
         CompletableFuture<Void> fut = tx.rollbackAsync();
-        assertThrows(Exception.class, () -> fut.join());
+        assertThrows(Exception.class, fut::join);
 
-        CompletableFuture<Void> fut0 = tx.commitAsync();
-        assertThrows(Exception.class, () -> fut0.join());
+        tx.commitAsync().join();
 
-        CompletableFuture<Void> fut1 = tx.rollbackAsync();
-        assertThrows(Exception.class, () -> fut1.join());
+        tx.rollbackAsync().join();
 
-        CompletableFuture<Void> fut2 = tx.commitAsync();
-        assertThrows(Exception.class, () -> fut2.join());
+        tx.commitAsync().join();
     }
 
     @Test
