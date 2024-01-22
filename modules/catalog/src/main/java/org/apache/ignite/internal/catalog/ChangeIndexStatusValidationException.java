@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
-/** Exception that occurs when an incorrect attempt to change the {@link CatalogIndexDescriptor#status()}. */
+/** Exception that occurs on an incorrect attempt to change the {@link CatalogIndexDescriptor#status()}. */
 public class ChangeIndexStatusValidationException extends CatalogValidationException {
     private static final long serialVersionUID = 7037807559118991379L;
 

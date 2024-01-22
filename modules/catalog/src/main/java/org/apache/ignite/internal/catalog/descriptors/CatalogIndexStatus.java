@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 /**
- * Index statuses.
+ * Index status.
  *
  * <p>Possible status transitions:</p>
  * <ul>

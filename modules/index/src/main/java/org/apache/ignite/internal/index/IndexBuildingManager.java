@@ -48,8 +48,8 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
 
 /**
- * Component is responsible for building indexes and making them in {@link CatalogIndexStatus#AVAILABLE available}. Both in a running
- * cluster and when a node is being recovered.
+ * Component is responsible for building indexes and making them {@link CatalogIndexStatus#AVAILABLE available}. Both in a running cluster
+ * and when a node is being recovered.
  *
  * @see CatalogIndexDescriptor#status()
  */

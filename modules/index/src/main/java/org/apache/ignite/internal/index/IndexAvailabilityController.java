@@ -105,7 +105,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *
  * <p>Approximate recovery algorithm:</p>
  * <ul>
- *     <li>For buildings indexes: <ul>
+ *     <li>For building indexes: <ul>
  *         <li>If the building index did not have time to add
  *         {@link IndexManagementUtils#putBuildIndexMetastoreKeysIfAbsent(MetaStorageManager, int, int) index building keys}, then add them
  *         to the metastore if they are <b>absent</b>.</li>
