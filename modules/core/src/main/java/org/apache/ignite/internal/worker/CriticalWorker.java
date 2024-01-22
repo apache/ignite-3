@@ -22,7 +22,7 @@ package org.apache.ignite.internal.worker;
  */
 public interface CriticalWorker {
     /**
-     * Hearbeat timestamp 'value' corresponding to the state in which the thread is not running some computation during
+     * Heartbeat timestamp 'value' corresponding to the state in which the thread is not running any computations during
      * which it should be monitored. This means that it either executes an (expected) blocking operation, or
      * it just waits for work to be submitted.
      */
