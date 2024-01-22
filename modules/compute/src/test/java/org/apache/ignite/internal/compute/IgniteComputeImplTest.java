@@ -100,7 +100,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void whenNodeIsLocalThenExecutesLocally() {
-        respondWhenExecutingSimpleJobLocallyWithOptions();
+        respondWhenExecutingSimpleJobLocally();
 
         assertThat(
                 compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
@@ -112,7 +112,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void whenNodeIsRemoteThenExecutesRemotely() {
-        respondWhenExecutingSimpleJobRemotelyWithOptions();
+        respondWhenExecutingSimpleJobRemotely();
 
         assertThat(
                 compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a",
@@ -125,7 +125,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void whenNodeIsLocalThenExecutesLocallyWithOptions() {
-        respondWhenExecutingSimpleJobLocallyWithOptions();
+        respondWhenExecutingSimpleJobLocally();
 
         assertThat(
                 compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME,
@@ -138,7 +138,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void whenNodeIsRemoteThenExecutesRemotelyWithOptions() {
-        respondWhenExecutingSimpleJobRemotelyWithOptions();
+        respondWhenExecutingSimpleJobRemotely();
 
         assertThat(
                 compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, JobExecutionOptions.DEFAULT, "a",
@@ -151,7 +151,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() {
-        respondWhenExecutingSimpleJobRemotelyWithOptions();
+        respondWhenExecutingSimpleJobRemotely();
         respondWhenAskForPrimaryReplica();
 
         assertThat(
@@ -168,7 +168,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() {
-        respondWhenExecutingSimpleJobRemotelyWithOptions();
+        respondWhenExecutingSimpleJobRemotelyWith();
         respondWhenAskForPrimaryReplica();
 
         assertThat(
@@ -194,21 +194,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally() {
-        when(computeComponent.executeLocally(testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
-                .thenReturn(completedExecution("jobResponse"));
-    }
-
-    private void respondWhenExecutingSimpleJobRemotely() {
-        when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
-                .thenReturn(completedExecution("remoteResponse"));
-    }
-
-    private void respondWhenExecutingSimpleJobLocallyWithOptions() {
         when(computeComponent.executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
                 .thenReturn(completedExecution("jobResponse"));
     }
 
-    private void respondWhenExecutingSimpleJobRemotelyWithOptions() {
+    private void respondWhenExecutingSimpleJobRemotely() {
         when(computeComponent.executeRemotely(ExecutionOptions.DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
                 .thenReturn(completedExecution("remoteResponse"));
     }
