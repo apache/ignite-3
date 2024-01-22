@@ -38,9 +38,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -104,7 +104,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final QueryProcessor queryProcessor;
 
     /** Compute. */
-    private final IgniteCompute igniteCompute;
+    private final IgniteComputeInternal igniteCompute;
 
     /** Cluster. */
     private final ClusterService clusterService;
@@ -150,7 +150,7 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteTablesInternal igniteTables,
             IgniteTransactionsImpl igniteTransactions,
             ConfigurationRegistry registry,
-            IgniteCompute igniteCompute,
+            IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,

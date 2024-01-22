@@ -130,6 +130,21 @@ public enum ClientOperationType {
     COMPUTE_EXECUTE,
 
     /**
+     * Get compute job status ({@link org.apache.ignite.compute.JobExecution#statusAsync()}).
+     */
+    COMPUTE_GET_STATUS,
+
+    /**
+     * Cancel compute job ({@link org.apache.ignite.compute.JobExecution#cancelAsync()}).
+     */
+    COMPUTE_CANCEL,
+
+    /**
+     * Change compute job priority ({@link org.apache.ignite.compute.JobExecution#changePriorityAsync(int)}).
+     */
+    COMPUTE_CHANGE_PRIORITY,
+
+    /**
      * SQL Execute ({@link org.apache.ignite.sql.Session#executeAsync(Transaction, String, Object...)}).
      */
     SQL_EXECUTE,

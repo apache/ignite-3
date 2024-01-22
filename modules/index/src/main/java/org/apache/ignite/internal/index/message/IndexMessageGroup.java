@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.executor;
+package org.apache.ignite.internal.index.message;
 
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.internal.compute.ExecutionOptions;
+import org.apache.ignite.network.annotations.MessageGroup;
 
-/**
- * Executor of Compute jobs.
- */
-public interface ComputeExecutor {
-    <R> JobExecutionInternal<R> executeJob(ExecutionOptions options, Class<? extends ComputeJob<R>> jobClass, Object[] args);
+/** Message types for index module. */
+@MessageGroup(groupType = 12, groupName = "IndexMessages")
+public class IndexMessageGroup {
+    /** Message type for {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}. */
+    public static final short IS_NODE_FINISHED_RW_TRANSACTIONS_STARTED_BEFORE_REQUEST = 0;
 
-    void start();
-
-    void stop();
+    /** Message type for {@link IsNodeFinishedRwTransactionsStartedBeforeResponse}. */
+    public static final short IS_NODE_FINISHED_RW_TRANSACTIONS_STARTED_BEFORE_RESPONSE = 1;
 }

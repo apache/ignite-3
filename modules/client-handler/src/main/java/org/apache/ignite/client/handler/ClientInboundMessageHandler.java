@@ -42,8 +42,11 @@ import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeCancelRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeChangePriorityRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCloseRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcColumnMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcConnectRequest;
@@ -86,7 +89,6 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -155,7 +158,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final ClientConnectorView configuration;
 
     /** Compute. */
-    private final IgniteCompute compute;
+    private final IgniteComputeInternal compute;
 
     /** Cluster. */
     private final ClusterService clusterService;
@@ -219,7 +222,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             IgniteTransactionsImpl igniteTransactions,
             QueryProcessor processor,
             ClientConnectorView configuration,
-            IgniteCompute compute,
+            IgniteComputeInternal compute,
             ClusterService clusterService,
             IgniteSql sql,
             CompletableFuture<UUID> clusterId,
@@ -713,10 +716,26 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId));
+                return ClientComputeExecuteRequest.process(in, out, compute, clusterService, notificationSender(requestId));
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
-                return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables, notificationSender(requestId));
+                return ClientComputeExecuteColocatedRequest.process(
+                        in,
+                        out,
+                        compute,
+                        igniteTables,
+                        clusterService,
+                        notificationSender(requestId)
+                );
+
+            case ClientOp.COMPUTE_GET_STATUS:
+                return ClientComputeGetStatusRequest.process(in, out, compute);
+
+            case ClientOp.COMPUTE_CANCEL:
+                return ClientComputeCancelRequest.process(in, out, compute);
+
+            case ClientOp.COMPUTE_CHANGE_PRIORITY:
+                return ClientComputeChangePriorityRequest.process(in, out, compute);
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);
