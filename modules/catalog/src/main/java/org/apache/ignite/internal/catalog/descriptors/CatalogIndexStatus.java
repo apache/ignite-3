@@ -30,7 +30,7 @@ public enum CatalogIndexStatus {
     /**
      * Index has been registered and is awaiting the start of building.
      *
-     * <p>Not readable or writable.</p>
+     * <p>Write only.</p>
      */
     REGISTERED,
 

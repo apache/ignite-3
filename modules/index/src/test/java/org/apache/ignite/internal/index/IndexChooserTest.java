@@ -105,7 +105,7 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 chooseForRwTxOperation(catalogVersion),
-                contains(index(catalogVersion, PK_INDEX_NAME))
+                contains(index(catalogVersion, PK_INDEX_NAME), index(catalogVersion, INDEX_NAME))
         );
     }
 
@@ -267,7 +267,8 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
                         index(catalogVersion, PK_INDEX_NAME),                   // Alive available index0 (pk)
                         index(catalogVersionBeforeDropIndex1, indexName1),      // Dropped available index1
                         index(catalogVersion, indexName3),                      // Building index3
-                        index(catalogVersionBeforeDropIndex4And5, indexName4)   // Dropped available index4
+                        index(catalogVersionBeforeDropIndex4And5, indexName4),  // Dropped available index4
+                        index(catalogVersion, indexName6)                       // Registered index6
                 )
         );
     }
