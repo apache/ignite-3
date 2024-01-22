@@ -116,7 +116,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         appendUpdates(updateLogImpl, updates);
 
-        updateLogImpl.saveSnapshot(snapshotEntryOfVersion(2));
+        compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
 
         // Let's restart the log and metastore with recovery.
         updateLogImpl.stop();
@@ -138,6 +138,15 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         // Let's check that we have recovered to the latest version.
         assertThat(actualUpdates, equalTo(expectedUpdates));
+    }
+
+    private void compactCatalog(UpdateLogImpl updateLogImpl, SnapshotUpdate update) throws InterruptedException {
+        long revisionBeforeAppend = metastore.appliedRevision();
+        assertThat(updateLogImpl.saveSnapshot(update), willCompleteSuccessfully());
+        assertTrue(waitForCondition(
+                () -> metastore.appliedRevision() == revisionBeforeAppend + 1,
+                TimeUnit.SECONDS.toMillis(1))
+        );
     }
 
     private UpdateLogImpl createUpdateLogImpl() {
