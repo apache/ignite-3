@@ -99,7 +99,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
             if (delayMillis > MAX_ALLOWED_LAG_MS) {
                 ThreadMXBean bean = ManagementFactory.getThreadMXBean();
 
-                ThreadInfo[] threadInfos = bean.getThreadInfo(new long[]{worker.threadId()}, true, true, Integer.MAX_VALUE);
+                ThreadInfo[] threadInfos = bean.getThreadInfo(new long[]{worker.threadId()}, true, true);
                 ThreadInfo threadInfo = threadInfos[0];
                 if (threadInfo != null) {
                     log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
