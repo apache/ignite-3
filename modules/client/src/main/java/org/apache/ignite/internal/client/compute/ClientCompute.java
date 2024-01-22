@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.HashMap;
@@ -30,6 +31,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
@@ -58,9 +61,6 @@ import org.apache.ignite.table.mapper.Mapper;
  */
 public class ClientCompute implements IgniteCompute {
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
-    /** Indicates a missing table. */
-    private static final Object MISSING_TABLE_TOKEN = new Object();
 
     /** Channel. */
     private final ReliableChannel ch;
@@ -95,7 +95,7 @@ public class ClientCompute implements IgniteCompute {
 
         ClusterNode node = randomNode(nodes);
 
-        return new ClientJobExecution<>(executeOnOneNode(node, units, jobClassName, args));
+        return new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
@@ -127,7 +127,7 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return new ClientJobExecution<>(doExecuteColocatedAsync(tableName, key, units, jobClassName, args));
+        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
@@ -146,10 +146,10 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return new ClientJobExecution<>(doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, args));
+        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, args));
     }
 
-    private <R> CompletableFuture<R> doExecuteColocatedAsync(
+    private CompletableFuture<PayloadInputChannel> doExecuteColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -157,16 +157,17 @@ public class ClientCompute implements IgniteCompute {
             Object... args
     ) {
         return getTable(tableName)
-                .thenCompose(table -> (CompletableFuture<R>) executeColocatedTupleKey(table, key, units, jobClassName, args))
-                .handle((res, err) -> handleMissingTable(tableName, res, err))
-                .thenCompose(r ->
-                        // If a table was dropped, try again: maybe a new table was created with the same name and new id.
-                        r == MISSING_TABLE_TOKEN
-                                ? doExecuteColocatedAsync(tableName, key, units, jobClassName, args)
-                                : CompletableFuture.completedFuture(r));
+                .thenCompose(table -> executeColocatedTupleKey(table, key, units, jobClassName, args))
+                .handle((res, err) -> handleMissingTable(
+                        tableName,
+                        res,
+                        err,
+                        () -> doExecuteColocatedAsync(tableName, key, units, jobClassName, args)
+                ))
+                .thenCompose(Function.identity());
     }
 
-    private <K, R> CompletableFuture<R> doExecuteColocatedAsync(
+    private <K> CompletableFuture<PayloadInputChannel> doExecuteColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -175,13 +176,14 @@ public class ClientCompute implements IgniteCompute {
             Object... args
     ) {
         return getTable(tableName)
-                .thenCompose(table -> (CompletableFuture<R>) executeColocatedObjectKey(table, key, keyMapper, units, jobClassName, args))
-                .handle((res, err) -> handleMissingTable(tableName, res, err))
-                .thenCompose(r ->
-                        // If a table was dropped, try again: maybe a new table was created with the same name and new id.
-                        r == MISSING_TABLE_TOKEN
-                                ? doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, args)
-                                : CompletableFuture.completedFuture(r));
+                .thenCompose(table -> executeColocatedObjectKey(table, key, keyMapper, units, jobClassName, args))
+                .handle((res, err) -> handleMissingTable(
+                        tableName,
+                        res,
+                        err,
+                        () -> doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, args)
+                ))
+                .thenCompose(Function.identity());
     }
 
     /** {@inheritDoc} */
@@ -232,7 +234,7 @@ public class ClientCompute implements IgniteCompute {
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            ClientJobExecution<R> execution = new ClientJobExecution<>(executeOnOneNode(node, units, jobClassName, args));
+            ClientJobExecution<R> execution = new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, args));
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
@@ -241,8 +243,13 @@ public class ClientCompute implements IgniteCompute {
         return map;
     }
 
-    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Object[] args) {
-        var reqFut = ch.serviceAsync(
+    private CompletableFuture<PayloadInputChannel> executeOnOneNode(
+            ClusterNode node,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object[] args
+    ) {
+        return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
                     if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
@@ -257,15 +264,6 @@ public class ClientCompute implements IgniteCompute {
                 node.name(),
                 null,
                 true);
-
-        return reqFut
-                .thenCompose(PayloadInputChannel::notificationFuture)
-                .thenApply(r -> {
-                    // Notifications require explicit input close.
-                    try (r) {
-                        return (R) r.in().unpackObjectFromBinaryTuple();
-                    }
-                });
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -283,7 +281,7 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private static <K, R> CompletableFuture<R> executeColocatedObjectKey(
+    private static <K> CompletableFuture<PayloadInputChannel> executeColocatedObjectKey(
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
@@ -299,7 +297,7 @@ public class ClientCompute implements IgniteCompute {
                 args);
     }
 
-    private static <R> CompletableFuture<R> executeColocatedTupleKey(
+    private static CompletableFuture<PayloadInputChannel> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
             List<DeploymentUnit> units,
@@ -314,14 +312,14 @@ public class ClientCompute implements IgniteCompute {
                 args);
     }
 
-    private static <R> CompletableFuture<R> executeColocatedInternal(
+    private static CompletableFuture<PayloadInputChannel> executeColocatedInternal(
             ClientTable t,
             BiConsumer<PayloadOutputChannel, ClientSchema> keyWriter,
             PartitionAwarenessProvider partitionAwarenessProvider,
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
-        var reqFut = t.doSchemaOutOpAsync(
+        return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
@@ -336,15 +334,6 @@ public class ClientCompute implements IgniteCompute {
                 ch -> ch,
                 partitionAwarenessProvider,
                 true);
-
-        return reqFut
-                .thenCompose(PayloadInputChannel::notificationFuture)
-                .thenApply(r -> {
-                    // Notifications require explicit input close.
-                    try (r) {
-                        return (R) r.in().unpackObjectFromBinaryTuple();
-                    }
-                });
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {
@@ -352,7 +341,7 @@ public class ClientCompute implements IgniteCompute {
         var cached = tableCache.get(tableName);
 
         if (cached != null) {
-            return CompletableFuture.completedFuture(cached);
+            return completedFuture(cached);
         }
 
         return tables.tableAsync(tableName).thenApply(t -> {
@@ -367,7 +356,12 @@ public class ClientCompute implements IgniteCompute {
         });
     }
 
-    private <R> R handleMissingTable(String tableName, R res, Throwable err) {
+    private CompletableFuture<PayloadInputChannel> handleMissingTable(
+            String tableName,
+            PayloadInputChannel res,
+            Throwable err,
+            Supplier<CompletableFuture<PayloadInputChannel>> retry
+    ) {
         if (err instanceof CompletionException) {
             err = err.getCause();
         }
@@ -379,7 +373,7 @@ public class ClientCompute implements IgniteCompute {
                 // Table was dropped - remove from cache.
                 tableCache.remove(tableName);
 
-                return (R) MISSING_TABLE_TOKEN;
+                return retry.get();
             }
         }
 
@@ -387,7 +381,7 @@ public class ClientCompute implements IgniteCompute {
             throw new CompletionException(err);
         }
 
-        return res;
+        return completedFuture(res);
     }
 
     private static void packJob(ClientMessagePacker w, List<DeploymentUnit> units, String jobClassName, Object[] args) {

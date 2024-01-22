@@ -146,11 +146,7 @@ enum class code : underlying_t {
     STORAGE_REBALANCE = 0x90004,
 
     // DistributionZones group. Group code: 10
-    ZONE_ALREADY_EXISTS = 0xa0001,
-    ZONE_NOT_FOUND = 0xa0002,
-    ZONE_RENAME = 0xa0003,
-    ZONE_DROP = 0xa0004,
-    ZONE_DEFINITION = 0xa0005,
+    ZONE_NOT_FOUND = 0xa0001,
 
     // Network group. Group code: 11
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
@@ -187,8 +183,7 @@ enum class code : underlying_t {
     RESULT_NOT_FOUND = 0x100007,
     FAIL_TO_GET_JOB_STATUS = 0x100008,
     COMPUTE_JOB_FAILED = 0x100009,
-    CHANGE_JOB_PRIORITY_NO_JOB = 0x10000a,
-    CHANGE_JOB_PRIORITY_JOB_EXECUTING = 0x10000b,
+    CHANGE_JOB_PRIORITY = 0x10000a,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,

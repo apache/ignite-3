@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
@@ -79,8 +80,9 @@ import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -167,22 +169,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Local node network identity. This id is available only after the network has started. */
     private String localNodeId;
 
-    /**
-     * Server cleanup processor.
-     */
+    /** Server cleanup processor. */
     private final TxCleanupRequestHandler txCleanupRequestHandler;
 
-    /**
-     * Cleanup request sender.
-     */
+    /** Cleanup request sender. */
     private final TxCleanupRequestSender txCleanupRequestSender;
 
-    /**
-     * Transaction message sender.
-     */
+    /** Transaction message sender. */
     private final TxMessageSender txMessageSender;
 
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener;
+
+    /** Counter of read-write transactions that were created and completed locally on the node. */
+    private final LocalRwTxCounter localRwTxCounter;
 
     /**
      * The constructor.
@@ -195,6 +194,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param transactionIdGenerator Used to generate transaction IDs.
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      */
     public TxManagerImpl(
             TransactionConfiguration txConfig,
@@ -204,7 +204,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridClock clock,
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            LocalRwTxCounter localRwTxCounter
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -215,6 +216,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.topologyService = clusterService.topologyService();
         this.messagingService = clusterService.messagingService();
         this.primaryReplicaEventListener = this::primaryReplicaEventListener;
+        this.localRwTxCounter = localRwTxCounter;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
 
@@ -226,14 +228,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory("tx-async-cleanup", LOG));
+                NamedThreadFactory.create(clusterService.nodeName(), "tx-async-cleanup", LOG)
+        );
 
         orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
 
         txMessageSender = new TxMessageSender(messagingService, replicaService, clock);
 
-        WriteIntentSwitchProcessor writeIntentSwitchProcessor =
-                new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
+        var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
 
@@ -276,7 +278,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
-        HybridTimestamp beginTimestamp = clock.now();
+        HybridTimestamp beginTimestamp = readOnly ? clock.now() : createBeginTimestampWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
@@ -355,6 +357,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
+
+        decrementRwTxCount(txId);
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
@@ -378,6 +382,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             updateTxMeta(txId, old -> new TxStateMeta(
                     commitIntent ? COMMITTED : ABORTED, localNodeId, commitPartition, commitTimestamp(commitIntent)
             ));
+
+            decrementRwTxCount(txId);
 
             return nullCompletedFuture();
         }
@@ -422,7 +428,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         enlistedGroups,
                         txId,
                         finishingStateMeta.txFinishFuture()
-                ));
+                )
+        ).thenAccept(unused -> {
+            if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
+                decrementRwTxCount(txId);
+            }
+        });
     }
 
     private TxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, Long> enlistedGroups, boolean commitIntent) {
@@ -444,7 +455,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return nullCompletedFuture();
         }
 
-        return failedFuture(new TransactionAlreadyFinishedException(
+        return failedFuture(new MismatchingTransactionOutcomeException(
                 "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + stateMeta.txState() + "].",
                 new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
         );
@@ -514,8 +525,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                        if (cause instanceof TransactionAlreadyFinishedException) {
-                            TransactionAlreadyFinishedException transactionException = (TransactionAlreadyFinishedException) cause;
+                        if (cause instanceof MismatchingTransactionOutcomeException) {
+                            MismatchingTransactionOutcomeException transactionException = (MismatchingTransactionOutcomeException) cause;
 
                             TransactionResult result = transactionException.transactionResult();
 
@@ -602,7 +613,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     txResult.transactionState()
             );
 
-            throw new TransactionAlreadyFinishedException(
+            throw new MismatchingTransactionOutcomeException(
                     "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txResult.transactionState()
                             + "].",
                     txResult
@@ -855,7 +866,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 }
             } else {
                 if (commit && readyToFinishException instanceof PrimaryReplicaExpiredException) {
-                    finishInProgressFuture.completeExceptionally(new TransactionAlreadyFinishedException(
+                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeException(
                             TX_PRIMARY_REPLICA_EXPIRED_ERR,
                             "Failed to commit the transaction.",
                             new TransactionResult(ABORTED, null),
@@ -945,5 +956,23 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             return false;
         }
+    }
+
+    private HybridTimestamp createBeginTimestampWithIncrementRwTxCounter() {
+        return localRwTxCounter.inUpdateRwTxCountLock(() -> {
+            HybridTimestamp beginTs = clock.now();
+
+            localRwTxCounter.incrementRwTxCount(beginTs);
+
+            return beginTs;
+        });
+    }
+
+    private void decrementRwTxCount(UUID txId) {
+        localRwTxCounter.inUpdateRwTxCountLock(() -> {
+            localRwTxCounter.decrementRwTxCount(beginTimestamp(txId));
+
+            return null;
+        });
     }
 }

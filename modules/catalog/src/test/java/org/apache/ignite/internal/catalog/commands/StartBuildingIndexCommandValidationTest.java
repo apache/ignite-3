@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 
-/**
- * This exception is thrown when an attempt is made to make an index {@link CatalogIndexDescriptor#available() available} a second time.
- */
-public class IndexAlreadyAvailableValidationException extends CatalogValidationException {
-    private static final long serialVersionUID = 5482919822886169473L;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public IndexAlreadyAvailableValidationException(String message) {
-        super(message);
+/** Tests to verify validation of {@link StartBuildingIndexCommand}. */
+public class StartBuildingIndexCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
+    @Override
+    CatalogCommand createCommand(int indexId) {
+        return StartBuildingIndexCommand.builder().indexId(indexId).build();
+    }
+
+    @Override
+    boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
+        return indexStatus != REGISTERED;
     }
 }

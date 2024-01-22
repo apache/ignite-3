@@ -23,6 +23,8 @@ package org.apache.ignite.internal.catalog;
  * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
  */
 public class TableNotFoundValidationException extends CatalogValidationException {
+    private static final long serialVersionUID = -5554342698956213470L;
+
     public TableNotFoundValidationException(String message) {
         super(message);
     }

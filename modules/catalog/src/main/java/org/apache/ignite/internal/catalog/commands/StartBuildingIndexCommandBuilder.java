@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.queue;
+package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 
-import java.util.UUID;
-import org.apache.ignite.compute.ComputeException;
+/** Builder for {@link StartBuildingIndexCommand}. */
+public interface StartBuildingIndexCommandBuilder {
+    /** Index ID. */
+    StartBuildingIndexCommandBuilder indexId(int indexId);
 
-/**
- * Thrown when job cancel request failed.
- */
-public class CancellingException extends ComputeException {
-    public CancellingException(UUID jobId) {
-        super(CANCELLING_ERR, "Cancelling job " + jobId + " failed.");
-    }
+    /** Returns a command with specified parameters. */
+    CatalogCommand build();
 }

@@ -339,7 +339,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         var table = await Client.Tables.GetTableAsync(TestTableName);
         var view = table!.RecordBinaryView;
 
-        var options = DataStreamerOptions.Default with { BatchSize = 2 };
+        var options = DataStreamerOptions.Default with { PageSize = 2 };
         await view.StreamDataAsync(GetData(), options);
 
         // Inserted with old schema.

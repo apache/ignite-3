@@ -24,6 +24,8 @@ package org.apache.ignite.internal.catalog;
  * <p>This exception is used to properly handle IF NOT EXISTS flag in ddl command handler.
  */
 public class DistributionZoneExistsValidationException extends CatalogValidationException {
+    private static final long serialVersionUID = 3780590802433986943L;
+
     public DistributionZoneExistsValidationException(String message) {
         super(message);
     }

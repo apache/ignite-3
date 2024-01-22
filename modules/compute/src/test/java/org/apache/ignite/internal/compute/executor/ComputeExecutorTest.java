@@ -58,7 +58,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        computeExecutor = new ComputeExecutorImpl(ignite, new InMemoryComputeStateMachine(computeConfiguration), computeConfiguration);
+        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, "testNode");
+        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration);
         computeExecutor.start();
     }
 
@@ -75,7 +76,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 new Object[]{}
         );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
         await().until(
                 execution::status,
                 jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
@@ -104,7 +105,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 new Object[]{}
         );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
         await().until(
                 execution::status,
                 jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
@@ -213,4 +214,23 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     }
 
+    @Test
+    void cancelCompletedJob() {
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
+                ExecutionOptions.DEFAULT,
+                SimpleJob.class,
+                new Object[]{}
+        );
+
+        await().until(execution::status, jobStatusWithState(COMPLETED));
+
+        assertThat(execution.cancel(), is(false));
+    }
+
+    private static class SimpleJob implements ComputeJob<Integer> {
+        @Override
+        public Integer execute(JobExecutionContext context, Object... args) {
+            return 0;
+        }
+    }
 }

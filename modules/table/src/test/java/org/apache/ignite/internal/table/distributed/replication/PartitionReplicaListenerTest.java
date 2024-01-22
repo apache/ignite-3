@@ -158,7 +158,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -1624,8 +1624,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = beginAndCommitTx();
 
-        TransactionAlreadyFinishedException ex = assertWillThrowFast(future,
-                TransactionAlreadyFinishedException.class);
+        MismatchingTransactionOutcomeException ex = assertWillThrowFast(future,
+                MismatchingTransactionOutcomeException.class);
 
         assertThat(ex.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
 
@@ -2323,7 +2323,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode.id()
         );
 
-        TransactionAlreadyFinishedException ex = assertWillThrowFast(future, TransactionAlreadyFinishedException.class);
+        MismatchingTransactionOutcomeException ex = assertWillThrowFast(future, MismatchingTransactionOutcomeException.class);
 
         assertThat(ex.getMessage(), is("Commit failed because a table was already dropped [tableId=" + tableToBeDroppedId + "]"));
 

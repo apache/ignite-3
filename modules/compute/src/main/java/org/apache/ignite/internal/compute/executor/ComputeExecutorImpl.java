@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.compute.executor;
 
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
@@ -33,7 +31,6 @@ import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Base implementation of {@link ComputeExecutor}.
@@ -91,15 +88,9 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         stateMachine.start();
         executorService = new PriorityQueueExecutor(
                 configuration,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG),
+                NamedThreadFactory.create(ignite.name(), "compute", LOG),
                 stateMachine
         );
-    }
-
-    @Override
-    @Nullable
-    public JobStatus status(UUID jobId) {
-        return stateMachine.currentStatus(jobId);
     }
 
     @Override
