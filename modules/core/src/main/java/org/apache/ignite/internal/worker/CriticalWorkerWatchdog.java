@@ -34,8 +34,8 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A watchdog that monitors liveness of the registered workers and, if a worker is found to be hung, logs the corresopnding
- * information (including the stack trace corresponding to the woeker's thread) and then calls the failure handler
+ * A watchdog that monitors liveness of the registered workers and, if a worker is suspected to be blocked, logs the corresponding
+ * information (including the stack trace corresponding to the worker's thread) and then calls the failure handler
  * to fail the node.
  *
  * <p>Each worker is expected to maintain its {@link CriticalWorker#heartbeatNanos()} growing while the worker executes some computations.
