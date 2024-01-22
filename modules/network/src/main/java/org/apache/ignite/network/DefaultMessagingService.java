@@ -487,7 +487,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     /**
-     * STarts the service.
+     * Starts the service.
      */
     public void start() {
         criticalWorkerRegistry.register(outboundExecutor);
