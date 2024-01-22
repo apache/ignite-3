@@ -2279,9 +2279,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertEquals(catalog.version(), manager.earliestCatalogVersion());
 
+        assertNull(manager.catalog(0));
         assertNull(manager.catalog(catalog.version() - 1));
         assertNotNull(manager.catalog(catalog.version()));
 
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(0));
         assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
         assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
         assertSame(catalog.version(), manager.activeCatalogVersion(timestamp));
@@ -2292,18 +2294,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(0, manager.latestCatalogVersion());
 
         long timestamp = clock.nowLong();
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
 
         assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
 
-        assertEquals(catalog.version(), manager.earliestCatalogVersion());
+        assertEquals(0, manager.earliestCatalogVersion());
+        assertEquals(0, manager.latestCatalogVersion());
 
-        assertNull(manager.catalog(catalog.version() - 1));
-        assertNotNull(manager.catalog(catalog.version()));
+        assertNotNull(manager.catalog(0));
 
-        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
-        assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
-        assertSame(catalog.version(), manager.activeCatalogVersion(timestamp));
+        assertEquals(0, manager.activeCatalogVersion(0));
+        assertEquals(0, manager.activeCatalogVersion(timestamp));
     }
 
     private CompletableFuture<Void> changeColumn(

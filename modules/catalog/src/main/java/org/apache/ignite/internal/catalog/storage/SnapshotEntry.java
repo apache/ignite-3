@@ -53,8 +53,6 @@ public class SnapshotEntry implements UpdateEntry {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        assert catalog.version() < version;
-
         return new Catalog(
                 version,
                 activationTime,
