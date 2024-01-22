@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -38,6 +39,7 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -53,11 +55,12 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link IgniteCompute}.
  */
-public class IgniteComputeImpl implements IgniteCompute {
+public class IgniteComputeImpl implements IgniteComputeInternal {
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private final TopologyService topologyService;
@@ -320,5 +323,20 @@ public class IgniteComputeImpl implements IgniteCompute {
                         // if worker node has left the cluster.
                         node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
                                 CompletableFutures::nullCompletedFuture, units, jobClassName, args))));
+    }
+
+    @Override
+    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
+        return computeComponent.statusAsync(jobId);
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
+        return computeComponent.cancelAsync(jobId);
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
+        return computeComponent.changePriorityAsync(jobId, newPriority);
     }
 }

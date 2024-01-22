@@ -138,10 +138,16 @@ public class LowWatermark implements ManuallyCloseable {
                                 inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                             }
                         } else {
-                            LOG.info(
-                                    "Low watermark has been successfully got from the vault and is scheduled to be updated: {}",
-                                    lowWatermark
-                            );
+                            if (lowWatermark == null) {
+                                LOG.info(
+                                        "Previous value of the low watermark was not found, will schedule to update it"
+                                );
+                            } else {
+                                LOG.info(
+                                        "Low watermark has been successfully got from the vault and is scheduled to be updated: {}",
+                                        lowWatermark
+                                );
+                            }
                         }
                     });
         });

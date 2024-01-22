@@ -34,7 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.IndexAlreadyAvailableValidationException;
+import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -202,7 +202,7 @@ class IndexManagementUtils {
      * Makes the index available in the catalog, does not return the future execution of the operation, so as not to create dead locks when
      * performing the operation and the inability to complete it due to execution in the metastore thread or on recovery (the metastore
      * watches will not be deployed yet). Logs errors if it is not {@link IndexNotFoundValidationException},
-     * {@link IndexAlreadyAvailableValidationException} or {@link NodeStoppingException}.
+     * {@link ChangeIndexStatusValidationException} or {@link NodeStoppingException}.
      *
      * @param catalogManager Catalog manger.
      * @param indexId Index ID.
@@ -216,7 +216,7 @@ class IndexManagementUtils {
                         Throwable unwrapCause = unwrapCause(throwable);
 
                         if (!(unwrapCause instanceof IndexNotFoundValidationException)
-                                && !(unwrapCause instanceof IndexAlreadyAvailableValidationException)
+                                && !(unwrapCause instanceof ChangeIndexStatusValidationException)
                                 && !(unwrapCause instanceof NodeStoppingException)) {
                             log.error("Error processing the command to make the index available: {}", unwrapCause, indexId);
                         }

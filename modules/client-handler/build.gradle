@@ -38,6 +38,7 @@ dependencies {
     implementation project(':ignite-transactions')
     implementation project(':ignite-catalog')
     implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-compute')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.netty.common
@@ -70,6 +71,7 @@ dependencies {
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))
