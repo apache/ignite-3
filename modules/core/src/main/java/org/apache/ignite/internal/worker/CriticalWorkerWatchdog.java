@@ -92,7 +92,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     private void probeLiveness() {
         Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays();
 
-        if (delayedThreadIdsToDelays.isEmpty()) {
+        if (delayedThreadIdsToDelays == null) {
             return;
         }
 
@@ -107,10 +107,11 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         }
     }
 
+    @Nullable
     private Long2LongMap getDelayedThreadIdsAndDelays() {
         long nowNanos = System.nanoTime();
 
-        Long2LongMap delayedThreadIdsToDelays = new Long2LongOpenHashMap();
+        Long2LongMap delayedThreadIdsToDelays = null;
 
         for (CriticalWorker worker : registeredWorkers) {
             long heartbeatNanos = worker.heartbeatNanos();
@@ -121,6 +122,10 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
             long delayMillis = TimeUnit.NANOSECONDS.toMillis(nowNanos - heartbeatNanos);
             if (delayMillis > MAX_ALLOWED_LAG_MS) {
+                if (delayedThreadIdsToDelays == null) {
+                    delayedThreadIdsToDelays = new Long2LongOpenHashMap();
+                }
+
                 delayedThreadIdsToDelays.put(worker.threadId(), delayMillis);
             }
         }
