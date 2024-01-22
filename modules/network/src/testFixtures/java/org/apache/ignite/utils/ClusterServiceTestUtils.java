@@ -36,7 +36,7 @@ import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.StaleIds;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.worker.NullCriticalWorkerRegistry;
+import org.apache.ignite.internal.worker.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
@@ -141,7 +141,7 @@ public class ClusterServiceTestUtils {
                 bootstrapFactory,
                 serializationRegistry,
                 staleIds,
-                new NullCriticalWorkerRegistry()
+                new NoOpCriticalWorkerRegistry()
         );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";

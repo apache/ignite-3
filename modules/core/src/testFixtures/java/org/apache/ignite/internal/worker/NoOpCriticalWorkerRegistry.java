@@ -20,7 +20,7 @@ package org.apache.ignite.internal.worker;
 /**
  * {@link CriticalWorkerRegistry} implementation that does nothing.
  */
-public class NullCriticalWorkerRegistry implements CriticalWorkerRegistry {
+public class NoOpCriticalWorkerRegistry implements CriticalWorkerRegistry {
     @Override
     public void register(CriticalWorker worker) {
         // No-op.
