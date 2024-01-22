@@ -41,8 +41,8 @@ import org.jetbrains.annotations.Nullable;
 public class NettyWorkersRegistrar implements IgniteComponent {
     /*
      * It seems impossible to instrument tasks executed by Netty event loops, so the strategy we use is to
-     * send 'heartbeat' tasks to each of the event loops periodically; this tasks just update the heartbeat timestamp
-     * of the worker corresponding to an event loop. If an event loop's thread is hung, the hearbeat will not
+     * send 'heartbeat' tasks to each of the event loops periodically; these tasks just update the heartbeat timestamp
+     * of the worker corresponding to an event loop. If an event loop's thread is blocked, the hearbeat will not
      * be updated, and the worker watchdog will treat the event loop worker as blocked.
      */
 
