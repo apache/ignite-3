@@ -55,7 +55,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
 
     private final NettyBootstrapFactory bootstrapFactory;
 
-    private final List<NettyWorker> workers = new CopyOnWriteArrayList<>();
+    private volatile List<NettyWorker> workers = new CopyOnWriteArrayList<>();
 
     @Nullable
     private volatile ScheduledFuture<?> sendHearbeatsTaskFuture;
@@ -80,9 +80,11 @@ public class NettyWorkersRegistrar implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> start() {
+        List<NettyWorker> nettyWorkers = new ArrayList<>();
         for (NioEventLoopGroup group : bootstrapFactory.eventLoopGroups()) {
-            registerWorkersFor(group);
+            registerWorkersFor(group, nettyWorkers);
         }
+        workers = List.copyOf(nettyWorkers);
 
         sendHearbeatsTaskFuture = scheduler.scheduleAtFixedRate(
                 this::sendHearbeats,
@@ -94,7 +96,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
         return nullCompletedFuture();
     }
 
-    private void registerWorkersFor(NioEventLoopGroup group) {
+    private void registerWorkersFor(NioEventLoopGroup group, List<NettyWorker> nettyWorkers) {
         List<NettyWorker> groupWorkers = new ArrayList<>(group.executorCount());
 
         for (EventExecutor eventExecutor : group) {
@@ -106,7 +108,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
             criticalWorkerRegistry.register(worker);
         }
 
-        workers.addAll(groupWorkers);
+        nettyWorkers.addAll(groupWorkers);
     }
 
     private void sendHearbeats() {
