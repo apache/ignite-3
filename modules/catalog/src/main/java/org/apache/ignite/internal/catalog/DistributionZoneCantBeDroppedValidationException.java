@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.catalog;
 
 /**
- * This exception is thrown when table not found in the schema.
- *
- * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
+ * Exception is thrown when the distribution zone cannot be dropped due to some reason, e.g. because it is the default distribution zone or
+ * there is a table bound to the distribution zone.
  */
-public class TableNotFoundValidationException extends CatalogValidationException {
-    private static final long serialVersionUID = -5554342698956213470L;
+public class DistributionZoneCantBeDroppedValidationException extends CatalogValidationException {
+    private static final long serialVersionUID = -6278120614792218429L;
 
-    public TableNotFoundValidationException(String message) {
-        super(message);
+    public DistributionZoneCantBeDroppedValidationException(String messagePattern, Object... params) {
+        super(messagePattern, params);
     }
 }
