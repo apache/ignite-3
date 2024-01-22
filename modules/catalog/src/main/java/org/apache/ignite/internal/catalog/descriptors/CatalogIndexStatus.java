@@ -15,22 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+/**
+ * Index status.
+ *
+ * <p>Possible status transitions:</p>
+ * <ul>
+ *     <li>{@link #REGISTERED} -> {@link #BUILDING} -> {@link #AVAILABLE}.</li>
+ *     <li>{@link #AVAILABLE} (PK index).</li>
+ * </ul>
+ */
+public enum CatalogIndexStatus {
+    /**
+     * Index has been registered and is awaiting the start of building.
+     *
+     * <p>Write only.</p>
+     */
+    REGISTERED,
 
-import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+    /**
+     * Index is in the process of being built.
+     *
+     * <p>Write only.</p>
+     */
+    BUILDING,
 
-/** Tests to verify validation of {@link MakeIndexAvailableCommand}. */
-public class MakeIndexAvailableCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
-    @Override
-    CatalogCommand createCommand(int indexId) {
-        return MakeIndexAvailableCommand.builder().indexId(indexId).build();
-    }
-
-    @Override
-    boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
-        return indexStatus != BUILDING;
-    }
+    /**
+     * Index is built and ready to use.
+     *
+     * <p>Readable and writable.</p>
+     */
+    AVAILABLE
 }
