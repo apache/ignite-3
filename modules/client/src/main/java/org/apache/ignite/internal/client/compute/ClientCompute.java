@@ -133,9 +133,9 @@ public class ClientCompute implements IgniteCompute {
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
-        Objects.requireNonNull(options);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(options);
 
         return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, units, jobClassName, options, args));
     }
@@ -184,9 +184,9 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         return getTable(tableName)

@@ -38,7 +38,6 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -69,7 +68,12 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, JobExecutionOptions options, Object... args) {
+    public <R> JobExecution<R> executeAsync(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object... args) {
         initStatus();
 
         if (Objects.equals(jobClassName, GET_UNITS)) {
