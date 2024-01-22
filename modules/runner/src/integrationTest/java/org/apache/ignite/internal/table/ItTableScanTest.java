@@ -110,7 +110,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         table = getOrCreateTable();
 
         internalTable = table.internalTable();
-        
+
         schema = table.schemaView().lastKnownSchema();
 
         loadData(table);
@@ -124,21 +124,21 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private void checkResourcesAreCleared(IgniteImpl ignite) {
-//        int hashIdxId = getIndexId(ignite, HASH_IDX);
+        //  int hashIdxId = getIndexId(ignite, HASH_IDX);
         int sortedIdxId = getIndexId(ignite, SORTED_IDX);
 
         var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getMvPartition(PART_ID);
 
-//        var hashIdxStorage = (TestHashIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
-//                .internalTable().storage().getIndex(PART_ID, hashIdxId);
+        // var hashIdxStorage = (TestHashIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        //          .internalTable().storage().getIndex(PART_ID, hashIdxId);
 
         var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
         assertTrue(ignite.txManager().lockManager().isEmpty());
         assertEquals(0, partitionStorage.pendingCursors());
-//        assertEquals(0, hashIdxStorage.pendingCursors());
+        // assertEquals(0, hashIdxStorage.pendingCursors());
         assertEquals(0, sortedIdxStorage.pendingCursors());
     }
 
