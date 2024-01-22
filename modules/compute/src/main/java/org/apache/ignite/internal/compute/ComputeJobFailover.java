@@ -94,6 +94,7 @@ class ComputeJobFailover<T> {
      * @param executor the thread pool where the failover should run on.
      * @param units deployment units.
      * @param jobClassName the name of the job class.
+     * @param executionOptions execution options like priority or max retries.
      * @param args the arguments of the job.
      */
     ComputeJobFailover(

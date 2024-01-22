@@ -100,32 +100,58 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void whenNodeIsLocalThenExecutesLocally() {
-        respondWhenExecutingSimpleJobLocally();
+        respondWhenExecutingSimpleJobLocallyWithOptions();
 
         assertThat(
                 compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
     void whenNodeIsRemoteThenExecutesRemotely() {
-        respondWhenExecutingSimpleJobRemotely();
+        respondWhenExecutingSimpleJobRemotelyWithOptions();
 
         assertThat(
-                compute.<String>executeAsync(JobExecutionOptions.DEFAULT, singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a",
+                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a",
                         42).resultAsync(),
                 willBe("remoteResponse")
         );
 
-        verify(computeComponent).executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeRemotely(ExecutionOptions.DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a",  42);
+    }
+
+    @Test
+    void whenNodeIsLocalThenExecutesLocallyWithOptions() {
+        respondWhenExecutingSimpleJobLocallyWithOptions();
+
+        assertThat(
+                compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME,
+                        JobExecutionOptions.DEFAULT, "a", 42).resultAsync(),
+                willBe("jobResponse")
+        );
+
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+    }
+
+    @Test
+    void whenNodeIsRemoteThenExecutesRemotelyWithOptions() {
+        respondWhenExecutingSimpleJobRemotelyWithOptions();
+
+        assertThat(
+                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, JobExecutionOptions.DEFAULT, "a",
+                        42).resultAsync(),
+                willBe("remoteResponse")
+        );
+
+        verify(computeComponent).executeRemotely(ExecutionOptions.DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a",  42);
     }
 
     @Test
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() {
-        respondWhenExecutingSimpleJobRemotely();
+        respondWhenExecutingSimpleJobRemotelyWithOptions();
         respondWhenAskForPrimaryReplica();
 
         assertThat(
@@ -142,7 +168,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() {
-        respondWhenExecutingSimpleJobRemotely();
+        respondWhenExecutingSimpleJobRemotelyWithOptions();
         respondWhenAskForPrimaryReplica();
 
         assertThat(
@@ -174,6 +200,16 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     private void respondWhenExecutingSimpleJobRemotely() {
         when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+                .thenReturn(completedExecution("remoteResponse"));
+    }
+
+    private void respondWhenExecutingSimpleJobLocallyWithOptions() {
+        when(computeComponent.executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+                .thenReturn(completedExecution("jobResponse"));
+    }
+
+    private void respondWhenExecutingSimpleJobRemotelyWithOptions() {
+        when(computeComponent.executeRemotely(ExecutionOptions.DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
                 .thenReturn(completedExecution("remoteResponse"));
     }
 

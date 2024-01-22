@@ -93,14 +93,14 @@ public class FakeCompute implements IgniteComputeInternal {
     /** {@inheritDoc} */
     @Override
     public <R> R execute(
-            JobExecutionOptions options,
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(options, nodes, units, jobClassName, args).resultAsync().join();
+            return this.<R>executeAsync(nodes, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
@@ -110,9 +110,9 @@ public class FakeCompute implements IgniteComputeInternal {
     public <R> JobExecution<R> executeColocatedAsync(
             String tableName,
             Tuple key,
-            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         initStatus();
@@ -124,9 +124,9 @@ public class FakeCompute implements IgniteComputeInternal {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         initStatus();
@@ -138,13 +138,13 @@ public class FakeCompute implements IgniteComputeInternal {
     public <R> R executeColocated(
             String tableName,
             Tuple key,
-            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).resultAsync().join();
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
@@ -156,13 +156,13 @@ public class FakeCompute implements IgniteComputeInternal {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).resultAsync().join();
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
@@ -170,12 +170,12 @@ public class FakeCompute implements IgniteComputeInternal {
 
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
-            JobExecutionOptions options,
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
-    ) {
+            ) {
         return null;
     }
 

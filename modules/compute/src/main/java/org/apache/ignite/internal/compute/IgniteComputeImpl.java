@@ -108,12 +108,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeAsync(JobExecutionOptions options, Set<ClusterNode> nodes, List<DeploymentUnit> units,
-            String jobClassName, Object... args) {
-        Objects.requireNonNull(options);
+    public <R> JobExecution<R> executeAsync(Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object... args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(options);
 
         if (nodes.isEmpty()) {
             throw new IllegalArgumentException("nodes must not be empty.");
@@ -271,11 +274,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            JobExecutionOptions jobExecutionOptions,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, jobExecutionOptions, args).resultAsync().join();
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -289,11 +292,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            JobExecutionOptions jobExecutionOptions,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, jobExecutionOptions, args).resultAsync()
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync()
                     .join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
@@ -343,20 +346,20 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            JobExecutionOptions jobExecutionOptions,
+            JobExecutionOptions options,
             Object... args
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(jobExecutionOptions);
+        Objects.requireNonNull(options);
 
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
                         // if worker node has left the cluster.
                         node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
-                                CompletableFutures::nullCompletedFuture, units, jobClassName, jobExecutionOptions, args))));
+                                CompletableFutures::nullCompletedFuture, units, jobClassName, options, args))));
     }
 
     @Override
