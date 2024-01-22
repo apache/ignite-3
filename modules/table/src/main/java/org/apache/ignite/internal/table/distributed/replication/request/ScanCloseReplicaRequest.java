@@ -28,6 +28,7 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 @Transferable(TableMessageGroup.SCAN_CLOSE_REPLICA_REQUEST)
 public interface ScanCloseReplicaRequest extends ReplicaRequest {
     UUID transactionId();
+
     /** The id uniquely determines a cursor for the transaction. */
     long scanId();
 }

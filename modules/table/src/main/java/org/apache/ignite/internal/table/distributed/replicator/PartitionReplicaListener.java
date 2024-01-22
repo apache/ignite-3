@@ -1120,7 +1120,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Closes a cursor if the batch is not fully retrieved.
      *
-     * @param batchSize
+     * @param batchSize Requested batch size.
      * @param rows List of retrieved rows.
      * @param cursorId Cursor id.
      */
