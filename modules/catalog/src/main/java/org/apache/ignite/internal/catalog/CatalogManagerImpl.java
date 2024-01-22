@@ -334,7 +334,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     /**
-     * Cleanup outdated catalog versions, which are not observable after given timestamp (inclusively), and compact underlying update log.
+     * Cleanup outdated catalog versions, which can't be observed after given timestamp (inclusively), and compact underlying update log.
      *
      * @param timestamp Earliest observable timestamp.
      * @return Operation future.
@@ -377,8 +377,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     /**
-     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts until the max retry count is
-     * reached.
+     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts
+     * until the max retry count is reached.
      *
      * @param updateProducer Supplies simple updates to include into a versioned update to install.
      * @param attemptNo Ordinal number of an attempt.
@@ -497,7 +497,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         assert activationTimestamp > catalog.time()
                 : "Activation timestamp " + activationTimestamp + " must be greater than previous catalog version activation timestamp "
-                + catalog.time();
+                        + catalog.time();
 
         return new Catalog(
                 update.version(),
@@ -609,7 +609,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     /**
-     * A container that keeps given descriptor along with name of the schema this descriptor belongs to.
+     * A container that keeps given descriptor along with name of the schema this
+     * descriptor belongs to.
      */
     private static class SchemaAwareDescriptor<T> {
         private final T descriptor;
