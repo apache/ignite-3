@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.queue;
+package org.apache.ignite.internal.index.message;
 
-import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-import java.util.UUID;
-import org.apache.ignite.compute.ComputeException;
-
-/**
- * Thrown when job cancel request failed.
- */
-public class CancellingException extends ComputeException {
-    public CancellingException(UUID jobId) {
-        super(CANCELLING_ERR, "Cancelling job " + jobId + " failed.");
-    }
+/** Response to {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}. */
+@Transferable(IndexMessageGroup.IS_NODE_FINISHED_RW_TRANSACTIONS_STARTED_BEFORE_RESPONSE)
+public interface IsNodeFinishedRwTransactionsStartedBeforeResponse extends NetworkMessage {
+    /** Returns the result of the check. */
+    boolean finished();
 }

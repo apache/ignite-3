@@ -21,6 +21,7 @@ import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
@@ -43,6 +44,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,7 +63,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private IgniteTablesInternal igniteTables;
 
     @Mock
-    private ComputeComponent computeComponent;
+    private ComputeComponentImpl computeComponent;
 
     @InjectMocks
     private IgniteComputeImpl compute;
@@ -163,17 +165,17 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<JobStatus> statusAsync() {
+            public CompletableFuture<@Nullable JobStatus> statusAsync() {
                 return nullCompletedFuture();
             }
 
             @Override
-            public CompletableFuture<Void> cancelAsync() {
-                return nullCompletedFuture();
+            public CompletableFuture<@Nullable Boolean> cancelAsync() {
+                return trueCompletedFuture();
             }
 
             @Override
-            public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+            public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
                 return nullCompletedFuture();
             }
         };
