@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -47,7 +48,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {}\n"
-            + "}";
+            + "  compute: {\n"
+            + "    threadPoolSize: 1\n"
+            + "  }\n"
+            + "}\n";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
     protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
@@ -166,6 +170,22 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
      */
     protected final void stopNode(int nodeIndex) {
         cluster.stopNode(nodeIndex);
+    }
+
+    /**
+     * Stops a node by name.
+     *
+     * @param name Name of the node in the cluster.
+     */
+    protected void stopNode(String name) {
+        cluster.stopNode(name);
+    }
+
+    /**
+     * Returns nodes that are started and not stopped. This can include knocked out nodes.
+     */
+    protected final Stream<IgniteImpl> runningNodes() {
+        return cluster.runningNodes();
     }
 
     /**

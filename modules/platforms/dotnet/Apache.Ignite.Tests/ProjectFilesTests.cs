@@ -36,6 +36,8 @@ namespace Apache.Ignite.Tests
         private static readonly string InternalDir =
             $"{Path.DirectorySeparatorChar}Internal{Path.DirectorySeparatorChar}";
 
+        public static IEnumerable<string> GetCsFiles() => Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
+
         [Test]
         public void TestInternalNamespaceHasNoPublicTypes()
         {
@@ -111,11 +113,6 @@ namespace Apache.Ignite.Tests
             {
                 throw new AggregateException(exceptions);
             }
-        }
-
-        private static IEnumerable<string> GetCsFiles()
-        {
-            return Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
         }
 
         [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]

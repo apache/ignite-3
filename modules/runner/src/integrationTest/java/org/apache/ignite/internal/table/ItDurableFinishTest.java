@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -76,9 +77,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             throws ExecutionException, InterruptedException {
         createTestTableWith3Replicas();
 
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = defaultTablePartitionId(node(0));
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -101,11 +100,19 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Tuple keyTpl = Tuple.create().set("key", 42);
         Tuple tpl = Tuple.create().set("key", 42).set("val", "val 42");
 
+        TableImpl tbl = (TableImpl) coordinatorNode.tables().table(TABLE_NAME);
+
         tbl.recordView().upsert(rwTx, tpl);
 
         msgConf.accept(primaryNode, coordinatorNode, tbl, rwTx);
 
         finisher.accept(rwTx, tbl, keyTpl);
+    }
+
+    private TablePartitionId defaultTablePartitionId(IgniteImpl node) {
+        TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+
+        return new TablePartitionId(table.tableId(), 0);
     }
 
     private void commitRow(InternalTransaction rwTx, TableImpl tbl, Tuple keyTpl) {
@@ -139,11 +146,15 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         AtomicBoolean dropMessage = new AtomicBoolean(true);
 
+        CountDownLatch commitStartedLatch = new CountDownLatch(1);
+
         // Make sure the finish message is prepared, i.e. the outcome, commit timestamp, primary node, etc. have been set,
         // and then temporarily block the messaging to simulate network issues.
         coordinatorMessaging.dropMessages((s, networkMessage) -> {
             if (networkMessage instanceof TxFinishReplicaRequest && dropMessage.get()) {
                 logger().info("Dropping: {}.", networkMessage);
+
+                commitStartedLatch.countDown();
 
                 return true;
             }
@@ -156,6 +167,8 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // will run in the current thread.
         CompletableFuture.runAsync(() -> {
             try {
+                commitStartedLatch.await();
+
                 logger().info("Start transferring primary.");
 
                 NodeUtils.transferPrimary(tbl, null, this::node);

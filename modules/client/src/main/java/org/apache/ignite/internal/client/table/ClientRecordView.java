@@ -27,21 +27,19 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
-import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
-import org.apache.ignite.lang.AsyncCursor;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Statement;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -385,22 +383,16 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncCursor<R>> queryAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            @Nullable CriteriaQueryOptions opts
-    ) {
-        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+    protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        String[] cols = columnNames(schema.columns(), 0, schema.columns().length);
+        Marshaller marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL, true);
 
-        return tbl.getLatestSchema()
-                .thenCompose((schema) -> {
-                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
-
-                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
-                    Session session = new ClientSessionBuilder(tbl.channel()).build();
-
-                    return session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())
-                            .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
-                });
+        return (row) -> {
+            try {
+                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, cols)), null);
+            } catch (MarshallerException e) {
+                throw new org.apache.ignite.lang.MarshallerException(e);
+            }
+        };
     }
 }

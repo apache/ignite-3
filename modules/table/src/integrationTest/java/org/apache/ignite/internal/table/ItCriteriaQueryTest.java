@@ -20,7 +20,9 @@ package org.apache.ignite.internal.table;
 import static java.util.Spliterators.spliteratorUnknownSize;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
@@ -37,22 +39,27 @@ import static org.apache.ignite.table.criteria.Criteria.notNullValue;
 import static org.apache.ignite.table.criteria.Criteria.nullValue;
 import static org.apache.ignite.table.criteria.CriteriaQueryOptions.builder;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Spliterator;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
@@ -62,6 +69,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
@@ -129,19 +137,21 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         Table table = CLUSTER.aliveNode().tables().table(TABLE_NAME);
         Table clientTable = CLIENT.tables().table(TABLE_NAME);
 
+        Function<TestObject, Tuple> objMapper = (obj) -> Tuple.create().set("id", obj.id).set("name", obj.name)
+                .set("salary", obj.salary).set("hash", obj.hash);
+
         return Stream.of(
                 Arguments.of(table.recordView(), identity()),
+                Arguments.of(table.recordView(TestObject.class), objMapper),
                 Arguments.of(clientTable.recordView(), identity()),
-                Arguments.of(clientTable.recordView(TestObject.class),
-                        (Function<TestObject, Tuple>) (obj) -> Tuple.create().set("id", obj.id).set("name", obj.name)
-                                .set("salary", obj.salary).set("hash", obj.hash))
+                Arguments.of(clientTable.recordView(TestObject.class), objMapper)
         );
     }
 
     @ParameterizedTest
     @MethodSource
     public <T> void testRecordViewQuery(CriteriaQuerySource<T> view, Function<T, Tuple> mapper) {
-        IgniteTestUtils.assertThrows(
+        assertThrows(
                 IgniteException.class,
                 () -> view.query(null, columnValue("id", equalTo("2"))),
                 "Dynamic parameter requires adding explicit type cast"
@@ -223,6 +233,175 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    private static Stream<Arguments> testKeyValueView() {
+        Table table = CLUSTER.aliveNode().tables().table(TABLE_NAME);
+        Table clientTable = CLIENT.tables().table(TABLE_NAME);
+
+        Function<Entry<TestObjectKey, TestObject>, Entry<Tuple, Tuple>> kvMapper = (entry) -> {
+            TestObjectKey key = entry.getKey();
+            TestObject val = entry.getValue();
+
+            return new IgniteBiTuple<>(Tuple.create().set("id", key.id), Tuple.create().set("name", val.name).set("salary", val.salary)
+                    .set("hash", val.hash));
+        };
+
+        return Stream.of(
+                Arguments.of(table.keyValueView(), identity()),
+                Arguments.of(table.keyValueView(TestObjectKey.class, TestObject.class), kvMapper),
+                Arguments.of(clientTable.keyValueView(), identity()),
+                Arguments.of(clientTable.keyValueView(TestObjectKey.class, TestObject.class), kvMapper)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    public <T> void testKeyValueView(CriteriaQuerySource<T> view, Function<T, Entry<Tuple, Tuple>> mapper) {
+        assertThrows(
+                IgniteException.class,
+                () -> view.query(null, columnValue("id", equalTo("2"))),
+                "Dynamic parameter requires adding explicit type cast"
+        );
+
+        Matcher<Tuple> personKey0 = tupleValue("id", is(0));
+        Matcher<Tuple> person0 = allOf(tupleValue("name", Matchers.nullValue()), tupleValue("salary", is(0.0d)),
+                tupleValue("hash", is("hash0".getBytes())));
+
+        Matcher<Tuple> personKey1 = tupleValue("id", is(1));
+        Matcher<Tuple> person1 = allOf(tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)),
+                tupleValue("hash", is("hash1".getBytes())));
+
+        Matcher<Tuple> personKey2 = tupleValue("id", is(2));
+        Matcher<Tuple> person2 = allOf(tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)),
+                tupleValue("hash", is("hash2".getBytes())));
+
+        try (Cursor<T> cur = view.query(null, null)) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(3),
+                    hasEntry(personKey0, person0),
+                    hasEntry(personKey1, person1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", equalTo(2)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("hash", equalTo("hash2".getBytes())))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", notEqualTo(2)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(2),
+                    hasEntry(personKey0, person0),
+                    hasEntry(personKey1, person1)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("hash", notEqualTo("hash2".getBytes())))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(2),
+                    hasEntry(personKey0, person0),
+                    hasEntry(personKey1, person1)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", greaterThan(1)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", greaterThanOrEqualTo(1)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(2),
+                    hasEntry(personKey1, person1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", lessThan(1)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
+                    hasEntry(personKey0, person0)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", lessThanOrEqualTo(1)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(2),
+                    hasEntry(personKey0, person0),
+                    hasEntry(personKey1, person1)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("name", nullValue()))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
+                    hasEntry(personKey0, person0)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("name", notNullValue()))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(2),
+                    hasEntry(personKey1, person1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", in(1, 2)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(2),
+                    hasEntry(personKey1, person1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", notIn(1, 2)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
+                    hasEntry(personKey0, person0)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("hash", in("hash1".getBytes(), "hash2".getBytes())))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(2),
+                    hasEntry(personKey1, person1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("hash", in((byte[]) null)))) {
+            assertThat(mapToTupleMap(cur, mapper), anEmptyMap());
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("hash", notIn("hash1".getBytes(), "hash2".getBytes())))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
+                    hasEntry(personKey0, person0)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("hash", notIn((byte[]) null)))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(3),
+                    hasEntry(personKey0, person0),
+                    hasEntry(personKey1, person1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+    }
+
     @Test
     public void testOptions() {
         RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
@@ -238,16 +417,18 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         Table table = CLUSTER.aliveNode().tables().table(QUOTED_TABLE_NAME);
         Table clientTable = CLIENT.tables().table(QUOTED_TABLE_NAME);
 
-        Mapper<QuotedObject> pojoMapper = Mapper.builder(QuotedObject.class)
+        Mapper<QuotedObject> recMapper = Mapper.builder(QuotedObject.class)
                 .map("colUmn", quote("colUmn"))
                 .automap()
                 .build();
 
+        Function<QuotedObject, Tuple> objMapper = (obj) -> Tuple.create(Map.of("id", obj.id, quote("colUmn"), obj.colUmn));
+
         return Stream.of(
                 Arguments.of(table.recordView(), identity()),
+                Arguments.of(table.recordView(recMapper), objMapper),
                 Arguments.of(clientTable.recordView(), identity()),
-                Arguments.of(clientTable.recordView(pojoMapper),
-                        (Function<QuotedObject, Tuple>) (obj) -> Tuple.create(Map.of("id", obj.id, quote("colUmn"), obj.colUmn)))
+                Arguments.of(clientTable.recordView(recMapper), objMapper)
         );
     }
 
@@ -261,15 +442,93 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    private static Stream<Arguments> testKeyViewWithQuotes() {
+        Table table = CLUSTER.aliveNode().tables().table(QUOTED_TABLE_NAME);
+        Table clientTable = CLIENT.tables().table(QUOTED_TABLE_NAME);
+
+        Mapper<QuotedObjectKey> keyMapper = Mapper.of(QuotedObjectKey.class);
+        Mapper<QuotedObject> valMapper = Mapper.builder(QuotedObject.class)
+                .map("colUmn", quote("colUmn"))
+                .build();
+
+        Function<Entry<QuotedObjectKey, QuotedObject>, Entry<Tuple, Tuple>> kvMapper = (entry) ->
+                new IgniteBiTuple<>(Tuple.create(Map.of("id", entry.getKey().id)), Tuple.create(Map.of(quote("colUmn"),
+                        entry.getValue().colUmn)));
+
+        return Stream.of(
+                Arguments.of(table.keyValueView(), identity()),
+                Arguments.of(table.keyValueView(keyMapper, valMapper), kvMapper),
+                Arguments.of(clientTable.keyValueView(), identity()),
+                Arguments.of(clientTable.keyValueView(keyMapper, valMapper), kvMapper)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    public <T> void testKeyViewWithQuotes(CriteriaQuerySource<T> view, Function<T, Entry<Tuple, Tuple>> mapper) {
+        try (Cursor<T> cur = view.query(null, columnValue(quote("colUmn"), equalTo("name1")))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
+                    hasEntry(tupleValue("id", is(1)), tupleValue(quote("colUmn"), is("name1")))
+            ));
+        }
+    }
+
+    private static Stream<Arguments> testSessionClosing() {
+        Table table = CLUSTER.aliveNode().tables().table(TABLE_NAME);
+
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
+        tx.rollback();
+
+        return Stream.of(
+                Arguments.of(table.recordView(), tx),
+                Arguments.of(table.recordView(TestObject.class), tx),
+                Arguments.of(table.keyValueView(), tx),
+                Arguments.of(table.keyValueView(TestObjectKey.class, TestObject.class), tx)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    public void testSessionClosing(CriteriaQuerySource<?> view, Transaction tx) {
+        int baseSessionsCount = activeSessionsCount();
+
+        assertThrows(
+                IgniteException.class,
+                () -> view.query(tx, columnValue("id", equalTo(2))),
+                "Transaction is already finished"
+        );
+
+        assertEquals(baseSessionsCount, activeSessionsCount());
+    }
+
+    private static int activeSessionsCount() {
+        return ((IgniteSqlImpl) CLUSTER.aliveNode().sql()).sessions().size();
+    }
+
     private static <T> List<Tuple> mapToTupleList(Cursor<T> cur, Function<T, Tuple> mapper) {
         return StreamSupport.stream(spliteratorUnknownSize(cur, Spliterator.ORDERED), false)
                 .map(mapper)
                 .collect(toList());
     }
 
+    private static <T, K, V> Map<K, V> mapToTupleMap(Cursor<T> cur, Function<T, Entry<K, V>> mapper) {
+        return StreamSupport.stream(spliteratorUnknownSize(cur, Spliterator.ORDERED), false)
+                .map(mapper)
+                .collect(toMap(Entry::getKey, Entry::getValue));
+    }
+
+    static class QuotedObjectKey {
+        int id;
+    }
+
     static class QuotedObject {
         int id;
         String colUmn;
+    }
+
+    static class TestObjectKey {
+        int id;
     }
 
     static class TestObject {
