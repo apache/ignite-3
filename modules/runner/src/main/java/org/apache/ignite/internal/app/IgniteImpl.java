@@ -96,6 +96,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -323,6 +324,9 @@ public class IgniteImpl implements Ignite {
 
     /** Index building manager. */
     private final IndexBuildingManager indexBuildingManager;
+
+    /** Local node RW transaction completion checker for indexes. */
+    private final IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker;
 
     /**
      * The Constructor.
@@ -574,6 +578,12 @@ public class IgniteImpl implements Ignite {
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
+        indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
+                catalogManager,
+                clusterSvc.messagingService(),
+                clock
+        );
+
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 txConfig,
@@ -583,7 +593,8 @@ public class IgniteImpl implements Ignite {
                 clock,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                indexNodeFinishedRwTransactionsChecker
         );
 
         distributedTblMgr = new TableManager(
@@ -845,6 +856,7 @@ public class IgniteImpl implements Ignite {
                                     distributionZoneManager,
                                     computeComponent,
                                     replicaMgr,
+                                    indexNodeFinishedRwTransactionsChecker,
                                     txManager,
                                     dataStorageMgr,
                                     schemaManager,
@@ -1232,5 +1244,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ConfigurationRegistry clusterConfigurationRegistry() {
         return clusterCfgMgr.configurationRegistry();
+    }
+
+    /** Returns cluster service (cluster network manager). */
+    @TestOnly
+    public ClusterService clusterService() {
+        return clusterSvc;
     }
 }
