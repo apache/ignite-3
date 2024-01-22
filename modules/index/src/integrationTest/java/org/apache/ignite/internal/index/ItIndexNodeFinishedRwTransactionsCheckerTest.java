@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -26,6 +25,8 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -34,10 +35,12 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeResponse;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -64,8 +67,9 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     @BeforeEach
     void setUp() {
         if (node() != null) {
-            createTableOnly(TABLE_NAME, DEFAULT_ZONE_NAME);
-            createZoneOnly(zoneNameForUpdateCatalogVersionOnly, 1, 1);
+            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TestStorageEngine.ENGINE_NAME);
+            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TestStorageEngine.ENGINE_NAME);
+            createTableOnly(TABLE_NAME, zoneName(TABLE_NAME));
         }
     }
 
@@ -73,6 +77,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     void tearDown() {
         if (node() != null) {
             sql("DROP TABLE IF EXISTS " + TABLE_NAME);
+            sql("DROP ZONE IF EXISTS " + zoneName(TABLE_NAME));
             sql("DROP ZONE IF EXISTS " + zoneNameForUpdateCatalogVersionOnly);
         }
     }
@@ -163,24 +168,34 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
         assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
     }
 
-    @ParameterizedTest(name = "commit = {0}")
-    @ValueSource(booleans = {true, false})
-    void testOnePhaseCommitViaKeyValue(boolean commit) {
+    @Test
+    void testOnePhaseCommitViaKeyValue() {
         int oldLatestCatalogVersion = latestCatalogVersion();
 
-        runInTx(commit, rwTx -> {
-            KeyValueView<Tuple, Tuple> keyValueView = tableImpl().keyValueView();
+        TableImpl tableImpl = tableImpl();
 
-            assertThat(
-                    keyValueView.putAsync(rwTx, Tuple.create().set("ID", 0), Tuple.create().set("NAME", "0").set("SALARY", 0.0)),
-                    willCompleteSuccessfully()
-            );
+        var continueUpdateMvPartitionStorageFuture = new CompletableFuture<Void>();
 
-            fakeUpdateCatalog();
+        CompletableFuture<Void> awaitStartUpdateAnyMvPartitionStorageFuture = awaitStartUpdateAnyMvPartitionStorage(
+                tableImpl.internalTable().storage(),
+                continueUpdateMvPartitionStorageFuture
+        );
 
-            assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
-            assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
-        });
+        CompletableFuture<Void> putAsync = tableImpl.keyValueView().putAsync(
+                null,
+                Tuple.create().set("ID", 0), Tuple.create().set("NAME", "0").set("SALARY", 0.0)
+        );
+
+        assertThat(awaitStartUpdateAnyMvPartitionStorageFuture, willCompleteSuccessfully());
+
+        fakeUpdateCatalog();
+
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+        assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
+
+        continueUpdateMvPartitionStorageFuture.complete(null);
+
+        assertThat(putAsync, willCompleteSuccessfully());
 
         assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
         assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
@@ -251,5 +266,26 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
         assertThat(invokeFuture, willCompleteSuccessfully());
 
         return ((IsNodeFinishedRwTransactionsStartedBeforeResponse) invokeFuture.join()).finished();
+    }
+
+    private static CompletableFuture<Void> awaitStartUpdateAnyMvPartitionStorage(
+            MvTableStorage mvTableStorage,
+            CompletableFuture<Void> continueUpdateFuture
+    ) {
+        var awaitStartUpdateAnyMvPartitionStorageFuture = new CompletableFuture<Void>();
+
+        for (int partitionId = 0; partitionId < mvTableStorage.getTableDescriptor().getPartitions(); partitionId++) {
+            MvPartitionStorage mvPartitionStorage = mvTableStorage.getMvPartition(partitionId);
+
+            doAnswer(invocation -> {
+                awaitStartUpdateAnyMvPartitionStorageFuture.complete(null);
+
+                assertThat(continueUpdateFuture, willCompleteSuccessfully());
+
+                return invocation.callRealMethod();
+            }).when(mvPartitionStorage).runConsistently(any());
+        }
+
+        return awaitStartUpdateAnyMvPartitionStorageFuture;
     }
 }

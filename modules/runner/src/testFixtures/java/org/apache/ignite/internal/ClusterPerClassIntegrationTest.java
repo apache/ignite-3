@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,6 +36,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -176,11 +178,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param zoneName Zone name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
+     * @param storageEngine Storage engine, zero to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
      */
-    protected static void createZoneOnly(String zoneName, int replicas, int partitions) {
+    protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, @Nullable String storageEngine) {
         sql(format(
-                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
-                zoneName, replicas, partitions
+                "CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={};",
+                zoneName, Objects.requireNonNullElse(storageEngine, DEFAULT_STORAGE_ENGINE), replicas, partitions
         ));
     }
 
@@ -193,7 +196,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
-        createZoneOnly(zoneName, replicas, partitions);
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, null);
 
         return createTableOnly(tableName, zoneName);
     }

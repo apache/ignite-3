@@ -357,6 +357,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
+
+        decrementRwTxCount(txId);
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
