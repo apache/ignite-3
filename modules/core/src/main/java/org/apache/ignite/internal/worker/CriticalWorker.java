@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.worker;
 
 /**
- * A worker that performs some critical work and hence need to be monitored for being hung.
+ * A worker that performs some critical work and hence needs to be monitored for being blocked.
  */
 public interface CriticalWorker {
     /**
