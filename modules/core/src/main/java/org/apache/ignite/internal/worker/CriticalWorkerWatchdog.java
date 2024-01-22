@@ -42,8 +42,8 @@ import org.jetbrains.annotations.Nullable;
  * If the worker does not do any computations (it is blocked on an I/O operation, waits for a lock, or has no work to do),
  * it must set its {@link CriticalWorker#heartbeatNanos()} to {@link CriticalWorker#NOT_MONITORED}.
  *
- * <p>The watchdog periodically does its check; if it finds a worker that lags more than allowed and it is not in
- * NOT_MONITORED state, then logging and failure handling notification is triggered.
+ * <p>The watchdog periodically performs a check; if it finds a worker that lags more than allowed and it is not in the
+ * NOT_MONITORED state, then a logging is triggered.
  */
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
     private final IgniteLogger log = Loggers.forClass(CriticalWorkerWatchdog.class);
