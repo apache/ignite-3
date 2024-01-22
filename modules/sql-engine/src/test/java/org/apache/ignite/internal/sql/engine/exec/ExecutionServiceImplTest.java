@@ -151,6 +151,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Timeout in ms for SQL planning phase. */
     public static final long PLANNING_TIMEOUT = 5_000;
 
+    public static final int PLANNING_THREAD_COUNT = 2;
+
     /** Timeout in ms for stopping execution service.*/
     private static final long SHUTDOWN_TIMEOUT = 5_000;
 
@@ -190,7 +192,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, CaffeineCacheFactory.INSTANCE, null, PLANNING_TIMEOUT, new MetricManager());
+        prepareService = new PrepareServiceImpl("test", 0, CaffeineCacheFactory.INSTANCE, null, PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
+                new MetricManager());
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
@@ -831,7 +834,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
 
-        var taskExecutor = new QueryTaskExecutorImpl(nodeName);
+        var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4);
         executers.add(taskExecutor);
 
         var node = testCluster.addNode(nodeName, taskExecutor);

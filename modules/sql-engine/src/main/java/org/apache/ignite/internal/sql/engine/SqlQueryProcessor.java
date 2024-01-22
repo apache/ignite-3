@@ -74,6 +74,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -138,9 +140,6 @@ import org.jetbrains.annotations.TestOnly;
 public class SqlQueryProcessor implements QueryProcessor {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
-
-    /** Size of the cache for query plans. */
-    private static final int PLAN_CACHE_SIZE = 1024;
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
 
@@ -214,6 +213,15 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
 
+    /** Cluster SQL configuration. */
+    private final SqlDistributedConfiguration clusterCfg;
+
+    /** Node SQL configuration. */
+    private final SqlLocalConfiguration nodeCfg;
+
+    /** Size of cache of plans. */
+    private final int planCacheSize;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -229,7 +237,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             CatalogManager catalogManager,
             MetricManager metricManager,
             SystemViewManager systemViewManager,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            SqlDistributedConfiguration clusterCfg,
+            SqlLocalConfiguration nodeCfg
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -244,12 +254,16 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
         this.placementDriver = placementDriver;
+        this.clusterCfg = clusterCfg;
+        this.nodeCfg = nodeCfg;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );
+
+        planCacheSize = clusterCfg.planner().estimatedNumberOfQueries().value();
     }
 
     /** {@inheritDoc} */
@@ -257,7 +271,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.planner().threadCount().value()));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
@@ -265,11 +279,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
-                PLAN_CACHE_SIZE,
+                planCacheSize,
                 CACHE_FACTORY,
                 dataStorageManager,
                 dataStorageFieldsSupplier.get(),
-                metricManager
+                metricManager,
+                clusterCfg,
+                nodeCfg
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
@@ -324,7 +340,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         };
 
         var mappingService = new MappingServiceImpl(
-                nodeName, executionTargetProvider, CACHE_FACTORY, PLAN_CACHE_SIZE, taskExecutor
+                nodeName, executionTargetProvider, CACHE_FACTORY, planCacheSize, taskExecutor
         );
 
         logicalTopologyService.addEventListener(mappingService);

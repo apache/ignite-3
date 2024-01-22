@@ -31,7 +31,6 @@ import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializati
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -59,7 +58,6 @@ import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -122,6 +120,8 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -452,7 +452,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 catalogManager,
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
-                placementDriverManager.placementDriver()
+                placementDriverManager.placementDriver(),
+                clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
+                nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY)
         );
 
         sqlRef.set(new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, new HybridTimestampTracker())));
@@ -535,69 +537,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     /**
-     * Starts a node with the given parameters.
-     *
-     * @param idx Node index.
-     * @param cfg Configuration string or {@code null} to use the default configuration.
-     * @return Created node instance.
-     */
-    private IgniteImpl startNode(int idx, @Nullable String cfg) {
-        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
-
-        CompletableFuture<Ignite> future = startNodeAsync(idx, cfg);
-
-        if (initNeeded) {
-            String nodeName = CLUSTER_NODES_NAMES.get(0);
-
-            InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
-                    .clusterName("cluster")
-                    .build();
-            TestIgnitionManager.init(initParameters);
-        }
-
-        assertThat(future, willCompleteSuccessfully());
-
-        Ignite ignite = future.join();
-
-        return (IgniteImpl) ignite;
-    }
-
-    /**
-     * Starts a node with the given parameters.
-     *
-     * @param idx Node index.
-     * @return Created node instance.
-     */
-    private IgniteImpl startNode(int idx) {
-        return startNode(idx, null);
-    }
-
-    /**
-     * Starts a node with the given parameters. Does not run the Init command.
-     *
-     * @param idx Node index.
-     * @param cfg Configuration string or {@code null} to use the default configuration.
-     * @return Future that completes with a created node instance.
-     */
-    private CompletableFuture<Ignite> startNodeAsync(int idx, @Nullable String cfg) {
-        String nodeName = testNodeName(testInfo, idx);
-
-        String cfgString = cfg == null ? configurationString(idx) : cfg;
-
-        if (CLUSTER_NODES_NAMES.size() == idx) {
-            CLUSTER_NODES_NAMES.add(nodeName);
-        } else {
-            assertNull(CLUSTER_NODES_NAMES.get(idx));
-
-            CLUSTER_NODES_NAMES.set(idx, nodeName);
-        }
-
-        return TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
-    }
-
-    /**
      * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
      */
     private List<IgniteImpl> startNodes(int amount) {
@@ -625,19 +564,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     return (IgniteImpl) future.join();
                 })
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * Stop the node with given index.
-     *
-     * @param idx Node index.
-     */
-    private void stopNode(int idx) {
-        String nodeName = CLUSTER_NODES_NAMES.set(idx, null);
-
-        if (nodeName != null) {
-            IgnitionManager.stop(nodeName);
-        }
     }
 
     /**
