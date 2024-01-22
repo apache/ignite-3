@@ -23,7 +23,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Single thread executor instrumented to be used as a {@link CriticalWorker} and being monitorable by the {@link CriticalWorkerWatchdog}.
+ * Single thread executor instrumented to be used as a {@link CriticalWorker} and being monitored by the {@link CriticalWorkerWatchdog}.
  * Must be registered with the watchdog explicitly.
  */
 public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements CriticalWorker {
