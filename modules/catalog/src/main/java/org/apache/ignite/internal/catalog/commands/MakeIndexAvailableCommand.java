@@ -18,23 +18,26 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.IndexAlreadyAvailableValidationException;
+import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
- * Makes the index available, switches from the registered to the available state in the catalog.
+ * Makes the index available, switches from the {@link CatalogIndexStatus#BUILDING} to the {@link CatalogIndexStatus#AVAILABLE}
+ * {@link CatalogIndexDescriptor#status() status} in the catalog.
  *
- * @see CatalogIndexDescriptor#available()
+ * @see CatalogIndexStatus
  * @see IndexNotFoundValidationException
- * @see IndexAlreadyAvailableValidationException
+ * @see ChangeIndexStatusValidationException
  */
 public class MakeIndexAvailableCommand implements CatalogCommand {
     /** Returns builder to make an index available. */
@@ -53,8 +56,8 @@ public class MakeIndexAvailableCommand implements CatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
 
-        if (index.available()) {
-            throw new IndexAlreadyAvailableValidationException(format("Index is already available '{}'", indexId));
+        if (index.status() != BUILDING) {
+            throw new ChangeIndexStatusValidationException(indexId, index.status(), AVAILABLE, BUILDING);
         }
 
         return List.of(new MakeIndexAvailableEntry(indexId));

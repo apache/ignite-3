@@ -23,6 +23,8 @@ import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -223,7 +225,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         UUID jobIdBeforeFail = idSync(execution);
 
         // When stop worker node.
-        stopNode(workerNodeName);
+        stopNodeByName(workerNodeName);
         // And remove it from candidates.
         remoteWorkerCandidates.remove(workerNodeName);
 
@@ -273,7 +275,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         checkGlobalInteractiveJobAlive(execution);
 
         // When stop worker node.
-        stopNode(workerNodeName);
+        stopNodeByName(workerNodeName);
 
         // Then the job is failed, because there is no any failover worker.
         assertThat(execution.resultAsync(), willThrow(IgniteException.class));
@@ -295,7 +297,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         assertThat(getWorkerNodeNameFromGlobalInteractiveJob(), equalTo(entryNode.name()));
 
         // When stop entry node.
-        stopNode(entryNode.name());
+        stopNodeByName(entryNode.name());
 
         // Then the job is failed, because there is no any failover worker.
         assertThat(execution.resultAsync().isCompletedExceptionally(), equalTo(true));
@@ -321,7 +323,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         executions.forEach(ItWorkerShutdownTest::checkInteractiveJobAlive);
 
         // When stop one of workers.
-        stopNode(node(1).name());
+        stopNodeByName(node(1).name());
 
         // Then two jobs are alive.
         executions.forEach((node, execution) -> {
@@ -355,7 +357,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         checkGlobalInteractiveJobAlive(execution);
 
         // When stop worker node.
-        stopNode(workerNodeName);
+        stopNodeByName(workerNodeName);
         // And remove it from candidates.
         remoteWorkerCandidates.remove(workerNodeName);
 
@@ -366,12 +368,12 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
 
         // When cancel job.
-        execution.cancelAsync().get(10, TimeUnit.SECONDS);
+        assertThat(execution.cancelAsync(), willBe(true));
 
         // Then it is cancelled.
         assertThat(execution.resultAsync(), willThrow(IgniteException.class));
         // And.
-        assertThat(statusSync(execution).state(), is(CANCELED));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(CANCELED)));
     }
 
     @Test
@@ -417,10 +419,10 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
     }
 
     private void stopNode(IgniteImpl ignite) {
-        stopNode(ignite.name());
+        stopNodeByName(ignite.name());
     }
 
-    private void stopNode(String name) {
+    private void stopNodeByName(String name) {
         int ind = NODES_NAMES_TO_INDEXES.get(name);
         node(ind).stop();
     }

@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -125,7 +125,7 @@ public class TestServer {
                 mock(IgniteTablesInternal.class),
                 mock(IgniteTransactionsImpl.class),
                 registry,
-                mock(IgniteCompute.class),
+                mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
                 mock(IgniteSql.class),

@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -650,10 +651,11 @@ public class TestBuilders {
                             .findAny()
                             .orElseThrow(() -> new AssertionError("IndexDescriptor does not exist: " + indexName));
 
-                    CatalogCommand command = MakeIndexAvailableCommand.builder()
-                            .indexId(index.id())
-                            .build();
-                    makeIndexesAvailable.add(command);
+                    CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
+                    CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(index.id()).build();
+
+                    makeIndexesAvailable.add(startBuildIndexCommand);
+                    makeIndexesAvailable.add(makeIndexAvailableCommand);
                 }
             }
 

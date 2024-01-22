@@ -15,28 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 
-import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
-/**
- * The exception is thrown when a transaction has already been finished.
- */
-public class TransactionAlreadyFinishedException extends TransactionException {
-
-    private static final long serialVersionUID = -7953057695915339651L;
-
-    /** Stored transaction result. */
-    private final TransactionResult transactionResult;
-
-    public TransactionAlreadyFinishedException(String message, TransactionResult transactionResult) {
-        super(TX_UNEXPECTED_STATE_ERR, message);
-        this.transactionResult = transactionResult;
+/** Tests to verify validation of {@link StartBuildingIndexCommand}. */
+public class StartBuildingIndexCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
+    @Override
+    CatalogCommand createCommand(int indexId) {
+        return StartBuildingIndexCommand.builder().indexId(indexId).build();
     }
 
-    public TransactionResult transactionResult() {
-        return transactionResult;
+    @Override
+    boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
+        return indexStatus != REGISTERED;
     }
 }

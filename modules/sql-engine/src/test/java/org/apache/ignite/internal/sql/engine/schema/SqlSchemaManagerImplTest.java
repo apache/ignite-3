@@ -55,6 +55,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -527,11 +528,10 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         CatalogIndexDescriptor indexDescriptor = indices.get(name);
         assertNotNull(indexDescriptor, indices.toString());
 
-        CatalogCommand makeAvailable = MakeIndexAvailableCommand.builder()
-                .indexId(indexDescriptor.id())
-                .build();
+        CatalogCommand startBuilding = StartBuildingIndexCommand.builder().indexId(indexDescriptor.id()).build();
+        CatalogCommand makeAvailable = MakeIndexAvailableCommand.builder().indexId(indexDescriptor.id()).build();
 
-        await(catalogManager.execute(List.of(makeAvailable)));
+        await(catalogManager.execute(List.of(startBuilding, makeAvailable)));
     }
 
     @ParameterizedTest

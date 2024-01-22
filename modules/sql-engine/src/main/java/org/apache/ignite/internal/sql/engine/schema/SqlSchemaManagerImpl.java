@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -178,7 +179,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         // Assemble indexes as they are required by tables.
         for (CatalogIndexDescriptor indexDescriptor : schemaDescriptor.indexes()) {
-            if (!indexDescriptor.available()) {
+            if (indexDescriptor.status() != AVAILABLE) {
                 continue;
             }
 

@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.queue;
-
-import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
-
-import java.util.UUID;
-import org.apache.ignite.compute.ComputeException;
+package org.apache.ignite.internal.catalog;
 
 /**
- * Thrown when job cancel request failed.
+ * Exception is thrown when the distribution zone cannot be dropped due to some reason, e.g. because it is the default distribution zone or
+ * there is a table bound to the distribution zone.
  */
-public class CancellingException extends ComputeException {
-    public CancellingException(UUID jobId) {
-        super(CANCELLING_ERR, "Cancelling job " + jobId + " failed.");
+public class DistributionZoneCantBeDroppedValidationException extends CatalogValidationException {
+    private static final long serialVersionUID = -6278120614792218429L;
+
+    public DistributionZoneCantBeDroppedValidationException(String messagePattern, Object... params) {
+        super(messagePattern, params);
     }
 }

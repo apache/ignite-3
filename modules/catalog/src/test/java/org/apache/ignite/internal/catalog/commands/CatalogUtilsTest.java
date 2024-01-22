@@ -102,16 +102,21 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testCollectIndexesAfterCreateIndexAndMakeAvailableIndex() throws Exception {
+    void testCollectIndexesAfterCreateIndexAndStartBuildingIndexAndMakeAvailableIndex() throws Exception {
         withCatalogManager(catalogManager -> {
             String indexName0 = INDEX_NAME + 0;
             String indexName1 = INDEX_NAME + 1;
+            String indexName2 = INDEX_NAME + 2;
 
             createTable(catalogManager, TABLE_NAME);
             createIndex(catalogManager, TABLE_NAME, indexName0);
             createIndex(catalogManager, TABLE_NAME, indexName1);
+            createIndex(catalogManager, TABLE_NAME, indexName2);
 
+            startBuildingIndex(catalogManager, indexName1);
             makeIndexAvailable(catalogManager, indexName1);
+
+            startBuildingIndex(catalogManager, indexName2);
 
             int latestCatalogVersion = catalogManager.latestCatalogVersion();
             int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
@@ -123,7 +128,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                     hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, latestCatalogVersion, indexName0),
-                            index(catalogManager, latestCatalogVersion, indexName1)
+                            index(catalogManager, latestCatalogVersion, indexName1),
+                            index(catalogManager, latestCatalogVersion, indexName2)
                     )
             );
 
@@ -132,7 +138,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                     hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, latestCatalogVersion, indexName0),
-                            index(catalogManager, latestCatalogVersion, indexName1)
+                            index(catalogManager, latestCatalogVersion, indexName1),
+                            index(catalogManager, latestCatalogVersion, indexName2)
                     )
             );
         });
@@ -143,12 +150,17 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         withCatalogManager(catalogManager -> {
             String indexName0 = INDEX_NAME + 0;
             String indexName1 = INDEX_NAME + 1;
+            String indexName2 = INDEX_NAME + 2;
 
             createTable(catalogManager, TABLE_NAME);
             createIndex(catalogManager, TABLE_NAME, indexName0);
             createIndex(catalogManager, TABLE_NAME, indexName1);
+            createIndex(catalogManager, TABLE_NAME, indexName2);
 
+            startBuildingIndex(catalogManager, indexName1);
             makeIndexAvailable(catalogManager, indexName1);
+
+            startBuildingIndex(catalogManager, indexName2);
 
             int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
 
@@ -173,7 +185,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                     hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
-                            index(catalogManager, catalogVersionBeforeDropIndex1, indexName1)
+                            index(catalogManager, catalogVersionBeforeDropIndex1, indexName1),
+                            index(catalogManager, catalogVersionBeforeDropIndex1, indexName2)
                     )
             );
         });
@@ -182,20 +195,20 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
     /**
      * Tests the more complex case of getting indexes.
      *
-     * <p>Consider the following versions of the directory with its contents:</p>
+     * <p>Consider the following versions of the catalog with its contents:</p>
      * <pre>
      *     Catalog versions and entity IDs have been simplified.
      *
      *     0 : T0 Ipk(A)
      *     1 : T0 Ipk(A) I0(R) I1(R) I2(R) I3(R)
-     *     2 : T0 Ipk(A) I0(A) I1(R) I2(A) I3(R)
-     *     3 : T0 Ipk(A) I1(R) I2(A)
+     *     2 : T0 Ipk(A) I0(A) I1(B) I2(A) I3(R)
+     *     3 : T0 Ipk(A) I1(B) I2(A)
      * </pre>
      *
      * <p>Expected indexes for range version:</p>
      * <pre>
-     *     3 -> 3 : Ipk(A) I1(R) I2(A)
-     *     0 -> 3 : Ipk(A) I0(A) I1(R) I2(A) I3(R)
+     *     3 -> 3 : Ipk(A) I1(B) I2(A)
+     *     0 -> 3 : Ipk(A) I0(A) I1(B) I2(A) I3(R)
      * </pre>
      */
     @Test
@@ -211,6 +224,10 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
             createIndex(catalogManager, TABLE_NAME, indexName1);
             createIndex(catalogManager, TABLE_NAME, indexName2);
             createIndex(catalogManager, TABLE_NAME, indexName3);
+
+            startBuildingIndex(catalogManager, indexName0);
+            startBuildingIndex(catalogManager, indexName1);
+            startBuildingIndex(catalogManager, indexName2);
 
             makeIndexAvailable(catalogManager, indexName0);
             makeIndexAvailable(catalogManager, indexName2);
@@ -283,6 +300,14 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .columns(List.of(COLUMN_NAME))
                 .unique(false)
                 .build();
+
+        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
+    }
+
+    private static void startBuildingIndex(CatalogManager catalogManager, String indexName) {
+        CatalogIndexDescriptor index = index(catalogManager, catalogManager.latestCatalogVersion(), indexName);
+
+        CatalogCommand catalogCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
