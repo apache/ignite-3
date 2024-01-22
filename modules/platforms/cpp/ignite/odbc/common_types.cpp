@@ -229,11 +229,7 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10
-        case error::code::ZONE_ALREADY_EXISTS:
         case error::code::ZONE_NOT_FOUND:
-        case error::code::ZONE_RENAME:
-        case error::code::ZONE_DROP:
-        case error::code::ZONE_DEFINITION:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Network group. Group code: 11
