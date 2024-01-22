@@ -112,7 +112,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME_2)), willCompleteSuccessfully());
 
         int catalogVersion0 = catalogManager.latestCatalogVersion();
-        long time0 = catalogManager.catalog(catalogVersion0).time() + 1;
+        long time0 = catalogManager.catalog(catalogVersion0).time();
 
         assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
         assertThat(catalogManager.execute(simpleIndex(TABLE_NAME_2, INDEX_NAME_2)), willCompleteSuccessfully());
