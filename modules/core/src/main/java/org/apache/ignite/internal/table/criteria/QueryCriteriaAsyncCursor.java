@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.criteria;
 
-import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.convertToPublicCriteriaFuture;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -25,6 +24,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -62,7 +62,7 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     public Iterable<T> currentPage() {
         try {
             return mapIterable(ars.currentPage(), mapper, null);
-        } catch (Throwable e) {
+        } catch (NoRowSetExpectedException e) {
             throw sneakyThrow(mapToPublicCriteriaException(e));
         }
     }
@@ -72,7 +72,7 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     public int currentPageSize() {
         try {
             return ars.currentPageSize();
-        } catch (Throwable e) {
+        } catch (NoRowSetExpectedException e) {
             throw sneakyThrow(mapToPublicCriteriaException(e));
         }
     }
@@ -80,14 +80,14 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<? extends AsyncCursor<T>> fetchNextPage() {
-        return convertToPublicCriteriaFuture(ars.fetchNextPage()
+        return ars.fetchNextPage()
                 .thenApply((rs) -> {
                     if (!hasMorePages()) {
                         closeAsync();
                     }
 
                     return new QueryCriteriaAsyncCursor<>(rs, mapper, closeRun);
-                }));
+                });
     }
 
     /** {@inheritDoc} */
@@ -99,6 +99,6 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return convertToPublicCriteriaFuture(ars.closeAsync().thenRun(closeRun));
+        return ars.closeAsync().thenRun(closeRun);
     }
 }

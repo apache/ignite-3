@@ -43,13 +43,14 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.lang.CursorClosedException;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
@@ -480,12 +481,12 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         ses.close();
 
-        SqlException sqlEx = assertThrowsSqlException(
-                Sql.CURSOR_CLOSED_ERR,
-                "Cursor is closed",
-                () -> rs.forEachRemaining(System.out::println));
+        IgniteTestUtils.assertThrows(
+                CursorClosedException.class,
+                () -> rs.forEachRemaining(System.out::println),
+                Common.CURSOR_CLOSED_ERR,
+                "Cursor is closed");
 
-        assertTrue(IgniteTestUtils.hasCause(sqlEx, CursorClosedException.class, null));
         assertThrowsSqlException(Sql.SESSION_CLOSED_ERR, "Session is closed", () -> execute(ses, "SELECT ID FROM TEST"));
     }
 
@@ -538,11 +539,11 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
             rs.close();
 
-            assertThrowsSqlException(
+            IgniteTestUtils.assertThrows(
                     CursorClosedException.class,
-                    Sql.CURSOR_CLOSED_ERR,
-                    "Cursor is closed",
-                    () -> rs.forEachRemaining(Object::hashCode));
+                    () -> rs.forEachRemaining(Object::hashCode),
+                    Common.CURSOR_CLOSED_ERR,
+                    "Cursor is closed");
         }
     }
 

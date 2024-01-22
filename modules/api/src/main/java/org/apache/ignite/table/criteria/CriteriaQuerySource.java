@@ -36,7 +36,6 @@ public interface CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return Iterator with query results.
      * @throws CriteriaException If failed.
-     * @throws IllegalArgumentException If the names of the provided columns are incorrect.
      */
     default Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return query(tx, criteria, null);
@@ -50,7 +49,6 @@ public interface CriteriaQuerySource<T> {
      * @param opts Criteria query options or {@code null} to use default.
      * @return Iterator with query results.
      * @throws CriteriaException If failed.
-     * @throws IllegalArgumentException If the names of the provided columns are incorrect.
      */
     Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts);
 
@@ -61,7 +59,6 @@ public interface CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return Future that represents the pending completion of the operation.
      * @throws CriteriaException If failed.
-     * @throws IllegalArgumentException If the names of the provided columns are incorrect.
      */
     default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return queryAsync(tx, criteria, null);
@@ -75,7 +72,6 @@ public interface CriteriaQuerySource<T> {
      * @param opts Criteria query options or {@code null} to use default.
      * @return Future that represents the pending completion of the operation.
      * @throws CriteriaException If failed.
-     * @throws IllegalArgumentException If the names of the provided columns are incorrect.
      */
     CompletableFuture<AsyncCursor<T>> queryAsync(
             @Nullable Transaction tx,

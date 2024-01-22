@@ -23,11 +23,10 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.Criteria;
-import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.lang.TraceableException;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.criteria.CriteriaException;
 
 /**
@@ -57,18 +56,8 @@ public class CriteriaExceptionMapperUtil {
             return e;
         }
 
-        if (e instanceof SqlException) {
-            SqlException sqle = (SqlException) e;
-
-            if (sqle.code() == Sql.CURSOR_NO_MORE_PAGES_ERR) {
-                return new CriteriaException(Criteria.CRITERIA_CURSOR_NO_MORE_PAGES_ERR, e);
-            }
-
-            if (sqle.code() == Sql.CURSOR_CLOSED_ERR) {
-                return new CriteriaException(Criteria.CRITERIA_CURSOR_CLOSED_ERR, e);
-            }
-
-            return new CriteriaException(INTERNAL_ERR, e);
+        if (e instanceof CriteriaException || e instanceof CursorClosedException || e instanceof NoMorePagesException) {
+            return e;
         }
 
         if (e instanceof TraceableException) {

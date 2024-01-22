@@ -63,7 +63,9 @@ import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.ErrorGroups.Criteria;
+import org.apache.ignite.lang.CursorClosedException;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -414,18 +416,32 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         await(ars.closeAsync());
     }
 
-    @Test
+    private static Stream<Arguments> allViews() {
+        Table table = CLUSTER.aliveNode().tables().table(TABLE_NAME);
+        Table clientTable = CLIENT.tables().table(TABLE_NAME);
+
+        return Stream.of(
+                Arguments.of(table.keyValueView()),
+                Arguments.of(table.keyValueView(TestObjectKey.class, TestObject.class)),
+                Arguments.of(clientTable.keyValueView()),
+                Arguments.of(clientTable.keyValueView(TestObjectKey.class, TestObject.class))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("allViews")
     void testNoMorePages() {
         RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
 
         AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, builder().pageSize(3).build()));
 
         assertNotNull(ars);
-        assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CRITERIA_CURSOR_NO_MORE_PAGES_ERR,
+        assertThrows(NoMorePagesException.class, () -> await(ars.fetchNextPage()), Common.CURSOR_NO_MORE_PAGES_ERR,
                 "There are no more pages");
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("allViews")
     void testFetchCursorIsClosed() {
         RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
 
@@ -433,14 +449,13 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
         assertNotNull(ars);
         await(ars.closeAsync());
-        assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CRITERIA_CURSOR_CLOSED_ERR, "Cursor is closed");
+        assertThrows(CursorClosedException.class, () -> await(ars.fetchNextPage()), Common.CURSOR_CLOSED_ERR, "Cursor is closed");
     }
 
-    @Test
-    void testInvalidColumnName() {
-        RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
-
-        assertThrows(IllegalArgumentException.class, () -> await(view.queryAsync(null, columnValue("id1", equalTo(2)))),
+    @ParameterizedTest
+    @MethodSource("allViews")
+    <T> void testInvalidColumnName(CriteriaQuerySource<T> view) {
+        assertThrows(CriteriaException.class, () -> await(view.queryAsync(null, columnValue("id1", equalTo(2)))),
                 "Unexpected column name: ID1");
     }
 

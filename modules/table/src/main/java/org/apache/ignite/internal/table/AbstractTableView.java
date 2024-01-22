@@ -217,9 +217,12 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                     .exceptionally(th -> {
                         session.closeAsync();
 
-                        throw new CompletionException(mapToPublicCriteriaException(unwrapCause(th)));
+                        throw sneakyThrow(unwrapCause(th));
                     });
-        });
+        })
+                .exceptionally(th -> {
+                    throw new CompletionException(mapToPublicCriteriaException(unwrapCause(th)));
+                });
     }
 
 

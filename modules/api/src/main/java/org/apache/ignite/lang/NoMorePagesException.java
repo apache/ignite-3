@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_NO_MORE_PAGES_ERR;
 
 /**
  * Exception is thrown when a data fetch attempt is performed on a closed cursor.
  */
-public class CursorClosedException extends SqlException {
+public class NoMorePagesException extends IgniteException {
     /**
      * Creates an exception instance.
      */
-    public CursorClosedException() {
-        super(CURSOR_CLOSED_ERR, "Cursor is closed");
+    public NoMorePagesException() {
+        super(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages.");
     }
 }

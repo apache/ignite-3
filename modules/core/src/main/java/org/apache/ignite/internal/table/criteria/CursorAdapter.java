@@ -19,10 +19,12 @@ package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Iterator;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 
@@ -52,8 +54,12 @@ public class CursorAdapter<T> implements Cursor<T> {
     @Override
     public void close() {
         try {
-            ac.closeAsync().toCompletableFuture().join();
-        } catch (CompletionException e) {
+            ac.closeAsync().toCompletableFuture().get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupt flag.
+
+            throw sneakyThrow(unwrapCause(e));
+        } catch (ExecutionException e) {
             throw sneakyThrow(copyExceptionWithCause(e));
         }
     }
