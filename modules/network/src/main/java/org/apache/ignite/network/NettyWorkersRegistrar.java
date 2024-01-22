@@ -46,6 +46,9 @@ public class NettyWorkersRegistrar implements IgniteComponent {
      * be updated, and the worker watchdog will treat the event loop worker as blocked.
      */
 
+    // TODO: IGNITE-21227 - make this configurable.
+    private static final long HEARTBEAT_INTERVAL_MILLIS = 100;
+
     private final CriticalWorkerRegistry criticalWorkerRegistry;
 
     private final ScheduledExecutorService scheduler;
@@ -81,7 +84,12 @@ public class NettyWorkersRegistrar implements IgniteComponent {
             registerWorkersFor(group);
         }
 
-        sendHearbeatsTaskFuture = scheduler.scheduleAtFixedRate(this::sendHearbeats, 100, 100, MILLISECONDS);
+        sendHearbeatsTaskFuture = scheduler.scheduleAtFixedRate(
+                this::sendHearbeats,
+                HEARTBEAT_INTERVAL_MILLIS,
+                HEARTBEAT_INTERVAL_MILLIS,
+                MILLISECONDS
+        );
 
         return nullCompletedFuture();
     }
