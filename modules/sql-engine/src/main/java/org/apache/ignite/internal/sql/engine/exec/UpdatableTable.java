@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.rel.ModifyNode;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -44,7 +45,8 @@ public interface UpdatableTable {
      */
     <RowT> CompletableFuture<?> insertAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     );
 
     /**
@@ -60,7 +62,8 @@ public interface UpdatableTable {
      */
     <RowT> CompletableFuture<?> upsertAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     );
 
     /**
@@ -77,6 +80,7 @@ public interface UpdatableTable {
      */
     <RowT> CompletableFuture<?> deleteAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     );
 }
