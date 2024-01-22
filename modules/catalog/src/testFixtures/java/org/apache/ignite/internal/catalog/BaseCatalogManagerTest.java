@@ -59,8 +59,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
     protected static final String TABLE_NAME = "test_table";
+    protected static final String TABLE_NAME_2 = "test_table_2";
 
     protected static final String INDEX_NAME = "myIndex";
+    protected static final String INDEX_NAME_2 = "myIndex2";
 
     final HybridClock clock = new HybridClockImpl();
 

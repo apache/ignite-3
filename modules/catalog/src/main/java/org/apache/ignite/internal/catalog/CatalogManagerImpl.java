@@ -80,7 +80,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
 
-    /** Initial update token for a catalog descriptor, this token is valid only before the first call of
+    /**
+     * Initial update token for a catalog descriptor, this token is valid only before the first call of
      * {@link UpdateEntry#applyUpdate(Catalog, long)}.
      *
      * <p>After that {@link CatalogObjectDescriptor#updateToken()} will be initialised with a causality token from
@@ -331,13 +332,16 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
+    /**
+     * Cleanup outdated catalog versions, which are not observable after given timestamp (inclusively), and compact underlying update log.
+     *
+     * @param timestamp Earliest observable timestamp.
+     * @return Operation future.
+     */
     public CompletableFuture<Void> compactCatalog(long timestamp) {
         Catalog catalog = catalogAt(timestamp);
 
-        // TODO: Should we truncate iif we see a metastorage event for snapshot update?
-        // Otherwise, how to sync metadata and data e.g. on recovery?
-        catalogByVer.headMap(catalog.version(), false).clear();
-        catalogByTs.headMap(catalog.time(), false).clear();
+        truncateUpTo(catalog.version(), catalog.time());
 
         return updateLog.saveSnapshot(new SnapshotUpdate(catalog.version(), new SnapshotEntry(catalog))).thenAccept(ignore -> {});
     }
@@ -345,6 +349,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);
+    }
+
+    private void truncateUpTo(int version, long time) {
+        catalogByVer.headMap(version, false).clear();
+        catalogByTs.headMap(time, false).clear();
     }
 
     private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
@@ -367,8 +376,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     /**
-     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts
-     * until the max retry count is reached.
+     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts until the max retry count is
+     * reached.
      *
      * @param updateProducer Supplies simple updates to include into a versioned update to install.
      * @param attemptNo Ordinal number of an attempt.
@@ -429,6 +438,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
         public CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+            if (update instanceof SnapshotUpdate) {
+                Catalog catalog = ((SnapshotUpdate) update).snapshotEntry().applyUpdate(catalogByVer.get(0), causalityToken);
+
+                registerCatalog(catalog);
+                truncateUpTo(catalog.version(), catalog.time());
+
+                return nullCompletedFuture();
+            }
+
             int version = update.version();
             Catalog catalog = catalogByVer.get(version - 1);
 
@@ -477,7 +495,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         assert activationTimestamp > catalog.time()
                 : "Activation timestamp " + activationTimestamp + " must be greater than previous catalog version activation timestamp "
-                        + catalog.time();
+                + catalog.time();
 
         return new Catalog(
                 update.version(),
@@ -571,8 +589,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     /**
-     * A container that keeps given descriptor along with name of the schema this
-     * descriptor belongs to.
+     * A container that keeps given descriptor along with name of the schema this descriptor belongs to.
      */
     private static class SchemaAwareDescriptor<T> {
         private final T descriptor;

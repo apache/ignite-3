@@ -43,7 +43,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexNa
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.values;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -150,8 +149,6 @@ import org.mockito.ArgumentCaptor;
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
-    private static final String TABLE_NAME_2 = "myTable2";
-    private static final String INDEX_NAME_2 = "myIndex2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
     private static final int DFLT_TEST_PRECISION = 11;
@@ -2179,7 +2176,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
         assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willBe(nullValue()));
 
-        manager.compactCatalog(timestamp);
+        assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
 
         assertEquals(catalog.version(), manager.earliestCatalogVersion());
 
@@ -2198,7 +2195,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         long timestamp = clock.nowLong();
         Catalog catalog = manager.catalog(manager.latestCatalogVersion());
 
-        manager.compactCatalog(timestamp);
+        assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
 
         assertEquals(catalog.version(), manager.earliestCatalogVersion());
 

@@ -37,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -177,7 +176,7 @@ public class UpdateLogImpl implements UpdateLog {
             int snapshotVersion = update.version();
 
             Entry oldSnapshotEntry = metastore.getLocally(CatalogKey.snapshotVersion(), metastore.appliedRevision());
-            int oldSnapshotVersion = oldSnapshotEntry.empty() ? 0 : bytesToInt(Objects.requireNonNull(oldSnapshotEntry.value()));
+            int oldSnapshotVersion = oldSnapshotEntry.empty() ? 1 : bytesToInt(Objects.requireNonNull(oldSnapshotEntry.value()));
 
             if (oldSnapshotVersion >= snapshotVersion) {
                 // Nothing to do.
@@ -191,9 +190,9 @@ public class UpdateLogImpl implements UpdateLog {
             Update saveSnapshotAndDropOutdatedUpdates = ops(Stream.concat(
                     Stream.of(
                             put(CatalogKey.snapshotVersion(), intToBytes(snapshotVersion)),
-                            put(CatalogKey.snapshot(), ByteUtils.toBytes(update))
+                            put(CatalogKey.update(snapshotVersion), ByteUtils.toBytes(update))
                     ),
-                    IntStream.range(oldSnapshotVersion, snapshotVersion + 1).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
+                    IntStream.range(oldSnapshotVersion, snapshotVersion).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
             ).toArray(Operation[]::new)).yield(true);
 
             Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
@@ -211,9 +210,11 @@ public class UpdateLogImpl implements UpdateLog {
 
         long recoveryRevision = recoveryFinishedFuture.join();
 
-        int ver = recoverSnapshot(handler, recoveryRevision);
+        Entry earliestVersion = metastore.getLocally(CatalogKey.snapshotVersion(), recoveryRevision);
 
-        recoverUpdates(handler, recoveryRevision, ver + 1);
+        int ver = earliestVersion.empty() ? 1 : bytesToInt(Objects.requireNonNull(earliestVersion.value()));
+
+        recoverUpdates(handler, recoveryRevision, ver);
     }
 
     private void recoverUpdates(OnUpdateHandler handler, long recoveryRevision, int ver) {
@@ -234,25 +235,6 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    /**
-     * Recover snapshot and return restored version, or {@code 0} if no snapshot found.
-     */
-    private int recoverSnapshot(OnUpdateHandler handler, long recoveryRevision) {
-        Entry snapshotEntry = metastore.getLocally(CatalogKey.snapshot(), recoveryRevision);
-        if (snapshotEntry.empty()) {
-            return 0;
-        }
-
-        SnapshotUpdate snapshot = fromBytes(Objects.requireNonNull(snapshotEntry.value()));
-
-        long revision = snapshotEntry.revision();
-
-        //TODO: Fix timestamp.
-        handler.handle(snapshot, HybridTimestamp.nullableHybridTimestamp(0L), revision);
-
-        return snapshot.version();
-    }
-
     private static class CatalogKey {
         private CatalogKey() {
             throw new AssertionError();
@@ -268,10 +250,6 @@ public class UpdateLogImpl implements UpdateLog {
 
         static ByteArray updatePrefix() {
             return ByteArray.fromString("catalog.update.");
-        }
-
-        public static ByteArray snapshot() {
-            return ByteArray.fromString("catalog.snapshot");
         }
 
         public static ByteArray snapshotVersion() {

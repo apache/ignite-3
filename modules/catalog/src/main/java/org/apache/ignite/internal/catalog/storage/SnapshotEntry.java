@@ -34,6 +34,11 @@ public class SnapshotEntry implements UpdateEntry {
     private final CatalogZoneDescriptor[] zones;
     private final CatalogSchemaDescriptor[] schemas;
 
+    /**
+     * Constructor.
+     *
+     * @param catalog Catalog instance.
+     */
     public SnapshotEntry(Catalog catalog) {
         version = catalog.version();
         activationTime = catalog.time();
