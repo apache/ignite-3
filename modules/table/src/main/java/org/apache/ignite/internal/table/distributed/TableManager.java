@@ -1705,8 +1705,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
                             LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                                            + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                                    stringKey, partId, table.name(), localNode().address());
+                                            + " [key={}, partition={}, table={}, localMemberAddress={}, pendingAssignments={}]",
+                                    stringKey, partId, table.name(), localNode().address(), pendingAssignments);
                         }
 
                         Set<Assignment> stableAssignments = stableAssignmentsEntry.value() == null

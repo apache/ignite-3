@@ -143,7 +143,7 @@ public class TestIgnitionManager {
         IgnitionManager.init(applyTestDefaultsToClusterConfig(parameters));
     }
 
-    private static InitParameters applyTestDefaultsToClusterConfig(InitParameters params) {
+    public static InitParameters applyTestDefaultsToClusterConfig(InitParameters params) {
         InitParametersBuilder builder = new InitParametersBuilder()
                 .clusterName(params.clusterName())
                 .destinationNodeName(params.nodeName())

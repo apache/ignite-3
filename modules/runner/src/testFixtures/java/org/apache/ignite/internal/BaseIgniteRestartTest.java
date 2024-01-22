@@ -239,6 +239,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * Returns partial node. Chains deploying watches to configuration notifications and waits for it,
      * so returned partial node is started and ready to work.
      *
+     * @param name Node name.
      * @param nodeCfgMgr Node configuration manager.
      * @param clusterCfgMgr Cluster configuration manager.
      * @param components Started components of a node.
@@ -250,6 +251,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Partial node.
      */
     public PartialNode partialNode(
+            String name,
             ConfigurationManager nodeCfgMgr,
             ConfigurationManager clusterCfgMgr,
             MetaStorageManager metaStorageMgr,
@@ -279,6 +281,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevision);
 
         return new PartialNode(
+                name,
                 components,
                 List.of(localConfigurationGenerator, distributedConfigurationGenerator),
                 logicalTopology,
@@ -291,6 +294,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * Node with partially started components.
      */
     public static class PartialNode {
+        private final String name;
+
         private final List<IgniteComponent> startedComponents;
 
         private final List<ManuallyCloseable> closeables;
@@ -302,17 +307,28 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         private final HybridClock clock;
 
         PartialNode(
+                String name,
                 List<IgniteComponent> startedComponents,
                 List<ManuallyCloseable> closeables,
                 LogicalTopology logicalTopology,
                 IgniteLogger log,
                 HybridClock clock
         ) {
+            this.name = name;
             this.startedComponents = startedComponents;
             this.closeables = closeables;
             this.logicalTopology = logicalTopology;
             this.log = log;
             this.clock = clock;
+        }
+
+        /**
+         * Node name.
+         *
+         * @return Node name.
+         */
+        public String name() {
+            return name;
         }
 
         /**
