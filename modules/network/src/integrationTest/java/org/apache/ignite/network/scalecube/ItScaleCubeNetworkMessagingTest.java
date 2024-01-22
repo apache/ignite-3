@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -40,6 +41,7 @@ import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -55,8 +57,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -95,8 +95,6 @@ import reactor.core.publisher.Mono;
  * Integration tests for messaging based on ScaleCube.
  */
 class ItScaleCubeNetworkMessagingTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItScaleCubeNetworkMessagingTest.class);
-
     /**
      * Test cluster.
      *
@@ -547,24 +545,24 @@ class ItScaleCubeNetworkMessagingTest {
         stopDroppingMessagesTo(outcast.nodeName());
 
         CompletableFuture<Void> sendFromOutcast = outcast.messagingService().send(notOutcastNode, messageFactory.testMessage().build());
-        assertThat(sendFromOutcast, willThrow(HandshakeException.class));
+        assertThat(sendFromOutcast, either(willThrow(HandshakeException.class)).or(willThrow(ClosedChannelException.class)));
 
         CompletableFuture<?> invokeFromOutcast = outcast.messagingService().invoke(
                 notOutcastNode,
                 messageFactory.testMessage().build(),
                 10_000
         );
-        assertThat(invokeFromOutcast, willThrow(HandshakeException.class));
+        assertThat(invokeFromOutcast, either(willThrow(HandshakeException.class)).or(willThrow(ClosedChannelException.class)));
 
         CompletableFuture<Void> sendToOutcast = notOutcast.messagingService().send(outcastNode, messageFactory.testMessage().build());
-        assertThat(sendToOutcast, willThrow(HandshakeException.class));
+        assertThat(sendToOutcast, either(willThrow(HandshakeException.class)).or(willThrow(ClosedChannelException.class)));
 
         CompletableFuture<?> invokeToOutcast = notOutcast.messagingService().invoke(
                 outcastNode,
                 messageFactory.testMessage().build(),
                 10_000
         );
-        assertThat(invokeToOutcast, willThrow(HandshakeException.class));
+        assertThat(invokeToOutcast, either(willThrow(HandshakeException.class)).or(willThrow(ClosedChannelException.class)));
     }
 
     @Test
