@@ -24,9 +24,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
-/**
- * {@link ConfigurationModule} for SQL cluster wide configuration.
- */
+/** {@link ConfigurationModule} for SQL cluster wide configuration. */
 @AutoService(ConfigurationModule.class)
 public class SqlClusterConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */

@@ -24,9 +24,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
-/**
- * {@link ConfigurationModule} for SQL node-local configuration.
- */
+/** {@link ConfigurationModule} for SQL node-local configuration. */
 @AutoService(ConfigurationModule.class)
 public class SqlNodeConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
