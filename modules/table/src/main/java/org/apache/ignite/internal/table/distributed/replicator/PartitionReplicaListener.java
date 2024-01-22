@@ -152,7 +152,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -1547,13 +1547,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (!validationResult.isSuccessful()) {
             if (validationResult.isTableDropped()) {
                 // TODO: IGNITE-20966 - improve error message.
-                throw new TransactionAlreadyFinishedException(
+                throw new MismatchingTransactionOutcomeException(
                         format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId()),
                         txResult
                 );
             } else {
                 // TODO: IGNITE-20966 - improve error message.
-                throw new TransactionAlreadyFinishedException(
+                throw new MismatchingTransactionOutcomeException(
                         "Commit failed because schema "
                                 + validationResult.fromSchemaVersion() + " is not forward-compatible with "
                                 + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId(),
@@ -1607,7 +1607,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txMeta.txState()
                 );
 
-                throw new TransactionAlreadyFinishedException(
+                throw new MismatchingTransactionOutcomeException(
                         "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
@@ -1666,7 +1666,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                             markFinished(txId, result.transactionState(), result.commitTimestamp());
 
-                            throw new TransactionAlreadyFinishedException(utse.getMessage(), utse.transactionResult());
+                            throw new MismatchingTransactionOutcomeException(utse.getMessage(), utse.transactionResult());
                         }
                         // Otherwise we convert from the internal exception to the client one.
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);

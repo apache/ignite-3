@@ -22,7 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
@@ -30,6 +30,7 @@ import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,13 +43,15 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private final UUID jobId;
     private final Callable<R> job;
-    private final int priority;
-    private final ThreadPoolExecutor executor;
+    private final AtomicInteger priority;
+    private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
 
     private final AtomicReference<QueueEntry<R>> queueEntry = new AtomicReference<>();
+
+    private final AtomicInteger retries = new AtomicInteger();
 
     /**
      * Constructor.
@@ -63,12 +66,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             UUID jobId,
             Callable<R> job,
             int priority,
-            ThreadPoolExecutor executor,
-            ComputeStateMachine stateMachine
-    ) {
+            ComputeThreadPoolExecutor executor,
+            ComputeStateMachine stateMachine) {
         this.jobId = jobId;
         this.job = job;
-        this.priority = priority;
+        this.priority = new AtomicInteger(priority);
         this.executor = executor;
         this.stateMachine = stateMachine;
     }
@@ -99,18 +101,40 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         }
     }
 
+    @Override
+    public void changePriority(int newPriority) {
+        if (newPriority == priority.get()) {
+            return;
+        }
+        QueueEntry<R> queueEntry = this.queueEntry.get();
+        if (executor.removeFromQueue(queueEntry)) {
+            this.priority.set(newPriority);
+            this.queueEntry.set(null);
+            run();
+        } else {
+            throw new ComputeException(Compute.CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR, "Can not change job priority,"
+                    + " job already processing. [job id = " + jobId + "]");
+        }
+    }
+
     /**
      * Runs the job, completing the result future and retrying the execution in case of failure at most {@code numRetries} times.
      *
      * @param numRetries Number of times to retry failed execution.
      */
     void run(int numRetries) {
+        retries.set(numRetries);
+        run();
+    }
+
+    private void run() {
         QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
             stateMachine.executeJob(jobId);
             return job.call();
-        }, priority);
+        }, priority.get());
 
-        // Ignoring previous value since it can't be running because we are calling run either after the construction or after the failure.
+        // Ignoring previous value since it can't be running because we are calling run
+        // either after the construction or after the failure.
         this.queueEntry.set(queueEntry);
 
         try {
@@ -122,9 +146,9 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
             if (throwable != null) {
-                if (numRetries > 0) {
+                if (retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
-                    run(numRetries - 1);
+                    run();
                 } else {
                     if (queueEntry.isInterrupted()) {
                         stateMachine.cancelJob(jobId);
