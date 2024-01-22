@@ -61,7 +61,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     @Nullable
     private volatile ScheduledFuture<?> livenessProbeTaskFuture;
 
-    private final ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+    private final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
     public CriticalWorkerWatchdog(ScheduledExecutorService scheduler) {
         this.scheduler = scheduler;
@@ -96,7 +96,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
             return;
         }
 
-        ThreadInfo[] threadInfos = threadMXBean.getThreadInfo(delayedThreadIdsToDelays.keySet().toLongArray(), true, true);
+        ThreadInfo[] threadInfos = threadMxBean.getThreadInfo(delayedThreadIdsToDelays.keySet().toLongArray(), true, true);
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
                 log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
