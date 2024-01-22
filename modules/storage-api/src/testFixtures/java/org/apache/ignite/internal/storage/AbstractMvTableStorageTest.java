@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -781,7 +782,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                         CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").length(100).type(STRING).build())
                 ),
                 List.of("INTKEY"),
-                null
+                null,
+                DUMMY_STORAGE_PROFILE
         );
 
         CatalogSortedIndexDescriptor sortedIndex = new CatalogSortedIndexDescriptor(

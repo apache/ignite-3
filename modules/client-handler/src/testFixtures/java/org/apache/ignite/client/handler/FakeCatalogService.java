@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.mockito.Mockito.mock;
 
 import java.util.Collection;
@@ -58,7 +59,7 @@ public class FakeCatalogService implements CatalogService {
     @Override
     public CatalogTableDescriptor table(int tableId, long timestamp) {
         return new CatalogTableDescriptor(
-                tableId, 0, 0, "table", 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null);
+                tableId, 0, 0, "table", 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null, DUMMY_STORAGE_PROFILE);
     }
 
     @Override

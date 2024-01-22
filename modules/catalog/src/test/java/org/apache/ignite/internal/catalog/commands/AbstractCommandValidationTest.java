@@ -22,10 +22,10 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParam
 import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -49,7 +49,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static final String ZONE_NAME = "Default";
 
     private static final CatalogZoneDescriptor DEFAULT_ZONE = new CatalogZoneDescriptor(
-            0, ZONE_NAME, 1, -1, -1, -1, -1, "", null, fromParams(Collections.emptyList())
+            0, ZONE_NAME, 1, -1, -1, -1, -1, "", null,
+            fromParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
     );
 
     static Stream<Arguments> nullAndBlankStrings() {
@@ -126,6 +127,17 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+                .build();
+    }
+
+    static CatalogCommand createZoneCommand(String zoneName, List<String> storageProfiles) {
+        List<StorageProfileParams> params = storageProfiles.stream()
+                .map(p -> StorageProfileParams.builder().storageProfile(p).build())
+                .collect(Collectors.toList());
+
+        return CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(params)
                 .build();
     }
 
