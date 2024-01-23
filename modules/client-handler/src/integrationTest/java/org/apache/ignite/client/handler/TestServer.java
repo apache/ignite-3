@@ -139,7 +139,7 @@ public class TestServer {
                 mock(PlacementDriver.class)
         );
 
-        module.start();
+        module.start().join();
 
         return module;
     }
