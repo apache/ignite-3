@@ -158,14 +158,13 @@ public interface IgniteCompute {
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader of the corresponding RAFT group.
      *
-     * @param options job execution options (priority, max retries).
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
      * @param args Arguments of the job.
+     * @param options job execution options (priority, max retries).
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      * @throws ComputeException If there is any problem executing the job.
