@@ -875,8 +875,7 @@ TEST_F(meta_queries_test, sqlnum_result_cols_after_sqlprepare) {
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Prepare.
  */
 TEST_F(meta_queries_test, sqldescribe_col_precision_and_scale_after_prepare) {
-    // TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-    //    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqldescribe_col);
+    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqldescribe_col);
 }
 
 /**
@@ -890,8 +889,7 @@ TEST_F(meta_queries_test, sqldescribe_col_precision_and_scale_after_exec) {
  * Check that SQLColAttribute return valid scale and precision for columns of different type after Prepare.
  */
 TEST_F(meta_queries_test, sqlcol_attribute_precision_and_scale_after_prepare) {
-    // TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-    //    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqlcol_attribute);
+    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqlcol_attribute);
 }
 
 /**
