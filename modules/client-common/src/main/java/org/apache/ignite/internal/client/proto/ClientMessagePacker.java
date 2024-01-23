@@ -316,7 +316,11 @@ public class ClientMessagePacker implements AutoCloseable {
         int headerSize = getStringHeaderSize(maxBytes);
         int headerPos = buf.writerIndex();
 
-        buf.writerIndex(headerPos + headerSize);
+        int index = headerPos + headerSize;
+        if (index > buf.capacity()) {
+            buf.capacity(buf.capacity() * 2);
+        }
+        buf.writerIndex(index);
 
         int bytesWritten = ByteBufUtil.writeUtf8(buf, s);
         int endPos = buf.writerIndex();
