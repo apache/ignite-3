@@ -144,10 +144,10 @@ public class ClientMessagePackerTest {
     @Test
     public void testWriteStringCapacityGrow() {
         // This number is important! Exactly this number showed nasty bug before it was fixed. Do not change.
-        final int MAGIC_BYTES = 249;
+        int magicBytes = 249;
 
         byte[] ignored = packIgnite(p -> {
-            p.packByteBuffer(ByteBuffer.allocate(MAGIC_BYTES));
+            p.packByteBuffer(ByteBuffer.allocate(magicBytes));
             p.packString("Lorem Ipsum");
         });
     }
