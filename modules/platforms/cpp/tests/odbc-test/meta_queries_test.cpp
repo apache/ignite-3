@@ -459,8 +459,6 @@ TEST_F(meta_queries_test, col_attributes_column_scale) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
 
-// TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-#ifdef MUTED
 TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     odbc_connect(get_basic_connection_string());
 
@@ -478,7 +476,7 @@ TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 60);
+    EXPECT_EQ(int_val, 1000);
 
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -488,7 +486,7 @@ TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 60);
+    EXPECT_EQ(int_val, 1000);
 }
 
 TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
@@ -508,7 +506,7 @@ TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 60);
+    EXPECT_EQ(int_val, 1000);
 
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -518,7 +516,7 @@ TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 60);
+    EXPECT_EQ(int_val, 1000);
 }
 
 TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
@@ -546,7 +544,6 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
-#endif // MUTED
 
 TEST_F(meta_queries_test, get_data_with_get_type_info) {
     odbc_connect(get_basic_connection_string());
@@ -837,39 +834,29 @@ TEST_F(meta_queries_test, ddl_columns_meta_escaped) {
     ASSERT_EQ(ret, SQL_NO_DATA);
 }
 
-// TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-#ifdef MUTED
 TEST_F(meta_queries_test, sqlnum_result_cols_after_sqlprepare) {
     odbc_connect(get_basic_connection_string());
 
-    SQLRETURN ret =
-        exec_query("create table TestSqlPrepare(id int primary key, test1 varchar, test2 long, test3 varchar)");
+    SQLRETURN ret = prepare_query("select 1, TRUE, 'Lorem Ipsum', 42 * 2");
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    ret = SQLFreeStmt(m_statement, SQL_CLOSE);
+    SQLSMALLINT column_count = 0;
+
+    ret = SQLNumResultCols(m_statement, &column_count);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    ret = prepare_query("select * from PUBLIC.TestSqlPrepare");
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-    SQLSMALLINT columnCount = 0;
-
-    ret = SQLNumResultCols(m_statement, &columnCount);
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-    EXPECT_EQ(columnCount, 4);
+    EXPECT_EQ(column_count, 4);
 
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    columnCount = 0;
+    column_count = 0;
 
-    ret = SQLNumResultCols(m_statement, &columnCount);
+    ret = SQLNumResultCols(m_statement, &column_count);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    EXPECT_EQ(columnCount, 4);
+    EXPECT_EQ(column_count, 4);
 }
-#endif // MUTED
 
 /**
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Prepare.
