@@ -112,7 +112,6 @@ public class PrepareServiceImpl implements PrepareService {
      * Factory method.
      *
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
-     * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param cacheFactory A factory to create cache of query plans.
      * @param dataStorageManager Data storage manager.
      * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
@@ -122,7 +121,6 @@ public class PrepareServiceImpl implements PrepareService {
      */
     public static PrepareServiceImpl create(
             String nodeName,
-            int cacheSize,
             CacheFactory cacheFactory,
             DataStorageManager dataStorageManager,
             Map<String, Map<String, Class<?>>> dataStorageFields,
@@ -132,7 +130,7 @@ public class PrepareServiceImpl implements PrepareService {
     ) {
         return new PrepareServiceImpl(
                 nodeName,
-                cacheSize,
+                clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
                 new DdlSqlToCommandConverter(dataStorageFields, () -> CatalogUtils.DEFAULT_STORAGE_ENGINE),
                 clusterCfg.planner().maxPlanningTime().value(),

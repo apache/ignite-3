@@ -272,11 +272,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
         metricManager.registerSource(sqlClientMetricSource);
 
-        int planCacheSize = clusterCfg.planner().estimatedNumberOfQueries().value();
-
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
-                planCacheSize,
                 CACHE_FACTORY,
                 dataStorageManager,
                 dataStorageFieldsSupplier.get(),
@@ -337,7 +334,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         };
 
         var mappingService = new MappingServiceImpl(
-                nodeName, executionTargetProvider, CACHE_FACTORY, planCacheSize, taskExecutor
+                nodeName,
+                executionTargetProvider,
+                CACHE_FACTORY,
+                clusterCfg.planner().estimatedNumberOfQueries().value(),
+                taskExecutor
         );
 
         logicalTopologyService.addEventListener(mappingService);
