@@ -275,7 +275,8 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                         "aimem",
                         "aipersist",
                         "rocksDb",
-                        "storageProfiles"
+                        "storageProfiles",
+                        "sql"
                 )
         );
     }
