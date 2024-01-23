@@ -137,7 +137,7 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
                     write_units(writer, units);
                     writer.write(job);
 
-                    // TODO: Ticket number.
+                    // TODO: IGNITE-21335
                     writer.write(0); // Priority.
                     writer.write(0); // Max retries.
 

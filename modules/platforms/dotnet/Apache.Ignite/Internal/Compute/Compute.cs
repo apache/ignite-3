@@ -312,7 +312,7 @@ namespace Apache.Ignite.Internal.Compute
                 WriteUnits(units0, bufferWriter);
                 w.Write(jobClassName);
 
-                // TODO: Ticket number.
+                // TODO: IGNITE-21334
                 w.Write(0); // Priority.
                 w.Write(0); // Max retries.
 
