@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 
-import java.util.Arrays;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -78,30 +79,25 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+
+        CatalogTableDescriptor currentTableDescriptor = requireNonNull(catalog.table(tableId));
+
+        CatalogTableDescriptor newTableDescriptor = currentTableDescriptor.newDescriptor(
+                currentTableDescriptor.name(),
+                currentTableDescriptor.tableVersion() + 1,
+                currentTableDescriptor.columns().stream()
+                        .map(source -> source.name().equals(column.name()) ? column : source)
+                        .collect(toList()),
+                causalityToken
+        );
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        Arrays.stream(schema.tables())
-                                .map(table -> table.id() == tableId ? table.newDescriptor(
-                                                table.name(),
-                                                table.tableVersion() + 1,
-                                                table.columns().stream()
-                                                        .map(source -> source.name().equals(column.name()) ? column : source)
-                                                        .collect(toList()),
-                                                causalityToken) : table
-                                )
-                                .toArray(CatalogTableDescriptor[]::new),
-                        schema.indexes(),
-                        schema.systemViews(),
-                        causalityToken
-                ), catalog.schemas())
+                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas())
         );
     }
 
