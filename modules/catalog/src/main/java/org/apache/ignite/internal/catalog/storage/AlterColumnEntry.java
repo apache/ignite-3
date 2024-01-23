@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -62,9 +63,19 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
         return tableId;
     }
 
+    /** Returns the schema name of the table being modified. */
+    public String schemaName() {
+        return schemaName;
+    }
+
     /** Returns a descriptor for the column to be replaced. */
     public CatalogTableColumnDescriptor descriptor() {
         return column;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.ALTER_COLUMN.id();
     }
 
     @Override

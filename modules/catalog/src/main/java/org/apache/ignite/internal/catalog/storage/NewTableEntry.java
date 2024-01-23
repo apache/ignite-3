@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -53,6 +54,16 @@ public class NewTableEntry implements UpdateEntry, Fireable {
     /** Returns descriptor of a table to add. */
     public CatalogTableDescriptor descriptor() {
         return descriptor;
+    }
+
+    /** Returns schema name. */
+    public String schemaName() {
+        return schemaName;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.NEW_TABLE.id();
     }
 
     @Override

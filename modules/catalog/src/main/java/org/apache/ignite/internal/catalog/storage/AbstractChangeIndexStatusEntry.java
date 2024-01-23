@@ -29,12 +29,18 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.tostring.S;
 
 /** Abstract entry for changing {@link CatalogIndexDescriptor#status() index status}. */
 abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
     protected final int indexId;
 
     private final CatalogIndexStatus newStatus;
+
+    /** Returns an id of an index to make available. */
+    public int indexId() {
+        return indexId;
+    }
 
     /** Constructor. */
     AbstractChangeIndexStatusEntry(int indexId, CatalogIndexStatus newStatus) {
@@ -120,5 +126,10 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 index.columns(),
                 newStatus
         );
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

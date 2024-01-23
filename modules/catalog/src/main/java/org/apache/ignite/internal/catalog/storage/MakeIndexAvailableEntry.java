@@ -23,6 +23,7 @@ import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 
 /** Entry for {@link MakeIndexAvailableCommand}. */
 public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry implements Fireable {
@@ -31,6 +32,11 @@ public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry impl
     /** Constructor. */
     public MakeIndexAvailableEntry(int indexId) {
         super(indexId, AVAILABLE);
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.MAKE_INDEX_AVAILABLE.id();
     }
 
     @Override

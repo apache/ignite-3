@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -63,6 +64,16 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     /** Returns name of columns to drop. */
     public Set<String> columns() {
         return columns;
+    }
+
+    /** Returns the schema name of the table being modified. */
+    public String schemaName() {
+        return schemaName;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.DROP_COLUMN.id();
     }
 
     @Override

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,17 +38,30 @@ public class CatalogTableSchemaVersions implements Serializable {
 
         private final List<CatalogTableColumnDescriptor> columns;
 
-        TableVersion(List<CatalogTableColumnDescriptor> columns) {
+        public TableVersion(List<CatalogTableColumnDescriptor> columns) {
             this.columns = columns;
         }
 
         public List<CatalogTableColumnDescriptor> columns() {
             return Collections.unmodifiableList(columns);
         }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
     }
 
     private final int base;
     private final TableVersion[] versions;
+
+    public int base() {
+        return base;
+    }
+
+    public TableVersion[] versions() {
+        return versions;
+    }
 
     /**
      * Constructor.
@@ -58,7 +72,7 @@ public class CatalogTableSchemaVersions implements Serializable {
         this(CatalogTableDescriptor.INITIAL_TABLE_VERSION, versions);
     }
 
-    private CatalogTableSchemaVersions(int base, TableVersion... versions) {
+    public CatalogTableSchemaVersions(int base, TableVersion... versions) {
         this.base = base;
         this.versions = versions;
     }
@@ -95,5 +109,10 @@ public class CatalogTableSchemaVersions implements Serializable {
         assert version == latestVersion() + 1;
 
         return new CatalogTableSchemaVersions(base, ArrayUtils.concat(versions, tableVersion));
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

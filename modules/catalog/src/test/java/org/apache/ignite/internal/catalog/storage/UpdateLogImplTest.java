@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.serialization.UpdateLogMarshaller;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,7 +105,17 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     }
 
     private UpdateLogImpl createUpdateLogImpl() {
-        return new UpdateLogImpl(metastore);
+        return new UpdateLogImpl(metastore, new UpdateLogMarshaller() {
+            @Override
+            public byte[] marshall(VersionedUpdate update) {
+                return ByteUtils.toBytes(update);
+            }
+
+            @Override
+            public VersionedUpdate unmarshall(byte[] bytes) {
+                return ByteUtils.fromBytes(bytes);
+            }
+        });
     }
 
     private UpdateLogImpl createAndStartUpdateLogImpl(OnUpdateHandler onUpdateHandler) {
@@ -271,6 +283,11 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         @Override
         public Catalog applyUpdate(Catalog catalog, long causalityToken) {
             return catalog;
+        }
+
+        @Override
+        public int typeId() {
+            return -1;
         }
 
         @Override

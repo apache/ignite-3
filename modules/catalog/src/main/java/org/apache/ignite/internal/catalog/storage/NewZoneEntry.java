@@ -23,6 +23,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -46,6 +47,11 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
     /** Returns descriptor of a zone to add. */
     public CatalogZoneDescriptor descriptor() {
         return descriptor;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.NEW_ZONE.id();
     }
 
     @Override

@@ -72,7 +72,37 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             String filter,
             CatalogDataStorageDescriptor dataStorage
     ) {
-        super(id, Type.ZONE, name, INITIAL_CAUSALITY_TOKEN);
+        this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
+                filter, dataStorage, INITIAL_CAUSALITY_TOKEN);
+    }
+
+    /**
+     * Constructs a distribution zone descriptor.
+     *
+     * @param id Id of the distribution zone.
+     * @param name Name of the zone.
+     * @param partitions Count of partitions in distributions zone.
+     * @param replicas Count of partition replicas.
+     * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
+     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
+     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
+     * @param filter Nodes filter.
+     * @param dataStorage Data storage descriptor.
+     * @param causalityToken Token of the update of the descriptor.
+     */
+    public CatalogZoneDescriptor(
+            int id,
+            String name,
+            int partitions,
+            int replicas,
+            int dataNodesAutoAdjust,
+            int dataNodesAutoAdjustScaleUp,
+            int dataNodesAutoAdjustScaleDown,
+            String filter,
+            CatalogDataStorageDescriptor dataStorage,
+            long causalityToken
+    ) {
+        super(id, Type.ZONE, name, causalityToken);
 
         this.partitions = partitions;
         this.replicas = replicas;

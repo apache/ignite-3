@@ -40,9 +40,29 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      * @param id View id.
      * @param name View name.
      * @param columns View columns.
+     * @param systemViewType View type.
      */
     public CatalogSystemViewDescriptor(int id, String name, List<CatalogTableColumnDescriptor> columns, SystemViewType systemViewType) {
-        super(id, Type.SYSTEM_VIEW, name, INITIAL_CAUSALITY_TOKEN);
+        this(id, name, columns, systemViewType, INITIAL_CAUSALITY_TOKEN);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param id View id.
+     * @param name View name.
+     * @param columns View columns.
+     * @param systemViewType View type.
+     * @param causalityToken Token of the update of the descriptor.
+     */
+    public CatalogSystemViewDescriptor(
+            int id,
+            String name,
+            List<CatalogTableColumnDescriptor> columns,
+            SystemViewType systemViewType,
+            long causalityToken
+    ) {
+        super(id, Type.SYSTEM_VIEW, name, causalityToken);
 
         this.columns = Objects.requireNonNull(columns, "columns");
         this.systemViewType = Objects.requireNonNull(systemViewType, "viewType");
@@ -98,10 +118,32 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
         /**
          * Node system view.
          */
-        NODE,
+        NODE((byte) 0),
         /**
          * Cluster-wide system view.
          */
-        CLUSTER
+        CLUSTER((byte) 1);
+
+        private final byte id;
+
+        SystemViewType(byte id) {
+            this.id = id;
+        }
+
+        public byte id() {
+            return id;
+        }
+
+        /** Returns system view type by identifier. */
+        public static SystemViewType getById(byte id) {
+            if (id == 0) {
+                return NODE;
+            } else {
+                assert id == 1;
+
+                return CLUSTER;
+            }
+
+        }
     }
 }

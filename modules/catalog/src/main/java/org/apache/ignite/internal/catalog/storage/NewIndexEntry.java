@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -52,6 +53,16 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     /** Gets descriptor of an index to add. */
     public CatalogIndexDescriptor descriptor() {
         return descriptor;
+    }
+
+    /** Returns schema name. */
+    public String schemaName() {
+        return schemaName;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.NEW_INDEX.id();
     }
 
     @Override

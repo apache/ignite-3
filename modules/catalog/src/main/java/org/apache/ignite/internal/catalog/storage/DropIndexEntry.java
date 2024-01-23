@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -61,6 +62,16 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
     /** Returns table ID for which the index was removed. */
     public int tableId() {
         return tableId;
+    }
+
+    /** Returns the schema name of the table being modified. */
+    public String schemaName() {
+        return schemaName;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.DROP_INDEX.id();
     }
 
     @Override

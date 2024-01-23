@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import java.io.Serializable;
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,10 +52,24 @@ public class DefaultValue implements Serializable {
     /** Types of the defaults. */
     public enum Type {
         /** Default is specified as a constant. */
-        CONSTANT,
+        CONSTANT(1),
 
         /** Default is specified as a call to a function. */
-        FUNCTION_CALL
+        FUNCTION_CALL(2);
+
+        private final int id;
+
+        Type(int id) {
+            this.id = id;
+        }
+
+        public int id() {
+            return id;
+        }
+
+        public static Type getById(int id) {
+            return id == 1 ? CONSTANT : FUNCTION_CALL;
+        }
     }
 
     protected final Type type;
@@ -104,6 +119,12 @@ public class DefaultValue implements Serializable {
         public int hashCode() {
             return Objects.hash(type, functionName);
         }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
     }
 
     /** Defines default value provider as a constant. */
@@ -141,6 +162,12 @@ public class DefaultValue implements Serializable {
         @Override
         public int hashCode() {
             return Objects.hash(type, value);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return S.toString(this);
         }
     }
 }

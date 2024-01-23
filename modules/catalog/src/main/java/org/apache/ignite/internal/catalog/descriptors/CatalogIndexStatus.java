@@ -32,19 +32,46 @@ public enum CatalogIndexStatus {
      *
      * <p>Write only.</p>
      */
-    REGISTERED,
+    REGISTERED(0),
 
     /**
      * Index is in the process of being built.
      *
      * <p>Write only.</p>
      */
-    BUILDING,
+    BUILDING(1),
 
     /**
      * Index is built and ready to use.
      *
      * <p>Readable and writable.</p>
      */
-    AVAILABLE
+    AVAILABLE(2);
+
+    private static final CatalogIndexStatus[] VALS = new CatalogIndexStatus[values().length];
+
+    private final int id;
+
+    CatalogIndexStatus(int id) {
+        this.id = id;
+    }
+
+    public int id() {
+        return id;
+    }
+
+    static {
+        for (CatalogIndexStatus status : values()) {
+            assert VALS[status.id] == null : "Found duplicate id " + status.id;
+
+            VALS[status.id()] = status;
+        }
+    }
+
+    /** Returns index status by identifier. */
+    public static CatalogIndexStatus getById(int id) {
+        assert id >= 0 && id < VALS.length : "id=" + id;
+
+        return VALS[id];
+    }
 }

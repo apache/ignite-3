@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -52,6 +53,16 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     /** Returns an id of a table to drop. */
     public int tableId() {
         return tableId;
+    }
+
+    /** Returns schema name. */
+    public String schemaName() {
+        return schemaName;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.DROP_TABLE.id();
     }
 
     @Override

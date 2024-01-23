@@ -27,6 +27,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.tostring.S;
 
 /** Entry representing a rename of a table. */
 public class RenameTableEntry implements UpdateEntry, Fireable {
@@ -39,6 +41,19 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
     public RenameTableEntry(int tableId, String newTableName) {
         this.tableId = tableId;
         this.newTableName = newTableName;
+    }
+
+    public int tableId() {
+        return tableId;
+    }
+
+    public String newTableName() {
+        return newTableName;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.RENAME_TABLE.id();
     }
 
     @Override
@@ -71,5 +86,10 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 catalog.zones(),
                 replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas())
         );
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

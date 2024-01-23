@@ -15,23 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage;
+package org.apache.ignite.internal.catalog.serialization;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 
 /**
- * Interface describing a particular change within the {@link VersionedUpdate group}.
+ * Marshaller of update log entries.
  */
-public interface UpdateEntry extends Serializable {
+public interface UpdateLogMarshaller {
     /**
-     * Applies own change to the catalog.
+     * Converts a catalog versioned update into a byte array.
      *
-     * @param catalog Current catalog.
-     * @param causalityToken Token that is associated with the corresponding update being applied.
-     * @return New catalog.
+     * @param update Versioned update to serialize.
+     * @return Byte buffer with a serialized object.
      */
-    Catalog applyUpdate(Catalog catalog, long causalityToken);
+    byte[] marshall(VersionedUpdate update);
 
-    int typeId();
+    /**
+     * Converts byte array into catalog versioned update.
+     *
+     * @param bytes Byte array.
+     * @return Catalog versioned update.
+     */
+    VersionedUpdate unmarshall(byte[] bytes);
 }

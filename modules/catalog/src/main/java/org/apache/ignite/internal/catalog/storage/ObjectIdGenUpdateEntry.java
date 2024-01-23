@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -51,6 +52,11 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
                 catalog.zones(),
                 catalog.schemas()
         );
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.ID_GENERATOR.id();
     }
 
     @Override

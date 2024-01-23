@@ -23,6 +23,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -45,6 +46,11 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
     /** Returns an id of a zone to drop. */
     public int zoneId() {
         return zoneId;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.DROP_ZONE.id();
     }
 
     @Override

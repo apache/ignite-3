@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -63,6 +64,16 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     /** Returns descriptors of columns to add. */
     public List<CatalogTableColumnDescriptor> descriptors() {
         return descriptors;
+    }
+
+    /** Returns schema name. */
+    public String schemaName() {
+        return schemaName;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.NEW_COLUMN.id();
     }
 
     @Override

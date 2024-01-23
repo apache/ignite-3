@@ -93,7 +93,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param causalityToken Token of the update of the descriptor.
      * @param creationToken Token of the creation of the table descriptor.
      */
-    private CatalogTableDescriptor(
+    public CatalogTableDescriptor(
             int id,
             int schemaId,
             int pkIndexId,

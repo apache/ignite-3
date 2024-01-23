@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,8 +33,11 @@ import org.jetbrains.annotations.Nullable;
 public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -233494425779955410L;
 
+    @IgniteToStringInclude
     private final CatalogTableDescriptor[] tables;
+    @IgniteToStringInclude
     private final CatalogIndexDescriptor[] indexes;
+    @IgniteToStringInclude
     private final CatalogSystemViewDescriptor[] systemViews;
 
     @IgniteToStringExclude
@@ -41,7 +45,7 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     @IgniteToStringExclude
     private transient Map<String, CatalogIndexDescriptor> indexesMap;
     @IgniteToStringExclude
-    private Map<String, CatalogSystemViewDescriptor> systemViewsMap;
+    private transient Map<String, CatalogSystemViewDescriptor> systemViewsMap;
 
     /**
      * Constructor.

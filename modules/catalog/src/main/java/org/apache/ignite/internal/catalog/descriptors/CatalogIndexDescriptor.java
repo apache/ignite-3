@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
-
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
@@ -35,8 +33,8 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index status. */
     private final CatalogIndexStatus status;
 
-    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, CatalogIndexStatus status) {
-        super(id, Type.INDEX, name, INITIAL_CAUSALITY_TOKEN);
+    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, CatalogIndexStatus status, long causalityToken) {
+        super(id, Type.INDEX, name, causalityToken);
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 
 /** Entry for {@link StartBuildingIndexCommand}. */
 public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
@@ -41,5 +42,10 @@ public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry impl
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
         return new StartBuildingIndexEventParameters(causalityToken, catalogVersion, indexId);
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.START_BUILDING_INDEX.id();
     }
 }

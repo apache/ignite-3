@@ -28,6 +28,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateSystemViewEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -50,6 +51,21 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
     public NewSystemViewEntry(CatalogSystemViewDescriptor descriptor, String schemaName) {
         this.descriptor = descriptor;
         this.schemaName = schemaName;
+    }
+
+    /** Returns schema name. */
+    public String schemaName() {
+        return schemaName;
+    }
+
+    /** Returns system view descriptor. */
+    public CatalogSystemViewDescriptor descriptor() {
+        return descriptor;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.NEW_SYS_VIEW.id();
     }
 
     /** {@inheritDoc} */

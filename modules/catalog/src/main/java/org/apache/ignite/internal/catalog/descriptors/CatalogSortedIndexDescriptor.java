@@ -18,16 +18,19 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Sorted index descriptor. */
 public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     private static final long serialVersionUID = 2085714310150728611L;
 
+    @IgniteToStringInclude
     private final List<CatalogIndexColumnDescriptor> columns;
 
     /**
@@ -69,7 +72,31 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             List<CatalogIndexColumnDescriptor> columns,
             CatalogIndexStatus status
     ) {
-        super(id, name, tableId, unique, status);
+        this(id, name, tableId, unique, columns, status, INITIAL_CAUSALITY_TOKEN);
+    }
+
+    /**
+     * Constructs a sorted index descriptor.
+     *
+     * @param id Id of the index.
+     * @param name Name of the index.
+     * @param tableId Id of the table index belongs to.
+     * @param unique Unique flag.
+     * @param columns A list of columns descriptors.
+     * @param status Index status.
+     * @param causalityToken Token of the update of the descriptor.
+     * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
+     */
+    public CatalogSortedIndexDescriptor(
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            List<CatalogIndexColumnDescriptor> columns,
+            CatalogIndexStatus status,
+            long causalityToken
+    ) {
+        super(id, name, tableId, unique, status, causalityToken);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }
@@ -84,5 +111,3 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
         return S.toString(this);
     }
 }
-
-

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -46,6 +47,11 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
     /** Returns descriptor of a zone to alter. */
     public CatalogZoneDescriptor descriptor() {
         return descriptor;
+    }
+
+    @Override
+    public int typeId() {
+        return UpdateEntryType.ALTER_ZONE.id();
     }
 
     @Override
