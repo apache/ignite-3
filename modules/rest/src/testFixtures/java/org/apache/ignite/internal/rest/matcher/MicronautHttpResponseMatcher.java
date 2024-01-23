@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpStatus;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -37,6 +38,16 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
 
     private MicronautHttpResponseMatcher(Matcher<Integer> statusCodeMatcher) {
         this.statusCodeMatcher = statusCodeMatcher;
+    }
+
+    /**
+     * Creates a matcher that matches when the examined {@link HttpResponse} has a status that matches the specified status.
+     *
+     * @param status Expected status.
+     * @return Matcher.
+     */
+    public static <T> MicronautHttpResponseMatcher<T> hasStatus(HttpStatus status) {
+        return new MicronautHttpResponseMatcher<>(is(status.getCode()));
     }
 
     /**
