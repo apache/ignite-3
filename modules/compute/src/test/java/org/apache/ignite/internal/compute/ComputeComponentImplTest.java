@@ -288,7 +288,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, EXECUTING);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, true);
 
-        JobExecution<String> execution = computeComponent.executeRemotely(DEFAULT, remoteNode, List.of(), LongJob.class.getName());
+        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
 
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(EXECUTING)));
         assertThat(execution.resultAsync(), willBe("remoteResponse"));

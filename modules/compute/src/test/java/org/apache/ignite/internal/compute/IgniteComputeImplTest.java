@@ -115,8 +115,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely();
 
         assertThat(
-                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a",
-                        42).resultAsync(),
+                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
                 willBe("remoteResponse")
         );
 
