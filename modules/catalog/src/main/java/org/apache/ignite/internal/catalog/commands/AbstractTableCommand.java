@@ -36,14 +36,14 @@ public abstract class AbstractTableCommand implements CatalogCommand {
     protected final String tableName;
 
     AbstractTableCommand(String schemaName, String tableName) throws CatalogValidationException {
-        this.schemaName = schemaName.toUpperCase();
+        this.schemaName = schemaName != null ? schemaName.toUpperCase() : null;
         this.tableName = tableName;
 
         validate();
     }
 
     private void validate() {
-        if (CatalogManagerImpl.reservedSchemas().contains(schemaName)) {
+        if (schemaName != null && CatalogManagerImpl.reservedSchemas().contains(schemaName)) {
             throw new CatalogValidationException(format("Operations with reserved schemas "
                     + "keywords are not allowed, schema: {}", schemaName));
         }
