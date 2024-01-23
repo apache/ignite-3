@@ -317,7 +317,7 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.bind(port).addListener((ChannelFutureListener) bindFut -> {
             if (bindFut.isSuccess()) {
                 if (LOG.isInfoEnabled()) {
-                    LOG.info("Thin client protocol started successfully [port={}]", port);
+                    LOG.info("Thin client connector endpoint started successfully [port={}]", port);
                 }
 
                 result.complete(bindFut.channel());
