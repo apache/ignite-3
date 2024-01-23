@@ -219,9 +219,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Node SQL configuration. */
     private final SqlLocalConfiguration nodeCfg;
 
-    /** Size of cache of plans. */
-    private final int planCacheSize;
-
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -262,8 +259,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );
-
-        planCacheSize = clusterCfg.planner().estimatedNumberOfQueries().value();
     }
 
     /** {@inheritDoc} */
@@ -276,6 +271,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
         metricManager.registerSource(sqlClientMetricSource);
+
+        int planCacheSize = clusterCfg.planner().estimatedNumberOfQueries().value();
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,

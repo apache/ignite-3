@@ -23,7 +23,6 @@ import org.apache.ignite.configuration.annotation.Value;
 /** Local configuration of SQL execution. */
 @Config
 public class SqlExecutionLocalConfigurationSchema {
-
     /** Concurrency level for queries execution. */
     @Value(hasDefault = true)
     public final int concurrencyLevel = 4;
