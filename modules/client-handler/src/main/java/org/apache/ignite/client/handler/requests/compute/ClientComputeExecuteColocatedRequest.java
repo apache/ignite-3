@@ -65,7 +65,8 @@ public class ClientComputeExecuteColocatedRequest {
 
                 out.packInt(table.schemaView().lastKnownSchemaVersion());
 
-                JobExecution<Object> execution = compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, options, args);
+                JobExecution<Object> execution =
+                        compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, options, args);
                 sendResultAndStatus(execution, notificationSender);
                 return execution.idAsync().thenAccept(out::packUuid);
             });
