@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -59,6 +58,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -218,8 +218,20 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             return ret;
         });
 
-        // stable partitions for tables are empty
-        when(metaStorageManager.getAll(any())).thenReturn(emptyMapCompletedFuture());
+        // stable partitions for tables
+        lenient().doAnswer(invocation -> {
+            Set<ByteArray> keys = invocation.getArgument(0);
+
+            Map<ByteArray, Entry> result = new HashMap<>();
+
+            for (var k : keys) {
+                var v = keyValueStorage.get(k.bytes());
+
+                result.put(k, v);
+            }
+
+            return completedFuture(result);
+        }).when(metaStorageManager).getAll(any());
     }
 
     @AfterEach
@@ -509,6 +521,21 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 List.of(ColumnParams.builder().name("k1").type(STRING).length(100).build()),
                 List.of("k1")
         );
+
+        var tableId = getTableId(tableName);
+        var zoneId = getZoneId(zoneName);
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, catalogManager.latestCatalogVersion());
+
+        Set<String> initialDataNodes = Set.of("node0");
+        List<Set<Assignment>> initialAssignments =
+                AffinityUtils.calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
+
+        for (int i = 0; i < initialAssignments.size(); i++) {
+            var stableAssignmentPartitionKey = stablePartAssignmentsKey(new TablePartitionId(tableId, i)).bytes();
+
+            keyValueStorage.put(stableAssignmentPartitionKey, toBytes(initialAssignments.get(i)), clock.now());
+        }
     }
 
     private int getZoneId(String zoneName) {
