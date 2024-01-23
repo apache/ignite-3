@@ -150,18 +150,14 @@ public:
      *
      * @return Expected parameters number.
      */
-    [[nodiscard]] std::size_t get_expected_param_num() const {
-        return m_params_meta.size();
-    }
+    [[nodiscard]] std::size_t get_expected_param_num() const { return m_params_meta.size(); }
 
     /**
      * Check if parameters meta is available.
      *
      * @return @c true if available.
      */
-    [[nodiscard]] bool is_param_meta_available() const {
-        return m_params_meta_available;
-    }
+    [[nodiscard]] bool is_param_meta_available() const { return m_params_meta_available; }
 
 private:
     /**

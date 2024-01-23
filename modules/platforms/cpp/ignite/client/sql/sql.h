@@ -75,8 +75,8 @@ public:
      * @param args Arguments for the template (can be empty).
      * @param callback A callback called on operation completion with SQL result set.
      */
-    IGNITE_API void execute_script_async(const sql_statement &statement, std::vector<primitive> args,
-        ignite_callback<void> callback);
+    IGNITE_API void execute_script_async(
+        const sql_statement &statement, std::vector<primitive> args, ignite_callback<void> callback);
 
     /**
      * Executes a multi-statement SQL query.

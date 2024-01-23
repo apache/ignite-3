@@ -470,7 +470,7 @@ sql_result sql_statement::internal_get_parameters_number(std::uint16_t &param_nu
         return sql_result::AI_SUCCESS;
     }
 
-    auto qry0 = static_cast<data_query*>(m_current_query.get());
+    auto qry0 = static_cast<data_query *>(m_current_query.get());
     if (!qry0->is_param_meta_available()) {
         sql_result res = qry0->update_meta();
 
@@ -980,7 +980,7 @@ sql_result sql_statement::internal_describe_param(
         return sql_result::AI_ERROR;
     }
 
-    auto qry0 = static_cast<data_query*>(qry);
+    auto qry0 = static_cast<data_query *>(qry);
     if (!qry0->is_param_meta_available()) {
         sql_result res = qry0->update_meta();
 
