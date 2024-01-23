@@ -105,6 +105,7 @@ import org.apache.ignite.internal.security.authentication.validator.Authenticati
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.worker.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
@@ -193,7 +194,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault)
+                new VaultStaleIds(vault),
+                new NoOpCriticalWorkerRegistry()
         );
 
         var clusterStateStorage = new TestClusterStateStorage();
@@ -205,7 +207,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
 
         metastore = spy(StandaloneMetaStorageManager.create(
-                vault,
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
         ));
 
@@ -247,7 +248,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 revisionUpdater,
                 metastore,
                 logicalTopologyService,
-                vault,
                 catalogManager
         );
 

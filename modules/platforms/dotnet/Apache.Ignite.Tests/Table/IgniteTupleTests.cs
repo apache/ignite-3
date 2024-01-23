@@ -27,6 +27,12 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class IgniteTupleTests
     {
+        [TearDown]
+        public void TearDown()
+        {
+            TestUtils.CheckByteArrayPoolLeak();
+        }
+
         [Test]
         public void TestCreateUpdateRead()
         {

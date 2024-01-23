@@ -18,16 +18,20 @@
 package org.apache.ignite.internal.util;
 
 import static java.util.Collections.emptyIterator;
+import static java.util.Collections.emptyList;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
+import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 import static org.apache.ignite.internal.util.CollectionUtils.setOf;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -42,6 +46,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Spliterators;
 import java.util.stream.StreamSupport;
@@ -290,5 +296,61 @@ public class CollectionUtilsTest {
 
         assertEquals(1, last(List.of(1)));
         assertEquals(2, last(List.of(1, 2)));
+    }
+
+    @Test
+    void testMapIterableWithPredicate() {
+        assertFalse(mapIterable(null, null, null).iterator().hasNext());
+        assertFalse(mapIterable(emptyList(), null, null).iterator().hasNext());
+
+        assertEquals(List.of(1), collect(mapIterable(List.of(1), null, null)));
+        assertEquals(List.of(1), collect(mapIterable(List.of(1), identity(), null)));
+        assertEquals(List.of(1), collect(mapIterable(List.of(1), null, integer -> true)));
+        assertEquals(List.of(1), collect(mapIterable(List.of(1), identity(), integer -> true)));
+        assertEquals(List.of(), collect(mapIterable(List.of(1), null, integer -> false)));
+        assertEquals(List.of(), collect(mapIterable(List.of(1), identity(), integer -> false)));
+
+        assertEquals(List.of("1", "2", "3"), collect(mapIterable(List.of(1, 2, 3), String::valueOf, null)));
+        assertEquals(List.of("3"), collect(mapIterable(List.of(1, 2, 3), String::valueOf, integer -> integer > 2)));
+
+        Iterator<String> iterator1 = mapIterable(List.of(1, 2, 3, 4), String::valueOf, integer -> true).iterator();
+        assertEquals("1", iterator1.next());
+        assertEquals("2", iterator1.next());
+        assertEquals("3", iterator1.next());
+        assertEquals("4", iterator1.next());
+
+        Iterator<String> iterator2 = mapIterable(List.of(1, 2, 3, 4), String::valueOf, null).iterator();
+        assertEquals("1", iterator2.next());
+        assertEquals("2", iterator2.next());
+        assertEquals("3", iterator2.next());
+        assertEquals("4", iterator2.next());
+
+        Iterator<Integer> iterator3 = mapIterable(List.of(1, 2, 3, 4), identity(), integer -> integer < 3).iterator();
+        assertEquals(1, iterator3.next());
+        assertEquals(2, iterator3.next());
+
+        Iterator<Integer> iterator4 = mapIterable(List.of(1, 2, 3, 4), identity(), integer -> false).iterator();
+        assertFalse(iterator4.hasNext());
+
+        assertDoesNotThrow(() -> mapIterable(Arrays.asList(new Integer[]{null}), null, null).iterator().next());
+        assertDoesNotThrow(() -> mapIterable(Arrays.asList(new Integer[]{null}), null, integer -> true).iterator().next());
+        assertDoesNotThrow(() -> mapIterable(Arrays.asList(null, 1), null, null).iterator().next());
+        assertDoesNotThrow(() -> mapIterable(Arrays.asList(null, 1), null, integer -> true).iterator().next());
+
+        assertThrows(
+                NoSuchElementException.class,
+                () -> mapIterable(Arrays.asList(new Integer[]{null}), null, integer -> false).iterator().next()
+        );
+
+        assertThrows(
+                NoSuchElementException.class,
+                () -> {
+                    Iterator<Object> iterator = mapIterable(Arrays.asList(null, 1), null, Objects::nonNull).iterator();
+                    iterator.next();
+                    iterator.next();
+                }
+        );
+
+        assertThrows(UnsupportedOperationException.class, () -> mapIterable(List.of(1), null, null).iterator().remove());
     }
 }

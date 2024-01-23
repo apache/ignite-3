@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.index.impl;
 
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -36,8 +37,20 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     private volatile @Nullable RowId nextRowIdToBuild;
 
+    /** Amount of cursors that opened and still do not close. */
+    protected final AtomicInteger pendingCursors = new AtomicInteger();
+
     AbstractTestIndexStorage(int partitionId) {
         nextRowIdToBuild = RowId.lowestRowId(partitionId);
+    }
+
+    /**
+     * Gets amount of pending cursors.
+     *
+     * @return Amount of pending cursors.
+     */
+    public int pendingCursors() {
+        return pendingCursors.get();
     }
 
     @Override
@@ -46,10 +59,12 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
         Iterator<RowId> iterator = getRowIdIteratorForGetByBinaryTuple(key);
 
+        pendingCursors.incrementAndGet();
+
         return new Cursor<>() {
             @Override
             public void close() {
-                // No-op.
+                pendingCursors.decrementAndGet();
             }
 
             @Override

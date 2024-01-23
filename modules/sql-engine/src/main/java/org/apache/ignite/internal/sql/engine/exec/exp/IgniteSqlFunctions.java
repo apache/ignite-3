@@ -64,6 +64,9 @@ public class IgniteSqlFunctions {
     private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
     private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
 
+    private static final BigDecimal MAX_INT = new BigDecimal(Integer.MAX_VALUE);
+    private static final BigDecimal MIN_INT = new BigDecimal(Integer.MIN_VALUE);
+
     static {
         ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
                 .parseCaseInsensitive()
@@ -229,6 +232,70 @@ public class IgniteSqlFunctions {
         BigDecimal roundedValue = b0.setScale(b1, RoundingMode.HALF_UP);
         // Pad with zeros to match the original scale
         return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
+    }
+
+    /** Returns {@link Integer} bounded value. */
+    private static int normalizeRegardingInt(BigDecimal num) {
+        int res;
+
+        if (num.compareTo(MAX_INT) >= 0) {
+            res = Integer.MAX_VALUE;
+        } else if (num.compareTo(MIN_INT) <= 0) {
+            res = Integer.MIN_VALUE;
+        } else {
+            res = num.intValue();
+        }
+
+        return res;
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s) {
+        if (s <= 1) {
+            return c;
+        }
+
+        return SqlFunctions.substring(c, s);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, BigDecimal s) {
+        if (s.compareTo(BigDecimal.ONE) <= 0) {
+            return c;
+        }
+
+        int s0 = normalizeRegardingInt(s);
+        return SqlFunctions.substring(c, s0);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s, int l) {
+        return SqlFunctions.substring(c, s, l);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s, BigDecimal l) {
+        if (s < 0) {
+            if (l.signum() > 0) {
+                l = l.add(BigDecimal.valueOf(s));
+                return substring(c, 0, l);
+            }
+        }
+        int l0 = normalizeRegardingInt(l);
+        return SqlFunctions.substring(c, s, l0);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, BigDecimal s, BigDecimal l) {
+        if (s.signum() < 0) {
+            if (l.signum() > 0) {
+                l = l.add(s);
+                return substring(c, 0, l);
+            }
+        }
+        int s0 = normalizeRegardingInt(s);
+        int l0 = normalizeRegardingInt(l);
+        return SqlFunctions.substring(c, s0, l0);
     }
 
     // TRUNCATE function

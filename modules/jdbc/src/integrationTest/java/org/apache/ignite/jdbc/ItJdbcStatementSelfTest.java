@@ -29,10 +29,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -161,6 +163,30 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertEquals(2, cnt);
 
         assertFalse(stmt.getMoreResults(), "Statement has more results.");
+    }
+
+    @Test
+    public void executeQueryWithNullColTypes() throws Exception {
+        ResultSet rs = stmt.executeQuery("SELECT LOWER(NULL), UPPER(NULL), SUBSTRING(NULL FROM 1 FOR 2)");
+        rs.next();
+        assertNull(rs.getString(1));
+        assertNull(rs.getString(2));
+        assertNull(rs.getString(3));
+
+        ResultSetMetaData meta = rs.getMetaData();
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(1));
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(2));
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(3));
+
+        stmt.executeUpdate("DELETE FROM TEST");
+        stmt.executeUpdate("insert into TEST (ID, NAME) values (1, null)");
+
+        rs = stmt.executeQuery("SELECT LOWER(NAME) FROM TEST");
+        rs.next();
+        assertNull(rs.getObject(1));
+
+        meta = rs.getMetaData();
+        assertEquals("VARCHAR", meta.getColumnTypeName(1));
     }
 
     @Test

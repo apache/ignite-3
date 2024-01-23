@@ -59,7 +59,7 @@ public class CatalogUtils {
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
      * nodes.
      */
-    public static final String DEFAULT_FILTER = "'$..*'";
+    public static final String DEFAULT_FILTER = "$..*";
 
     /** Default distribution zone storage engine. */
     // TODO: IGNITE-19719 Should be defined differently

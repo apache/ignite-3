@@ -44,7 +44,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -66,22 +65,20 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
     /**
-     * Creates standalone MetaStorage manager for provided VaultManager.
+     * Creates standalone MetaStorage manager.
      */
-    public static StandaloneMetaStorageManager create(VaultManager vaultManager) {
-        return create(vaultManager, new SimpleInMemoryKeyValueStorage(TEST_NODE_NAME));
+    public static StandaloneMetaStorageManager create() {
+        return create(new SimpleInMemoryKeyValueStorage(TEST_NODE_NAME));
     }
 
     /**
-     * Creates standalone MetaStorage manager for provided VaultManager and key-value storage.
-     * The manager is responsible for starting/stopping provided key-value storage.
+     * Creates standalone MetaStorage manager for provided key-value storage. The manager is responsible for starting/stopping provided
+     * key-value storage.
      *
-     * @param vaultManager Vault manager.
      * @param keyValueStorage Key-value storage.
      */
-    public static StandaloneMetaStorageManager create(VaultManager vaultManager, KeyValueStorage keyValueStorage) {
+    public static StandaloneMetaStorageManager create(KeyValueStorage keyValueStorage) {
         return new StandaloneMetaStorageManager(
-                vaultManager,
                 mockClusterService(),
                 mockClusterGroupManager(),
                 mock(LogicalTopologyService.class),
@@ -95,7 +92,6 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     /**
      * The constructor.
      *
-     * @param vaultMgr Vault manager.
      * @param clusterService Cluster network service.
      * @param cmgMgr Cluster management service Manager.
      * @param logicalTopologyService Logical topology service.
@@ -103,7 +99,6 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      */
     private StandaloneMetaStorageManager(
-            VaultManager vaultMgr,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
@@ -113,7 +108,6 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             MetaStorageConfiguration configuration
     ) {
         super(
-                vaultMgr,
                 clusterService,
                 cmgMgr,
                 logicalTopologyService,

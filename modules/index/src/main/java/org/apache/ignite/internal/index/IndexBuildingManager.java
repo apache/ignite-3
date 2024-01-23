@@ -17,14 +17,29 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -33,11 +48,17 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
 
 /**
- * Component is responsible for building indexes and making them {@link CatalogIndexDescriptor#available() available}. Both in a running
- * cluster and when a node is being recovered.
+ * Component is responsible for building indexes and making them {@link CatalogIndexStatus#AVAILABLE available}. Both in a running cluster
+ * and when a node is being recovered.
+ *
+ * @see CatalogIndexDescriptor#status()
  */
 public class IndexBuildingManager implements IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingManager.class);
+
     private final MetaStorageManager metaStorageManager;
+
+    private final CatalogManager catalogManager;
 
     private final IndexBuilder indexBuilder;
 
@@ -61,6 +82,7 @@ public class IndexBuildingManager implements IgniteComponent {
             HybridClock clock
     ) {
         this.metaStorageManager = metaStorageManager;
+        this.catalogManager = catalogManager;
 
         indexBuilder = new IndexBuilder(nodeName, Runtime.getRuntime().availableProcessors(), replicaService);
 
@@ -70,8 +92,8 @@ public class IndexBuildingManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
-        inBusyLock(busyLock, () -> {
+    public CompletableFuture<Void> start() {
+        return inBusyLockAsync(busyLock, () -> {
             CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
             assert recoveryFinishedFuture.isDone();
@@ -79,6 +101,12 @@ public class IndexBuildingManager implements IgniteComponent {
             long recoveryRevision = recoveryFinishedFuture.join();
 
             indexAvailabilityController.recover(recoveryRevision);
+
+            startBuildIndexesOnRecoveryBusy();
+
+            addListeners();
+
+            return nullCompletedFuture();
         });
     }
 
@@ -95,5 +123,49 @@ public class IndexBuildingManager implements IgniteComponent {
                 indexAvailabilityController,
                 indexBuildController
         );
+    }
+
+    // TODO: IGNITE-21115 Get rid of the crutch
+    private void startBuildIndexBusy(int indexId) {
+        catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()).whenComplete((unused, throwable) -> {
+            if (throwable != null) {
+                Throwable unwrapCause = unwrapCause(throwable);
+
+                if (!(unwrapCause instanceof IndexNotFoundValidationException)
+                        && !(unwrapCause instanceof ChangeIndexStatusValidationException)
+                        && !(unwrapCause instanceof NodeStoppingException)) {
+                    LOG.error("Error processing the command to start building index: {}", unwrapCause, indexId);
+                }
+            }
+        });
+    }
+
+    // TODO: IGNITE-21115 Get rid of the crutch
+    private void addListeners() {
+        catalogManager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
+
+            CatalogIndexDescriptor indexDescriptor = ((CreateIndexEventParameters) parameters).indexDescriptor();
+
+            return inBusyLockAsync(busyLock, () -> {
+                if (indexDescriptor.status() != AVAILABLE) {
+                    startBuildIndexBusy(indexDescriptor.id());
+                }
+
+                return falseCompletedFuture();
+            });
+        });
+    }
+
+    // TODO: IGNITE-21115 Get rid of the crutch
+    private void startBuildIndexesOnRecoveryBusy() {
+        // It is expected that the method will only be called on recovery, when the deploy of metastore watches has not yet occurred.
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        catalogManager.indexes(catalogVersion).stream()
+                .filter(indexDescriptor -> indexDescriptor.status() == REGISTERED)
+                .forEach(indexDescriptor -> startBuildIndexBusy(indexDescriptor.id()));
     }
 }

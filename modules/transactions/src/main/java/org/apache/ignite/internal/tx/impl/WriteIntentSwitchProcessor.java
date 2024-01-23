@@ -24,8 +24,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,31 +37,29 @@ public class WriteIntentSwitchProcessor {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(WriteIntentSwitchProcessor.class);
 
-    private static final int ATTEMPTS_TO_SWITCH_WI = 5;
-
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
     private final TxMessageSender txMessageSender;
 
-    /** Cluster service. */
-    private final ClusterService clusterService;
+    /** Topology service. */
+    private final TopologyService topologyService;
 
     /**
      * The constructor.
      *
      * @param placementDriverHelper Placement driver helper.
      * @param txMessageSender Transaction message creator.
-     * @param clusterService Cluster service.
+     * @param topologyService Topology service.
      */
     public WriteIntentSwitchProcessor(
             PlacementDriverHelper placementDriverHelper,
             TxMessageSender txMessageSender,
-            ClusterService clusterService
+            TopologyService topologyService
     ) {
         this.placementDriverHelper = placementDriverHelper;
         this.txMessageSender = txMessageSender;
-        this.clusterService = clusterService;
+        this.topologyService = topologyService;
     }
 
     /**
@@ -71,7 +71,7 @@ public class WriteIntentSwitchProcessor {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        String localNodeName = clusterService.topologyService().localMember().name();
+        String localNodeName = topologyService.localMember().name();
 
         return txMessageSender.switchWriteIntents(localNodeName, tablePartitionId, txId, commit, commitTimestamp);
     }
@@ -85,31 +85,20 @@ public class WriteIntentSwitchProcessor {
             UUID txId,
             TablePartitionId partitionId
     ) {
-        return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partitionId, ATTEMPTS_TO_SWITCH_WI);
-    }
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-20681 remove attempts count.
-    private CompletableFuture<Void> switchWriteIntentsWithRetry(
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId,
-            TablePartitionId partitionId,
-            int attempts
-    ) {
         return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(partitionId)
                 .thenCompose(leaseHolder ->
                         txMessageSender.switchWriteIntents(leaseHolder.getLeaseholder(), partitionId, txId, commit, commitTimestamp))
                 .handle((res, ex) -> {
                     if (ex != null) {
-                        if (attempts > 0) {
-                            LOG.warn("Failed to switch write intents for Tx. The operation will be retried [txId={}].", txId, ex);
-                        } else {
-                            LOG.warn("Failed to switch write intents for Tx [txId={}].", txId, ex);
+                        Throwable cause = ExceptionUtils.unwrapCause(ex);
+
+                        if (TransactionFailureHandler.isRecoverable(cause)) {
+                            LOG.info("Failed to switch write intents for Tx. The operation will be retried [txId={}].", txId, ex);
+
+                            return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partitionId);
                         }
 
-                        if (attempts > 0) {
-                            return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
-                        }
+                        LOG.info("Failed to switch write intents for Tx [txId={}].", txId, ex);
 
                         return CompletableFuture.<Void>failedFuture(ex);
                     }

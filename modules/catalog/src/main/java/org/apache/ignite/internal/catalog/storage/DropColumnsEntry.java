@@ -87,20 +87,13 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                         schema.id(),
                         schema.name(),
                         Arrays.stream(schema.tables())
-                                .map(table -> table.id() == tableId ? new CatalogTableDescriptor(
-                                        table.id(),
-                                        table.schemaId(),
-                                        table.primaryKeyIndexId(),
+                                .map(table -> table.id() == tableId ? table.newDescriptor(
                                         table.name(),
-                                        table.zoneId(),
                                         table.tableVersion() + 1,
                                         table.columns().stream()
                                                 .filter(col -> !columns.contains(col.name()))
                                                 .collect(toList()),
-                                        table.primaryKeyColumns(),
-                                        table.colocationColumns(),
-                                        causalityToken,
-                                        table.creationToken()) : table
+                                        causalityToken) : table
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
                         schema.indexes(),

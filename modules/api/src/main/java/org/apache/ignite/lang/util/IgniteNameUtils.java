@@ -72,6 +72,19 @@ public final class IgniteNameUtils {
     }
 
     /**
+     * Wraps the given name with double quotes if it not upper case not-quoted name,
+     *     e.g. "myColumn" -&gt; "\"myColumn\"", "MYCOLUMN" -&gt; "MYCOLUMN"
+     *
+     * @param name Object name.
+     * @return Quoted object name.
+     */
+    public static String quoteIfNeeded(String name) {
+        String simpleName = parseSimpleName(name);
+
+        return name.equals(simpleName) || name.equals(quote(simpleName)) ? name : quote(name);
+    }
+
+    /**
      * Identifier chain tokenizer.
      *
      * <p>Splits provided identifier chain (complex identifier like PUBLIC.MY_TABLE) into its component parts.

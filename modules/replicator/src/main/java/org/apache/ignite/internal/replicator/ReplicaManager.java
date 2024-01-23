@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -611,7 +612,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
         clusterNetSvc.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, placementDriverMessageHandler);
         messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler));
@@ -631,6 +632,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
 
         localNodeId = clusterNetSvc.topologyService().localMember().id();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

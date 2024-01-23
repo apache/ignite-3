@@ -25,7 +25,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 
@@ -57,7 +57,7 @@ public class ClientSqlParameterMetadataRequest {
         return processor.prepareSingleAsync(properties, tx, query).thenAccept(meta -> writeMeta(out, meta));
     }
 
-    private static void writeMeta(ClientMessagePacker out, ParameterMetadata meta) {
+    private static void writeMeta(ClientMessagePacker out, QueryMetadata meta) {
         var types = meta.parameterTypes();
 
         out.packInt(types.size());

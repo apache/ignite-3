@@ -21,6 +21,7 @@ import static java.util.Collections.binarySearch;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -125,7 +126,7 @@ class IndexChooser implements ManuallyCloseable {
                             : String.format("Table should not be dropped: [catalogVersion=%s, tableId=%s]", nextCatalogVersion, tableId);
 
                     for (CatalogIndexDescriptor tableIndex : tableIndexes) {
-                        if (tableIndex.available() && !contains(nextCatalogVersionTableIndexes, tableIndex)) {
+                        if (tableIndex.status() == AVAILABLE && !contains(nextCatalogVersionTableIndexes, tableIndex)) {
                             addDroppedAvailableIndex(tableIndex, nextCatalogVersion);
                         }
                     }
@@ -146,9 +147,9 @@ class IndexChooser implements ManuallyCloseable {
     }
 
     /**
-     * Collects a list of table indexes that will need to be used for an update operation in an RW transaction. The list consists of all
-     * indexes (available and registered) on the requested catalog version, as well as all dropped available indexes from previous catalog
-     * versions.
+     * Collects a list of table indexes that will need to be used for an update operation in an RW transaction. The list consists of
+     * registered, building and available indexes on the requested catalog version, as well as all dropped available indexes from previous
+     * catalog versions.
      *
      * <p>Returned list is sorted by {@link CatalogObjectDescriptor#id()}. The table is expected to exist in the catalog at the requested
      * version.</p>
@@ -198,7 +199,7 @@ class IndexChooser implements ManuallyCloseable {
 
             assert droppedIndexDescriptor != null : "indexId=" + parameters.indexId() + ", catalogVersion=" + previousCatalogVersion;
 
-            if (!droppedIndexDescriptor.available()) {
+            if (droppedIndexDescriptor.status() != AVAILABLE) {
                 return nullCompletedFuture();
             }
 
@@ -241,7 +242,7 @@ class IndexChooser implements ManuallyCloseable {
      * @param catalogVersion Catalog version on which the index was dropped.
      */
     private void addDroppedAvailableIndex(CatalogIndexDescriptor droppedIndex, int catalogVersion) {
-        assert droppedIndex.available() : droppedIndex.id();
+        assert droppedIndex.status() == AVAILABLE : droppedIndex.id();
 
         int tableId = droppedIndex.tableId();
 

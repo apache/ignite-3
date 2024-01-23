@@ -116,7 +116,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
@@ -223,9 +222,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Hybrid clock. */
     private final HybridClock clock = new HybridClockImpl();
 
-    /** Catalog vault. */
-    private VaultManager catalogVault;
-
     /** Catalog metastore. */
     private MetaStorageManager catalogMetastore;
 
@@ -236,11 +232,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     void before() throws NodeStoppingException {
-        catalogVault = new VaultManager(new InMemoryVaultService());
-        catalogMetastore = StandaloneMetaStorageManager.create(catalogVault, new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
 
-        catalogVault.start();
         catalogMetastore.start();
         catalogManager.start();
 
@@ -287,7 +281,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm == null ? null : sm::stop,
                 catalogManager == null ? null : catalogManager::stop,
                 catalogMetastore == null ? null : catalogMetastore::stop,
-                catalogVault == null ? null : catalogVault::stop,
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );

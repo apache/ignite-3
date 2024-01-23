@@ -160,9 +160,12 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.network.NettyWorkersRegistrar;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -286,14 +289,20 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
+        var threadPools = new ThreadPoolsManager(name);
+
+        var workerRegistry = new CriticalWorkerWatchdog(threadPools.commonScheduler());
+
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
+        var nettyWorkersRegistrar = new NettyWorkersRegistrar(workerRegistry, threadPools.commonScheduler(), nettyBootstrapFactory);
 
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault)
+                new VaultStaleIds(vault),
+                workerRegistry
         );
 
         var hybridClock = new HybridClockImpl();
@@ -346,7 +355,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
         var metaStorageMgr = new MetaStorageManagerImpl(
-                vault,
                 clusterSvc,
                 cmgManager,
                 logicalTopologyService,
@@ -397,8 +405,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock
         );
 
-        var threadPools = new ThreadPoolsManager(name);
-
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
@@ -418,7 +424,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                new TestLocalRwTxCounter()
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -460,7 +467,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 registry,
                 metaStorageMgr,
                 logicalTopologyService,
-                vault,
                 catalogManager
         ) {
             @Override
@@ -543,7 +549,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
                 threadPools,
+                workerRegistry,
                 nettyBootstrapFactory,
+                nettyWorkersRegistrar,
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,

@@ -31,12 +31,19 @@ using NUnit.Framework;
 /// </summary>
 public class LoggingTests
 {
+    [TearDown]
+    public void TearDown() => TestUtils.CheckByteArrayPoolLeak(5000);
+
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestBasicLogging()
     {
         var logger = new ListLoggerFactory(Enum.GetValues<LogLevel>());
-        var cfg = new IgniteClientConfiguration { LoggerFactory = logger };
+        var cfg = new IgniteClientConfiguration
+        {
+            LoggerFactory = logger,
+            SocketTimeout = TimeSpan.FromSeconds(1)
+        };
 
         using var servers = FakeServerGroup.Create(3);
         using (var client = await servers.ConnectClientAsync(cfg))
@@ -44,7 +51,7 @@ public class LoggingTests
             client.WaitForConnections(3);
 
             await client.Tables.GetTablesAsync();
-            await client.Sql.ExecuteAsync(null, "select 1");
+            await using var cursor = await client.Sql.ExecuteAsync(null, "select 1");
         }
 
         var log = logger.GetLogString();

@@ -19,13 +19,12 @@ package org.apache.ignite.internal.compute.queue;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Compute job executor with priority mechanism.
@@ -35,7 +34,7 @@ public class PriorityQueueExecutor {
 
     private final ComputeConfiguration configuration;
 
-    private final ThreadPoolExecutor executor;
+    private final ComputeThreadPoolExecutor executor;
 
     private final ComputeStateMachine stateMachine;
 
@@ -52,12 +51,13 @@ public class PriorityQueueExecutor {
     ) {
         this.configuration = configuration;
         this.stateMachine = stateMachine;
-        executor = new ThreadPoolExecutor(
+        BlockingQueue<Runnable> workQueue = new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value());
+        executor = new ComputeThreadPoolExecutor(
                 configuration.threadPoolSize().value(),
                 configuration.threadPoolSize().value(),
                 THREAD_KEEP_ALIVE_SECONDS,
                 TimeUnit.SECONDS,
-                new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value()),
+                workQueue,
                 threadFactory
         );
     }
@@ -96,7 +96,6 @@ public class PriorityQueueExecutor {
      * Shutdown executor. After shutdown executor is not usable anymore.
      */
     public void shutdown() {
-        Long stopTimeout = configuration.threadPoolStopTimeoutMillis().value();
-        IgniteUtils.shutdownAndAwaitTermination(executor, stopTimeout, TimeUnit.MILLISECONDS);
+        executor.shutdown(configuration.threadPoolStopTimeoutMillis().value());
     }
 }

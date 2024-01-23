@@ -29,9 +29,10 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.assertMe
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.awaitTillGlobalMetastoreRevisionIsApplied;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createIndex;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexDescriptor;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexId;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.isIndexAvailable;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.makeIndexAvailable;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.startBuildingIndex;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -59,8 +60,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
@@ -79,8 +78,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     private final ClusterService clusterService = mock(ClusterService.class);
 
-    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
-
     private KeyValueStorage keyValueStorage;
 
     private MetaStorageManagerImpl metaStorageManager;
@@ -93,11 +90,11 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     void setUp() throws Exception {
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
+        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        Stream.of(vaultManager, metaStorageManager, catalogManager).forEach(IgniteComponent::start);
+        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
 
         deployWatches();
 
@@ -109,8 +106,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         IgniteUtils.closeAll(
                 controller == null ? null : controller::close,
                 catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop,
-                vaultManager::stop
+                metaStorageManager == null ? null : metaStorageManager::stop
         );
     }
 
@@ -121,6 +117,9 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         int indexId0 = indexId(catalogManager, INDEX_NAME + 0, clock);
         int indexId1 = indexId(catalogManager, INDEX_NAME + 1, clock);
+
+        startBuildingIndex(catalogManager, indexId0);
+        startBuildingIndex(catalogManager, indexId1);
 
         makeIndexAvailable(catalogManager, indexId0);
         makeIndexAvailable(catalogManager, indexId1);
@@ -134,8 +133,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         assertMetastoreKeyAbsent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId0));
         assertMetastoreKeyAbsent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId1));
 
-        assertTrue(indexDescriptor(catalogManager, INDEX_NAME + 0, clock).available());
-        assertTrue(indexDescriptor(catalogManager, INDEX_NAME + 1, clock).available());
+        assertTrue(isIndexAvailable(catalogManager, INDEX_NAME + 0, clock));
+        assertTrue(isIndexAvailable(catalogManager, INDEX_NAME + 1, clock));
     }
 
     @Test
@@ -144,20 +143,24 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
 
+        startBuildingIndex(catalogManager, indexId);
+
         putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
 
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
         assertMetastoreKeyAbsent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertTrue(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
+        assertTrue(isIndexAvailable(catalogManager, INDEX_NAME, clock));
     }
 
     @Test
-    void testPutIndexBuildKeysForRegisteredIndexes() throws Exception {
+    void testPutIndexBuildKeysForBuildingIndexes() throws Exception {
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
+
+        startBuildingIndex(catalogManager, indexId);
 
         restartComponentsAndPerformRecovery();
 
@@ -171,7 +174,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
             assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, partitionId));
         }
 
-        assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
+        assertFalse(isIndexAvailable(catalogManager, INDEX_NAME, clock));
     }
 
     private void putInProgressBuildIndexMetastoreKeyInMetastore(int indexId) {
@@ -196,7 +199,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
+        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
         catalogManager = spy(CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 

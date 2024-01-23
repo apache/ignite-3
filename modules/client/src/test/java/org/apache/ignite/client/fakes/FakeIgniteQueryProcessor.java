@@ -17,11 +17,13 @@
 
 package org.apache.ignite.client.fakes;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -32,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
-    public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+    public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
             @Nullable InternalTransaction transaction, String qry, Object... params) {
         throw new UnsupportedOperationException();
     }
@@ -60,8 +62,8 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public void start() {
-
+    public CompletableFuture<Void> start() {
+        return nullCompletedFuture();
     }
 
     @Override

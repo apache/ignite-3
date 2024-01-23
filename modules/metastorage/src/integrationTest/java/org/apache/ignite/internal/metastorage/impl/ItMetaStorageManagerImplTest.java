@@ -69,8 +69,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -87,8 +85,6 @@ import org.mockito.ArgumentCaptor;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
-    private VaultManager vaultManager;
-
     private ClusterService clusterService;
 
     private Loza raftManager;
@@ -122,8 +118,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 raftGroupEventsClientListener
         );
 
-        vaultManager = new VaultManager(new InMemoryVaultService());
-
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(clusterService.nodeName())));
@@ -131,7 +125,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         storage = new RocksDbKeyValueStorage(clusterService.nodeName(), workDir.resolve("metastorage"));
 
         metaStorageManager = new MetaStorageManagerImpl(
-                vaultManager,
                 clusterService,
                 cmgManager,
                 logicalTopologyService,
@@ -142,7 +135,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 metaStorageConfiguration
         );
 
-        vaultManager.start();
         clusterService.start();
         raftManager.start();
         metaStorageManager.start();
@@ -152,7 +144,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService, vaultManager);
+        List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService);
 
         IgniteUtils.closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
@@ -219,7 +211,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageNodes()).thenReturn(cmgFut);
 
         metaStorageManager = new MetaStorageManagerImpl(
-                vaultManager,
                 clusterService,
                 cmgManager,
                 mock(LogicalTopologyService.class),

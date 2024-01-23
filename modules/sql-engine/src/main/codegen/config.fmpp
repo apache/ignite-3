@@ -52,7 +52,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDecimalLiteral",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec",
       "org.apache.ignite.internal.sql.engine.type.UuidType",
     ]
@@ -327,7 +326,6 @@ data: {
     # Return type of method implementation should be "SqlNode".
     # Example: ParseJsonLiteral().
     literalParserMethods: [
-      "ParseDecimalLiteral()",
     ]
 
     # List of methods for parsing custom data types.
