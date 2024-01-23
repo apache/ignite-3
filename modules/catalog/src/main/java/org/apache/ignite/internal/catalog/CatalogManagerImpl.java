@@ -603,4 +603,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             this.id = id;
         }
     }
+
+    /** List of reserved schema names. */
+    public static List<String> reservedSchemas() {
+        return List.of(SYSTEM_SCHEMA_NAME);
+    }
 }
