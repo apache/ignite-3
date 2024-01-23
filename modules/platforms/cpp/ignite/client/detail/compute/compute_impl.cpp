@@ -91,6 +91,11 @@ void compute_impl::execute_on_one_node(cluster_node node, const std::vector<depl
         writer.write(node.get_name());
         write_units(writer, units);
         writer.write(job_class_name);
+
+        // TODO: IGNITE-21335
+        writer.write(0); // Priority.
+        writer.write(0); // Max retries.
+
         write_primitives_as_binary_tuple(writer, args);
     };
 
@@ -131,6 +136,11 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
                     write_tuple(writer, sch, key, true);
                     write_units(writer, units);
                     writer.write(job);
+
+                    // TODO: Ticket number.
+                    writer.write(0); // Priority.
+                    writer.write(0); // Max retries.
+
                     write_primitives_as_binary_tuple(writer, args);
                 };
 
