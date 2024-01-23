@@ -154,7 +154,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             return computeComponent.executeLocally(units, jobClassName, args);
         } else {
             return new ComputeJobFailover<R>(
-                    computeComponent, logicalTopologyService,
+                    computeComponent, logicalTopologyService, topologyService,
                     targetNode, nextWorkerSelector, units,
                     jobClassName, args
             ).failSafeExecute();

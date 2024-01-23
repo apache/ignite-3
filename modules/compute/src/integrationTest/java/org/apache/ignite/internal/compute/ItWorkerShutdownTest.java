@@ -139,7 +139,7 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         // And check create time was not changed but start time changed.
         assertThat(execution.createTimeMillis(), equalTo(createTimeBeforeFail));
         assertThat(execution.startTimeMillis(), greaterThan(startTimeBeforeFail));
-        // And id was not changed
+        // And id was not changed.
         assertThat(execution.idSync(), equalTo(jobIdBeforeFail));
 
         // When finish job.
@@ -150,7 +150,7 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         // And finish time is greater then create time and start time.
         assertThat(execution.finishTimeMillis(), greaterThan(execution.createTimeMillis()));
         assertThat(execution.finishTimeMillis(), greaterThan(execution.startTimeMillis()));
-        // And job id the same
+        // And job id the same.
         assertThat(execution.idSync(), equalTo(jobIdBeforeFail));
     }
 

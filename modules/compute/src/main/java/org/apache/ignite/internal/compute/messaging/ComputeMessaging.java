@@ -268,6 +268,7 @@ public class ComputeMessaging {
             String senderConsistentId,
             long correlationId
     ) {
+//        sendJobStatusResponse(null, null, senderConsistentId, correlationId);
         executionManager.statusAsync(request.jobId())
                 .whenComplete((status, throwable) -> sendJobStatusResponse(status, throwable, senderConsistentId, correlationId));
     }
