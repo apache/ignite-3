@@ -88,7 +88,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
             return;
         }
 
-        Map<RelNode, RelNode> equivMap = new HashMap<>(capacity(indexes.size()));
+        Map<RelNode, RelNode> equivMap = IgniteUtils.newHashMap(indexes.size());
         for (int i = 1; i < indexes.size(); i++) {
             equivMap.put(indexes.get(i), scan);
         }
