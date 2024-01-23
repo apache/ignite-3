@@ -464,7 +464,7 @@ TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
 
     insert_test_string();
 
-    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
+    SQLCHAR req[] = "select \"DECIMAL\" from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -476,7 +476,7 @@ TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 1000);
+    EXPECT_EQ(int_val, 19);
 
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -486,7 +486,7 @@ TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 1000);
+    EXPECT_EQ(int_val, 19);
 }
 
 TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
@@ -494,7 +494,7 @@ TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
 
     insert_test_string();
 
-    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
+    SQLCHAR req[] = "select \"DECIMAL\" from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -506,7 +506,7 @@ TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 1000);
+    EXPECT_EQ(int_val, 19);
 
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -516,7 +516,7 @@ TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 1000);
+    EXPECT_EQ(int_val, 19);
 }
 
 TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
@@ -524,7 +524,7 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
 
     insert_test_string();
 
-    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
+    SQLCHAR req[] = "select \"DECIMAL\" from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -536,6 +536,8 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
+    EXPECT_EQ(int_val, 3);
+
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -543,6 +545,38 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(int_val, 3);
+}
+
+TEST_F(meta_queries_test, col_attributes_column_nullability_prepare) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_test_string();
+
+    SQLCHAR req[] = "select \"DECIMAL\" from TBL_ALL_COLUMNS_SQL";
+    SQLPrepare(m_statement, req, SQL_NTS);
+
+    SQLLEN int_val;
+    SQLCHAR str_buf[1024];
+    SQLSMALLINT str_len;
+
+    SQLRETURN ret = SQLColAttribute(m_statement, 1, SQL_DESC_NULLABLE, str_buf, sizeof(str_buf), &str_len, &int_val);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(int_val, SQL_NULLABLE);
+
+    ret = SQLExecute(m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = SQLColAttribute(m_statement, 1, SQL_DESC_NULLABLE, str_buf, sizeof(str_buf), &str_len, &int_val);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(int_val, SQL_NULLABLE);
 }
 
 TEST_F(meta_queries_test, get_data_with_get_type_info) {

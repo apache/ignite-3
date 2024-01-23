@@ -223,6 +223,7 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN &value) const {
             break;
         }
 
+        case SQL_COLUMN_NULLABLE:
         case SQL_DESC_NULLABLE: {
             value = nullability_to_sql(m_nullability);
 
