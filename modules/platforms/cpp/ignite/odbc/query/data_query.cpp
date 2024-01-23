@@ -27,69 +27,6 @@
 namespace {
 using namespace ignite;
 
-/**
- * Reads result set metadata.
- *
- * @param reader Reader.
- * @return Result set meta columns.
- */
-column_meta_vector read_meta(protocol::reader &reader) {
-    auto size = reader.read_int32();
-
-    column_meta_vector columns;
-    columns.reserve(size);
-
-    for (std::int32_t column_idx = 0; column_idx < size; ++column_idx) {
-        auto fields_cnt = reader.read_int32();
-
-        assert(fields_cnt >= 6); // Expect at least six fields.
-
-        auto name = reader.read_string();
-        auto nullable = reader.read_bool();
-        auto typ = ignite_type(reader.read_int32());
-        auto scale = reader.read_int32();
-        auto precision = reader.read_int32();
-
-        bool origin_present = reader.read_bool();
-
-        if (!origin_present) {
-            columns.emplace_back("", "", std::move(name), typ, precision, scale, nullable);
-            continue;
-        }
-
-        assert(fields_cnt >= 9); // Expect at least three more fields.
-        auto origin_name = reader.read_string_nullable();
-        auto origin_schema_id = reader.try_read_int32();
-        std::string origin_schema;
-        if (origin_schema_id) {
-            if (*origin_schema_id >= std::int32_t(columns.size())) {
-                throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id)
-                    + ", id=" + std::to_string(column_idx));
-            }
-            origin_schema = columns[*origin_schema_id].get_schema_name();
-        } else {
-            origin_schema = reader.read_string();
-        }
-
-        auto origin_table_id = reader.try_read_int32();
-        std::string origin_table;
-        if (origin_table_id) {
-            if (*origin_table_id >= std::int32_t(columns.size())) {
-                throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id)
-                    + ", id=" + std::to_string(column_idx));
-            }
-            origin_table = columns[*origin_table_id].get_table_name();
-        } else {
-            origin_table = reader.read_string();
-        }
-
-        columns.emplace_back(
-            std::move(origin_schema), std::move(origin_table), std::move(name), typ, precision, scale, nullable);
-    }
-
-    return columns;
-}
-
 // TODO: IGNITE-19968 Avoid storing row columns in primitives, read them directly from binary tuple.
 /**
  * Put a primitive into a buffer.
@@ -186,6 +123,7 @@ sql_result data_query::execute() {
 const column_meta_vector *data_query::get_meta() {
     if (!m_result_meta_available) {
         make_request_resultset_meta();
+
         if (!m_result_meta_available)
             return nullptr;
     }
@@ -351,7 +289,7 @@ sql_result data_query::make_request_execute() {
         m_rows_affected = reader->read_int64();
 
         if (m_has_rowset) {
-            auto columns = read_meta(*reader);
+            auto columns = read_result_set_meta(*reader);
             set_resultset_meta(columns);
             auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
             m_cursor = std::make_unique<cursor>(std::move(page));

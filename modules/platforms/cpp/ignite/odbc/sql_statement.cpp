@@ -1020,7 +1020,7 @@ sql_result sql_statement::update_params_meta() {
     auto success = catch_errors([&] {
         auto tx = m_connection.get_transaction_id();
         auto response =
-            m_connection.sync_request(protocol::client_operation::SQL_PARAM_META, [&](protocol::writer &writer) {
+            m_connection.sync_request(protocol::client_operation::SQL_QUERY_META, [&](protocol::writer &writer) {
                 if (tx)
                     writer.write(*tx);
                 else
@@ -1056,6 +1056,9 @@ sql_result sql_statement::update_params_meta() {
         }
 
         m_parameters.update_sql_params(std::move(params));
+
+//        auto columns = read_result_set_meta(*reader);
+//        set_resultset_meta(columns);
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;

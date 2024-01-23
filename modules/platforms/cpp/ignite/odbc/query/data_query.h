@@ -208,7 +208,7 @@ private:
     bool m_executed{false};
 
     /** Result set metadata is available */
-    bool m_result_meta_available{false};
+    volatile bool m_result_meta_available{false};
 
     /** Result set metadata. */
     column_meta_vector m_result_meta;
