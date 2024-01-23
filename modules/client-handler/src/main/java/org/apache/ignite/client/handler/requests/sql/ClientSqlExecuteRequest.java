@@ -45,6 +45,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -159,58 +160,6 @@ public class ClientSqlExecuteRequest {
             return;
         }
 
-        List<ColumnMetadata> cols = meta.columns();
-        out.packInt(cols.size());
-
-        // In many cases there are multiple columns from the same table.
-        // Schema is the same for all columns in most cases.
-        // When table or schema name was packed before, pack index instead of string.
-        Map<String, Integer> schemas = new HashMap<>();
-        Map<String, Integer> tables = new HashMap<>();
-
-        for (int i = 0; i < cols.size(); i++) {
-            ColumnMetadata col = cols.get(i);
-            ColumnOrigin origin = col.origin();
-
-            int fieldsNum = origin == null ? 6 : 9;
-            out.packInt(fieldsNum);
-
-            out.packString(col.name());
-            out.packBoolean(col.nullable());
-            out.packInt(col.type().id());
-            out.packInt(col.scale());
-            out.packInt(col.precision());
-
-            if (origin == null) {
-                out.packBoolean(false);
-                continue;
-            }
-
-            out.packBoolean(true);
-
-            if (col.name().equals(origin.columnName())) {
-                out.packNil();
-            } else {
-                out.packString(origin.columnName());
-            }
-
-            Integer schemaIdx = schemas.get(origin.schemaName());
-
-            if (schemaIdx == null) {
-                schemas.put(origin.schemaName(), i);
-                out.packString(origin.schemaName());
-            } else {
-                out.packInt(schemaIdx);
-            }
-
-            Integer tableIdx = tables.get(origin.tableName());
-
-            if (tableIdx == null) {
-                tables.put(origin.tableName(), i);
-                out.packString(origin.tableName());
-            } else {
-                out.packInt(tableIdx);
-            }
-        }
+        ClientSqlCommon.packColumns(out, meta.columns());
     }
 }
