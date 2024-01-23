@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.NO_INDEX;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +38,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.immutables.value.Value;
 
 /**
@@ -55,6 +57,8 @@ import org.immutables.value.Value;
 @Value.Enclosing
 public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
     public static final RelOptRule INSTANCE = Config.DEFAULT.withDescription("ExposeIndexRule").toRule();
+
+    private static final EnumSet<IgniteHint> INDEX_HINTS = EnumSet.of(NO_INDEX, FORCE_INDEX);
 
     private ExposeIndexRule(Config config) {
         super(config);
@@ -98,11 +102,17 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
     /** Filter actual indexes list and prune-table-scan flag if any index is forced to use. */
     private static List<IgniteLogicalIndexScan> applyHints(TableScan scan, List<IgniteLogicalIndexScan> indexes) {
+        List<RelHint> hints = HintUtils.hints(scan, INDEX_HINTS);
+
+        if (hints.isEmpty()) {
+            return indexes;
+        }
+
         Set<String> tblIdxNames = indexes.stream().map(AbstractIndexScan::indexName).collect(Collectors.toSet());
         Set<String> idxToSkip = new HashSet<>(capacity(tblIdxNames.size()));
         Set<String> idxToUse = new HashSet<>(capacity(tblIdxNames.size()));
 
-        for (RelHint hint : HintUtils.hints(scan, FORCE_INDEX, NO_INDEX)) {
+        for (RelHint hint : hints) {
             Collection<String> hintIdxNames = hint.listOptions;
             boolean noIndex = hint.hintName.equals(NO_INDEX.name());
 
