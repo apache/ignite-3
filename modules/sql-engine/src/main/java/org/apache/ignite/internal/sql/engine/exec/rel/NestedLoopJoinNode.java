@@ -463,9 +463,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         @Override
         protected void rewindInternal() {
             left = null;
-            if (rightNotMatchedIndexes != null) {
-                rightNotMatchedIndexes.clear();
-            }
+            rightNotMatchedIndexes = null;
             lastPushedInd = 0;
             rightIdx = 0;
 
@@ -571,7 +569,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** Whether current left row was matched or not. */
         private boolean leftMatched;
 
-        private BitSet rightNotMatchedIndexes;
+        private @Nullable BitSet rightNotMatchedIndexes;
 
         private int lastPushedInd;
 
@@ -605,7 +603,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         protected void rewindInternal() {
             left = null;
             leftMatched = false;
-            rightNotMatchedIndexes.clear();
+            rightNotMatchedIndexes = null;
             lastPushedInd = 0;
             rightIdx = 0;
 
