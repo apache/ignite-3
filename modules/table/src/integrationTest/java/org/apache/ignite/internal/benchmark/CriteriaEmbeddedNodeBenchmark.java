@@ -65,7 +65,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
 
     private final Random random = new Random();
 
-    @Param("2")
+    @Param("1")
     private int clusterSize;
 
     /**
@@ -102,7 +102,6 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + CriteriaEmbeddedNodeBenchmark.class.getSimpleName() + ".*")
-                .param("clusterSize", "1")
                 .build();
 
         new Runner(opt).run();

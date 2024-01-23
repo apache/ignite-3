@@ -109,9 +109,8 @@ public class AbstractMultiNodeBenchmark {
                 + "    field10  varchar(100)\n"
                 + ") WITH primary_zone='" + ZONE_NAME + "'";
 
-        await(clusterNode.queryEngine().querySingleAsync(
-                emptyProperties(), clusterNode.transactions(), null, createTableStatement
-        ).thenCompose(AsyncCursor::closeAsync));
+        await(clusterNode.queryEngine().querySingleAsync(emptyProperties(), clusterNode.transactions(), null, createTableStatement)
+                .thenCompose(AsyncCursor::closeAsync));
 
         return clusterNode.tables().table(tableName);
     }
