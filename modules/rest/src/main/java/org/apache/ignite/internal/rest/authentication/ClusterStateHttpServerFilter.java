@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest.authentication;
 
-import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MutableHttpResponse;
 import io.micronaut.http.annotation.Filter;
@@ -34,7 +33,6 @@ import reactor.core.publisher.Mono;
  * Filters out endpoints that are not allowed to be accessed.
  * */
 @Filter(Filter.MATCH_ALL_PATTERN)
-@Requires(property = "ignite.endpoints.filter-non-initialized", value = "true", defaultValue = "false")
 public class ClusterStateHttpServerFilter implements HttpServerFilter {
     private final RestManager restManager;
 
@@ -48,6 +46,7 @@ public class ClusterStateHttpServerFilter implements HttpServerFilter {
             if (!availability.isAvailable()) {
                 return Mono.just(HttpProblemResponse.from(
                         Problem.fromHttpCode(HttpCode.CONFLICT)
+                                .title(availability.unavailableTitle())
                                 .detail(availability.unavailableReason())
                                 .build()));
             }
