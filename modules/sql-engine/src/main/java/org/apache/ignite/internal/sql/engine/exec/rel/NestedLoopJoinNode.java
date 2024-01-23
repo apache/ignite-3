@@ -32,6 +32,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * NestedLoopJoinNode.
@@ -432,7 +433,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
 
-        private BitSet rightNotMatchedIndexes;
+        private @Nullable BitSet rightNotMatchedIndexes;
 
         private int lastPushedInd;
 
@@ -462,7 +463,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         @Override
         protected void rewindInternal() {
             left = null;
-            rightNotMatchedIndexes.clear();
+            rightNotMatchedIndexes = null;
             lastPushedInd = 0;
             rightIdx = 0;
 
@@ -568,7 +569,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** Whether current left row was matched or not. */
         private boolean leftMatched;
 
-        private BitSet rightNotMatchedIndexes;
+        private @Nullable BitSet rightNotMatchedIndexes;
 
         private int lastPushedInd;
 
@@ -602,7 +603,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         protected void rewindInternal() {
             left = null;
             leftMatched = false;
-            rightNotMatchedIndexes.clear();
+            rightNotMatchedIndexes = null;
             lastPushedInd = 0;
             rightIdx = 0;
 
