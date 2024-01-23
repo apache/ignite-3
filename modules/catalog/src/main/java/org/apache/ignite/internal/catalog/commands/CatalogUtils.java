@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -136,6 +137,13 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.STRING, EnumSet.of(ColumnType.STRING));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
+    }
+
+    public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
+
+    /** System schema names. */
+    static boolean isSystemSchema(String schemaName) {
+        return SYSTEM_SCHEMAS.contains(schemaName);
     }
 
     /**

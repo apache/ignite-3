@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.reservedSchemas;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
@@ -334,6 +334,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     private static Stream<Arguments> reservedSchemaNames() {
-        return reservedSchemas().stream().map(Arguments::of);
+        return SYSTEM_SCHEMAS.stream().map(Arguments::of);
     }
 }

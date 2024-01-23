@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 
 /**
@@ -36,14 +35,14 @@ public abstract class AbstractTableCommand implements CatalogCommand {
     protected final String tableName;
 
     AbstractTableCommand(String schemaName, String tableName) throws CatalogValidationException {
-        this.schemaName = schemaName != null ? schemaName.toUpperCase() : null;
+        this.schemaName = schemaName;
         this.tableName = tableName;
 
         validate();
     }
 
     private void validate() {
-        if (schemaName != null && CatalogManagerImpl.reservedSchemas().contains(schemaName)) {
+        if (schemaName != null && CatalogUtils.isSystemSchema(schemaName)) {
             throw new CatalogValidationException(format("Operations with reserved schemas "
                     + "keywords are not allowed, schema: {}", schemaName));
         }
