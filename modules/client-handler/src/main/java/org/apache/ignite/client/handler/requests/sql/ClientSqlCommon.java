@@ -36,7 +36,6 @@ import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Common SQL request handling logic.
@@ -198,7 +197,7 @@ class ClientSqlCommon {
      * @param out Message packer.
      * @param cols Columns.
      */
-    public static void packColumns(ClientMessagePacker out, @NotNull List<ColumnMetadata> cols) {
+    public static void packColumns(ClientMessagePacker out, List<ColumnMetadata> cols) {
         out.packInt(cols.size());
 
         // In many cases there are multiple columns from the same table.
