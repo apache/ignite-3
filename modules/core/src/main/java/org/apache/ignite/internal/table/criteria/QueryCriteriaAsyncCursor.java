@@ -22,14 +22,18 @@ import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper over {@link AsyncResultSet} for criteria queries.
+ *
+ * @param <R> A type of the objects contained by wrapped result set. This will be either {@link SqlRow} if no explicit mapper is provided
+ *      or a particular type defined by supplied mapper.
+ * @param <T> The type of elements returned by this cursor.
  */
 public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
-    /** Wrapped async result set. */
     private final AsyncResultSet<R> ars;
 
     @Nullable
@@ -41,8 +45,8 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
      * Constructor.
      *
      * @param ars Asynchronous result set.
-     * @param mapper Mapper.
-     * @param closeRun Callback to be invoked after result is closed.
+     * @param mapper Conversion function for objects contained by result set (if {@code null}, conversion isn't required).
+     * @param closeRun Callback to be invoked after result set is closed.
      */
     public QueryCriteriaAsyncCursor(AsyncResultSet<R> ars, @Nullable Function<R, T> mapper, Runnable closeRun) {
         this.ars = ars;
@@ -68,7 +72,7 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
         return ars.fetchNextPage()
                 .thenApply((rs) -> {
                     if (!hasMorePages()) {
-                        closeRun.run();
+                        closeAsync();
                     }
 
                     return new QueryCriteriaAsyncCursor<>(rs, mapper, closeRun);

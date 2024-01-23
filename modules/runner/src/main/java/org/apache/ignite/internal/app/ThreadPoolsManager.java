@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -34,6 +39,8 @@ public class ThreadPoolsManager implements IgniteComponent {
 
     private final StripedThreadPoolExecutor partitionOperationsExecutor;
 
+    private final ScheduledExecutorService commonScheduler;
+
     /**
      * Constructor.
      */
@@ -45,16 +52,20 @@ public class ThreadPoolsManager implements IgniteComponent {
                 false,
                 0
         );
+
+        commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         // No-op.
+        return nullCompletedFuture();
     }
 
     @Override
     public void stop() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -62,5 +73,12 @@ public class ThreadPoolsManager implements IgniteComponent {
      */
     public StripedThreadPoolExecutor partitionOperationsExecutor() {
         return partitionOperationsExecutor;
+    }
+
+    /**
+     * Returns a global {@link ScheduledExecutorService}. Only small tasks should be scheduled.
+     */
+    public ScheduledExecutorService commonScheduler() {
+        return commonScheduler;
     }
 }

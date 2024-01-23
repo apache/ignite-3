@@ -183,7 +183,6 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,

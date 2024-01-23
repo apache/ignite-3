@@ -38,6 +38,7 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -48,8 +49,6 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,8 +65,6 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     final HybridClock clock = new HybridClockImpl();
 
-    private VaultManager vault;
-
     private MetaStorageManager metastore;
 
     UpdateLog updateLog;
@@ -81,9 +78,8 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
-        vault = new VaultManager(new InMemoryVaultService());
 
-        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
 
         updateLog = spy(new UpdateLogImpl(metastore));
         clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));
@@ -95,7 +91,6 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
         );
 
-        vault.start();
         metastore.start();
         clockWaiter.start();
         manager.start();
@@ -105,7 +100,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        IgniteUtils.closeAll(Stream.of(manager, clockWaiter, metastore, vault)
+        IgniteUtils.closeAll(Stream.of(manager, clockWaiter, metastore)
                 .filter(Objects::nonNull)
                 .map(component -> component::stop)
         );
@@ -207,5 +202,9 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static CatalogCommand simpleIndex(String tableName, String indexName) {
         return createHashIndexCommand(tableName, indexName, false, List.of("VAL_NOT_NULL"));
+    }
+
+    protected static CatalogCommand startBuildingIndexCommand(int indexId) {
+        return StartBuildingIndexCommand.builder().indexId(indexId).build();
     }
 }

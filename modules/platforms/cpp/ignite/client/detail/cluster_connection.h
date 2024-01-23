@@ -198,8 +198,8 @@ public:
     void perform_request_single_notification(protocol::client_operation op,
         const std::function<void(protocol::writer &)> &wr, std::function<void(protocol::reader &)> response_reader,
         std::function<T(protocol::reader &)> notification_reader, ignite_callback<T> callback) {
-        auto handler = std::make_shared<response_handler_notification<T>>(std::move(response_reader),
-            std::move(notification_reader), std::move(callback));
+        auto handler = std::make_shared<response_handler_notification<T>>(
+            std::move(response_reader), std::move(notification_reader), std::move(callback));
 
         perform_request_handler<T>(op, nullptr, wr, std::move(handler));
     }

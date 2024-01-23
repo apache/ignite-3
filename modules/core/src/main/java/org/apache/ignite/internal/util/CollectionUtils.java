@@ -526,7 +526,6 @@ public final class CollectionUtils {
         return Set.copyOf(set);
     }
 
-
     /**
      * Maps iterable via provided mapper function.
      *

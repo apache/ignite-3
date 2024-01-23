@@ -74,9 +74,9 @@ internal static class DataStreamer
         IgniteArgumentCheck.NotNull(data);
 
         IgniteArgumentCheck.Ensure(
-            options.BatchSize > 0,
-            nameof(options.BatchSize),
-            $"{nameof(options.BatchSize)} should be positive.");
+            options.PageSize > 0,
+            nameof(options.PageSize),
+            $"{nameof(options.PageSize)} should be positive.");
 
         IgniteArgumentCheck.Ensure(
             options.AutoFlushFrequency > TimeSpan.Zero,
@@ -109,7 +109,7 @@ internal static class DataStreamer
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var (batch, partition) = await AddWithRetryUnmapped(item).ConfigureAwait(false);
-                if (batch.Count >= options.BatchSize)
+                if (batch.Count >= options.PageSize)
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
                 }
@@ -225,7 +225,7 @@ internal static class DataStreamer
 
             if (batchRef == null)
             {
-                batchRef = new Batch<T>(options.BatchSize, schema);
+                batchRef = new Batch<T>(options.PageSize, schema);
                 InitBuffer(batchRef);
 
                 Metrics.StreamerBatchesActiveIncrement();
@@ -257,7 +257,7 @@ internal static class DataStreamer
 
                 batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
-                batch.Items = ArrayPool<T>.Shared.Rent(options.BatchSize);
+                batch.Items = ArrayPool<T>.Shared.Rent(options.PageSize);
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch);

@@ -44,7 +44,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -73,8 +72,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
@@ -82,7 +79,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -126,13 +122,8 @@ import org.jetbrains.annotations.TestOnly;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
-    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
-
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
-
-    /** Number of attempts. */
-    private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
@@ -144,7 +135,7 @@ public class InternalTableImpl implements InternalTable {
     private final int partitions;
 
     /** Table name. */
-    private final String tableName;
+    private volatile String tableName;
 
     /** Table identifier. */
     private final int tableId;
@@ -252,6 +243,11 @@ public class InternalTableImpl implements InternalTable {
         return tableName;
     }
 
+    @Override
+    public void name(String newName) {
+        this.tableName = newName;
+    }
+
     /**
      * Enlists a single row into a transaction.
      *
@@ -298,8 +294,8 @@ public class InternalTableImpl implements InternalTable {
             fut = trackingInvoke(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), false, primaryReplicaAndTerm,
                     noWriteChecker, retryOnLockConflict);
         } else {
-            fut = enlistWithRetry(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION,
-                    implicit, noWriteChecker, retryOnLockConflict);
+            fut = enlistWithRetry(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), implicit, noWriteChecker,
+                    retryOnLockConflict);
         }
 
         return postEnlist(fut, false, actualTx, implicit);
@@ -366,7 +362,6 @@ public class InternalTableImpl implements InternalTable {
                         actualTx,
                         partitionId,
                         term -> fac.apply(rowBatch.requestedRows, actualTx, partGroupId, term, full),
-                        ATTEMPTS_TO_ENLIST_PARTITION,
                         full,
                         noOpChecker,
                         retryOnLockConflict
@@ -439,7 +434,7 @@ public class InternalTableImpl implements InternalTable {
         if (primaryReplicaAndTerm != null) {
             fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), mapFunc.apply(primaryReplicaAndTerm.get2()));
         } else {
-            fut = enlistWithRetry(tx, partId, mapFunc, ATTEMPTS_TO_ENLIST_PARTITION, false, null, false);
+            fut = enlistWithRetry(tx, partId, mapFunc, false, null, false);
         }
 
         return postEnlist(fut, false, tx, false);
@@ -462,7 +457,6 @@ public class InternalTableImpl implements InternalTable {
      * @param tx Internal transaction.
      * @param partId Partition number.
      * @param mapFunc Function to create replica request with new raft term.
-     * @param attempts Number of attempts.
      * @param full {@code True} if is a full transaction.
      * @param noWriteChecker Used to handle operations producing no updates.
      * @param retryOnLockConflict {@code True} to retry on lock conflict.
@@ -472,7 +466,6 @@ public class InternalTableImpl implements InternalTable {
             InternalTransaction tx,
             int partId,
             Function<Long, ReplicaRequest> mapFunc,
-            int attempts,
             boolean full,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
             boolean retryOnLockConflict
@@ -484,14 +477,7 @@ public class InternalTableImpl implements InternalTable {
                     if (e != null) {
                         // We can safely retry indefinitely on deadlock prevention.
                         if (retryOnLockConflict && e.getCause() instanceof LockException) {
-                            return enlistWithRetry(tx, partId, mapFunc, attempts, full, noWriteChecker, true);
-                        }
-
-                        if (attempts > 0 && e.getCause() instanceof PrimaryReplicaMissException) {
-                            LOG.info("Primary replica for partition {} changed, retrying the request. Remaining attempts: {}",
-                                    partId, attempts - 1);
-
-                            return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noWriteChecker, retryOnLockConflict);
+                            return enlistWithRetry(tx, partId, mapFunc, full, noWriteChecker, true);
                         }
 
                         return failedFuture(e);
@@ -554,10 +540,6 @@ public class InternalTableImpl implements InternalTable {
                 return res;
             }).exceptionally(e -> {
                 if (retryOnLockConflict && e.getCause() instanceof LockException) {
-                    txManager.removeInflight(tx.id()); // Will be retried.
-                }
-
-                if (e.getCause() instanceof PrimaryReplicaMissException) {
                     txManager.removeInflight(tx.id()); // Will be retried.
                 }
 
@@ -1004,7 +986,6 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 partition,
                 term -> upsertAllInternal(rows, tx, partGroupId, term, true),
-                ATTEMPTS_TO_ENLIST_PARTITION,
                 true,
                 null,
                 true // Allow auto retries for data streamer.
@@ -1515,19 +1496,6 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return rowBatchByPartitionId;
-    }
-
-    /** {@inheritDoc} */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20933 The method should be removed
-    @Override
-    public List<String> assignments() {
-        awaitLeaderInitialization();
-
-        return raftGroupServiceByPartitionId.int2ObjectEntrySet().stream()
-                .sorted(Comparator.comparingInt(Int2ObjectOpenHashMap.Entry::getIntKey))
-                .map(Map.Entry::getValue)
-                .map(service -> service.leader().consistentId())
-                .collect(Collectors.toList());
     }
 
     @Override

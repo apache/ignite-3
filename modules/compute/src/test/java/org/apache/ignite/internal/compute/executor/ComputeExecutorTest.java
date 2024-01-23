@@ -31,7 +31,6 @@ import static org.hamcrest.Matchers.is;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ExecutionOptions;
@@ -59,7 +58,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        computeExecutor = new ComputeExecutorImpl(ignite, new InMemoryComputeStateMachine(computeConfiguration), computeConfiguration);
+        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, "testNode");
+        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration);
         computeExecutor.start();
     }
 
@@ -70,9 +70,13 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void threadInterruption() {
-        JobExecution<Integer> execution = computeExecutor.executeJob(ExecutionOptions.DEFAULT, InterruptingJob.class, new Object[]{});
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
+                ExecutionOptions.DEFAULT,
+                InterruptingJob.class,
+                new Object[]{}
+        );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
         await().until(
                 execution::status,
                 jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
@@ -95,9 +99,13 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void cooperativeCancellation() {
-        JobExecution<Integer> execution = computeExecutor.executeJob(ExecutionOptions.DEFAULT, CancellingJob.class, new Object[]{});
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
+                ExecutionOptions.DEFAULT,
+                CancellingJob.class,
+                new Object[]{}
+        );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
         await().until(
                 execution::status,
                 jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
@@ -126,7 +134,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecution<Integer> execution = computeExecutor.executeJob(
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class,
                 new Object[]{runTimes}
@@ -153,7 +161,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecution<Integer> execution = computeExecutor.executeJob(
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
                 new Object[]{runTimes, maxRetries}
@@ -184,7 +192,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecution<Integer> execution = computeExecutor.executeJob(
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class,
                 new Object[]{runTimes}
@@ -206,4 +214,23 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     }
 
+    @Test
+    void cancelCompletedJob() {
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
+                ExecutionOptions.DEFAULT,
+                SimpleJob.class,
+                new Object[]{}
+        );
+
+        await().until(execution::status, jobStatusWithState(COMPLETED));
+
+        assertThat(execution.cancel(), is(false));
+    }
+
+    private static class SimpleJob implements ComputeJob<Integer> {
+        @Override
+        public Integer execute(JobExecutionContext context, Object... args) {
+            return 0;
+        }
+    }
 }

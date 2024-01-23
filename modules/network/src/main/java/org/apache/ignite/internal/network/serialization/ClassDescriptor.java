@@ -68,7 +68,7 @@ public class ClassDescriptor implements DeclaredType {
     private final boolean isPrimitive;
     private final boolean isArray;
     private final boolean isRuntimeEnum;
-    private final boolean isRuntimeTypeKnownUpfront;
+    private final boolean isSerializationTypeKnownUpfront;
 
     /**
      * List of the declared class fields' descriptors.
@@ -98,7 +98,7 @@ public class ClassDescriptor implements DeclaredType {
      * fields that have a type known upfront.
      *
      * @see #fieldNullsBitmapIndices
-     * @see #isRuntimeTypeKnownUpfront()
+     * @see #isSerializationTypeKnownUpfront()
      */
     private final int fieldNullsBitmapSize;
 
@@ -107,7 +107,7 @@ public class ClassDescriptor implements DeclaredType {
      * for each field, but only entries for nullable (that is, non-primitive) fields which types are known upfront
      * have meaningful (non-negative) indices; all other fields have -1 as a value in this map.
      *
-     * @see #isRuntimeTypeKnownUpfront()
+     * @see #isSerializationTypeKnownUpfront()
      */
     private final Object2IntMap<String> fieldNullsBitmapIndices;
 
@@ -152,7 +152,7 @@ public class ClassDescriptor implements DeclaredType {
             boolean isPrimitive,
             boolean isArray,
             boolean isRuntimeEnum,
-            boolean isRuntimeTypeKnownUpfront,
+            boolean isSerializationTypeKnownUpfront,
             List<FieldDescriptor> fields,
             Serialization serialization,
             ClassDescriptor localDescriptor
@@ -168,7 +168,7 @@ public class ClassDescriptor implements DeclaredType {
                 isPrimitive,
                 isArray,
                 isRuntimeEnum,
-                isRuntimeTypeKnownUpfront,
+                isSerializationTypeKnownUpfront,
                 fields,
                 serialization,
                 ClassDescriptorMerger.mergeFields(localDescriptor.fields(), fields),
@@ -188,7 +188,7 @@ public class ClassDescriptor implements DeclaredType {
             boolean isPrimitive,
             boolean isArray,
             boolean isRuntimeEnum,
-            boolean isRuntimeTypeKnownUpfront,
+            boolean isSerializationTypeKnownUpfront,
             List<FieldDescriptor> fields,
             Serialization serialization
     ) {
@@ -201,7 +201,7 @@ public class ClassDescriptor implements DeclaredType {
                 isPrimitive,
                 isArray,
                 isRuntimeEnum,
-                isRuntimeTypeKnownUpfront,
+                isSerializationTypeKnownUpfront,
                 fields,
                 serialization,
                 fields.stream().map(MergedField::remoteOnly).collect(toList()),
@@ -230,7 +230,7 @@ public class ClassDescriptor implements DeclaredType {
                 localClass.isPrimitive(),
                 localClass.isArray(),
                 Classes.isRuntimeEnum(localClass),
-                Classes.isRuntimeTypeKnownUpfront(localClass),
+                Classes.isSerializationTypeKnownUpfront(localClass),
                 fields,
                 serialization,
                 fields.stream().map(field -> new MergedField(field, field)).collect(toList()),
@@ -251,7 +251,7 @@ public class ClassDescriptor implements DeclaredType {
             boolean isPrimitive,
             boolean isArray,
             boolean isRuntimeEnum,
-            boolean isRuntimeTypeKnownUpfront,
+            boolean isSerializationTypeKnownUpfront,
             List<FieldDescriptor> fields,
             Serialization serialization,
             List<MergedField> mergedFields,
@@ -269,7 +269,7 @@ public class ClassDescriptor implements DeclaredType {
         this.isPrimitive = isPrimitive;
         this.isArray = isArray;
         this.isRuntimeEnum = isRuntimeEnum;
-        this.isRuntimeTypeKnownUpfront = isRuntimeTypeKnownUpfront;
+        this.isSerializationTypeKnownUpfront = isSerializationTypeKnownUpfront;
 
         this.fields = List.copyOf(fields);
         this.serialization = serialization;
@@ -325,7 +325,7 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     private static boolean isIncludedInNullsBitmap(FieldDescriptor fieldDescriptor) {
-        return !fieldDescriptor.isPrimitive() && fieldDescriptor.isRuntimeTypeKnownUpfront();
+        return !fieldDescriptor.isPrimitive() && fieldDescriptor.isSerializationTypeKnownUpfront();
     }
 
     private static Object2IntMap<String> computeFieldNullsBitmapIndices(List<FieldDescriptor> fields) {
@@ -424,13 +424,12 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
-     * Returns {@code true} if the array component type is known upfront.
+     * Returns {@code true} if the array component serialization type is known upfront.
      *
-     * @return {@code true} if the array component type is known upfront
-     * @see #isRuntimeTypeKnownUpfront()
+     * @see #isSerializationTypeKnownUpfront()
      */
-    public boolean isComponentRuntimeTypeKnownUpfront() {
-        return componentTypeDescriptor != null && componentTypeDescriptor.isRuntimeTypeKnownUpfront();
+    public boolean isComponentSerializationTypeKnownUpfront() {
+        return componentTypeDescriptor != null && componentTypeDescriptor.isSerializationTypeKnownUpfront();
     }
 
     /**
@@ -682,11 +681,11 @@ public class ClassDescriptor implements DeclaredType {
 
     /**
      * Returns size of the nulls' bitmap for the described class; it is equal to the number of nullable (i.e. non-primitive)
-     * fields that have a type known upfront.
+     * fields that have a serialization type known upfront.
      *
      * @return size of the nulls' bitmap for the described class
      * @see #fieldIndexInNullsBitmap(String)
-     * @see #isRuntimeTypeKnownUpfront()
+     * @see #isSerializationTypeKnownUpfront()
      */
     public int fieldIndexInNullsBitmapSize() {
         return fieldNullsBitmapSize;
@@ -895,8 +894,8 @@ public class ClassDescriptor implements DeclaredType {
 
     /** {@inheritDoc} */
     @Override
-    public boolean isRuntimeTypeKnownUpfront() {
-        return isRuntimeTypeKnownUpfront;
+    public boolean isSerializationTypeKnownUpfront() {
+        return isSerializationTypeKnownUpfront;
     }
 
     /** {@inheritDoc} */

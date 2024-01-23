@@ -24,13 +24,10 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterService;
 
 class Node implements AutoCloseable {
     final String name;
-
-    final VaultManager vault;
 
     final ClusterService clusterService;
 
@@ -42,14 +39,12 @@ class Node implements AutoCloseable {
 
     Node(
             String name,
-            VaultManager vault,
             ClusterService clusterService,
             Loza loza,
             MetaStorageManagerImpl metastore,
             PlacementDriverManager placementDriverManager
     ) {
         this.name = name;
-        this.vault = vault;
         this.clusterService = clusterService;
         this.loza = loza;
         this.metastore = metastore;
@@ -57,7 +52,6 @@ class Node implements AutoCloseable {
     }
 
     CompletableFuture<Void> startAsync() {
-        vault.start();
         clusterService.start();
         loza.start();
         metastore.start();
@@ -71,7 +65,7 @@ class Node implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        List<IgniteComponent> igniteComponents = List.of(placementDriverManager, metastore, loza, clusterService, vault);
+        List<IgniteComponent> igniteComponents = List.of(placementDriverManager, metastore, loza, clusterService);
 
         IgniteUtils.closeAll(Stream.concat(
                 igniteComponents.stream().map(component -> component::beforeNodeStop),

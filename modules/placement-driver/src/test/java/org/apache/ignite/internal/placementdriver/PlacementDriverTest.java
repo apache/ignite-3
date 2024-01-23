@@ -59,8 +59,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -112,8 +110,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
-    private VaultManager vault;
-
     private MetaStorageManager metastore;
 
     private PendingComparableValuesTracker<Long, Void> revisionTracker;
@@ -122,9 +118,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        vault = new VaultManager(new InMemoryVaultService());
-
-        metastore = StandaloneMetaStorageManager.create(vault);
+        metastore = StandaloneMetaStorageManager.create();
 
         revisionTracker = new PendingComparableValuesTracker<>(-1L);
 
@@ -136,7 +130,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        vault.start();
         metastore.start();
 
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
@@ -152,8 +145,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 placementDriver == null ? null : placementDriver::stopTrack,
-                metastore == null ? null : metastore::stop,
-                vault == null ? null : vault::stop
+                metastore == null ? null : metastore::stop
         );
     }
 
@@ -539,7 +531,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             PrimaryReplicaEventParameters parameters
     ) {
         assertThat(parameters.groupId(), equalTo(expLease.replicationGroupId()));
-        assertThat(parameters.leaseholder(), equalTo(expLease.getLeaseholder()));
+        assertThat(parameters.leaseholderId(), equalTo(expLease.getLeaseholderId()));
     }
 
     private LeaseTracker createPlacementDriver() {

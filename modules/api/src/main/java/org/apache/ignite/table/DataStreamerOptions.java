@@ -24,7 +24,7 @@ public class DataStreamerOptions {
     /** Default options. */
     public static final DataStreamerOptions DEFAULT = builder().build();
 
-    private final int batchSize;
+    private final int pageSize;
 
     private final int perNodeParallelOperations;
 
@@ -35,13 +35,13 @@ public class DataStreamerOptions {
     /**
      * Constructor.
      *
-     * @param batchSize Batch size.
+     * @param pageSize Page size.
      * @param perNodeParallelOperations Per node parallel operations.
      * @param autoFlushFrequency Auto flush frequency.
      * @param retryLimit Retry limit.
      */
-    private DataStreamerOptions(int batchSize, int perNodeParallelOperations, int autoFlushFrequency, int retryLimit) {
-        this.batchSize = batchSize;
+    private DataStreamerOptions(int pageSize, int perNodeParallelOperations, int autoFlushFrequency, int retryLimit) {
+        this.pageSize = pageSize;
         this.perNodeParallelOperations = perNodeParallelOperations;
         this.autoFlushFrequency = autoFlushFrequency;
         this.retryLimit = retryLimit;
@@ -57,12 +57,12 @@ public class DataStreamerOptions {
     }
 
     /**
-     * Gets the batch size (the number of entries that will be sent to the cluster in one network call).
+     * Gets the page size (the number of entries that will be sent to the cluster in one network call).
      *
-     * @return Batch size.
+     * @return Page size.
      */
-    public int batchSize() {
-        return batchSize;
+    public int pageSize() {
+        return pageSize;
     }
 
     /**
@@ -85,7 +85,7 @@ public class DataStreamerOptions {
     }
 
     /**
-     * Gets the retry limit for a batch. If a batch fails to be sent to the cluster, the streamer will retry it a number of times.
+     * Gets the retry limit for a page. If a page fails to be sent to the cluster, the streamer will retry it a number of times.
      * If all retries fail, the streamer will be aborted.
      *
      * @return Retry limit.
@@ -98,7 +98,7 @@ public class DataStreamerOptions {
      * Builder.
      */
     public static class Builder {
-        private int batchSize = 1000;
+        private int pageSize = 1000;
 
         private int perNodeParallelOperations = 4;
 
@@ -107,17 +107,17 @@ public class DataStreamerOptions {
         private int retryLimit = 16;
 
         /**
-         * Sets the batch size (the number of entries that will be sent to the cluster in one network call).
+         * Sets the page size (the number of entries that will be sent to the cluster in one network call).
          *
-         * @param batchSize Batch size.
+         * @param pageSize Page size.
          * @return This builder instance.
          */
-        public Builder batchSize(int batchSize) {
-            if (batchSize <= 0) {
-                throw new IllegalArgumentException("Batch size must be positive: " + batchSize);
+        public Builder pageSize(int pageSize) {
+            if (pageSize <= 0) {
+                throw new IllegalArgumentException("Page size must be positive: " + pageSize);
             }
 
-            this.batchSize = batchSize;
+            this.pageSize = pageSize;
 
             return this;
         }
@@ -152,7 +152,7 @@ public class DataStreamerOptions {
         }
 
         /**
-         * Sets the retry limit for a batch. If a batch fails to be sent to the cluster, the streamer will retry it a number of times.
+         * Sets the retry limit for a page. If a page fails to be sent to the cluster, the streamer will retry it a number of times.
          * If all retries fail, the streamer will be aborted.
          *
          * @param retryLimit Retry limit.
@@ -170,7 +170,7 @@ public class DataStreamerOptions {
          * @return Data streamer options.
          */
         public DataStreamerOptions build() {
-            return new DataStreamerOptions(batchSize, perNodeParallelOperations, autoFlushFrequency, retryLimit);
+            return new DataStreamerOptions(pageSize, perNodeParallelOperations, autoFlushFrequency, retryLimit);
         }
     }
 }

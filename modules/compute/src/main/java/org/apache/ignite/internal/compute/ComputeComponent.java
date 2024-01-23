@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
@@ -40,7 +41,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Future execution result.
      */
-    <R> CompletableFuture<R> executeLocally(
+    <R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -56,7 +57,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Future execution result.
      */
-    default <R> CompletableFuture<R> executeLocally(
+    default <R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
@@ -75,7 +76,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Future execution result.
      */
-    <R> CompletableFuture<R> executeRemotely(
+    <R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -93,7 +94,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Future execution result.
      */
-    default <R> CompletableFuture<R> executeRemotely(
+    default <R> JobExecution<R> executeRemotely(
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -103,11 +104,30 @@ public interface ComputeComponent extends IgniteComponent {
     }
 
     /**
-     * Returns job status by ID.
+     * Retrieves the current status of the job on any node in the cluster. The job status may be deleted and thus return {@code null} if the
+     * time for retaining job status has been exceeded.
      *
-     * @param jobId Job ID.
-     * @return Job status. {@code null} if job with the given ID does not exist.
+     * @param jobId Job id.
+     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
      */
-    @Nullable
-    JobStatus getJobStatus(UUID jobId);
+    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
+
+    /**
+     * Cancels the job running on any node in the cluster.
+     *
+     * @param jobId Job id.
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
+     */
+    CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId);
+
+    /**
+     * Changes compute job priority.
+     *
+     * @param jobId Job id.
+     * @param newPriority New priority.
+     * @return The future which will be completed with {@code true} when the priority is changed, {@code false} when the priority couldn't
+     *         be changed (it's already executing or completed), or {@code null} if there's no job with the specified id.
+     */
+    CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority);
 }

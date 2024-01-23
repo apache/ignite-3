@@ -22,10 +22,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Transactions facade implementation.
@@ -95,5 +97,10 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
         return CompletableFuture.completedFuture(begin(options));
+    }
+
+    @TestOnly
+    public Transaction beginWithPriority(boolean readOnly, TxPriority priority) {
+        return txManager.begin(observableTimestampTracker, readOnly, priority);
     }
 }

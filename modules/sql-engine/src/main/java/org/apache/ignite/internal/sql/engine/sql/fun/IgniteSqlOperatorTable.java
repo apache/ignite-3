@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlBasicFunction;
 import org.apache.calcite.sql.SqlFunction;
@@ -30,6 +31,8 @@ import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
+import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
@@ -60,21 +63,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     ReturnTypes.VARCHAR_2000,
                     null,
                     OperandTypes.ANY,
-                    SqlFunctionCategory.SYSTEM);
-
-    /**
-     * Replacement for NULL values in search bounds. Required to distinguish searchable NULL values
-     * (for example, 'a IS NULL' condition) and not searchable NULL values (for example, 'a = NULL' condition).
-     *
-     * <p>Note: System function, cannot be used by user.
-     */
-    public static final SqlFunction NULL_BOUND =
-            new SqlFunction(
-                    "$NULL_BOUND",
-                    SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.explicit(SqlTypeName.ANY),
-                    null,
-                    OperandTypes.NILADIC,
                     SqlFunctionCategory.SYSTEM);
 
     /**
@@ -118,6 +106,23 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     ReturnTypes.ARG0_NULLABLE_VARYING,
                     null,
                     OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
+                    SqlFunctionCategory.STRING);
+
+    private static final SqlSingleOperandTypeChecker STRING_NUMERIC_OPTIONAL_NUMERIC =
+            OperandTypes.family(
+                    ImmutableList.of(SqlTypeFamily.STRING, SqlTypeFamily.NUMERIC,
+                            SqlTypeFamily.NUMERIC), i -> i == 2);
+
+    public static final SqlFunction SUBSTRING =
+            new SqlFunction(
+                    "SUBSTRING",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.ARG0_NULLABLE_VARYING,
+                    null,
+                    OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER
+                            .or(STRING_NUMERIC_OPTIONAL_NUMERIC)
+                            .or(OperandTypes.STRING_INTEGER)
+                            .or(OperandTypes.STRING_NUMERIC),
                     SqlFunctionCategory.STRING);
 
     /**
@@ -271,7 +276,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.FROM_BASE64);
         register(SqlLibraryOperators.MD5);
         register(SqlLibraryOperators.SHA1);
-        register(SqlStdOperatorTable.SUBSTRING);
+        register(SUBSTRING);
         register(SqlLibraryOperators.LEFT);
         register(SqlLibraryOperators.RIGHT);
         register(SqlStdOperatorTable.REPLACE);
@@ -454,7 +459,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(TYPEOF);
         register(LEAST2);
         register(GREATEST2);
-        register(NULL_BOUND);
         register(RAND_UUID);
         register(GEN_RANDOM_UUID);
     }

@@ -49,6 +49,9 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     /** Flag indicating whether auto-commit mode is enabled. */
     private boolean autoCommit;
 
+    /** Multiple statement flag. */
+    private boolean multiStatement;
+
     /**
      * Default constructor. For deserialization purposes.
      */
@@ -65,9 +68,10 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * @param sqlQry     SQL query.
      * @param args       Arguments list.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
+     * @param multiStatement Multiple statement flag.
      */
     public JdbcQueryExecuteRequest(JdbcStatementType stmtType, String schemaName,
-            int pageSize, int maxRows, String sqlQry, Object[] args, boolean autoCommit) {
+            int pageSize, int maxRows, String sqlQry, Object[] args, boolean autoCommit, boolean multiStatement) {
         Objects.requireNonNull(stmtType);
 
         this.autoCommit = autoCommit;
@@ -77,6 +81,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         this.maxRows = maxRows;
         this.sqlQry = sqlQry;
         this.args = args;
+        this.multiStatement = multiStatement;
     }
 
     /**
@@ -95,6 +100,13 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      */
     public int maxRows() {
         return maxRows;
+    }
+
+    /**
+     * Returns multiple statement flag.
+     */
+    public boolean multiStatement() {
+        return multiStatement;
     }
 
     /**
@@ -151,6 +163,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packInt(pageSize);
         packer.packInt(maxRows);
         packer.packString(sqlQry);
+        packer.packBoolean(multiStatement);
 
         packer.packObjectArrayAsBinaryTuple(args);
     }
@@ -164,6 +177,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         pageSize = unpacker.unpackInt();
         maxRows = unpacker.unpackInt();
         sqlQry = unpacker.unpackString();
+        multiStatement = unpacker.unpackBoolean();
 
         args = unpacker.unpackObjectArrayFromBinaryTuple();
     }

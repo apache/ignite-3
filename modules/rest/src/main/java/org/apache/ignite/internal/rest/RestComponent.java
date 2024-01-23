@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest;
 
 import static io.micronaut.context.env.Environment.BARE_METAL;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.server.exceptions.ServerStartupException;
@@ -31,6 +32,7 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -69,7 +71,11 @@ public class RestComponent implements IgniteComponent {
     /** Factories that produce beans needed for REST controllers. */
     private final List<Supplier<RestFactory>> restFactories;
 
+    /** Rest configuration. */
     private final RestConfiguration restConfiguration;
+
+    /** Rest manager. */
+    private final RestManager restManager;
 
     /** Micronaut application context. */
     private volatile ApplicationContext context;
@@ -83,14 +89,19 @@ public class RestComponent implements IgniteComponent {
     /**
      * Creates a new instance of REST module.
      */
-    public RestComponent(List<Supplier<RestFactory>> restFactories, RestConfiguration restConfiguration) {
+    public RestComponent(
+            List<Supplier<RestFactory>> restFactories,
+            RestManager restManager,
+            RestConfiguration restConfiguration
+    ) {
         this.restFactories = restFactories;
         this.restConfiguration = restConfiguration;
+        this.restManager = restManager;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         RestView restConfigurationView = restConfiguration.value();
         RestSslView sslConfigurationView = restConfigurationView.ssl();
 
@@ -98,7 +109,7 @@ public class RestComponent implements IgniteComponent {
         boolean dualProtocol = restConfiguration.dualProtocol().value();
 
         if (startServer(restConfigurationView.port(), sslConfigurationView.port(), sslEnabled, dualProtocol)) {
-            return;
+            return nullCompletedFuture();
         }
 
         String msg = "Cannot start REST endpoint."
@@ -109,6 +120,20 @@ public class RestComponent implements IgniteComponent {
         LOG.error(msg);
 
         throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, msg);
+    }
+
+    /**
+     * Disable REST component.
+     */
+    public void disable() {
+        restManager.setState(RestState.INITIALIZATION);
+    }
+
+    /**
+     * Enable REST component.
+     */
+    public void enable() {
+        restManager.setState(RestState.INITIALIZED);
     }
 
     /** Starts Micronaut application using the provided ports.
@@ -144,7 +169,7 @@ public class RestComponent implements IgniteComponent {
     }
 
     private void logSuccessRestStart(boolean sslEnabled, boolean dualProtocol) {
-        String successReportMsg = null;
+        String successReportMsg;
 
         if (sslEnabled && dualProtocol) {
             successReportMsg = "[httpPort=" + httpPort + "], [httpsPort=" + httpsPort + "]";

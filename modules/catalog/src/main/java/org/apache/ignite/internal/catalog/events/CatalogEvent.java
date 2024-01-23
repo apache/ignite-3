@@ -29,7 +29,7 @@ public enum CatalogEvent implements Event {
     /** This event is fired, when a table was dropped in Catalog. */
     TABLE_DROP,
 
-    /** This event is fired when a column has been modified, added to, or removed from a table. */
+    /** This event is fired when a table has been renamed or a column has been modified, added to, or removed from a table. */
     TABLE_ALTER,
 
     /** This event is fired, when an index was created in Catalog. */
@@ -37,6 +37,9 @@ public enum CatalogEvent implements Event {
 
     /** This event is fired, when an index was dropped in Catalog. */
     INDEX_DROP,
+
+    /** This event is fired when the index is ready to start building. */
+    INDEX_BUILDING,
 
     /** This event is fired when the index becomes available, i.e. the index has been built. */
     INDEX_AVAILABLE,

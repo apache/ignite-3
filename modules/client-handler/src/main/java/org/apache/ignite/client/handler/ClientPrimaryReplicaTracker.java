@@ -18,12 +18,11 @@
 package org.apache.ignite.client.handler;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.tableIdNotFoundException;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -98,7 +97,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             PlacementDriver placementDriver,
             CatalogService catalogService,
             HybridClock clock,
-            SchemaSyncService schemaSyncService) {
+            SchemaSyncService schemaSyncService
+    ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
         this.clock = clock;
@@ -228,13 +228,13 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
 
         if (table == null) {
-            throw tableNotFoundException(tableId);
+            throw tableIdNotFoundException(tableId);
         }
 
         CatalogZoneDescriptor zone = catalogService.zone(table.zoneId(), timestamp.longValue());
 
         if (zone == null) {
-            throw tableNotFoundException(tableId);
+            throw tableIdNotFoundException(tableId);
         }
 
         return zone.partitions();
@@ -302,6 +302,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
+
         updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
 
         return falseCompletedFuture(); // false: don't remove listener.
@@ -337,11 +338,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         });
 
         maxStartTime.updateAndGet(value -> Math.max(value, startTimeLong));
-    }
-
-    @SuppressWarnings("DataFlowIssue")
-    private static TableNotFoundException tableNotFoundException(Integer tableId) {
-        return new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, "Table not found: " + tableId, null);
     }
 
     private static class ReplicaHolder {

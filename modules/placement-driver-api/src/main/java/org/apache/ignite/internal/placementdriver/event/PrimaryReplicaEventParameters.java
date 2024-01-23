@@ -25,6 +25,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 public class PrimaryReplicaEventParameters extends CausalEventParameters {
     private final ReplicationGroupId groupId;
 
+    private final String leaseholderId;
+
     private final String leaseholder;
 
     private final HybridTimestamp startTime;
@@ -34,13 +36,21 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
      *
      * @param causalityToken Causality token.
      * @param groupId Replication group ID.
+     * @param leaseholderId Leaseholder node ID.
      * @param leaseholder Leaseholder node consistent ID.
      * @param startTime Lease start timestamp.
      */
-    public PrimaryReplicaEventParameters(long causalityToken, ReplicationGroupId groupId, String leaseholder, HybridTimestamp startTime) {
+    public PrimaryReplicaEventParameters(
+            long causalityToken,
+            ReplicationGroupId groupId,
+            String leaseholderId,
+            String leaseholder,
+            HybridTimestamp startTime
+    ) {
         super(causalityToken);
 
         this.groupId = groupId;
+        this.leaseholderId = leaseholderId;
         this.leaseholder = leaseholder;
         this.startTime = startTime;
     }
@@ -48,6 +58,11 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
     /** Replication group ID. */
     public ReplicationGroupId groupId() {
         return groupId;
+    }
+
+    /** Returns leaseholder node ID. */
+    public String leaseholderId() {
+        return leaseholderId;
     }
 
     /** Returns leaseholder node consistent ID. */

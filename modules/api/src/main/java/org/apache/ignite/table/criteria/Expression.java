@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see Criteria
  */
-public class Expression implements Criteria {
+public final class Expression implements Criteria {
     private final Operator operator;
 
     private final Criteria[] elements;

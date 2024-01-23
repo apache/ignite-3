@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -33,23 +32,16 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -473,31 +465,10 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncCursor<Entry<Tuple, Tuple>>> queryAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return tbl.getLatestSchema()
-                .thenCompose((schema) -> {
-                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
-                    Session session = new ClientSessionBuilder(tbl.channel()).build();
+    protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
+        String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
 
-                    return session.executeAsync(tx, ser.toString(), ser.getArguments())
-                            .thenApply(resultSet -> {
-                                ResultSetMetadata metadata = resultSet.metadata();
-
-                                List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
-                                List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length,
-                                        metadata);
-
-                                Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) -> new IgniteBiTuple<>(
-                                        new SqlRowProjection(row, keyMapping),
-                                        new SqlRowProjection(row, valMapping)
-                                );
-
-                                return new QueryCriteriaAsyncCursor<>(resultSet, mapper, session::close);
-                            });
-                });
+        return (row) -> new IgniteBiTuple<>(new SqlRowProjection(row, meta, keyCols), new SqlRowProjection(row, meta, valCols));
     }
 }

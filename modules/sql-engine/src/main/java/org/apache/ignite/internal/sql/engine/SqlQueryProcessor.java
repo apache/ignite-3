@@ -68,6 +68,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -90,9 +91,9 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
-import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -253,7 +254,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void start() {
+    public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
@@ -327,6 +328,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         );
 
         logicalTopologyService.addEventListener(mappingService);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, ignore) -> mappingService.onPrimaryReplicaExpired(evt));
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -348,6 +350,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.executionSrvc = executionSrvc;
 
         services.forEach(LifecycleAware::start);
+
+        return nullCompletedFuture();
     }
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
@@ -424,7 +428,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+    public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
             @Nullable InternalTransaction transaction,
             String qry, Object... params) {
 
@@ -485,7 +489,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return service;
     }
 
-    private CompletableFuture<ParameterMetadata> prepareSingleAsync0(
+    private CompletableFuture<QueryMetadata> prepareSingleAsync0(
             SqlProperties properties,
             @Nullable InternalTransaction explicitTransaction,
             String sql,
@@ -496,9 +500,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<ParameterMetadata> start = new CompletableFuture<>();
+        CompletableFuture<QueryMetadata> start = new CompletableFuture<>();
 
-        CompletableFuture<ParameterMetadata> stage = start.thenCompose(ignored -> {
+        CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
             validateParsedStatement(properties0, result);
@@ -507,7 +511,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clock.now();
 
             return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
-                    .thenApply(QueryPlan::parameterMetadata);
+                    .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.

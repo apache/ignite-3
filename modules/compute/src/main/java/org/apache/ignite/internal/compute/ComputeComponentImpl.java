@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.List;
@@ -28,16 +29,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
+import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
 import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.messaging.ComputeMessaging;
+import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -58,33 +63,61 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     private final ComputeMessaging messaging;
 
+    private final ExecutionManager executionManager;
+
     /**
      * Creates a new instance.
      */
     public ComputeComponentImpl(
             MessagingService messagingService,
+            TopologyService topologyService,
             JobContextManager jobContextManager,
-            ComputeExecutor executor
+            ComputeExecutor executor,
+            ComputeConfiguration computeConfiguration
     ) {
         this.jobContextManager = jobContextManager;
         this.executor = executor;
-        messaging = new ComputeMessaging(messagingService);
+        executionManager = new ExecutionManager(computeConfiguration, topologyService);
+        messaging = new ComputeMessaging(executionManager, messagingService, topologyService);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeLocally(
+    public <R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
     ) {
-        return start(options, units, jobClassName, args);
+        if (!busyLock.enterBusy()) {
+            return new DelegatingJobExecution<>(
+                    failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
+            );
+        }
+
+        try {
+            CompletableFuture<JobExecutionInternal<R>> future =
+                    mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
+                            .thenApply(context -> {
+                                JobExecutionInternal<R> execution = exec(context, options, jobClassName, args);
+                                execution.resultAsync().whenComplete((result, e) -> context.close());
+                                inFlightFutures.registerFuture(execution.resultAsync());
+                                return execution;
+                            });
+
+            inFlightFutures.registerFuture(future);
+
+            JobExecution<R> result = new DelegatingJobExecution<>(future);
+            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
+            return result;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeRemotely(
+    public <R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -92,51 +125,49 @@ public class ComputeComponentImpl implements ComputeComponent {
             Object... args
     ) {
         if (!busyLock.enterBusy()) {
-            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+            return new DelegatingJobExecution<>(
+                    failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
+            );
         }
 
         try {
-            CompletableFuture<R> future = messaging.remoteExecuteRequest(options, remoteNode, units, jobClassName, args);
-            inFlightFutures.registerFuture(future);
-            return future;
+            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, args);
+            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
+
+            inFlightFutures.registerFuture(jobIdFuture);
+            inFlightFutures.registerFuture(resultFuture);
+
+            JobExecution<R> result = new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
+            jobIdFuture.thenAccept(jobId -> executionManager.addExecution(jobId, result));
+            return result;
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     @Override
-    public @Nullable JobStatus getJobStatus(UUID jobId) {
-        return executor.status(jobId);
+    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
+        return messaging.broadcastStatusAsync(jobId);
     }
 
-    private <R> CompletableFuture<R> start(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
-        }
+    @Override
+    public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
+        return messaging.broadcastCancelAsync(jobId);
+    }
 
-        try {
-            CompletableFuture<R> future = mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
-                    .thenCompose(context -> this.<R>exec(context, options, jobClassName, args)
-                            .whenComplete((r, e) -> context.close()));
-
-            inFlightFutures.registerFuture(future);
-
-            return future;
-        } finally {
-            busyLock.leaveBusy();
-        }
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
+        return messaging.broadcastChangePriorityAsync(jobId, newPriority);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         executor.start();
-        messaging.start(this::start);
+        messaging.start(this::executeLocally);
+        executionManager.start();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
@@ -149,16 +180,16 @@ public class ComputeComponentImpl implements ComputeComponent {
         busyLock.block();
         inFlightFutures.cancelInFlightFutures();
 
+        executionManager.stop();
         messaging.stop();
         executor.stop();
     }
 
-    private <R> CompletableFuture<R> exec(JobContext context, ExecutionOptions options, String jobClassName, Object[] args) {
-        JobExecution<R> execution = executor.executeJob(
+    private <R> JobExecutionInternal<R> exec(JobContext context, ExecutionOptions options, String jobClassName, Object[] args) {
+        return executor.executeJob(
                 options,
                 ComputeUtils.jobClass(context.classLoader(), jobClassName),
                 args
         );
-        return execution.resultAsync();
     }
 }

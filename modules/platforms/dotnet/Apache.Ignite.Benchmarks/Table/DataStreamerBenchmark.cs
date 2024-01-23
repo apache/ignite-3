@@ -105,14 +105,14 @@ public class DataStreamerBenchmark
     [Benchmark]
     public async Task UpsertAllBatched()
     {
-        var batchSize = DataStreamerOptions.Default.BatchSize;
-        var batch = new List<IIgniteTuple>(batchSize);
+        var pageSize = DataStreamerOptions.Default.PageSize;
+        var batch = new List<IIgniteTuple>(pageSize);
 
         foreach (var tuple in _data)
         {
             batch.Add(tuple);
 
-            if (batch.Count == batchSize)
+            if (batch.Count == pageSize)
             {
                 await _table.RecordBinaryView.UpsertAllAsync(null, batch);
                 batch.Clear();

@@ -22,14 +22,14 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,13 +42,15 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private final UUID jobId;
     private final Callable<R> job;
-    private final int priority;
-    private final ThreadPoolExecutor executor;
+    private final AtomicInteger priority;
+    private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
 
     private final AtomicReference<QueueEntry<R>> queueEntry = new AtomicReference<>();
+
+    private final AtomicInteger retries = new AtomicInteger();
 
     /**
      * Constructor.
@@ -63,12 +65,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             UUID jobId,
             Callable<R> job,
             int priority,
-            ThreadPoolExecutor executor,
-            ComputeStateMachine stateMachine
-    ) {
+            ComputeThreadPoolExecutor executor,
+            ComputeStateMachine stateMachine) {
         this.jobId = jobId;
         this.job = job;
-        this.priority = priority;
+        this.priority = new AtomicInteger(priority);
         this.executor = executor;
         this.stateMachine = stateMachine;
     }
@@ -84,7 +85,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     }
 
     @Override
-    public void cancel() {
+    public boolean cancel() {
         try {
             stateMachine.cancelingJob(jobId);
 
@@ -92,10 +93,28 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             if (queueEntry != null) {
                 executor.remove(queueEntry);
                 queueEntry.interrupt();
+                return true;
             }
         } catch (IllegalJobStateTransition e) {
             LOG.info("Cannot cancel the job", e);
         }
+        return false;
+    }
+
+    @Override
+    public boolean changePriority(int newPriority) {
+        if (newPriority == priority.get()) {
+            return false;
+        }
+        QueueEntry<R> queueEntry = this.queueEntry.get();
+        if (executor.removeFromQueue(queueEntry)) {
+            this.priority.set(newPriority);
+            this.queueEntry.set(null);
+            run();
+            return true;
+        }
+        LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
+        return false;
     }
 
     /**
@@ -104,41 +123,47 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
      * @param numRetries Number of times to retry failed execution.
      */
     void run(int numRetries) {
+        retries.set(numRetries);
+        run();
+    }
+
+    private void run() {
         QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
             stateMachine.executeJob(jobId);
             return job.call();
-        }, priority);
+        }, priority.get());
 
-        // Ignoring previous value since it can't be running because we are calling run either after the construction or after the failure.
+        // Ignoring previous value since it can't be running because we are calling run
+        // either after the construction or after the failure.
         this.queueEntry.set(queueEntry);
 
         try {
             executor.execute(queueEntry);
         } catch (QueueOverflowException e) {
-            result.completeExceptionally(new IgniteException(QUEUE_OVERFLOW_ERR, e));
+            result.completeExceptionally(new ComputeException(QUEUE_OVERFLOW_ERR, e));
             return;
         }
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
             if (throwable != null) {
-                if (numRetries > 0) {
+                if (retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
-                    run(numRetries - 1);
+                    run();
                 } else {
-                    result.completeExceptionally(throwable);
                     if (queueEntry.isInterrupted()) {
                         stateMachine.cancelJob(jobId);
                     } else {
                         stateMachine.failJob(jobId);
                     }
+                    result.completeExceptionally(throwable);
                 }
             } else {
-                result.complete(r);
                 if (queueEntry.isInterrupted()) {
                     stateMachine.cancelJob(jobId);
                 } else {
                     stateMachine.completeJob(jobId);
                 }
+                result.complete(r);
             }
         });
     }

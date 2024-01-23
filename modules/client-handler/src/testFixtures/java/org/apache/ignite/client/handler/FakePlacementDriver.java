@@ -73,7 +73,12 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         TablePartitionId groupId = new TablePartitionId(tableId, partition);
 
         PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
-                0, groupId, replica, HybridTimestamp.hybridTimestamp(leaseStartTime));
+                0,
+                groupId,
+                replica,
+                replica,
+                HybridTimestamp.hybridTimestamp(leaseStartTime)
+        );
 
         fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, params);
     }
@@ -98,6 +103,17 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return nullCompletedFuture();
     }
 
+    @Override
+    public ReplicaMeta currentLease(ReplicationGroupId groupId) {
+        TablePartitionId id = (TablePartitionId) groupId;
+
+        if (returnError) {
+            throw new RuntimeException("FakePlacementDriver expected error");
+        } else {
+            return primaryReplicas.get(id.partitionId());
+        }
+    }
+
     private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {
         //noinspection serial
         return new ReplicaMeta() {
@@ -108,7 +124,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
             @Override
             public String getLeaseholderId() {
-                return null;
+                return leaseholder;
             }
 
             @Override

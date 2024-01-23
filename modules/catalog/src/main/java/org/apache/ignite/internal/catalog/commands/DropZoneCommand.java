@@ -25,11 +25,10 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneCantBeDroppedValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.apache.ignite.internal.distributionzones.DistributionZoneBindTableException;
-import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 
 /**
  * A command that drops a zone with specified name.
@@ -52,9 +51,10 @@ public class DropZoneCommand extends AbstractZoneCommand {
         validate();
     }
 
+    @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
     private void validate() {
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            throw new CatalogValidationException(DistributionZones.ZONE_RENAME_ERR, "Default distribution zone can't be dropped");
+            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}", zoneName);
         }
     }
 
@@ -67,7 +67,8 @@ public class DropZoneCommand extends AbstractZoneCommand {
                 .filter(t -> t.zoneId() == zone.id())
                 .findAny()
                 .ifPresent(t -> {
-                    throw new DistributionZoneBindTableException(zone.name(), t.name());
+                    throw new DistributionZoneCantBeDroppedValidationException("Distribution zone '{}' is assigned to the table '{}'",
+                            zone.name(), t.name());
                 });
 
         return List.of(new DropZoneEntry(zone.id()));

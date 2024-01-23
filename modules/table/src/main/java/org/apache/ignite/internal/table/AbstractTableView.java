@@ -20,27 +20,33 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -146,29 +152,30 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Get index mapping.
+     * Map columns to it's names.
      *
-     * @param columns Columns to map.
-     * @param metadata Metadata for query results.
-     * @return Index mapping.
+     * @param columns Target columns.
+     * @return Column names.
      */
-    static List<Integer> indexMapping(Column[] columns, @Nullable ResultSetMetadata metadata) {
-        if (metadata == null) {
-            throw new IgniteException(Sql.RUNTIME_ERR, "Metadata can't be null.");
+    protected static String[] columnNames(Column[] columns) {
+        String[] columnNames = new String[columns.length];
+
+        for (int i = 0; i < columns.length; i++) {
+            columnNames[i] = columns[i].name();
         }
 
-        return Arrays.stream(columns)
-                .map(Column::name)
-                .map((columnName) -> {
-                    var rowIdx = metadata.indexOf(columnName);
+        return columnNames;
+    }
 
-                    if (rowIdx == -1) {
-                        throw new IgniteException(Sql.RUNTIME_ERR, "Missing required column in query results: " + columnName);
-                    }
-
-                    return rowIdx;
-                })
-                .collect(Collectors.toList());
+    /**
+     * Create conversion function for objects contained by result set to criteria query objects.
+     *
+     * @param meta Result set columns' metadata.
+     * @param schema Schema.
+     * @return Conversion function (if {@code null} conversions isn't required).
+     */
+    protected @Nullable Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -177,9 +184,43 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
     }
 
-    private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
-        return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncCursor<R>> queryAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            @Nullable CriteriaQueryOptions opts
+    ) {
+        CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
+        return withSchemaSync(tx, (schemaVersion) -> {
+            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+
+            SqlSerializer ser = new SqlSerializer.Builder()
+                    .tableName(tbl.name())
+                    .columns(schema.columnNames())
+                    .where(criteria)
+                    .build();
+
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
+            Session session = sql.createSession();
+
+            return session.executeAsync(tx, statement, ser.getArguments())
+                    .<AsyncCursor<R>>thenApply(resultSet -> {
+                        ResultSetMetadata meta = resultSet.metadata();
+
+                        assert meta != null : "Metadata can't be null.";
+
+                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                    })
+                    .exceptionally(th -> {
+                        session.closeAsync();
+
+                        throw new CompletionException(unwrapCause(th));
+                    });
+        });
     }
+
 
     /**
      * Action representing some KV operation. When executed, the action is supplied with schema version corresponding

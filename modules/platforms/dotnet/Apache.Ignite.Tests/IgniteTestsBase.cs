@@ -37,6 +37,7 @@ namespace Apache.Ignite.Tests
         protected const string TableName = "TBL1";
 
         protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
+        protected const string TableAllColumnsNotNullName = "TBL_ALL_COLUMNS_NOT_NULL";
         protected const string TableAllColumnsSqlName = "TBL_ALL_COLUMNS_SQL";
 
         protected const string TableInt8Name = "TBL_INT8";
@@ -105,8 +106,10 @@ namespace Apache.Ignite.Tests
             PocoView = Table.GetRecordView<Poco>();
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            PocoAllColumnsView = tableAllColumns!.GetRecordView<PocoAllColumns>();
-            PocoAllColumnsNullableView = tableAllColumns.GetRecordView<PocoAllColumnsNullable>();
+            PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
+
+            var tableAllColumnsNotNull = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
+            PocoAllColumnsView = tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
 
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
             PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
@@ -130,6 +133,7 @@ namespace Apache.Ignite.Tests
         public void SetUp()
         {
             Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
+            TestUtils.CheckByteArrayPoolLeak();
         }
 
         [TearDown]
@@ -137,10 +141,10 @@ namespace Apache.Ignite.Tests
         {
             Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
 
-            CheckPooledBufferLeak();
-
             _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
+
+            CheckPooledBufferLeak();
 
             Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
@@ -207,6 +211,8 @@ namespace Apache.Ignite.Tests
                 condition: () => listener.BuffersReturned == listener.BuffersRented,
                 timeoutMs: 1000,
                 messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
+
+            TestUtils.CheckByteArrayPoolLeak();
         }
     }
 }

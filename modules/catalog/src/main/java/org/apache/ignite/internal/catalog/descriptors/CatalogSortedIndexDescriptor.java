@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
@@ -29,7 +31,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     private final List<CatalogIndexColumnDescriptor> columns;
 
     /**
-     * Constructs a sorted index descriptor in write-only state.
+     * Constructs a sorted index descriptor in status {@link CatalogIndexStatus#REGISTERED}.
      *
      * @param id Id of the index.
      * @param name Name of the index.
@@ -45,7 +47,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             boolean unique,
             List<CatalogIndexColumnDescriptor> columns
     ) {
-        this(id, name, tableId, unique, columns, false);
+        this(id, name, tableId, unique, columns, REGISTERED);
     }
 
     /**
@@ -56,8 +58,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param columns A list of columns descriptors.
-     * @param available Availability flag, {@code true} means it is available (the index has been built), otherwise it is registered
-     *      (the index has not yet been built).
+     * @param status Index status.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
     public CatalogSortedIndexDescriptor(
@@ -66,9 +67,9 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             int tableId,
             boolean unique,
             List<CatalogIndexColumnDescriptor> columns,
-            boolean available
+            CatalogIndexStatus status
     ) {
-        super(id, name, tableId, unique, available);
+        super(id, name, tableId, unique, status);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }

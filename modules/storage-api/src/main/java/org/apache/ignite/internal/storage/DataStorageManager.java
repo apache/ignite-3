@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -48,8 +51,10 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     @Override
-    public void start() throws StorageException {
+    public CompletableFuture<Void> start() throws StorageException {
         engines.values().forEach(StorageEngine::start);
+
+        return nullCompletedFuture();
     }
 
     @Override

@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -59,7 +59,7 @@ public class TestServer {
 
     private final TestSslConfig testSslConfig;
 
-    private final SecurityConfiguration securityConfiguration;
+    private final AuthenticationManager authenticationManager;
 
     private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
 
@@ -71,9 +71,9 @@ public class TestServer {
 
     TestServer(@Nullable TestSslConfig testSslConfig, @Nullable SecurityConfiguration securityConfiguration) {
         this.testSslConfig = testSslConfig;
-        this.securityConfiguration = securityConfiguration == null
-                ? mock(SecurityConfiguration.class)
-                : securityConfiguration;
+        this.authenticationManager = securityConfiguration == null
+                ? new DummyAuthenticationManager()
+                : new AuthenticationManagerImpl(securityConfiguration);
         this.generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         this.configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -97,6 +97,7 @@ public class TestServer {
 
     ClientHandlerModule start(TestInfo testInfo) {
         configurationManager.start();
+        authenticationManager.start();
 
         clientConnectorConfig().change(
                 local -> local
@@ -124,14 +125,14 @@ public class TestServer {
                 mock(IgniteTablesInternal.class),
                 mock(IgniteTransactionsImpl.class),
                 registry,
-                mock(IgniteCompute.class),
+                mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
                 mock(IgniteSql.class),
                 () -> CompletableFuture.completedFuture(UUID.randomUUID()),
                 mock(MetricManager.class),
                 metrics,
-                authenticationManager(),
+                authenticationManager,
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class),
@@ -150,11 +151,5 @@ public class TestServer {
     private ClientConnectorConfiguration clientConnectorConfig() {
         var registry = configurationManager.configurationRegistry();
         return registry.getConfiguration(ClientConnectorConfiguration.KEY);
-    }
-
-    private AuthenticationManager authenticationManager() {
-        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        securityConfiguration.listen(authenticationManager);
-        return authenticationManager;
     }
 }

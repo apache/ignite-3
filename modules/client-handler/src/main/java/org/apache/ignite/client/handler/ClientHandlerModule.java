@@ -17,11 +17,13 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
@@ -36,9 +38,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -60,6 +62,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
@@ -101,7 +104,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final QueryProcessor queryProcessor;
 
     /** Compute. */
-    private final IgniteCompute igniteCompute;
+    private final IgniteComputeInternal igniteCompute;
 
     /** Cluster. */
     private final ClusterService clusterService;
@@ -122,6 +125,9 @@ public class ClientHandlerModule implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    @TestOnly
+    private volatile ChannelHandler handler;
 
     /**
      * Constructor.
@@ -144,7 +150,7 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteTablesInternal igniteTables,
             IgniteTransactionsImpl igniteTransactions,
             ConfigurationRegistry registry,
-            IgniteCompute igniteCompute,
+            IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,
@@ -193,7 +199,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         if (channel != null) {
             throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
@@ -212,6 +218,8 @@ public class ClientHandlerModule implements IgniteComponent {
         } catch (InterruptedException e) {
             throw new IgniteInternalException(INTERNAL_ERR, e);
         }
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
@@ -294,14 +302,13 @@ public class ClientHandlerModule implements IgniteComponent {
 
                             ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
                                     configuration, clusterId, connectionId);
-                            authenticationManager.listen(messageHandler);
+
+                            handler = messageHandler;
 
                             ch.pipeline().addLast(
                                     new ClientMessageDecoder(),
                                     messageHandler
                             );
-
-                            ch.closeFuture().addListener(future -> authenticationManager.stopListen(messageHandler));
 
                             metrics.connectionsInitiatedIncrement();
                         } finally {

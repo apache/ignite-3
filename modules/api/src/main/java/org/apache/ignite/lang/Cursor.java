@@ -20,13 +20,13 @@ package org.apache.ignite.lang;
 import java.util.Iterator;
 
 /**
- * Provides methods for iterate over operation results and release underlying resources.
+ * Provides methods to iterate over operation results and release underlying resources.
  *
  * @param <T> The type of elements returned by this iterator.
  */
 public interface Cursor<T> extends Iterator<T>, AutoCloseable {
     /**
-     * Closes this resource and releasing any underlying resources.
+     * Closes this cursor and releases any underlying resources.
      */
     @Override
     void close();

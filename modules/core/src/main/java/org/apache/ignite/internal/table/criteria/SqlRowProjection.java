@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.table.criteria;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
+
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
-import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -35,39 +38,48 @@ import org.jetbrains.annotations.Nullable;
 public class SqlRowProjection implements Tuple {
     private final SqlRow row;
 
-    private final List<Integer> rowIndexMapping;
+    /** Column`s name map. */
+    private final Object2IntMap<String> columnsIndices;
+
+    private final int[] rowIndexMapping;
 
     /**
      * Constructor.
      *
      * @param row Row data.
-     * @param rowIndexMapping Index mapping.
+     * @param meta Metadata for query results.
+     * @param cols Target column names.
      */
-    public SqlRowProjection(SqlRow row, List<Integer> rowIndexMapping) {
+    public SqlRowProjection(SqlRow row, ResultSetMetadata meta, String[] cols) {
         this.row = row;
-        this.rowIndexMapping = rowIndexMapping;
-    }
 
-    private int convertToSqlRowIndex(int projectionIdx) {
-        return rowIndexMapping.get(Objects.checkIndex(projectionIdx, columnCount()));
+        rowIndexMapping = new int[cols.length];
+        columnsIndices = new Object2IntOpenHashMap<>(cols.length);
+
+        for (int i = 0; i < cols.length; i++) {
+            String quotedColumnName = quoteIfNeeded(cols[i]);
+
+            columnsIndices.put(quotedColumnName, i);
+            rowIndexMapping[i] = meta.indexOf(quotedColumnName);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public int columnCount() {
-        return rowIndexMapping.size();
+        return rowIndexMapping.length;
     }
 
     /** {@inheritDoc} */
     @Override
     public String columnName(int columnIndex) {
-        return row.columnName(convertToSqlRowIndex(columnIndex));
+        return row.columnName(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
     @Override
     public int columnIndex(String columnName) {
-        return  rowIndexMapping.indexOf(row.columnIndex(columnName));
+        return columnsIndices.getOrDefault(columnName, -1);
     }
 
     /** {@inheritDoc} */
@@ -91,7 +103,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public <T> @Nullable T value(int columnIndex) {
-        return row.value(convertToSqlRowIndex(columnIndex));
+        return row.value(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -103,7 +115,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(int columnIndex) {
-        return row.booleanValue(convertToSqlRowIndex(columnIndex));
+        return row.booleanValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -115,7 +127,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        return row.byteValue(convertToSqlRowIndex(columnIndex));
+        return row.byteValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -127,7 +139,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        return row.shortValue(convertToSqlRowIndex(columnIndex));
+        return row.shortValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -139,7 +151,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        return row.intValue(convertToSqlRowIndex(columnIndex));
+        return row.intValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -151,7 +163,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        return row.longValue(convertToSqlRowIndex(columnIndex));
+        return row.longValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -163,7 +175,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        return row.floatValue(convertToSqlRowIndex(columnIndex));
+        return row.floatValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -175,7 +187,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        return row.doubleValue(convertToSqlRowIndex(columnIndex));
+        return row.doubleValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -187,7 +199,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public String stringValue(int columnIndex) {
-        return row.stringValue(convertToSqlRowIndex(columnIndex));
+        return row.stringValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -199,7 +211,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public UUID uuidValue(int columnIndex) {
-        return row.uuidValue(convertToSqlRowIndex(columnIndex));
+        return row.uuidValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -211,7 +223,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public BitSet bitmaskValue(int columnIndex) {
-        return row.bitmaskValue(convertToSqlRowIndex(columnIndex));
+        return row.bitmaskValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -223,7 +235,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public LocalDate dateValue(int columnIndex) {
-        return row.dateValue(convertToSqlRowIndex(columnIndex));
+        return row.dateValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -235,7 +247,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public LocalTime timeValue(int columnIndex) {
-        return row.timeValue(convertToSqlRowIndex(columnIndex));
+        return row.timeValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -247,7 +259,7 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public LocalDateTime datetimeValue(int columnIndex) {
-        return row.datetimeValue(convertToSqlRowIndex(columnIndex));
+        return row.datetimeValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */
@@ -259,6 +271,6 @@ public class SqlRowProjection implements Tuple {
     /** {@inheritDoc} */
     @Override
     public Instant timestampValue(int columnIndex) {
-        return row.timestampValue(convertToSqlRowIndex(columnIndex));
+        return row.timestampValue(rowIndexMapping[columnIndex]);
     }
 }

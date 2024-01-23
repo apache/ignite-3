@@ -177,6 +177,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -934,7 +935,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
@@ -975,7 +975,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     new TransactionIdGenerator(addr.port()),
                     placementDriver,
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
+                    partitionIdleSafeTimePropagationPeriodMsSupplier,
+                    new TestLocalRwTxCounter()
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
@@ -1035,7 +1036,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     registry,
                     metaStorageManager,
                     logicalTopologyService,
-                    vaultManager,
                     catalogManager
             );
 

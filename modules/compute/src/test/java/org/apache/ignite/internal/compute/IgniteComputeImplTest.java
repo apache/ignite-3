@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.Collections.singleton;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
@@ -30,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -39,6 +44,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +54,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class IgniteComputeImplTest extends BaseIgniteAbstractTest {
+    private static final String JOB_CLASS_NAME = "org.example.SimpleJob";
+
     @Mock
     private TopologyService topologyService;
 
@@ -55,7 +63,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private IgniteTablesInternal igniteTables;
 
     @Mock
-    private ComputeComponent computeComponent;
+    private ComputeComponentImpl computeComponent;
 
     @InjectMocks
     private IgniteComputeImpl compute;
@@ -75,69 +83,101 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void whenNodeIsLocalThenExecutesLocally() throws Exception {
-        when(computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob", "a", 42))
-                .thenReturn(CompletableFuture.completedFuture("jobResponse"));
+    void whenNodeIsLocalThenExecutesLocally() {
+        respondWhenExecutingSimpleJobLocally();
 
-        String result = compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, "org.example.SimpleJob", "a", 42).get();
+        assertThat(
+                compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
+                willBe("jobResponse")
+        );
 
-        assertThat(result, is("jobResponse"));
-
-        verify(computeComponent).executeLocally(testDeploymentUnits, "org.example.SimpleJob", "a", 42);
+        verify(computeComponent).executeLocally(testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
-    void whenNodeIsRemoteThenExecutesRemotely() throws Exception {
+    void whenNodeIsRemoteThenExecutesRemotely() {
         respondWhenExecutingSimpleJobRemotely();
 
-        String result = compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, "org.example.SimpleJob", "a", 42).get();
+        assertThat(
+                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
+                willBe("remoteResponse")
+        );
 
-        assertThat(result, is("remoteResponse"));
-
-        verify(computeComponent).executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob", "a", 42);
-    }
-
-    private void respondWhenExecutingSimpleJobRemotely() {
-        when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob", "a", 42))
-                .thenReturn(CompletableFuture.completedFuture("remoteResponse"));
+        verify(computeComponent).executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
-    void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() throws Exception {
+    void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() {
         respondWhenExecutingSimpleJobRemotely();
 
-        when(igniteTables.tableViewAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
+        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
         doReturn(42).when(table).partition(any());
         doReturn(remoteNode).when(table).leaderAssignment(42);
 
-        String result = compute.<String>executeColocatedAsync(
-                "test",
-                Tuple.create(Map.of("k", 1)),
-                testDeploymentUnits,
-                "org.example.SimpleJob",
-                "a", 42
-        ).get();
-
-        assertThat(result, is("remoteResponse"));
+        assertThat(
+                compute.<String>executeColocatedAsync(
+                        "test",
+                        Tuple.create(Map.of("k", 1)),
+                        testDeploymentUnits,
+                        JOB_CLASS_NAME,
+                        "a", 42
+                ).resultAsync(),
+                willBe("remoteResponse")
+        );
     }
 
     @Test
-    void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() throws Exception {
+    void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() {
         respondWhenExecutingSimpleJobRemotely();
 
-        when(igniteTables.tableViewAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
+        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
         doReturn(42).when(table).partition(any(), any());
         doReturn(remoteNode).when(table).leaderAssignment(42);
 
-        String result = compute.<Integer, String>executeColocatedAsync(
-                "test",
-                1,
-                Mapper.of(Integer.class),
-                testDeploymentUnits,
-                "org.example.SimpleJob",
-                "a", 42
-        ).get();
+        assertThat(
+                compute.<Integer, String>executeColocatedAsync(
+                        "test",
+                        1,
+                        Mapper.of(Integer.class),
+                        testDeploymentUnits,
+                        JOB_CLASS_NAME,
+                        "a", 42
+                ).resultAsync(),
+                willBe("remoteResponse")
+        );
+    }
 
-        assertThat(result, is("remoteResponse"));
+    private void respondWhenExecutingSimpleJobLocally() {
+        when(computeComponent.executeLocally(testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+                .thenReturn(completedExecution("jobResponse"));
+    }
+
+    private void respondWhenExecutingSimpleJobRemotely() {
+        when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+                .thenReturn(completedExecution("remoteResponse"));
+    }
+
+    private static <R> JobExecution<R> completedExecution(R result) {
+        return new JobExecution<>() {
+            @Override
+            public CompletableFuture<R> resultAsync() {
+                return completedFuture(result);
+            }
+
+            @Override
+            public CompletableFuture<@Nullable JobStatus> statusAsync() {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public CompletableFuture<@Nullable Boolean> cancelAsync() {
+                return trueCompletedFuture();
+            }
+
+            @Override
+            public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+                return nullCompletedFuture();
+            }
+        };
     }
 }

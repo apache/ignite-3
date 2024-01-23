@@ -26,6 +26,7 @@ package org.apache.ignite.table.criteria;
 public enum Operator {
     // General
     EQ,
+    NOT_EQ,
     IS_NULL,
     IS_NOT_NULL,
 

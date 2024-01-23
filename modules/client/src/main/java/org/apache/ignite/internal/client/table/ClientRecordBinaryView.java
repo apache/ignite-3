@@ -29,27 +29,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
-import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
-import org.apache.ignite.lang.AsyncCursor;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client record view implementation for binary user-object representation.
  */
-public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implements RecordView<Tuple> {
+public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements RecordView<Tuple> {
     /** Tuple serializer. */
     private final ClientTupleSerializer ser;
 
@@ -384,29 +374,5 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implement
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncCursor<Tuple>> queryAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return tbl.getLatestSchema()
-                .thenCompose((schema) -> {
-                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
-
-                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
-                    Session session = new ClientSessionBuilder(tbl.channel()).build();
-
-                    return session.executeAsync(tx, statement, ser.getArguments())
-                            .thenApply(resultSet -> {
-                                List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length, resultSet.metadata());
-
-                                return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping),
-                                        session::close);
-                            });
-                });
     }
 }

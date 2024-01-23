@@ -298,7 +298,6 @@ public class CollectionUtilsTest {
         assertEquals(2, last(List.of(1, 2)));
     }
 
-
     @Test
     void testMapIterableWithPredicate() {
         assertFalse(mapIterable(null, null, null).iterator().hasNext());

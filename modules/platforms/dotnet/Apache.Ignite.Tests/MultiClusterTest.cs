@@ -28,6 +28,9 @@ using NUnit.Framework;
 /// </summary>
 public class MultiClusterTest
 {
+    [TearDown]
+    public void TearDown() => TestUtils.CheckByteArrayPoolLeak();
+
     [Test]
     public async Task TestClientDropsConnectionOnClusterIdMismatch()
     {

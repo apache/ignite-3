@@ -60,6 +60,7 @@ import org.jetbrains.annotations.Nullable;
 public class ClientTable implements Table {
     private final int id;
 
+    // TODO: table name can change, this approach should probably be reworked, see https://issues.apache.org/jira/browse/IGNITE-21237.
     private final String name;
 
     private final ReliableChannel ch;

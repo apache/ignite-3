@@ -179,6 +179,9 @@ public class ClientUtils {
             case ClientOp.JDBC_NEXT:
                 return null;
 
+            case ClientOp.JDBC_MORE_RESULTS:
+                return null;
+
             case ClientOp.JDBC_EXEC_BATCH:
                 return null;
 
@@ -212,6 +215,15 @@ public class ClientUtils {
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientOperationType.COMPUTE_EXECUTE;
 
+            case ClientOp.COMPUTE_GET_STATUS:
+                return ClientOperationType.COMPUTE_GET_STATUS;
+
+            case ClientOp.COMPUTE_CANCEL:
+                return ClientOperationType.COMPUTE_CANCEL;
+
+            case ClientOp.COMPUTE_CHANGE_PRIORITY:
+                return ClientOperationType.COMPUTE_CHANGE_PRIORITY;
+
             case ClientOp.CLUSTER_GET_NODES:
                 return null;
 
@@ -233,6 +245,8 @@ public class ClientUtils {
             case ClientOp.JDBC_TX_FINISH:
                 return null;
 
+            case ClientOp.SQL_PARAM_META:
+                return null;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:

@@ -24,11 +24,12 @@ import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 
 /**
@@ -40,10 +41,9 @@ public class CheckpointTimeoutLock {
     protected static final IgniteLogger LOG = Loggers.forClass(CheckpointTimeoutLock.class);
 
     /**
-     * {@link PersistentPageMemory#safeToUpdate() Safe update check} for all page memories, should return {@code false} if there are many
-     * dirty pages and a checkpoint is needed.
+     * {@link PersistentPageMemory#checkpointUrgency()}  Checkpoint urgency check} for all page memories.
      */
-    private final BooleanSupplier safeToUpdateAllPageMemories;
+    private final Supplier<CheckpointUrgency> urgencySupplier;
 
     /** Internal checkpoint lock. */
     private final CheckpointReadWriteLock checkpointReadWriteLock;
@@ -62,19 +62,18 @@ public class CheckpointTimeoutLock {
      *
      * @param checkpointReadWriteLock Checkpoint read-write lock.
      * @param checkpointReadLockTimeout Timeout for checkpoint read lock acquisition in milliseconds.
-     * @param safeToUpdateAllPageMemories {@link PersistentPageMemory#safeToUpdate() Safe update check} for all page memories, should return
-     *      {@code false} if there are many dirty pages and a checkpoint is needed.
+     * @param urgencySupplier {@link PersistentPageMemory#checkpointUrgency()}  Checkpoint urgency check} for all page memories.
      * @param checkpointer Service for triggering the checkpoint.
      */
     public CheckpointTimeoutLock(
             CheckpointReadWriteLock checkpointReadWriteLock,
             long checkpointReadLockTimeout,
-            BooleanSupplier safeToUpdateAllPageMemories,
+            Supplier<CheckpointUrgency> urgencySupplier,
             Checkpointer checkpointer
     ) {
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.checkpointReadLockTimeout = checkpointReadLockTimeout;
-        this.safeToUpdateAllPageMemories = safeToUpdateAllPageMemories;
+        this.urgencySupplier = urgencySupplier;
         this.checkpointer = checkpointer;
     }
 
@@ -142,16 +141,25 @@ public class CheckpointTimeoutLock {
                         throw new IgniteInternalException(new NodeStoppingException("Failed to get checkpoint read lock"));
                     }
 
+                    CheckpointUrgency urgency;
+
                     if (checkpointReadWriteLock.getReadHoldCount() > 1
-                            || safeToUpdateAllPageMemories.getAsBoolean()
                             || checkpointer.runner() == null
+                            || (urgency = urgencySupplier.get()) == CheckpointUrgency.NOT_REQUIRED
                     ) {
-                        break;
+                        return;
                     } else {
                         // If the checkpoint is triggered outside the lock,
                         // it could cause the checkpoint to fire again for the same reason
                         // (due to a data race between collecting dirty pages and triggering the checkpoint).
                         CheckpointProgress checkpoint = checkpointer.scheduleCheckpoint(0, "too many dirty pages");
+
+                        if (urgency != CheckpointUrgency.MUST_TRIGGER) {
+                            // Allow to take the checkpoint read lock, if urgency is not "must trigger". We optimistically assume that
+                            // triggerred checkpoint will start soon, without us having to explicitly wait for it and without page memory
+                            // overflow.
+                            return;
+                        }
 
                         checkpointReadWriteLock.readUnlock();
 

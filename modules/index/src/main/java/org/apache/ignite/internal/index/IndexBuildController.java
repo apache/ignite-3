@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -35,8 +36,8 @@ import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -55,12 +56,12 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
 /**
- * Сomponent is responsible for starting and stopping the building of indexes on primary replicas.
+ * Component is responsible for starting and stopping the building of indexes on primary replicas.
  *
  * <p>Component handles the following events (indexes are started and stopped by {@link CatalogIndexDescriptor#tableId()} ==
  * {@link TablePartitionId#tableId()}): </p>
  * <ul>
- *     <li>{@link CatalogEvent#INDEX_CREATE} - starts building indexes for the corresponding local primary replicas.</li>
+ *     <li>{@link CatalogEvent#INDEX_BUILDING} - starts building indexes for the corresponding local primary replicas.</li>
  *     <li>{@link CatalogEvent#INDEX_DROP} - stops building indexes for the corresponding local primary replicas.</li>
  *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - for a new local primary replica, starts the building of all corresponding
  *     indexes, for an expired primary replica, stops the building of all corresponding indexes.</li>
@@ -122,12 +123,12 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+        catalogService.listen(CatalogEvent.INDEX_BUILDING, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
 
-            return onIndexCreate(((CreateIndexEventParameters) parameters)).thenApply(unused -> false);
+            return onIndexBuilding(((StartBuildingIndexEventParameters) parameters)).thenApply(unused -> false);
         });
 
         catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
@@ -147,21 +148,19 @@ class IndexBuildController implements ManuallyCloseable {
         });
     }
 
-    private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
+    private CompletableFuture<?> onIndexBuilding(StartBuildingIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            if (parameters.indexDescriptor().available()) {
-                return nullCompletedFuture();
-            }
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion());
 
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
-                if (primaryReplicaId.tableId() == parameters.indexDescriptor().tableId()) {
+                if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
                     CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                             .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clock.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
                                             primaryReplicaId,
-                                            parameters.indexDescriptor(),
+                                            indexDescriptor,
                                             mvTableStorage,
                                             replicaMeta
                                     ))
@@ -187,7 +186,7 @@ class IndexBuildController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
 
-            if (isLocalNode(parameters.leaseholder())) {
+            if (isLocalNode(parameters.leaseholderId())) {
                 primaryReplicaIds.add(primaryReplicaId);
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
@@ -225,7 +224,7 @@ class IndexBuildController implements ManuallyCloseable {
             }
 
             for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, primaryReplicaId.tableId())) {
-                if (!indexDescriptor.available()) {
+                if (indexDescriptor.status() == BUILDING) {
                     scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
                 }
             }
@@ -316,8 +315,8 @@ class IndexBuildController implements ManuallyCloseable {
         );
     }
 
-    private boolean isLocalNode(String nodeConsistentId) {
-        return nodeConsistentId.equals(localNode().name());
+    private boolean isLocalNode(String nodeId) {
+        return nodeId.equals(localNode().id());
     }
 
     private ClusterNode localNode() {

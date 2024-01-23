@@ -17,6 +17,7 @@
 
 package org.apache.ignite.compute;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -25,7 +26,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Job status.
  */
-public class JobStatus {
+public class JobStatus implements Serializable {
+    private static final long serialVersionUID = 8575969461073736006L;
+
     /**
      * Job ID.
      */
@@ -63,10 +66,6 @@ public class JobStatus {
 
     public static Builder builder() {
         return new Builder();
-    }
-
-    public UUID getId() {
-        return id;
     }
 
     public UUID id() {
@@ -133,12 +132,12 @@ public class JobStatus {
             return this;
         }
 
-        public Builder startTime(Instant startTime) {
+        public Builder startTime(@Nullable Instant startTime) {
             this.startTime = startTime;
             return this;
         }
 
-        public Builder finishTime(Instant finishTime) {
+        public Builder finishTime(@Nullable Instant finishTime) {
             this.finishTime = finishTime;
             return this;
         }

@@ -17,45 +17,36 @@
 
 package org.apache.ignite.internal.schema;
 
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
+import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -65,10 +56,6 @@ import org.jetbrains.annotations.Nullable;
  * This class services management of table schemas.
  */
 public class SchemaManager implements IgniteComponent {
-    /** Schema history key predicate part. */
-    private static final String SCHEMA_STORE_PREFIX = ".sch-hist.";
-    private static final String LATEST_SCHEMA_VERSION_STORE_SUFFIX = ".sch-hist-latest";
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -95,22 +82,45 @@ public class SchemaManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         catalogService.listen(CatalogEvent.TABLE_CREATE, this::onTableCreated);
         catalogService.listen(CatalogEvent.TABLE_ALTER, this::onTableAltered);
 
         registerExistingTables();
+
+        return nullCompletedFuture();
     }
 
     private void registerExistingTables() {
-        // TODO: IGNITE-20051 - add proper recovery (consider tables that are removed now; take token and catalog version
-        // exactly matching the tables).
-
         long causalityToken = metastorageMgr.appliedRevision();
-        int catalogVersion = catalogService.latestCatalogVersion();
 
-        for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
-            onTableCreated(new CreateTableEventParameters(causalityToken, catalogVersion, tableDescriptor), null);
+        for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
+            Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
+
+            registriesVv.update(causalityToken, (registries, throwable) -> {
+                for (CatalogTableDescriptor tableDescriptor : tables) {
+                    int tableId = tableDescriptor.id();
+
+                    if (registries.containsKey(tableId)) {
+                        continue;
+                    }
+
+                    SchemaDescriptor prevSchema = null;
+                    CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
+                    for (int tableVer = schemaVersions.earliestVersion(); tableVer <= schemaVersions.latestVersion(); tableVer++) {
+                        SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
+
+                        if (prevSchema != null) {
+                            newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
+                        }
+
+                        prevSchema = newSchema;
+                        registries = registerSchema(registries, tableId, newSchema);
+                    }
+                }
+
+                return completedFuture(registries);
+            });
         }
 
         registriesVv.complete(causalityToken);
@@ -169,13 +179,12 @@ public class SchemaManager implements IgniteComponent {
 
             return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
-                    return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
+                    return failedFuture(new IgniteInternalException(format(
                             "Cannot create a schema for the table [tblId={}, ver={}]", tableId, newSchemaVersion), e)
                     );
                 }
 
-                return saveSchemaDescriptor(tableId, newSchema)
-                        .thenApply(t -> registerSchema(registries, tableId, newSchema));
+                return completedFuture(registerSchema(registries, tableId, newSchema));
             })).thenApply(ignored -> false);
         } finally {
             busyLock.leaveBusy();
@@ -208,38 +217,21 @@ public class SchemaManager implements IgniteComponent {
      * @return Schema representation.
      */
     private SchemaDescriptor loadSchemaDescriptor(int tblId, int ver) {
-        Entry entry = metastorageMgr.getLocally(schemaWithVerHistKey(tblId, ver), Long.MAX_VALUE);
+        int catalogVersion = catalogService.latestCatalogVersion();
 
-        assert !entry.tombstone() : "Table " + tblId + ", version " + ver;
+        while (catalogVersion >= catalogService.earliestCatalogVersion()) {
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tblId, catalogVersion);
 
-        byte[] value = entry.value();
+            if (tableDescriptor == null) {
+                catalogVersion--;
 
-        assert value != null;
+                continue;
+            }
 
-        return SchemaSerializerImpl.INSTANCE.deserialize(value);
-    }
+            return CatalogToSchemaDescriptorConverter.convert(tableDescriptor, ver);
+        }
 
-    /**
-     * Saves a schema in the MetaStorage.
-     *
-     * @param tableId Table id.
-     * @param schema Schema descriptor.
-     * @return Future that will be completed when the schema gets saved.
-     */
-    private CompletableFuture<Void> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
-        ByteArray schemaKey = schemaWithVerHistKey(tableId, schema.version());
-        ByteArray latestSchemaVersionKey = latestSchemaVersionKey(tableId);
-
-        byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schema);
-
-        return metastorageMgr.invoke(
-                notExists(schemaKey),
-                List.of(
-                        put(schemaKey, serializedSchema),
-                        put(latestSchemaVersionKey, intToBytes(schema.version()))
-                ),
-                emptyList()
-        ).thenApply(unused -> null);
+        throw new AssertionError(format("Schema descriptor is not found [tableId={}, schemaId={}]", tblId, ver));
     }
 
     /**
@@ -340,16 +332,10 @@ public class SchemaManager implements IgniteComponent {
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistry(long causalityToken, int tableId) {
-        return removeRegistry(causalityToken, tableId).thenCompose(unused -> {
-            return destroySchemas(tableId);
-        });
-    }
-
-    private CompletableFuture<?> removeRegistry(long causalityToken, int tableId) {
         return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(
-                        IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
+                        format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
             }
 
             Map<Integer, SchemaRegistryImpl> regs = new HashMap<>(registries);
@@ -359,23 +345,6 @@ public class SchemaManager implements IgniteComponent {
 
             return completedFuture(regs);
         }));
-    }
-
-    private CompletableFuture<?> destroySchemas(int tableId) {
-        return latestSchemaVersion(tableId)
-                .thenCompose(latestVersion -> {
-                    if (latestVersion == null) {
-                        // Nothing to remove.
-                        return nullCompletedFuture();
-                    }
-
-                    Set<ByteArray> keysToRemove = IntStream.rangeClosed(CatalogTableDescriptor.INITIAL_TABLE_VERSION, latestVersion)
-                            .mapToObj(version -> schemaWithVerHistKey(tableId, version))
-                            .collect(toSet());
-                    keysToRemove.add(latestSchemaVersionKey(tableId));
-
-                    return metastorageMgr.removeAll(keysToRemove);
-                });
     }
 
     @Override
@@ -388,37 +357,5 @@ public class SchemaManager implements IgniteComponent {
 
         //noinspection ConstantConditions
         IgniteUtils.closeAllManually(registriesVv.latest().values());
-    }
-
-    /**
-     * Gets the latest version of the table schema which is available in Metastore or {@code null} if nothing is available.
-     *
-     * @param tableId Table id.
-     * @return The latest schema version or {@code null} if nothing is available.
-     */
-    private CompletableFuture<Integer> latestSchemaVersion(int tableId) {
-        return metastorageMgr.get(latestSchemaVersionKey(tableId))
-                .thenApply(entry -> {
-                    if (entry == null || entry.value() == null) {
-                        return null;
-                    } else {
-                        return ByteUtils.bytesToInt(entry.value());
-                    }
-                });
-    }
-
-    /**
-     * Forms schema history key.
-     *
-     * @param tblId Table id.
-     * @param ver Schema version.
-     * @return {@link ByteArray} representation.
-     */
-    private static ByteArray schemaWithVerHistKey(int tblId, int ver) {
-        return ByteArray.fromString(tblId + SCHEMA_STORE_PREFIX + ver);
-    }
-
-    private static ByteArray latestSchemaVersionKey(int tableId) {
-        return ByteArray.fromString(tableId + LATEST_SCHEMA_VERSION_STORE_SUFFIX);
     }
 }
