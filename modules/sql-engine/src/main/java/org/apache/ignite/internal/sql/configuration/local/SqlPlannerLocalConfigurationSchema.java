@@ -19,11 +19,13 @@ package org.apache.ignite.internal.sql.configuration.local;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /** Local configuration of SQL planner. */
 @Config
 public class SqlPlannerLocalConfigurationSchema {
     /** Concurrency level for queries planning. */
     @Value(hasDefault = true)
+    @Range(min = 1)
     public final int threadCount = 4;
 }

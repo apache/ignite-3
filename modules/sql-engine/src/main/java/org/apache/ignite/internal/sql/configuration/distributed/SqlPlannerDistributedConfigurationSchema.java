@@ -19,12 +19,14 @@ package org.apache.ignite.internal.sql.configuration.distributed;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /** Distributed configuration of SQL planner. */
 @Config
 public class SqlPlannerDistributedConfigurationSchema {
     /** Planner timeout, in ms. */
     @Value(hasDefault = true)
+    @Range(min = 0)
     public final long maxPlanningTime = 15_000L;
 
     /**
@@ -32,5 +34,6 @@ public class SqlPlannerDistributedConfigurationSchema {
      * Used to optimize internal caches and processes.
      */
     @Value(hasDefault = true)
+    @Range(min = 0)
     public final int estimatedNumberOfQueries = 1024;
 }

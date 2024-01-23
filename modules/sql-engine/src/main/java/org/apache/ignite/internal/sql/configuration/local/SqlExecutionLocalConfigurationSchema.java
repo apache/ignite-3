@@ -19,11 +19,13 @@ package org.apache.ignite.internal.sql.configuration.local;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /** Local configuration of SQL execution. */
 @Config
 public class SqlExecutionLocalConfigurationSchema {
     /** Concurrency level for queries execution. */
     @Value(hasDefault = true)
+    @Range(min = 1)
     public final int concurrencyLevel = 4;
 }
