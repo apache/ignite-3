@@ -148,6 +148,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             return null;
         }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
+        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+
         AtomicLong raftIndex = new AtomicLong();
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));

@@ -205,7 +205,7 @@ public class MetricsTests
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
 
-        await view.StreamDataAsync(GetTuples().ToAsyncEnumerable(), DataStreamerOptions.Default with { BatchSize = 2 });
+        await view.StreamDataAsync(GetTuples().ToAsyncEnumerable(), DataStreamerOptions.Default with { PageSize = 2 });
 
         AssertMetric("streamer-batches-sent", 1);
         AssertMetric("streamer-items-sent", 2);
@@ -249,7 +249,7 @@ public class MetricsTests
         var view = table!.RecordBinaryView;
         var cts = new CancellationTokenSource();
 
-        var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { BatchSize = 10 }, cts.Token);
+        var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { PageSize = 10 }, cts.Token);
 
         AssertMetricGreaterOrEqual("streamer-batches-sent", 1);
         cts.Cancel();

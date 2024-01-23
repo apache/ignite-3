@@ -2140,10 +2140,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int partitionId = tablePartitionId.partitionId();
 
-        return allOf(
-                internalTable.storage().destroyPartition(partitionId),
-                runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
-        );
+        List<CompletableFuture<?>> destroyFutures = new ArrayList<>();
+
+        if (internalTable.storage().getMvPartition(partitionId) != null) {
+            destroyFutures.add(internalTable.storage().destroyPartition(partitionId));
+        }
+
+        if (internalTable.txStateStorage().getTxStateStorage(partitionId) != null) {
+            destroyFutures.add(runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor));
+        }
+
+        return allOf(destroyFutures.toArray(new CompletableFuture[]{}));
     }
 
     private int[] collectTableIndexIds(int tableId, int catalogVersion, boolean onNodeRecovery) {

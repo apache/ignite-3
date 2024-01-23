@@ -51,8 +51,8 @@ class ClientDataStreamer {
     private static StreamerOptions streamerOptions(DataStreamerOptions options) {
         return new StreamerOptions() {
             @Override
-            public int batchSize() {
-                return options.batchSize();
+            public int pageSize() {
+                return options.pageSize();
             }
 
             @Override
