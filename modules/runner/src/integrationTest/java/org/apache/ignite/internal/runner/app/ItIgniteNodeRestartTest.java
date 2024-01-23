@@ -1421,8 +1421,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             );
         }
 
-        // Assume that the table id will always be 6 for the test table. There is an assertion below to check this is true.
-        int tableId = 6;
+        // Assume that the table id will always be 7 for the test table. There is an assertion below to check this is true.
+        int tableId = 7;
 
         var partId = new TablePartitionId(tableId, 0);
 
@@ -1526,8 +1526,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String tableName = "TEST";
         String zoneName = "ZONE_TEST";
 
-        // Assume that the table id is always 6, there is an assertion below to ensure this.
-        int tableId = 6;
+        // Assume that the table id is always 7, there is an assertion below to ensure this.
+        int tableId = 7;
 
         var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0));
 
