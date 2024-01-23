@@ -65,7 +65,6 @@ public interface AsyncCursor<T> {
      * Closes this cursor and releases any underlying resources.
      *
      * @return A future which will be completed when the resources will be actually released.
-     * @throws IgniteException If cursor is closed with error.
      */
     CompletableFuture<Void> closeAsync();
 }

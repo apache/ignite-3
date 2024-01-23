@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.table;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
@@ -145,10 +144,10 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
 
                                 return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
                             })
-                            .exceptionally(th -> {
-                                session.closeAsync();
-
-                                throw sneakyThrow(unwrapCause(th));
+                            .whenComplete((ignore, err) -> {
+                                if (err != null) {
+                                    session.closeAsync();
+                                }
                             });
                 })
                 .exceptionally(th -> {

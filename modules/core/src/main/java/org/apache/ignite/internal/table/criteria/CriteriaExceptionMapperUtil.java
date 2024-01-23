@@ -18,14 +18,9 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.table.criteria.CriteriaException;
 
@@ -56,7 +51,7 @@ public class CriteriaExceptionMapperUtil {
             return e;
         }
 
-        if (e instanceof CriteriaException || e instanceof CursorClosedException || e instanceof NoMorePagesException) {
+        if (e instanceof CriteriaException) {
             return e;
         }
 
@@ -66,24 +61,5 @@ public class CriteriaExceptionMapperUtil {
         }
 
         return new CriteriaException(INTERNAL_ERR, e);
-    }
-
-    /**
-     * Returns a new CompletableFuture that, when the given {@code origin} future completes exceptionally, maps the origin's exception to a
-     * public exception if it is needed.
-     *
-     * @param origin The future to use to create a new stage.
-     * @param <T> Type os result.
-     * @return New CompletableFuture.
-     */
-    public static <T> CompletableFuture<T> convertToPublicCriteriaFuture(CompletableFuture<T> origin) {
-        return origin
-                .handle((res, err) -> {
-                    if (err != null) {
-                        throw new CompletionException(mapToPublicCriteriaException(unwrapCause(err)));
-                    }
-
-                    return res;
-                });
     }
 }

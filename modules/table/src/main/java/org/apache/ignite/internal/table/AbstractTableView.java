@@ -214,10 +214,10 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                         return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
                     })
-                    .exceptionally(th -> {
-                        session.closeAsync();
-
-                        throw sneakyThrow(unwrapCause(th));
+                    .whenComplete((ignore, err) -> {
+                        if (err != null) {
+                            session.closeAsync();
+                        }
                     });
         })
                 .exceptionally(th -> {

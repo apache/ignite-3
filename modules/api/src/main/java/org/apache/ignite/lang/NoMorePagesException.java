@@ -20,7 +20,7 @@ package org.apache.ignite.lang;
 import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_NO_MORE_PAGES_ERR;
 
 /**
- * Exception is thrown when a data fetch attempt is performed on a closed cursor.
+ * Exception is thrown when there are no more pages in the cursor.
  */
 public class NoMorePagesException extends IgniteException {
     /**
