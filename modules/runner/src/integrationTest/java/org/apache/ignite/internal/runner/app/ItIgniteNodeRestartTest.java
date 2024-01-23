@@ -147,6 +147,7 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NettyWorkersRegistrar;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
@@ -202,6 +203,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private CriticalWorkersConfiguration workersConfiguration;
+
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
      *
@@ -250,7 +254,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var threadPools = new ThreadPoolsManager(name);
 
-        var workerRegistry = new CriticalWorkerWatchdog(threadPools.commonScheduler());
+        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler());
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         var nettyWorkersRegistrar = new NettyWorkersRegistrar(workerRegistry, threadPools.commonScheduler(), nettyBootstrapFactory);
