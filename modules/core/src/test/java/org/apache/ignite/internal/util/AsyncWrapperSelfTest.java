@@ -34,7 +34,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.CursorClosedException;
-import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
