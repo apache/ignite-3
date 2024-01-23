@@ -102,9 +102,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -222,14 +220,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static TransactionConfiguration txConfiguration;
 
     /**
-     * Accepts the node components and the starting component.
-     */
-    @Nullable
-    private BeforeComponentStartClosure beforeComponentStart = null;
-
-    /**
-     * Interceptor of {@link org.apache.ignite.internal.metastorage.server.KeyValueStorage#invoke(Condition, Collection, Collection,
-     * HybridTimestamp)}  calls on meta storage's key-value storage.
+     * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
      */
     private Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
@@ -572,10 +563,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         for (IgniteComponent component : otherComponents) {
-            if (beforeComponentStart != null) {
-                beforeComponentStart.call(idx, otherComponents, hybridClock, component);
-            }
-
             component.start();
 
             components.add(component);
@@ -1760,10 +1747,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         return ignite.tables().table(name);
-    }
-
-    private interface BeforeComponentStartClosure {
-        void call(Integer nodeIndex, List<IgniteComponent> nodeComponents, HybridClock clock, IgniteComponent currentComponent);
     }
 
     private interface InvokeInterceptor {
