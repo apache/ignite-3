@@ -72,6 +72,7 @@ import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjec
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -94,6 +95,9 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Mock
     private TopologyService topologyService;
+
+    @Mock
+    private CriticalWorkerRegistry criticalWorkerRegistry;
 
     @InjectConfiguration("mock.port=" + SENDER_PORT)
     private NetworkConfiguration senderNetworkConfig;
@@ -448,7 +452,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 topologyService,
                 staleIdDetector,
                 classDescriptorRegistry,
-                marshaller
+                marshaller,
+                criticalWorkerRegistry
         );
 
         SerializationService serializationService = new SerializationService(

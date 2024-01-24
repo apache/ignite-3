@@ -18,11 +18,15 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
+import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneCantBeDroppedValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -32,6 +36,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class DropZoneCommandValidationTest extends AbstractCommandValidationTest {
+    private static final String ZONE_NAME = "zone1";
+
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void zoneNameMustNotBeNullOrBlank(String zone) {
@@ -45,9 +51,25 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
     @Test
     void rejectToDropDefaultZone() {
         assertThrows(
-                CatalogValidationException.class,
+                DistributionZoneCantBeDroppedValidationException.class,
                 () -> DropZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).build(),
                 "Default distribution zone can't be dropped"
+        );
+    }
+
+    @Test
+    void rejectToDropZoneWithTable() {
+        String tableName = "table1";
+
+        Catalog catalog = catalog(List.of(
+                createZoneCommand(ZONE_NAME),
+                createTableCommand(ZONE_NAME, tableName)
+        ));
+
+        assertThrows(
+                DistributionZoneCantBeDroppedValidationException.class,
+                () -> DropZoneCommand.builder().zoneName(ZONE_NAME).build().get(catalog),
+                format("Distribution zone '{}' is assigned to the table '{}'", ZONE_NAME, tableName)
         );
     }
 
@@ -62,7 +84,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
                 .build();
 
         assertThrows(
-                CatalogValidationException.class,
+                DistributionZoneNotFoundValidationException.class,
                 () -> command.get(catalog),
                 "Distribution zone with name 'some_zone' not found"
         );

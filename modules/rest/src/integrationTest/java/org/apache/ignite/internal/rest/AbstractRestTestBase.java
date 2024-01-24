@@ -21,11 +21,15 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -37,6 +41,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -47,7 +52,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Base class for integration REST test.
  */
-abstract class AbstractRestTestBase extends IgniteIntegrationTest {
+public abstract class AbstractRestTestBase extends IgniteIntegrationTest {
     /** Network ports of the test nodes. */
     static final int[] NETWORK_PORTS = {3344, 3345, 3346};
 
@@ -64,32 +69,34 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
     final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
     /** Node names that is starting (before init) or started (after init). */
-    final List<String> nodeNames = new ArrayList<>();
+    protected final List<String> nodeNames = new ArrayList<>();
 
     /** Collection of started nodes. */
     final List<Ignite> startedNodes = new ArrayList<>();
 
     /** Collection of starting nodes. */
-    final List<CompletableFuture<Ignite>> startingNodes = new ArrayList<CompletableFuture<Ignite>>();
+    protected final List<CompletableFuture<Ignite>> startingNodes = new ArrayList<CompletableFuture<Ignite>>();
+
+    protected ObjectMapper objectMapper;
 
     /** HTTP client that is expected to be defined in subclasses. */
-    HttpClient client;
+    private HttpClient client;
 
     /** Path to the working directory. */
     @WorkDirectory
     private Path workDir;
 
-    static HttpRequest get(String path) {
+    protected static HttpRequest get(String path) {
         return HttpRequest.newBuilder(URI.create(HTTP_HOST_PORT + path)).build();
     }
 
-    static HttpRequest patch(String path, String body) {
+    protected static HttpRequest patch(String path, String body) {
         return HttpRequest.newBuilder(URI.create(HTTP_HOST_PORT + path))
                 .method("PATCH", BodyPublishers.ofString(body))
                 .build();
     }
 
-    static HttpRequest post(String path, String body) {
+    protected static HttpRequest post(String path, String body) {
         return HttpRequest.newBuilder(URI.create(HTTP_HOST_PORT + path))
                 .header("content-type", "application/json")
                 .POST(BodyPublishers.ofString(body))
@@ -101,6 +108,7 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
      */
     @BeforeEach
     void setUp(TestInfo testInfo) throws IOException, InterruptedException {
+        objectMapper = new ObjectMapper();
         client = HttpClient.newBuilder().build();
 
         startAllNodesWithoutInit(testInfo);
@@ -183,5 +191,13 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
 
     void checkAllNodesStarted() {
         startingNodes.forEach(future -> assertThat(future, willCompleteSuccessfully()));
+    }
+
+    protected HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {
+        return client.send(request, BodyHandlers.ofString());
+    }
+
+    protected Problem getProblem(HttpResponse<String> initResponse) throws JsonProcessingException {
+        return objectMapper.readValue(initResponse.body(), Problem.class);
     }
 }

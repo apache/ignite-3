@@ -146,7 +146,10 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.network.NettyWorkersRegistrar;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -200,6 +203,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private CriticalWorkersConfiguration workersConfiguration;
+
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
      *
@@ -246,14 +252,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
+        var threadPools = new ThreadPoolsManager(name);
+
+        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler());
+
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
+        var nettyWorkersRegistrar = new NettyWorkersRegistrar(
+                workerRegistry,
+                threadPools.commonScheduler(),
+                nettyBootstrapFactory,
+                workersConfiguration
+        );
 
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault)
+                new VaultStaleIds(vault),
+                workerRegistry
         );
 
         var hybridClock = new HybridClockImpl();
@@ -338,8 +355,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 topologyAwareRaftGroupServiceFactory,
                 hybridClock
         );
-
-        var threadPools = new ThreadPoolsManager(name);
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
@@ -474,7 +489,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
                 threadPools,
+                workerRegistry,
                 nettyBootstrapFactory,
+                nettyWorkersRegistrar,
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,

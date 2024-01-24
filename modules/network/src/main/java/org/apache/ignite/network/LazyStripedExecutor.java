@@ -20,7 +20,6 @@ package org.apache.ignite.network;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -37,7 +36,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  *
  * <p>After having been stopped, it never executes anything.
  */
-class LazyStripedExecutor implements ManuallyCloseable {
+abstract class LazyStripedExecutor implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(LazyStripedExecutor.class);
 
     private final String nodeName;
@@ -84,14 +83,21 @@ class LazyStripedExecutor implements ManuallyCloseable {
                 return existing;
             }
 
-            ExecutorService newExecutor = Executors.newSingleThreadExecutor(
-                    NamedThreadFactory.create(nodeName, poolName + "-" + index, LOG));
+            NamedThreadFactory threadFactory = NamedThreadFactory.create(nodeName, poolName + "-" + index, LOG);
+            ExecutorService newExecutor = newSingleThreadExecutor(threadFactory);
 
             array.set(index, newExecutor);
 
             return newExecutor;
         }
     }
+
+    /**
+     * Creates a new single thread executor to serve a stripe.
+     *
+     * @param threadFactory Thread factory to be used by the executor.
+     */
+    protected abstract ExecutorService newSingleThreadExecutor(NamedThreadFactory threadFactory);
 
     @Override
     public void close() {
@@ -101,10 +107,19 @@ class LazyStripedExecutor implements ManuallyCloseable {
 
         busyLock.block();
 
+        onStoppingInitiated();
+
         IntStream.range(0, array.length())
                 .mapToObj(array::get)
                 .filter(Objects::nonNull)
                 .parallel()
                 .forEach(executorService -> IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Callback called just after the stop procedure forbade accepting new submissions (and hence creation of new executors).
+     */
+    protected void onStoppingInitiated() {
+        // No-op.
     }
 }

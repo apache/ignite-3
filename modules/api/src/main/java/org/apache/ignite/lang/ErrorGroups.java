@@ -419,20 +419,8 @@ public class ErrorGroups {
         /** Distribution zones group. */
         public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = registerGroup("DISTRZONES", (short) 10);
 
-        /** Distribution zone already exists. */
-        public static final int ZONE_ALREADY_EXISTS_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
-
         /** Distribution zone is not found. */
-        public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 2);
-
-        /** Distribution zone rename error. */
-        public static final int ZONE_RENAME_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 3);
-
-        /** Distribution zone is a default distribution zone or bound to table. */
-        public static final int ZONE_DROP_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 4);
-
-        /** Distribution zone definition error. */
-        public static final int ZONE_DEFINITION_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 5);
+        public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
     }
 
     /** Network error group. */
@@ -554,8 +542,17 @@ public class ErrorGroups {
         /** Compute job failed. */
         public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
 
+        /** Cannot change job priority, compute job not found error. */
+        public static final int CHANGE_JOB_PRIORITY_NO_JOB_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
+
+        /** Cannot change job priority, compute job is already executing. */
+        public static final int CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 11);
+
+        /** Cannot resolve primary replica for colocated execution. */
+        public static final int PRIMARY_REPLICA_RESOLVE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 12);
+
         /** Cannot change job priority. */
-        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Catalog error group. */

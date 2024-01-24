@@ -238,7 +238,7 @@ public class TestServer implements AutoCloseable {
                         placementDriver
                 );
 
-        module.start();
+        module.start().join();
     }
 
     /**
