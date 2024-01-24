@@ -47,7 +47,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "    }\n"
             + "  },\n"
             + "  storages: {\n"
-            + "    profiles: {default_aimem: { engine: \"aimem\"}}\n"
+            + "    profiles: {default_aipersist: { engine: \"aipersist\"}, default_aimem: { engine: \"aimem\"}, default_rocksdb: { engine: \"rocksDb\"}}\n"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {}\n"

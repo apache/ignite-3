@@ -130,11 +130,11 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        storagesConfiguration.profiles().value().stream().forEach(p -> {
-            if (p instanceof RocksDbProfileView) {
-                registerDataRegion(p.name());
-            }
-        });
+//        storagesConfiguration.profiles().value().stream().forEach(p -> {
+//            if (p instanceof RocksDbProfileView) {
+//                registerDataRegion(p.name());
+//            }
+//        });
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {

@@ -331,9 +331,7 @@ class CheckpointWorkflow {
      * @param dataRegion Persistent data region for which listener is corresponded to, {@code null} for all regions.
      */
     public void addCheckpointListener(CheckpointListener listener, @Nullable DataRegion<PersistentPageMemory> dataRegion) {
-        System.out.println("KKK " + dataRegion + " " + dataRegions);
-        // TODO: KKK Remove this dirty hack
-//        assert dataRegion == null || dataRegions.contains(dataRegion) : dataRegion;
+        assert dataRegion == null || dataRegions.contains(dataRegion) : dataRegion;
 
         listeners.add(new IgniteBiTuple<>(listener, dataRegion));
     }

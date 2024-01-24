@@ -36,6 +36,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
@@ -77,27 +79,16 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
         for (String engine : ENGINES) {
             String testZoneName = ("test_zone_" + engine).toUpperCase();
 
-            // TODO: KKK fix this hack
-            if (engine.equals("aimem")) {
-                sql(String.format(
-                        "create zone %s engine %s with partitions=1, replicas=3, dataregion='default_aimem', storage_profiles = '%s';",
-                        testZoneName,
-                        engine,
-                        DUMMY_STORAGE_PROFILE
-                ));
-            } else {
-                sql(String.format(
-                        "create zone %s engine %s with partitions=1, replicas=3, storage_profiles = '%s';",
-                        testZoneName,
-                        engine,
-                        DUMMY_STORAGE_PROFILE
-                ));
-            }
+            // TODO: KKK only storage profile should be used
+            String regionName = "default_" + engine;
+            sql(String.format("create zone %s engine %s with dataregion='%s', partitions=1, replicas=3, storage_profiles = '%s';",
+                    testZoneName, engine, regionName, regionName));
+
             sql(String.format(
                     "create table %s (ID int, NAME varchar, primary key(ID, NAME)) with primary_zone='%s', storage_profile='%s'",
                     tableName(engine),
                     testZoneName,
-                    DUMMY_STORAGE_PROFILE
+                    regionName
             ));
         }
     }
