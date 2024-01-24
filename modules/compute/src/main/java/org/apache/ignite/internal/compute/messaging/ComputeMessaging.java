@@ -134,6 +134,8 @@ public class ComputeMessaging {
             sendExecuteResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobResultRequest) {
             sendJobResultResponse(null, ex, senderConsistentId, correlationId);
+        } else if (message instanceof JobStatusesRequest) {
+            sendJobStatusesResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobStatusRequest) {
             sendJobStatusResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
