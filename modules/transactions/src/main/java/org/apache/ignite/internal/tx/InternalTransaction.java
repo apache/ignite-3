@@ -65,9 +65,9 @@ public interface InternalTransaction extends Transaction {
     /**
      * Gets a partition id that stores the transaction state.
      *
-     * @return Partition id or null if externally committed.
+     * @return Partition id.
      */
-    @Nullable TablePartitionId commitPartition();
+    TablePartitionId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.

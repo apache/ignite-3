@@ -60,8 +60,6 @@ public class ClientTransactionBeginRequest {
 
             // Timestamp makes sense only for read-only transactions.
             observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        } else {
-            in.unpackLong(); // Advance position.
         }
 
         // NOTE: we don't use beginAsync here because it is synchronous anyway.

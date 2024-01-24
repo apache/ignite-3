@@ -40,7 +40,6 @@ import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.cache.IgniteCache;
-import org.apache.ignite.internal.client.ClientCacheEntryImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
@@ -249,7 +248,7 @@ public class ClientCache<K, V> implements IgniteCache<K, V> {
                 if (entry.getValue() == TOMBSTONE) {
                     writer.delete(entry.getKey());
                 } else {
-                    ClientCacheEntryImpl<Object, Object> cacheEntry = new ClientCacheEntryImpl<>(entry.getKey(), entry.getValue());
+                    ClientCacheEntry<Object, Object> cacheEntry = new ClientCacheEntry<>(entry.getKey(), entry.getValue());
                     writer.write((Entry<? extends K, ? extends V>) cacheEntry);
                 }
 

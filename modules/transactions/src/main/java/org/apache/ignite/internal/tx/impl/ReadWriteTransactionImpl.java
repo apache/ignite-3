@@ -148,7 +148,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        if (externalCommit == null) {
+        if (!external()) {
             return finishInternal(commit, false);
         } else {
             if (!commit) {

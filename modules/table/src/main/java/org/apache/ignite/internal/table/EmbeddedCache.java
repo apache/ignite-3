@@ -169,7 +169,6 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
                 if (loader != null) {
                     val = loader.load(key);
                     if (val == null) {
-                        // TODO need ttl for tombstones even if no ttl configured by user
                         valTup = Tuple.create().set(VAL_COL, TOMBSTONE).set(TTL_COL, TOMBSTONE_TTL);
                     } else {
                         // TODO set ttl defined by user
@@ -483,7 +482,7 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
                 if (entry.getValue() == TOMBSTONE) {
                     writer.delete(entry.getKey());
                 } else {
-                    CacheEntryImpl<Object, Object> cacheEntry = new CacheEntryImpl<>(entry.getKey(), entry.getValue());
+                    CacheEntry<Object, Object> cacheEntry = new CacheEntry<>(entry.getKey(), entry.getValue());
                     writer.write((Entry<? extends K, ? extends V>) cacheEntry);
                 }
 

@@ -38,8 +38,6 @@ import javax.cache.integration.CacheWriterException;
 import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -132,7 +130,7 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testBasic() {
-        try (IgniteCache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null, null)) {
+        try (IgniteCache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null, null, null)) {
             cache.put(1, 1);
 
             assertEquals(1, cache.get(1));
@@ -156,7 +154,7 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testExplicitTxn() {
-        try (IgniteCache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null, null)) {
+        try (IgniteCache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null, null, null)) {
             cache.runAtomically(() -> {
                 cache.put(1, 1);
 
@@ -184,7 +182,7 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testExplicitTxnRollback() {
-        try (IgniteCache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null, null)) {
+        try (IgniteCache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null, null, null)) {
             try {
                 cache.runAtomically(() -> {
                     cache.put(1, 1);
@@ -214,6 +212,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                 txTestCluster.clientTxManager,
                 loader,
                 writer,
+                null,
                 null,
                 null)
         ) {
@@ -250,6 +249,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                 txTestCluster.clientTxManager,
                 loader,
                 writer,
+                null,
                 null,
                 null)
         ) {
@@ -289,6 +289,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                     null,
                     null,
                     null,
+                    null,
                     null)
             ) {
                 cache.runAtomically(() -> {
@@ -313,6 +314,7 @@ public class ItCacheTest extends IgniteAbstractTest {
 
         try (IgniteCache<Integer, Integer> cache = client2.cache(
                 txTestCluster.clientTxManager,
+                null,
                 null,
                 null,
                 null,
@@ -357,6 +359,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                     loader,
                     writer,
                     null,
+                    null,
                     null)
             ) {
                 cache.put(1, 0);
@@ -385,6 +388,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                 txTestCluster.clientTxManager,
                 loader,
                 writer,
+                null,
                 null,
                 null)
         ) {
@@ -431,6 +435,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                     loader,
                     writer,
                     null,
+                    null,
                     null)
             ) {
                 assertEquals(0, cache.get(1));
@@ -459,6 +464,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                 txTestCluster.clientTxManager,
                 loader,
                 writer,
+                null,
                 null,
                 null)
         ) {
@@ -503,6 +509,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                     txTestCluster.clientTxManager,
                     loader,
                     writer,
+                    null,
                     null,
                     null)
             ) {
@@ -554,6 +561,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                 txTestCluster.clientTxManager,
                 loader,
                 writer,
+                null,
                 null,
                 null)
         ) {

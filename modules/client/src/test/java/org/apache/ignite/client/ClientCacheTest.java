@@ -51,4 +51,27 @@ public class ClientCacheTest extends AbstractClientTableTest {
             assertNull(view.get(1));
         }
     }
+
+    @Test
+    public void testBasicTypeUnsafe() {
+        ClientTable table = (ClientTable) cache();
+
+        try (IgniteCache<Object, Object> view = table.cache(null, null, null, null, null)) {
+            view.put(1, 1);
+
+            assertEquals(1, view.get(1));
+
+            assertTrue(view.remove(1));
+
+            assertNull(view.get(1));
+
+            view.put(2L, "test");
+
+            assertEquals("test", view.get(2L));
+
+            assertTrue(view.remove(2L));
+
+            assertNull(view.get(2L));
+        }
+    }
 }

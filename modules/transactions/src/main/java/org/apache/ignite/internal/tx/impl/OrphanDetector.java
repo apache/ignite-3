@@ -182,6 +182,7 @@ public class OrphanDetector {
             if (txState.commitPartitionId().isEmpty()) {
                 // For external commit just remove locks. Write intent will be resolved lazily.
                 // !!! Must be executed on another thread to avoid calling releaseAll in the current thread.
+                // TODO FIXME this call is blocking, need to use appropriate thread pool.
                 ForkJoinPool.commonPool().execute(() -> requestSender.cleanup(topologyService.localMember().name(), txId));
             } else {
                 sendTxRecoveryMessage(txState.commitPartitionId(), txId);

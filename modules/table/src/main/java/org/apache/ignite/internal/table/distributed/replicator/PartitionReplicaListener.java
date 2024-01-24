@@ -267,9 +267,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final PlacementDriver placementDriver;
 
     /**
-     * Mutex for command processing linearization.
-     * Some actions like update or updateAll require strict ordering within their application to storage on all nodes in replication group.
-     * Given ordering should match corresponding command's safeTime.
+     * Mutex for command processing linearization. Some actions like update or updateAll require strict ordering within their application to
+     * storage on all nodes in replication group. Given ordering should match corresponding command's safeTime.
      */
     private final Object commandProcessingLinearizationMutex = new Object();
 
@@ -623,8 +622,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Makes sure that {@link SchemaVersionAwareReplicaRequest#schemaVersion()} sent in a request matches table schema version
-     * corresponding to the operation.
+     * Makes sure that {@link SchemaVersionAwareReplicaRequest#schemaVersion()} sent in a request matches table schema version corresponding
+     * to the operation.
      *
      * @param request Replica request corresponding to the operation.
      * @param opTsIfDirectRo Operation timestamp for a direct RO, {@code null} otherwise.
@@ -3059,10 +3058,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ReplicaResult> processSingleEntryAction(ReadWriteSingleRowPkReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
-        TablePartitionId commitPartitionId = request.commitPartitionId() == null ? null : request.commitPartitionId().asTablePartitionId();
+        TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
 
-//        assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
-//                "Commit partition is null [type=" + request.requestType() + ']';
+        assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
+                "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
             case RW_GET: {
@@ -3132,11 +3131,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     *  Wait for the async cleanup of the provided row to finish.
+     * Wait for the async cleanup of the provided row to finish.
      *
      * @param rowId Row Ids of existing row that the transaction affects.
      * @param result The value that the returned future will wrap.
-     *
      * @param <T> Type of the {@code result}.
      */
     private <T> CompletableFuture<T> awaitCleanup(@Nullable RowId rowId, T result) {
@@ -3149,7 +3147,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param rowIds Row Ids of existing rows that the transaction affects.
      * @param result The value that the returned future will wrap.
-     *
      * @param <T> Type of the {@code result}.
      */
     private <T> CompletableFuture<T> awaitCleanup(Collection<RowId> rowIds, T result) {

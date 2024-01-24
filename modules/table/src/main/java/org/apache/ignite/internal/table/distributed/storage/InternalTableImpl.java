@@ -935,11 +935,7 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
-    private TablePartitionIdMessage serializeTablePartitionId(@Nullable TablePartitionId id) {
-        if (id == null) {
-            return null;
-        }
-
+    private TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
         return tableMessagesFactory.tablePartitionIdMessage()
                 .partitionId(id.partitionId())
                 .tableId(id.tableId())
@@ -1717,7 +1713,7 @@ public class InternalTableImpl implements InternalTable {
             tx.assignCommitPartition(tablePartitionId);
         } else {
             // For external commit it doesn't exists.
-            tx.assignCommitPartition(TablePartitionId.EMPTY);
+            tx.assignCommitPartition(TablePartitionId.NOT_EXISTING);
         }
 
         HybridTimestamp now = clock.now();

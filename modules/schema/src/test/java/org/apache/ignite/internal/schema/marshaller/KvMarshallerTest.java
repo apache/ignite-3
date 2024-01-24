@@ -440,18 +440,6 @@ public class KvMarshallerTest {
     public void pojoMapping(MarshallerFactory factory) throws MarshallerException, IOException {
         Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support column mapping.");
 
-        final SchemaDescriptor schema0 = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("key", BYTES, false)},
-                new Column[]{new Column("val", BYTES, true),
-                });
-
-        final KvMarshaller<Object, Object> marshaller00 = factory.create(schema0,
-                Mapper.of(Object.class, "\"key\"", new SerializingConverter<>()),
-                Mapper.of(Object.class, "\"val\"", new SerializingConverter<>()));
-
-        BinaryRow binaryRow00 = marshaller00.marshal(new Object(), new Object());
-
         final SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("key", INT64, false)},

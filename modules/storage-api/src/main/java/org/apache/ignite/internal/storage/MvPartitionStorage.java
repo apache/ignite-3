@@ -197,6 +197,12 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
+    /**
+     * Forget all the history associated with the row.
+     *
+     * @param rowId Row id.
+     * @throws StorageException If failed.
+     */
     void forget(RowId rowId) throws StorageException;
 
     /**

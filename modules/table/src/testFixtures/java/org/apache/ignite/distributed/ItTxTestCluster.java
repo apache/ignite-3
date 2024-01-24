@@ -660,7 +660,7 @@ public class ItTxTestCluster {
     }
 
     /**
-     * Starts a table.
+     * Starts a table client which was previously stopped.
      *
      * @param tableName Table name.
      * @param tableId Table id.

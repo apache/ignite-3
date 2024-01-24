@@ -35,7 +35,7 @@ public interface TypeConverter<ObjectT, ColumnT> {
      * @return Object of column type.
      * @throws Exception If transformation failed.
      */
-    ColumnT toColumnType(ObjectT obj) throws Exception; // TODO specify excpection
+    ColumnT toColumnType(ObjectT obj) throws Exception; // TODO use MarshallerException
 
     /**
      * Transforms to an object of the target type; called after the data is read from a column.

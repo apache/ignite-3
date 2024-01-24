@@ -293,7 +293,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     ) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, TablePartitionId.EMPTY, null));
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, TablePartitionId.NOT_EXISTING, null));
 
         return new ReadWriteTransactionImpl(this, timestampTracker, txId, externalCommit);
     }
