@@ -52,7 +52,7 @@ using namespace ignite;
  * @param reader Reader.
  * @return Primary keys meta.
  */
-primary_key_meta_vector read_meta(protocol::reader &reader) {
+primary_key_meta_vector read_key_meta(protocol::reader &reader) {
     auto has_no_data = reader.try_read_nil();
     if (has_no_data)
         return {};
@@ -138,7 +138,7 @@ sql_result primary_keys_query::make_request_get_primary_keys() {
             throw odbc_error(response_status_to_sql_state(status), *err_msg);
 
         if (has_result_set)
-            m_meta = read_meta(reader);
+            m_meta = read_key_meta(reader);
 
         m_executed = true;
     });
