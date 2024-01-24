@@ -19,8 +19,35 @@ namespace Apache.Ignite;
 
 /// <summary>
 /// Ignite.NET client metrics.
+/// <para />
+/// CLI usage example:
+/// <code>
+/// dotnet-counters monitor --counters Apache.Ignite,System.Runtime --process-id PID
+/// </code>
+/// See https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-counters for more details.
+/// <para />
+/// Code usage example:
+/// <code>
+/// var meterListener = new MeterListener();
 ///
-/// TODO: brief description of the usage.
+/// meterListener.InstrumentPublished = (instrument, listener) =>
+/// {
+///     if (instrument.Meter.Name == MetricNames.MeterName)
+///     {
+///         listener.EnableMeasurementEvents(instrument);
+///         Console.WriteLine($"Instrument enabled: {instrument.Name}");
+///     }
+/// };
+///
+/// meterListener.SetMeasurementEventCallback&lt;long&gt;((instrument, measurement, tags, state) =>
+///     Console.WriteLine($"{instrument.Name}: {measurement}"));
+///
+/// meterListener.SetMeasurementEventCallback&lt;int&gt;((instrument, measurement, tags, state) =>
+///     Console.WriteLine($"{instrument.Name}: {measurement}"));
+///
+/// meterListener.Start();
+/// </code>
+/// See https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics for more details.
 /// </summary>
 public static class MetricNames
 {
