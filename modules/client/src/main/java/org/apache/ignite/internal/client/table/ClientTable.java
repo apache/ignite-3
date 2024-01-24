@@ -30,6 +30,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheWriter;
+import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
@@ -51,6 +55,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -146,6 +151,16 @@ public class ClientTable implements Table {
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
         return new ClientKeyValueBinaryView(this);
+    }
+
+    public <K, V> IgniteCache<K, V> cache(
+            CacheLoader<K, V> loader,
+            CacheWriter<K, V> writer,
+            TypeConverter<K, byte[]> keyMapper,
+            TypeConverter<V, byte[]> valMapper,
+            ExpiryPolicy expiryPolicy
+    ) {
+        return new ClientCache<>(this, loader, writer, keyMapper, valMapper, expiryPolicy);
     }
 
     CompletableFuture<ClientSchema> getLatestSchema() {

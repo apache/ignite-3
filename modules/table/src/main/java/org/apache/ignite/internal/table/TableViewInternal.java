@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
 import org.apache.ignite.cache.IgniteCache;
@@ -50,7 +51,7 @@ public interface TableViewInternal extends Table {
     void pkId(int pkId);
 
     /**
-     *  Gets an identifier of a primary index.
+     * Gets an identifier of a primary index.
      *
      * @return Primary index identifier.
      */
@@ -95,8 +96,7 @@ public interface TableViewInternal extends Table {
     <K> int partition(K key, Mapper<K> keyMapper);
 
     /**
-     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
-     * it cannot be found.
+     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if it cannot be found.
      *
      * @param partition Partition number.
      * @return Leader node of the partition group corresponding to the partition.
@@ -142,14 +142,17 @@ public interface TableViewInternal extends Table {
      * @param writer Cache writer.
      * @param keyConverter Key converter.
      * @param valueConverter Key converter.
+     * @param expiryPolicy Expire policy.
      * @param <K> Key type.
      * @param <V> Value type.
      * @return The instance.
      */
-    <K, V> IgniteCache<K, V> cacheView(
+    <K, V> IgniteCache<K, V> cache(
             TxManager txManager,
             @Nullable CacheLoader<K, V> loader,
             @Nullable CacheWriter<K, V> writer,
             @Nullable TypeConverter<K, byte[]> keyConverter,
-            @Nullable TypeConverter<V, byte[]> valueConverter);
+            @Nullable TypeConverter<V, byte[]> valueConverter,
+            ExpiryPolicy expiryPolicy
+    );
 }

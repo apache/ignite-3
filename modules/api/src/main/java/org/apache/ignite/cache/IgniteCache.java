@@ -17,17 +17,16 @@
 
 package org.apache.ignite.cache;
 
+import java.util.function.Supplier;
+import javax.cache.Cache;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * TODO make internal ?
  */
-public interface IgniteCache<K, V> extends javax.cache.Cache<K, V> {
-    @Nullable V get(CacheTransaction tx, K key);
+public interface IgniteCache<K, V> extends Cache<K, V> {
+    void runAtomically(Runnable clo);
 
-    void put(CacheTransaction tx, K key, V value);
-
-    boolean remove(CacheTransaction tx, K key);
-
-    CacheTransaction beginTransaction();
+    <R> R runAtomically(Supplier<R> clo);
 }

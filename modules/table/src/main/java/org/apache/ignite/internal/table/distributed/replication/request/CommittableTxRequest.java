@@ -38,6 +38,5 @@ public interface CommittableTxRequest extends ReplicaRequest {
      *
      * @return Table partition id.
      */
-    @Nullable
     TablePartitionIdMessage commitPartitionId();
 }

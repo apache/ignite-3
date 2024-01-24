@@ -25,7 +25,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -74,84 +73,13 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker tracker, boolean readOnly, TxPriority priority) {
-        return new InternalTransaction() {
-            private final UUID id = UUID.randomUUID();
-
-            private final HybridTimestamp timestamp = clock.now();
-
-            @Override
-            public UUID id() {
-                return id;
-            }
-
-            @Override
-            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
-                return null;
-            }
-
-            @Override
-            public TxState state() {
-                return null;
-            }
-
-            @Override
-            public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
-                return false;
-            }
-
-            @Override
-            public TablePartitionId commitPartition() {
-                return null;
-            }
-
-            @Override
-            public IgniteBiTuple<ClusterNode, Long> enlist(
-                    TablePartitionId tablePartitionId,
-                    IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-                return null;
-            }
-
-            @Override
-            public void commit() throws TransactionException {
-                // No-op.
-            }
-
-            @Override
-            public CompletableFuture<Void> commitAsync() {
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public void rollback() throws TransactionException {
-                // No-op.
-            }
-
-            @Override
-            public CompletableFuture<Void> rollbackAsync() {
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public boolean isReadOnly() {
-                return readOnly;
-            }
-
-            @Override
-            public HybridTimestamp readTimestamp() {
-                return tracker.get();
-            }
-
-            @Override
-            public HybridTimestamp startTimestamp() {
-                return timestamp;
-            }
-        };
+        return new FakeTransaction(tracker, clock, readOnly);
     }
 
     @Override
-    public CacheTransaction beginForCache(HybridTimestampTracker timestampTracker,
+    public InternalTransaction beginExternal(HybridTimestampTracker timestampTracker,
             Function<InternalTransaction, CompletableFuture<Void>> externalCommit) {
-        return null;
+        return new FakeTransaction(null, clock, false);
     }
 
     @Override
@@ -232,5 +160,88 @@ public class FakeTxManager implements TxManager {
     @Override
     public void removeInflight(UUID txId) {
         // No-op.
+    }
+
+    private static class FakeTransaction implements InternalTransaction {
+        private final UUID id = UUID.randomUUID();
+
+        private final HybridTimestamp timestamp;
+
+        private final boolean readOnly;
+
+        private final HybridTimestamp readTimestamp;
+
+        public FakeTransaction(@Nullable HybridTimestampTracker tracker, HybridClock clock, boolean readOnly) {
+            this.timestamp = clock.now();
+            this.readOnly = readOnly;
+            this.readTimestamp = tracker == null ? HybridTimestamp.MIN_VALUE : tracker.get();
+        }
+
+        @Override
+        public UUID id() {
+            return id;
+        }
+
+        @Override
+        public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+            return null;
+        }
+
+        @Override
+        public TxState state() {
+            return null;
+        }
+
+        @Override
+        public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+            return false;
+        }
+
+        @Override
+        public TablePartitionId commitPartition() {
+            return null;
+        }
+
+        @Override
+        public IgniteBiTuple<ClusterNode, Long> enlist(
+                TablePartitionId tablePartitionId,
+                IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+            return null;
+        }
+
+        @Override
+        public void commit() throws TransactionException {
+            // No-op.
+        }
+
+        @Override
+        public CompletableFuture<Void> commitAsync() {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public void rollback() throws TransactionException {
+            // No-op.
+        }
+
+        @Override
+        public CompletableFuture<Void> rollbackAsync() {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public boolean isReadOnly() {
+            return readOnly;
+        }
+
+        @Override
+        public HybridTimestamp readTimestamp() {
+            return readTimestamp;
+        }
+
+        @Override
+        public HybridTimestamp startTimestamp() {
+            return timestamp;
+        }
     }
 }

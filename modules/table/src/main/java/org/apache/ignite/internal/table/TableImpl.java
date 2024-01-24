@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
 import org.apache.ignite.cache.IgniteCache;
@@ -319,14 +320,15 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public <K, V> IgniteCache<K, V> cacheView(
+    public <K, V> IgniteCache<K, V> cache(
             TxManager txManager,
             @Nullable CacheLoader<K, V> loader,
             @Nullable CacheWriter<K, V> writer,
             @Nullable TypeConverter<K, byte[]> keyConverter,
-            @Nullable TypeConverter<V, byte[]> valueConverter
+            @Nullable TypeConverter<V, byte[]> valueConverter,
+            ExpiryPolicy expiryPolicy
     ) {
-        return new IgniteCacheImpl<>(tbl, schemaVersions, schemaReg, txManager, loader, writer, keyConverter, valueConverter);
+        return new EmbeddedCache<>(tbl, schemaVersions, schemaReg, txManager, loader, writer, keyConverter, valueConverter, expiryPolicy);
     }
 
     private void awaitIndexes() {

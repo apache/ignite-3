@@ -28,6 +28,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -178,11 +179,18 @@ public class OrphanDetector {
                     txState.txCoordinatorId()
             );
 
-            if (txState.commitPartitionId() == null) {
+            if (txState.commitPartitionId().isEmpty()) {
                 // For external commit just remove locks. Write intent will be resolved lazily.
-                requestSender.cleanup(topologyService.localMember().name(), txId);
+                // !!! Must be executed on another thread to avoid calling releaseAll in the current thread.
+                ForkJoinPool.commonPool().execute(() -> requestSender.cleanup(topologyService.localMember().name(), txId));
             } else {
-                sentTxRecoveryMessage(txState.commitPartitionId(), txId);
+                sendTxRecoveryMessage(txState.commitPartitionId(), txId);
+
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
 

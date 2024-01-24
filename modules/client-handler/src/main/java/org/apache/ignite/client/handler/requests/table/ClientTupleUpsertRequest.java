@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -50,6 +51,29 @@ public class ClientTupleUpsertRequest {
             var tx = readTx(in, out, resources);
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+            });
+        });
+    }
+
+    /**
+     * Processes the request.
+     *
+     * @param in        Unpacker.
+     * @param out       Packer.
+     * @param tables    Ignite tables.
+     * @param resources Resource registry.
+     * @return Future.
+     */
+    public static CompletableFuture<Void> processForCache(
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            IgniteTables tables,
+            ClientResourceRegistry resources
+    ) {
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, out, resources);
+            return readTuple(in, table, false).thenCompose(tuple -> {
+                return ((RecordBinaryViewImpl)table.recordView()).upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
             });
         });
     }

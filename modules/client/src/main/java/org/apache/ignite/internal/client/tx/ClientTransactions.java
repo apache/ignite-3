@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -65,16 +66,42 @@ public class ClientTransactions implements IgniteTransactions {
                 ClientOp.TX_BEGIN,
                 w -> {
                     w.out().packBoolean(readOnly);
+                    w.out().packBoolean(false);
                     w.out().packLong(ch.observableTimestamp());
                 },
-                r -> readTx(r, readOnly));
+                r -> readTx(r, readOnly, null));
     }
 
-    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly) {
+    /**
+     * @param options Options.
+     * @param externalCommit External commit.
+     * @return The future.
+     */
+    public Transaction beginForCache(@Nullable TransactionOptions options,
+            @Nullable Function<ClientTransaction, CompletableFuture<Void>> externalCommit) {
+        if (options != null && options.timeoutMillis() != 0) {
+            // TODO: IGNITE-16193
+            throw new UnsupportedOperationException("Timeouts are not supported yet");
+        }
+
+        boolean readOnly = options != null && options.readOnly();
+
+        return ch.serviceAsync(
+                ClientOp.TX_BEGIN,
+                w -> {
+                    w.out().packBoolean(readOnly);
+                    w.out().packBoolean(true);
+                    w.out().packLong(ch.observableTimestamp());
+                },
+                r -> readTx(r, readOnly, externalCommit)).join();
+    }
+
+    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly,
+            @Nullable Function<ClientTransaction, CompletableFuture<Void>> externalCommit) {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
 
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly);
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly, externalCommit);
     }
 }

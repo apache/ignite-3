@@ -113,6 +113,11 @@ public interface InternalTransaction extends Transaction {
         return null;
     }
 
+    /**
+     * Return {@code true} if the transaction is externally committed.
+     *
+     * @return Flag value.
+     */
     default boolean external() {
         return false;
     }

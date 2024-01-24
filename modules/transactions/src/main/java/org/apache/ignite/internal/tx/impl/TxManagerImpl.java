@@ -53,7 +53,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -218,8 +217,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("tx-async-cleanup", LOG));
 
-        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriverHelper, lockManager, clock);
-
         txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaService, clock);
 
         WriteIntentSwitchProcessor writeIntentSwitchProcessor =
@@ -229,7 +226,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
 
-        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock,
+        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriverHelper, lockManager, clock,
                 txCleanupRequestSender);
     }
 
@@ -290,13 +287,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public CacheTransaction beginForCache(
+    public InternalTransaction beginExternal(
             HybridTimestampTracker timestampTracker,
             Function<InternalTransaction, CompletableFuture<Void>> externalCommit
     ) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, TablePartitionId.EMPTY, null));
 
         return new ReadWriteTransactionImpl(this, timestampTracker, txId, externalCommit);
     }

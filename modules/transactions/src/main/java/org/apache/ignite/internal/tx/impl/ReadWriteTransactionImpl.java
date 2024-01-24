@@ -31,7 +31,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -40,14 +39,13 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-write implementation of an internal transaction.
  */
-public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl implements CacheTransaction {
+public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
@@ -211,16 +209,19 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl impl
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public HybridTimestamp startTimestamp() {
         return TransactionIds.beginTimestamp(id());
     }
 
+    /** {@inheritDoc} */
     @Override
     public Map<Object, Object> dirtyCache() {
         return dirtyCache;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean external() {
         return externalCommit != null;

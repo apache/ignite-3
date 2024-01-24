@@ -496,7 +496,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
                         PENDING,
                         senderId,
-                        req.commitPartitionId() == null ? null : req.commitPartitionId().asTablePartitionId(),
+                        req.commitPartitionId().asTablePartitionId(),
                         null
                 ));
             }
@@ -2690,7 +2690,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             int catalogVersion
     ) {
         return applyUpdateCommand(
-                request.commitPartitionId() == null ? TablePartitionId.EMPTY : request.commitPartitionId().asTablePartitionId(),
+                request.commitPartitionId().asTablePartitionId(),
                 rowUuid,
                 row,
                 lastCommitTimestamp,
@@ -3730,6 +3730,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return {@link TablePartitionIdMessage} object converted from argument.
      */
     public static TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
+        if (tablePartId == null) {
+            tablePartId = new TablePartitionId(0, 0); // For external tx.
+        }
+
         return MSG_FACTORY.tablePartitionIdMessage()
                 .tableId(tablePartId.tableId())
                 .partitionId(tablePartId.partitionId())

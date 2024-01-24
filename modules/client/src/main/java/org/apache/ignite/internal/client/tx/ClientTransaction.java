@@ -22,14 +22,18 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client transaction.
@@ -59,6 +63,11 @@ public class ClientTransaction implements Transaction {
     /** Read-only flag. */
     private final boolean isReadOnly;
 
+    /** External commit callback. */
+    private final @Nullable Function<ClientTransaction, CompletableFuture<Void>> externalCommit;
+
+    private final Map<Object, Object> dirtyCache = new ConcurrentHashMap<>();
+
     /**
      * Constructor.
      *
@@ -66,9 +75,27 @@ public class ClientTransaction implements Transaction {
      * @param id Transaction id.
      */
     public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly) {
+        this(ch, id, isReadOnly, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param ch Channel that the transaction belongs to.
+     * @param id Transaction id.
+     * @param isReadOnly Read only.
+     * @param externalCommit Not null for external tx.
+     */
+    public ClientTransaction(
+            ClientChannel ch,
+            long id,
+            boolean isReadOnly,
+            @Nullable Function<ClientTransaction, CompletableFuture<Void>> externalCommit
+    ) {
         this.ch = ch;
         this.id = id;
         this.isReadOnly = isReadOnly;
+        this.externalCommit = externalCommit;
     }
 
     /**
@@ -104,11 +131,20 @@ public class ClientTransaction implements Transaction {
 
         setState(STATE_COMMITTED);
 
-        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
+        if (externalCommit != null) {
+            CompletableFuture<Void> fut = externalCommit.apply(this);
 
-        mainFinishFut.handle((res, e) -> finishFut.get().complete(null));
+            fut.handle((unused, err) -> {
+                ch.serviceAsync(err != null ? ClientOp.TX_ROLLBACK : ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null)
+                        .handle((res, e) -> finishFut.get().complete(null));
 
-        return mainFinishFut;
+                return null;
+            });
+        } else {
+            ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null).handle((res, e) -> finishFut.get().complete(null));
+        }
+
+        return finishFut.get();
     }
 
     /** {@inheritDoc} */
@@ -140,8 +176,8 @@ public class ClientTransaction implements Transaction {
     }
 
     /**
-     * Gets the internal transaction from the given public transaction. Throws an exception if the given transaction is
-     * not an instance of {@link ClientTransaction}.
+     * Gets the internal transaction from the given public transaction. Throws an exception if the given transaction is not an instance of
+     * {@link ClientTransaction}.
      *
      * @param tx Public transaction.
      * @return Internal transaction.
@@ -171,5 +207,13 @@ public class ClientTransaction implements Transaction {
 
     private void setState(int state) {
         this.state.compareAndExchange(STATE_OPEN, state);
+    }
+
+    public Map<Object, Object> dirtyCache() {
+        return dirtyCache;
+    }
+
+    public boolean external() {
+        return externalCommit != null;
     }
 }

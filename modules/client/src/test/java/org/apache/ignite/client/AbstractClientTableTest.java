@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ALL_COLUMNS;
+import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_CACHE;
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_WITH_DEFAULT_VALUES;
 
@@ -30,9 +31,12 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
+import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Base class for client table tests.
@@ -155,6 +159,22 @@ public class AbstractClientTableTest extends AbstractClientTest {
         }
 
         return client.tables().table(TABLE_ONE_COLUMN);
+    }
+
+    protected Table cache() {
+        return table(TABLE_CACHE);
+    }
+
+    /**
+     * @param name The name.
+     * @return Table.
+     */
+    private Table table(String name) {
+        if (server.tables().table(name) == null) {
+            ((FakeIgniteTables) server.tables()).createTable(name);
+        }
+
+        return client.tables().table(name);
     }
 
     /** Person. */

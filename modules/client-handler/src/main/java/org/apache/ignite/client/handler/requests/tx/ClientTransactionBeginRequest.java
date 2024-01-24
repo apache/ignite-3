@@ -53,15 +53,19 @@ public class ClientTransactionBeginRequest {
         HybridTimestamp observableTs = null;
 
         boolean readOnly = in.unpackBoolean();
+        boolean external = in.unpackBoolean();
+
         if (readOnly) {
             options = new TransactionOptions().readOnly(true);
 
             // Timestamp makes sense only for read-only transactions.
             observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        } else {
+            in.unpackLong(); // Advance position.
         }
 
         // NOTE: we don't use beginAsync here because it is synchronous anyway.
-        var tx = transactions.begin(options, observableTs);
+        var tx = external ? transactions.beginExternal(options, tx0 -> null) : transactions.begin(options, observableTs);
 
         if (readOnly) {
             // For read-only tx, override observable timestamp that we send to the client:

@@ -95,4 +95,8 @@ public class TablePartitionId implements ReplicationGroupId {
     public String toString() {
         return tableId + "_part_" + partId;
     }
+
+    public boolean isEmpty() {
+        return tableId == 0;
+    }
 }

@@ -56,6 +56,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     public static final String TABLE_COLOCATION_KEY = "colocation-key";
 
+    public static final String TABLE_CACHE = "cache";
+
     public static final String BAD_TABLE = "bad-table";
 
     public static final String BAD_TABLE_ERR = "Err!";
@@ -184,6 +186,10 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
             case TABLE_COLOCATION_KEY:
                 history = this::getColocationKeySchema;
+                break;
+
+            case TABLE_CACHE:
+                history = this::getCacheSchema;
                 break;
 
             default:
@@ -338,6 +344,23 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         colocationCol2,
                         new Column("STR", NativeTypes.STRING, true)
                 });
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getCacheSchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{new Column("key".toUpperCase(), NativeTypes.BYTES, false)},
+                new Column[]{
+                        new Column("ttl".toUpperCase(), NativeTypes.INT64, false),
+                        new Column("value".toUpperCase(), NativeTypes.BYTES, false)
+                }
+        );
     }
 
     /**

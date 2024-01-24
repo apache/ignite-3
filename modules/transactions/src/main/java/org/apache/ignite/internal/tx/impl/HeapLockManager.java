@@ -930,7 +930,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         /** {@inheritDoc} */
         @Override
         public String toString() {
-            return S.toString(WaiterImpl.class, this, "granted", fut.isDone());
+            return S.toString(WaiterImpl.class, this, "granted", locked());
         }
     }
 
