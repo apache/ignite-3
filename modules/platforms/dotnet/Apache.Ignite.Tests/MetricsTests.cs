@@ -273,6 +273,25 @@ public class MetricsTests
         }
     }
 
+    [Test]
+    public async Task TestMetricNames()
+    {
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        var publicNames = typeof(MetricNames).GetFields()
+            .Where(x => x is { IsPublic: true, IsStatic: true, IsLiteral: true } && x.FieldType == typeof(string))
+            .Where(x => x.Name != nameof(MetricNames.MeterName) && x.Name != nameof(MetricNames.MeterVersion))
+            .Select(x => x.GetValue(null))
+            .Cast<string>()
+            .OrderBy(x => x)
+            .ToList();
+
+        var instrumentNames = _listener.MetricNames;
+
+        CollectionAssert.AreEquivalent(publicNames, instrumentNames);
+    }
+
     private static IgniteClientConfiguration GetConfig() =>
         new()
         {
@@ -307,6 +326,7 @@ public class MetricsTests
                 if (instrument.Meter.Name == "Apache.Ignite")
                 {
                     listener.EnableMeasurementEvents(instrument);
+                    _metrics[instrument.Name] = 0;
                 }
             };
 
@@ -314,6 +334,8 @@ public class MetricsTests
             _listener.SetMeasurementEventCallback<int>(Handle);
             _listener.Start();
         }
+
+        public ICollection<string> MetricNames => _metrics.Keys;
 
         public int GetMetric(string name)
         {
