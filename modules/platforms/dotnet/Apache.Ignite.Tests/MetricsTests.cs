@@ -290,6 +290,7 @@ public class MetricsTests
         var instrumentNames = _listener.MetricNames;
 
         CollectionAssert.AreEquivalent(publicNames, instrumentNames);
+        CollectionAssert.AreEquivalent(publicNames, MetricNames.All);
     }
 
     private static IgniteClientConfiguration GetConfig() =>

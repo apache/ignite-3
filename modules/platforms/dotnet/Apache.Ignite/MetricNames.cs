@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite;
 
+using System.Collections.Generic;
+
 /// <summary>
 /// Ignite.NET client metrics.
 /// <para />
@@ -145,4 +147,28 @@ public static class MetricNames
     /// Total number of queued data streamer items (rows).
     /// </summary>
     public const string StreamerItemsQueued = "streamer-items-queued";
+
+    /// <summary>
+    /// All metric names.
+    /// </summary>
+    public static readonly IReadOnlyCollection<string> All = new[]
+    {
+        ConnectionsActive,
+        ConnectionsEstablished,
+        ConnectionsLost,
+        ConnectionsLostTimeout,
+        HandshakesFailed,
+        HandshakesFailedTimeout,
+        RequestsActive,
+        RequestsSent,
+        RequestsCompleted,
+        RequestsRetried,
+        RequestsFailed,
+        BytesSent,
+        BytesReceived,
+        StreamerBatchesSent,
+        StreamerItemsSent,
+        StreamerBatchesActive,
+        StreamerItemsQueued
+    };
 }
