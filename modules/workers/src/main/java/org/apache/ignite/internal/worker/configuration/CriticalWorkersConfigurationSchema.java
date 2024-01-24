@@ -39,7 +39,7 @@ public class CriticalWorkersConfigurationSchema {
     /**
      * Maximum allowed delay of the last heartbeat from current time; if it's exceeded, the critical worker is considered to be blocked.
      *
-     * <p>Should exceed {@link #livenessCheckInterval} at least twice.
+     * <p>Should be at least twice as large as {@link #livenessCheckInterval}.
      */
     @Value(hasDefault = true)
     @Range(min = 1)
