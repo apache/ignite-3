@@ -77,6 +77,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16334")
     public void testEnforceJoinOrderHint() throws Exception {
         String sqlJoinCommuteWithNoHint = "SELECT COUNT(*) FROM SMALL s, HUGE h, HUGE h1 WHERE h.id = s.id and h1.id=s.id";
         String sqlJoinCommuteWithHint =

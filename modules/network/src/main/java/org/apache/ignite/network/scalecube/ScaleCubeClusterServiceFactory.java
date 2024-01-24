@@ -19,7 +19,6 @@ package org.apache.ignite.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
+import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -74,8 +74,12 @@ public class ScaleCubeClusterServiceFactory {
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      *
+     * @param consistentId Consistent ID (aka name) of the local node associated with the service to create.
      * @param networkConfiguration  Network configuration.
      * @param nettyBootstrapFactory Bootstrap factory.
+     * @param serializationRegistry Registry used for serialization.
+     * @param staleIds Used to update/detect whether a node has left the physical topology.
+     * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @return New cluster service.
      */
     public ClusterService createClusterService(
@@ -83,7 +87,8 @@ public class ScaleCubeClusterServiceFactory {
             NetworkConfiguration networkConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory,
             MessageSerializationRegistry serializationRegistry,
-            StaleIds staleIds
+            StaleIds staleIds,
+            CriticalWorkerRegistry criticalWorkerRegistry
     ) {
         var topologyService = new ScaleCubeTopologyService();
 
@@ -106,7 +111,8 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService,
                 staleIds,
                 userObjectSerialization.descriptorRegistry(),
-                userObjectSerialization.marshaller()
+                userObjectSerialization.marshaller(),
+                criticalWorkerRegistry
         );
 
         return new AbstractClusterService(consistentId, topologyService, messagingService, serializationRegistry) {
@@ -136,6 +142,7 @@ public class ScaleCubeClusterServiceFactory {
                 this.connectionMgr = connectionMgr;
 
                 connectionMgr.start();
+                messagingService.start();
 
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
