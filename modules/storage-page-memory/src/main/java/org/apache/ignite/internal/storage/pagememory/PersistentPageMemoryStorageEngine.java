@@ -68,6 +68,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final Path storagePath;
 
+    private boolean testStart = false;
+
     @Nullable
     private final LongJvmPauseDetector longJvmPauseDetector;
 
@@ -120,6 +122,12 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
+    public void testStart() throws StorageException {
+        testStart = true;
+        start();
+    }
+
+    @Override
     public void start() throws StorageException {
         int pageSize = engineConfig.pageSize().value();
 
@@ -160,32 +168,25 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting checkpoint manager", e);
         }
 
-//        addDataRegion(DEFAULT_DATA_REGION_NAME);
-        storagesConfiguration.profiles().value().stream().forEach(p -> {
-            if (p instanceof PersistentPageMemoryProfileView) {
-                addDataRegion(p.name());
-            }
-        });
-
-        // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {
-            @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
-                if (ctx.newValue() instanceof PersistentPageMemoryProfileView) {
-                    addDataRegion(ctx.newName(PersistentPageMemoryProfileView.class));
+        if (testStart) {
+            storagesConfiguration.profiles().value().stream().forEach(p -> {
+                if (p instanceof PersistentPageMemoryProfileView) {
+                    addDataRegion(p.name());
                 }
+            });
+        } else {
+            // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
+            storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {
+                @Override
+                public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
+                    if (ctx.newValue() instanceof PersistentPageMemoryProfileView) {
+                        addDataRegion(ctx.newName(PersistentPageMemoryProfileView.class));
+                    }
 
-                return nullCompletedFuture();
-            }
-        });
-//                engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
-//                    @Override
-//                    public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PersistentPageMemoryDataRegionView> ctx) {
-//                        addDataRegion(ctx.newName(PersistentPageMemoryDataRegionView.class));
-//
-//                        return nullCompletedFuture();
-//                    }
-//                });
+                    return nullCompletedFuture();
+                }
+            });
+        }
     }
 
     @Override

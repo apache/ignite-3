@@ -74,6 +74,8 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private volatile GradualTaskExecutor destructionExecutor;
 
+    private boolean testStart = false;
+
     /**
      * Constructor.
      *
@@ -100,34 +102,33 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
+    public void testStart() throws StorageException {
+        testStart = true;
+        start();
+    }
+
+    @Override
     public void start() throws StorageException {
-        storagesConfiguration.profiles().value().stream().forEach(p -> {
-            if (p instanceof VolatilePageMemoryProfileView) {
-                addDataRegion(p.name());
-            }
-        });
 
-        storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<>() {
-            @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
-                if (ctx.newValue() instanceof VolatilePageMemoryProfileView) {
-                    addDataRegion(ctx.newName(VolatilePageMemoryProfileView.class));
+        if (testStart) {
+            storagesConfiguration.profiles().value().stream().forEach(p -> {
+                if (p instanceof VolatilePageMemoryProfileView) {
+                    addDataRegion(p.name());
                 }
+            });
+        } else {
+            // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
+            storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<>() {
+                @Override
+                public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
+                    if (ctx.newValue() instanceof VolatilePageMemoryProfileView) {
+                        addDataRegion(ctx.newName(VolatilePageMemoryProfileView.class));
+                    }
 
-                return nullCompletedFuture();
-            }
-        });
-
-//        // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-//        storagesConfiguration.regions().listenElements(new ConfigurationNamedListListener<>() {
-//            /** {@inheritDoc} */
-//            @Override
-//            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<VolatilePageMemoryDataRegionView> ctx) {
-//                addDataRegion(ctx.newName(VolatilePageMemoryDataRegionView.class));
-//
-//                return nullCompletedFuture();
-//            }
-//        });
+                    return nullCompletedFuture();
+                }
+            });
+        }
 
         ThreadPoolExecutor destructionThreadPool = new ThreadPoolExecutor(
                 0,

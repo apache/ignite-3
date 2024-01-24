@@ -59,7 +59,7 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
         engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storagesConfiguration,
                 ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
-        engine.start();
+        engine.testStart();
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),

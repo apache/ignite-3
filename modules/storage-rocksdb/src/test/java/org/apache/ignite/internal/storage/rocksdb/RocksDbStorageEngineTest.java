@@ -64,7 +64,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
     void setUp(@WorkDirectory Path workDir) {
         engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
 
-        engine.start();
+        engine.testStart();
     }
 
     @AfterEach

@@ -29,6 +29,8 @@ public interface StorageEngine {
      */
     String name();
 
+    void testStart() throws StorageException;
+
     /**
      * Starts the engine.
      *

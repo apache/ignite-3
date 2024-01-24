@@ -45,7 +45,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     void createEngineBeforeTest() {
         storageEngine = createEngine();
 
-        storageEngine.start();
+        storageEngine.testStart();
     }
 
     @AfterEach

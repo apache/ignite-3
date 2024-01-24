@@ -62,7 +62,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         engine = new PersistentPageMemoryStorageEngine("test", engineConfig, storagesConfiguration, ioRegistry, workDir, null);
 
-        engine.start();
+        engine.testStart();
 
         initialize();
     }
