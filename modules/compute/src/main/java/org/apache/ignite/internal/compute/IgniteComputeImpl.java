@@ -211,12 +211,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
-                        .thenCompose(table -> primaryReplicaForPartitionByTupleKey(table, tuple))
-                        .thenApply(primaryNode -> executeOnOneNodeWithFailover(
-                                primaryNode,
-                                new NextColocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, tuple),
-                                units, jobClassName, args
-                        ))
+                        .thenCompose(table -> primaryReplicaForPartitionByTupleKey(table, tuple)
+                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                        primaryNode,
+                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, tuple),
+                                        units, jobClassName, args
+                                )))
         );
     }
 
@@ -238,12 +238,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
-                        .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, keyMapper))
-                        .thenApply(primaryNode -> executeOnOneNodeWithFailover(
-                                primaryNode,
-                                new NextColocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, key, keyMapper),
-                                units, jobClassName, args)
-                        )
+                        .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, keyMapper)
+                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                        primaryNode,
+                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, keyMapper),
+                                        units, jobClassName, args
+                                )))
         );
     }
 

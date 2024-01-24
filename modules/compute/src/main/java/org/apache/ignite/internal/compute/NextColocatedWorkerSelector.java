@@ -18,18 +18,12 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
@@ -43,15 +37,9 @@ import org.jetbrains.annotations.Nullable;
  * @param <K> type of the key for the colocated table.
  */
 public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
-    private static final IgniteLogger LOG = Loggers.forClass(NextColocatedWorkerSelector.class);
-
     private static final int PRIMARY_REPLICA_ASK_CLOCK_ADDITION_MILLIS = 10_000;
 
     private static final int AWAIT_FOR_PRIMARY_REPLICA_SECONDS = 15;
-
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
-    private final IgniteTablesInternal tables;
 
     private final PlacementDriver placementDriver;
 
@@ -70,53 +58,39 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
     private final TableViewInternal table;
 
     NextColocatedWorkerSelector(
-            IgniteTablesInternal tables,
             PlacementDriver placementDriver,
             TopologyService topologyService,
             HybridClock clock,
-            String tableName,
+            TableViewInternal table,
             K key,
             Mapper<K> keyMapper) {
-        this(tables, placementDriver, topologyService, clock, tableName, key, keyMapper, null);
+        this(placementDriver, topologyService, clock, table, key, keyMapper, null);
     }
 
     NextColocatedWorkerSelector(
-            IgniteTablesInternal tables,
             PlacementDriver placementDriver,
             TopologyService topologyService,
             HybridClock clock,
-            String tableName,
+            TableViewInternal table,
             Tuple tuple) {
-        this(tables, placementDriver, topologyService, clock, tableName, null, null, tuple);
+        this(placementDriver, topologyService, clock, table, null, null, tuple);
     }
 
     private NextColocatedWorkerSelector(
-            IgniteTablesInternal tables,
             PlacementDriver placementDriver,
             TopologyService topologyService,
             HybridClock clock,
-            String tableName,
+            TableViewInternal table,
             @Nullable K key,
             @Nullable Mapper<K> keyMapper,
             @Nullable Tuple tuple) {
-        this.tables = tables;
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
-        this.table = getTableViewInternal(tableName);
+        this.table = table;
         this.clock = clock;
         this.key = key;
         this.keyMapper = keyMapper;
         this.tuple = tuple;
-    }
-
-    private TableViewInternal getTableViewInternal(String tableName) {
-        TableViewInternal table;
-        try {
-            table = requiredTable(tableName).get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-        return table;
     }
 
     private CompletableFuture<ClusterNode> tryToFindPrimaryReplica(TablePartitionId tablePartitionId) {
@@ -141,17 +115,5 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
         } else {
             return new TablePartitionId(table.tableId(), table.partition(tuple));
         }
-    }
-
-    private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
-        String parsedName = IgniteNameUtils.parseSimpleName(tableName);
-
-        return tables.tableViewAsync(parsedName)
-                .thenApply(table -> {
-                    if (table == null) {
-                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, parsedName);
-                    }
-                    return table;
-                });
     }
 }
