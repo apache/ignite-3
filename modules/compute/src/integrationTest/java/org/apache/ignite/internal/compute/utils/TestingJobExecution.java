@@ -109,11 +109,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
 
         assertThat(jobExecution.resultAsync().isDone(), equalTo(false));
 
-        try {
-            assertThat(idSync(), notNullValue());
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
+        assertThat(idAsync(), willBe(notNullValue()));
     }
 
     /**
