@@ -94,6 +94,7 @@ class ComputeJobFailover<T> {
      * @param executor the thread pool where the failover should run on.
      * @param units deployment units.
      * @param jobClassName the name of the job class.
+     * @param executionOptions execution options like priority or max retries.
      * @param args the arguments of the job.
      */
     ComputeJobFailover(
@@ -105,6 +106,7 @@ class ComputeJobFailover<T> {
             Executor executor,
             List<DeploymentUnit> units,
             String jobClassName,
+            ExecutionOptions executionOptions,
             Object... args
     ) {
         this.computeComponent = computeComponent;
@@ -112,7 +114,7 @@ class ComputeJobFailover<T> {
         this.logicalTopologyService = logicalTopologyService;
         this.topologyService = topologyService;
         this.nextWorkerSelector = nextWorkerSelector;
-        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, args);
+        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, executionOptions, args);
         this.executor = executor;
     }
 
@@ -134,10 +136,11 @@ class ComputeJobFailover<T> {
 
     private JobExecution<T> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.equals(topologyService.localMember())) {
-            return computeComponent.executeLocally(jobContext.units(), jobContext.jobClassName(), jobContext.args());
+            return computeComponent.executeLocally(jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(),
+                    jobContext.args());
         } else {
             return computeComponent.executeRemotely(
-                    runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.args()
+                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.args()
             );
         }
     }

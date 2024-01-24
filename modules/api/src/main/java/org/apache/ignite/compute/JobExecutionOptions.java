@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
-
-import java.util.Objects;
-import org.apache.ignite.compute.JobExecutionOptions;
+package org.apache.ignite.compute;
 
 /**
- * Compute job execution options.
+ * Job execution options.
  */
-public class ExecutionOptions {
-    public static final ExecutionOptions DEFAULT = builder().build();
+public class JobExecutionOptions {
+
+    /**
+     * Default job execution options with priority default value = 0 and max retries default value = 0.
+     */
+    public static final JobExecutionOptions DEFAULT = builder().priority(0).maxRetries(0).build();
 
     private final int priority;
 
@@ -36,7 +37,7 @@ public class ExecutionOptions {
      * @param priority Job execution priority.
      * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
      */
-    private ExecutionOptions(int priority, int maxRetries) {
+    private JobExecutionOptions(int priority, int maxRetries) {
         this.priority = priority;
         this.maxRetries = maxRetries;
     }
@@ -53,28 +54,7 @@ public class ExecutionOptions {
         return maxRetries;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ExecutionOptions that = (ExecutionOptions) o;
-        return priority == that.priority && maxRetries == that.maxRetries;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(priority, maxRetries);
-    }
-
-    public static ExecutionOptions from(JobExecutionOptions jobExecutionOptions) {
-        return builder().priority(jobExecutionOptions.priority()).maxRetries(jobExecutionOptions.maxRetries()).build();
-    }
-
-    /** Builder. */
+    /** JobExecutionOptions builder. */
     public static class Builder {
         private int priority;
 
@@ -90,8 +70,8 @@ public class ExecutionOptions {
             return this;
         }
 
-        public ExecutionOptions build() {
-            return new ExecutionOptions(priority, maxRetries);
+        public JobExecutionOptions build() {
+            return new JobExecutionOptions(priority, maxRetries);
         }
     }
 }
