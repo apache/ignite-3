@@ -128,7 +128,7 @@ internal static class Metrics
     public static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>(
         name: MetricNames.RequestsFailed,
         unit: "requests",
-        description: "Total number of failed requests (failed to send, or completed with error)");
+        description: "Total number of failed requests (due to failure to send, or completed with error)");
 
     /// <summary>
     /// Bytes sent.

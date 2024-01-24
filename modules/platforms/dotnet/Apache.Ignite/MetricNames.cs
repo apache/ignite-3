@@ -114,7 +114,7 @@ public static class MetricNames
     public const string RequestsRetried = "requests-retried";
 
     /// <summary>
-    /// Total number of failed requests (failed to send, or completed with error).
+    /// Total number of failed requests (due to failure to send, or completed with error).
     /// </summary>
     public const string RequestsFailed = "requests-failed";
 
