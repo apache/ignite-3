@@ -28,6 +28,7 @@ public class JobExecutionOptions {
     public static final JobExecutionOptions DEFAULT = builder().priority(0).maxRetries(0).build();
 
     private final int priority;
+
     private final int maxRetries;
 
     /**

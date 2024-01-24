@@ -131,7 +131,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void cancelsJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
+        JobExecution<String> execution = entryNode.compute()
+                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
@@ -144,7 +145,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void cancelsJobRemotely() {
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
+        JobExecution<String> execution = entryNode.compute()
+                .executeAsync(Set.of(node(1).node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
@@ -157,7 +159,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void changeExecutingJobPriorityLocally() {
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
+        JobExecution<String> execution = entryNode.compute()
+                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -167,7 +170,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void changeExecutingJobPriorityRemotely() {
         IgniteImpl entryNode = node(0);
 
-        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
+        JobExecution<String> execution = entryNode.compute()
+                .executeAsync(Set.of(node(1).node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -184,8 +188,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                 .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        // Start one more long lasting task
-        JobExecution<String> execution2 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
+        // Start one more task
+        JobExecution<String> execution2 = entryNode.compute()
+                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Start third task
@@ -224,8 +229,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                 .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        // Start one more long lasting task
-        JobExecution<String> execution2 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
+        // Start one more task
+        JobExecution<String> execution2 = entryNode.compute()
+                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
@@ -317,20 +323,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             return "";
-        }
-    }
-
-    private static class LongJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            try {
-                Thread.sleep(1_000_000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-
-            return null;
         }
     }
 
