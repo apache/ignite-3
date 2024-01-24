@@ -141,6 +141,8 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
     private static String toString(ThreadInfo threadInfo) {
+        // This method is originally taken from ThreadInfo#toString().
+
         StringBuilder sb = new StringBuilder("\"" + threadInfo.getThreadName() + "\""
                 + (threadInfo.isDaemon() ? " daemon" : "")
                 + " prio=" + threadInfo.getPriority()
