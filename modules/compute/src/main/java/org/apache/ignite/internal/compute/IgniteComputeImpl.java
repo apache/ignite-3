@@ -118,7 +118,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Set<ClusterNode> candidates = new HashSet<>(nodes);
         ClusterNode targetNode = randomNode(candidates);
         candidates.remove(targetNode);
-        NextWorkerSelector selector = new DeqNexWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
+        NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
 
         return new JobExecutionWrapper<>(
                 executeOnOneNodeWithFailover(
@@ -177,7 +177,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     private static class DeqNextWorkerSelector implements NextWorkerSelector {
         private final ConcurrentLinkedDeque<ClusterNode> deque;
 
-        private DeqNexWorkerSelector(ConcurrentLinkedDeque<ClusterNode> deque) {
+        private DeqNextWorkerSelector(ConcurrentLinkedDeque<ClusterNode> deque) {
             this.deque = deque;
         }
 
