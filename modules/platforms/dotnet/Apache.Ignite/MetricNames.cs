@@ -109,7 +109,7 @@ public static class MetricNames
     public const string RequestsCompleted = "requests-completed";
 
     /// <summary>
-    /// Total number of request retries.
+    /// Total number of retried requests.
     /// </summary>
     public const string RequestsRetried = "requests-retried";
 

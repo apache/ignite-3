@@ -115,12 +115,12 @@ internal static class Metrics
         description: "Total number of requests completed (response received)");
 
     /// <summary>
-    /// Total number of request retries.
+    /// Total number of retried requests.
     /// </summary>
     public static readonly Counter<long> RequestsRetried = Meter.CreateCounter<long>(
         name: MetricNames.RequestsRetried,
         unit: "requests",
-        description: "Total number of request retries");
+        description: "Total number of retried requests");
 
     /// <summary>
     /// Requests failed.
