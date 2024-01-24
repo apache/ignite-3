@@ -44,7 +44,7 @@ public interface ComputeApi {
     /**
      * Retrieves the statuses of all compute jobs.
      *
-     * @return A set of compute job statuses.
+     * @return A collection of compute job statuses.
      */
     @Operation(summary = "Retrieve all job statuses", description = "Fetches the current statuses of all compute jobs.")
     @ApiResponse(

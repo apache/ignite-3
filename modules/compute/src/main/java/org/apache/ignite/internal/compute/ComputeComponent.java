@@ -107,7 +107,7 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Retrieves the current status of all jobs on all nodes in the cluster.
      *
-     * @return The set of all job statuses.
+     * @return The collection of job statuses.
      */
     CompletableFuture<Collection<JobStatus>> statusesAsync();
 
