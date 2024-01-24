@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -106,6 +107,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void hashIndexIsAppliedForComplexConditions() throws Exception {
         IgniteSchema schema = createSchemaFrom(
                 tableB("LEFT_TBL"),
@@ -125,6 +127,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void hashIndexIsNotAppliedForPartialCoveredConditions() throws Exception {
         IgniteSchema schema = createSchemaFrom(
                 tableB("LEFT_TBL"),

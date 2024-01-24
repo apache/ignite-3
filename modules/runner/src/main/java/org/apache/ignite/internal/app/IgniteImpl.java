@@ -166,6 +166,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
@@ -385,13 +386,19 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
-        criticalWorkerRegistry = new CriticalWorkerWatchdog(threadPoolsManager.commonScheduler());
+        CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
+
+        criticalWorkerRegistry = new CriticalWorkerWatchdog(
+                criticalWorkersConfiguration,
+                threadPoolsManager.commonScheduler()
+        );
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         nettyWorkersRegistrar = new NettyWorkersRegistrar(
                 criticalWorkerRegistry,
                 threadPoolsManager.commonScheduler(),
-                nettyBootstrapFactory
+                nettyBootstrapFactory,
+                criticalWorkersConfiguration
         );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(

@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 // TODO: IGNITE-16899 - update the javadoc to mention that the failure handler is invoked.
@@ -50,9 +51,7 @@ import org.jetbrains.annotations.Nullable;
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
     private final IgniteLogger log = Loggers.forClass(CriticalWorkerWatchdog.class);
 
-    // TODO: IGNITE-21227 - make this configurable.
-    private static final long LIVENESS_CHECK_INTERVAL_MS = 200;
-    private static final long MAX_ALLOWED_LAG_MS = 500;
+    private final CriticalWorkersConfiguration configuration;
 
     private final ScheduledExecutorService scheduler;
 
@@ -63,7 +62,8 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     private final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
-    public CriticalWorkerWatchdog(ScheduledExecutorService scheduler) {
+    public CriticalWorkerWatchdog(CriticalWorkersConfiguration configuration, ScheduledExecutorService scheduler) {
+        this.configuration = configuration;
         this.scheduler = scheduler;
     }
 
@@ -79,10 +79,12 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     @Override
     public CompletableFuture<Void> start() {
+        long livenessCheckIntervalMs = configuration.livenessCheckInterval().value();
+
         livenessProbeTaskFuture = scheduler.scheduleAtFixedRate(
                 this::probeLiveness,
-                LIVENESS_CHECK_INTERVAL_MS,
-                LIVENESS_CHECK_INTERVAL_MS,
+                livenessCheckIntervalMs,
+                livenessCheckIntervalMs,
                 TimeUnit.MILLISECONDS
         );
 
@@ -90,7 +92,9 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     private void probeLiveness() {
-        Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays();
+        long maxAllowedLag = configuration.maxAllowedLag().value();
+
+        Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays(maxAllowedLag);
 
         if (delayedThreadIdsToDelays == null) {
             return;
@@ -100,7 +104,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
                 log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
-                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()), MAX_ALLOWED_LAG_MS, threadInfo);
+                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()), maxAllowedLag, threadInfo);
 
                 // TODO: IGNITE-16899 - invoke failure handler.
             }
@@ -108,7 +112,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     @Nullable
-    private Long2LongMap getDelayedThreadIdsAndDelays() {
+    private Long2LongMap getDelayedThreadIdsAndDelays(long maxAllowedLag) {
         long nowNanos = System.nanoTime();
 
         Long2LongMap delayedThreadIdsToDelays = null;
@@ -121,7 +125,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
             }
 
             long delayMillis = TimeUnit.NANOSECONDS.toMillis(nowNanos - heartbeatNanos);
-            if (delayMillis > MAX_ALLOWED_LAG_MS) {
+            if (delayMillis > maxAllowedLag) {
                 if (delayedThreadIdsToDelays == null) {
                     delayedThreadIdsToDelays = new Long2LongOpenHashMap();
                 }

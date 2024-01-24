@@ -33,6 +33,7 @@ import java.util.concurrent.ScheduledFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,14 +47,13 @@ public class NettyWorkersRegistrar implements IgniteComponent {
      * be updated, and the worker watchdog will treat the event loop worker as blocked.
      */
 
-    // TODO: IGNITE-21227 - make this configurable.
-    private static final long HEARTBEAT_INTERVAL_MILLIS = 100;
-
     private final CriticalWorkerRegistry criticalWorkerRegistry;
 
     private final ScheduledExecutorService scheduler;
 
     private final NettyBootstrapFactory bootstrapFactory;
+
+    private final CriticalWorkersConfiguration criticalWorkersConfiguration;
 
     private volatile List<NettyWorker> workers = new CopyOnWriteArrayList<>();
 
@@ -71,11 +71,13 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     public NettyWorkersRegistrar(
             CriticalWorkerRegistry criticalWorkerRegistry,
             ScheduledExecutorService scheduler,
-            NettyBootstrapFactory bootstrapFactory
+            NettyBootstrapFactory bootstrapFactory,
+            CriticalWorkersConfiguration criticalWorkersConfiguration
     ) {
         this.criticalWorkerRegistry = criticalWorkerRegistry;
         this.scheduler = scheduler;
         this.bootstrapFactory = bootstrapFactory;
+        this.criticalWorkersConfiguration = criticalWorkersConfiguration;
     }
 
     @Override
@@ -86,12 +88,8 @@ public class NettyWorkersRegistrar implements IgniteComponent {
         }
         workers = List.copyOf(nettyWorkers);
 
-        sendHearbeatsTaskFuture = scheduler.scheduleAtFixedRate(
-                this::sendHearbeats,
-                HEARTBEAT_INTERVAL_MILLIS,
-                HEARTBEAT_INTERVAL_MILLIS,
-                MILLISECONDS
-        );
+        long heartbeatInterval = criticalWorkersConfiguration.nettyThreadsHeartbeatInterval().value();
+        sendHearbeatsTaskFuture = scheduler.scheduleAtFixedRate(this::sendHearbeats, heartbeatInterval, heartbeatInterval, MILLISECONDS);
 
         return nullCompletedFuture();
     }
