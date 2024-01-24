@@ -141,7 +141,9 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
     private static String toString(ThreadInfo threadInfo) {
-        // This method is originally taken from ThreadInfo#toString().
+        // This method is based on code taken from ThreadInfo#toString(). The original method limits the depth of the
+        // stacktrace it includes in the string representation to just 8 frames, which is too few. Here, we
+        // removed this limitation and include the stack trace in its entirety.
 
         StringBuilder sb = new StringBuilder("\"" + threadInfo.getThreadName() + "\""
                 + (threadInfo.isDaemon() ? " daemon" : "")
