@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.validation.Range;
 @ConfigurationRoot(rootName = "criticalWorkers", type = ConfigurationType.LOCAL)
 public class CriticalWorkersConfigurationSchema {
     /**
-     * Interval between liveness checks (ms) performed by critical workers infrastructure.
+     * Interval between liveness checks (ms) performed by the critical workers infrastructure.
      *
      * <p>Should not be greater than a half of {@link #maxAllowedLag}.
      */
