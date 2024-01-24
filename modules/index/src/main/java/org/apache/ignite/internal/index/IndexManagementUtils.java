@@ -50,6 +50,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 
 /** Helper class for index management. */
 class IndexManagementUtils {
@@ -262,5 +263,15 @@ class IndexManagementUtils {
     static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
                 && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
+    }
+
+    /**
+     * Returns {@code true} if the passed node ID is equal to the local node ID, {@code false} otherwise.
+     *
+     * @param clusterService Cluster service.
+     * @param nodeId Node ID of interest.
+     */
+    static boolean isLocalNode(ClusterService clusterService, String nodeId) {
+        return nodeId.equals(clusterService.topologyService().localMember().id());
     }
 }
