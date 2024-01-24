@@ -15,10 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception;
+package org.apache.ignite.internal.compute;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Exception that is thrown when the cluster is not initialized.
+ * The selector that returns the next worker node to execute job on.
  */
-public class ClusterNotInitializedException extends RuntimeException {
+public interface NextWorkerSelector {
+    /**
+     * Requests the next worker node for the job.
+     *
+     * @return {@code CompletableFuture} with the next worker node or with {@code null} if there is no candidates left.
+     */
+    CompletableFuture<@Nullable ClusterNode> next();
 }
