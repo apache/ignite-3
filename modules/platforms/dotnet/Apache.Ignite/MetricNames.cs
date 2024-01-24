@@ -26,7 +26,7 @@ using System.Collections.Generic;
 /// <code>
 /// dotnet-counters monitor --counters Apache.Ignite,System.Runtime --process-id PID
 /// </code>
-/// See https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-counters for more details.
+/// See https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-counters for details.
 /// <para />
 /// Code usage example:
 /// <code>
@@ -49,7 +49,7 @@ using System.Collections.Generic;
 ///
 /// meterListener.Start();
 /// </code>
-/// See https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics for more details.
+/// See https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics for details.
 /// </summary>
 public static class MetricNames
 {
