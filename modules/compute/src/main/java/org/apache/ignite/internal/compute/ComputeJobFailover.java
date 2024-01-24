@@ -19,7 +19,6 @@ package org.apache.ignite.internal.compute;
 
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -52,7 +51,7 @@ class ComputeJobFailover<T> {
      * Thread to run failover logic. We can not perform time-consuming operations in the same thread where we discover topology changes (it
      * is network id thread).
      */
-    private static final Executor executor = Executors.newSingleThreadExecutor();
+    private final Executor executor;
 
     /**
      * Compute component that is called when the {@link #runningWorkerNode} has left the cluster.
@@ -92,6 +91,7 @@ class ComputeJobFailover<T> {
      * @param logicalTopologyService logical topology service.
      * @param topologyService physical topology service.
      * @param workerNode the node to execute the job on.
+     * @param executor the thread pool where the failover should run on.
      * @param units deployment units.
      * @param jobClassName the name of the job class.
      * @param args the arguments of the job.
@@ -102,6 +102,7 @@ class ComputeJobFailover<T> {
             TopologyService topologyService,
             ClusterNode workerNode,
             NextWorkerSelector nextWorkerSelector,
+            Executor executor,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
@@ -112,6 +113,7 @@ class ComputeJobFailover<T> {
         this.topologyService = topologyService;
         this.nextWorkerSelector = nextWorkerSelector;
         this.jobContext = new RemoteExecutionContext<>(units, jobClassName, args);
+        this.executor = executor;
     }
 
     /**

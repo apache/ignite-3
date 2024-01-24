@@ -33,6 +33,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.ComputeException;
@@ -42,10 +44,13 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -61,6 +66,8 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link IgniteCompute}.
  */
 public class IgniteComputeImpl implements IgniteComputeInternal {
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteComputeImpl.class);
+
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private final TopologyService topologyService;
@@ -77,6 +84,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     private final HybridClock clock;
 
+    private final Executor failoverExecutor;
+
     /**
      * Create new instance.
      */
@@ -89,6 +98,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         this.computeComponent = computeComponent;
         this.logicalTopologyService = logicalTopologyService;
         this.clock = clock;
+        this.failoverExecutor = Executors.newFixedThreadPool(
+                1,
+                new NamedThreadFactory("compute-job-failover", LOG)
+        );
     }
 
     /** {@inheritDoc} */
@@ -155,7 +168,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         } else {
             return new ComputeJobFailover<R>(
                     computeComponent, logicalTopologyService, topologyService,
-                    targetNode, nextWorkerSelector, units,
+                    targetNode, nextWorkerSelector, failoverExecutor, units,
                     jobClassName, args
             ).failSafeExecute();
         }
@@ -228,8 +241,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                         .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, keyMapper))
                         .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                 primaryNode,
-                                new NextColocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, key,
-                                        keyMapper),
+                                new NextColocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, key, keyMapper),
                                 units, jobClassName, args)
                         )
         );

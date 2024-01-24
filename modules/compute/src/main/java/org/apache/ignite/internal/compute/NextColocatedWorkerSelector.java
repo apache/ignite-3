@@ -75,8 +75,8 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
             TopologyService topologyService,
             HybridClock clock,
             String tableName,
-            @Nullable K key,
-            @Nullable Mapper<K> keyMapper) {
+            K key,
+            Mapper<K> keyMapper) {
         this(tables, placementDriver, topologyService, clock, tableName, key, keyMapper, null);
     }
 
@@ -119,8 +119,7 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
         return table;
     }
 
-    private CompletableFuture<ClusterNode> tryToFindPrimaryReplica(TablePartitionId tablePartitionId)
-            throws ExecutionException, InterruptedException {
+    private CompletableFuture<ClusterNode> tryToFindPrimaryReplica(TablePartitionId tablePartitionId) {
         return placementDriver.awaitPrimaryReplica(
                         tablePartitionId,
                         clock.now().addPhysicalTime(PRIMARY_REPLICA_ASK_CLOCK_ADDITION_MILLIS),
@@ -133,13 +132,7 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
     @Override
     public CompletableFuture<ClusterNode> next() {
         TablePartitionId tablePartitionId = tablePartitionId();
-        try {
-            return tryToFindPrimaryReplica(tablePartitionId);
-        } catch (InterruptedException | ExecutionException e) {
-            LOG.warn("Failed to resolve new primary replica for partition " + tablePartitionId);
-        }
-
-        return CompletableFuture.completedFuture(null);
+        return tryToFindPrimaryReplica(tablePartitionId);
     }
 
     private TablePartitionId tablePartitionId() {
