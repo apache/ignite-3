@@ -115,9 +115,9 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     /**
      * Checks that the job execution object is cancelled.
      */
-    public void assertCancelled() throws ExecutionException, InterruptedException, TimeoutException {
-        assertThat(jobExecution.resultAsync(), willThrow(IgniteException.class));
-        assertThat(statusSync().state(), is(CANCELED));
+    public void assertCancelled() {
+        assertThat(resultAsync(), willThrow(IgniteException.class));
+        assertThat(statusAsync(), willBe(jobStatusWithState(CANCELED)));
     }
 
     /**
