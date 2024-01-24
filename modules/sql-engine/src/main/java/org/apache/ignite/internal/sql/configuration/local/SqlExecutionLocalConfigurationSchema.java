@@ -24,8 +24,8 @@ import org.apache.ignite.configuration.validation.Range;
 /** Local configuration of SQL execution. */
 @Config
 public class SqlExecutionLocalConfigurationSchema {
-    /** Concurrency level for queries execution. */
+    /** Number of threads for queries execution. */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public final int concurrencyLevel = 4;
+    public final int threadCount = 4;
 }

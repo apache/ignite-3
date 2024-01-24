@@ -266,7 +266,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.planner().threadCount().value()));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value()));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);

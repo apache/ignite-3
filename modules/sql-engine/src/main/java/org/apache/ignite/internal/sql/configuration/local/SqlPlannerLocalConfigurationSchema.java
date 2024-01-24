@@ -24,7 +24,7 @@ import org.apache.ignite.configuration.validation.Range;
 /** Local configuration of SQL planner. */
 @Config
 public class SqlPlannerLocalConfigurationSchema {
-    /** Concurrency level for queries planning. */
+    /** Number of threads for queries planning. */
     @Value(hasDefault = true)
     @Range(min = 1)
     public final int threadCount = 4;
