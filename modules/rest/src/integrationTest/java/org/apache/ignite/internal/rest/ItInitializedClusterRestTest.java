@@ -31,7 +31,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,7 +61,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 + "    }\n"
                 + "}";
 
-        HttpResponse<String> response = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
+        HttpResponse<String> response = send(post("/management/v1/cluster/init", requestBody));
 
         assertThat(response.statusCode(), is(200));
         checkAllNodesStarted();
@@ -72,10 +71,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Node configuration is available when the cluster is initialized")
     void nodeConfiguration() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/node
-        HttpResponse<String> response = client.send(
-                get("/management/v1/configuration/node"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> response = send(get("/management/v1/configuration/node"));
 
         // Expect node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
@@ -87,10 +83,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Node configuration by path is available when the cluster is initialized")
     void nodeConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/node and path selector is "rest"
-        HttpResponse<String> response = client.send(
-                get("/management/v1/configuration/node/rest"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> response = send(get("/management/v1/configuration/node/rest"));
 
         // Expect node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
@@ -102,18 +95,12 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Node configuration can be changed when the cluster is initialized")
     void nodeConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/node rest.port=10333
-        HttpResponse<String> pathResponce = client.send(
-                patch("/management/v1/configuration/node", "rest.port=10333"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> pathResponse = send(patch("/management/v1/configuration/node", "rest.port=10333"));
         // Then
-        assertThat(pathResponce.statusCode(), is(200));
+        assertThat(pathResponse.statusCode(), is(200));
 
         // And GET /management/v1/configuration/node
-        HttpResponse<String> getResponse = client.send(
-                get("/management/v1/configuration/node"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> getResponse = send(get("/management/v1/configuration/node"));
 
         // Then node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(getResponse.body());
@@ -125,7 +112,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Cluster configuration is available when the cluster is initialized")
     void clusterConfiguration() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/cluster
-        HttpResponse<String> response = client.send(get("/management/v1/configuration/cluster"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/configuration/cluster"));
 
         // Then cluster configuration is not available
         assertThat(response.statusCode(), is(200));
@@ -139,15 +126,12 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Cluster configuration can be updated when the cluster is initialized")
     void clusterConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster
-        HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "gc.batchSize=1"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "gc.batchSize=1"));
 
         // Then
         assertThat(patchRequest.statusCode(), is(200));
         // And value was updated
-        HttpResponse<String> getResponse = client.send(get("/management/v1/configuration/cluster"), BodyHandlers.ofString());
+        HttpResponse<String> getResponse = send(get("/management/v1/configuration/cluster"));
         assertThat(getResponse.statusCode(), is(200));
         // And
         Config config = ConfigFactory.parseString(getResponse.body());
@@ -158,13 +142,10 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Cluster configuration can not be updated if provided config did not pass the validation")
     void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
-        HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "{\n"
-                        + "    security.enabled:true, \n"
-                        + "    security.authentication.providers:null\n"
-                        + "}"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "{\n"
+                + "    security.enabled:true, \n"
+                + "    security.authentication.providers:null\n"
+                + "}"));
 
         // Then
         assertThat(
@@ -183,10 +164,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Cluster configuration by path is available when the cluster is initialized")
     void clusterConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/cluster and path selector is "rocksDb.defaultRegion"
-        HttpResponse<String> response = client.send(
-                get("/management/v1/configuration/cluster/gc"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> response = send(get("/management/v1/configuration/cluster/gc"));
 
         // Then cluster configuration is not available
         assertThat(response.statusCode(), is(200));
@@ -200,7 +178,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Logical topology is available on initialized cluster")
     void logicalTopology() throws IOException, InterruptedException {
         // When GET /management/v1/cluster/topology/logical
-        HttpResponse<String> response = client.send(get("/management/v1/cluster/topology/logical"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/cluster/topology/logical"));
 
         // Then
         assertThat(response.statusCode(), is(200));
@@ -217,7 +195,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Physical topology is available on initialized cluster")
     void physicalTopology() throws IOException, InterruptedException {
         // When GET /management/v1/cluster/topology/physical
-        HttpResponse<String> response = client.send(get("/management/v1/cluster/topology/physical"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/cluster/topology/physical"));
 
         // Then
         assertThat(response.statusCode(), is(200));
@@ -234,7 +212,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Cluster state is available on initialized cluster")
     void clusterState() throws IOException, InterruptedException {
         // When GET /management/v1/cluster/status
-        HttpResponse<String> response = client.send(get("/management/v1/cluster/state"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/cluster/state"));
 
         // Then
         assertThat(response.statusCode(), is(200));
@@ -251,7 +229,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Node state is available on initialized cluster")
     void nodeState() throws IOException, InterruptedException {
         // When GET /management/v1/node/status
-        HttpResponse<String> response = client.send(get("/management/v1/node/state"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/node/state"));
 
         // Then
         assertThat(response.statusCode(), is(200));
@@ -265,7 +243,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Node version is available on initialized cluster")
     void nodeVersion() throws IOException, InterruptedException {
         // When GET /management/v1/node/version/
-        HttpResponse<String> response = client.send(get("/management/v1/node/version/"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/node/version/"));
 
         // Then
         assertThat(response.statusCode(), is(200));
