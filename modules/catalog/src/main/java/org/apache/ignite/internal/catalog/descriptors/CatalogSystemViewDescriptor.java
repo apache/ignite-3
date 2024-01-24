@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -34,7 +34,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * System view descriptor.
  */
 public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
-    public static CatalogEntrySerializer<CatalogSystemViewDescriptor> SERIALIZER = new SystemViewDescriptorSerializer();
+    public static CatalogObjectSerializer<CatalogSystemViewDescriptor> SERIALIZER = new SystemViewDescriptorSerializer();
 
     private final List<CatalogTableColumnDescriptor> columns;
 
@@ -141,7 +141,7 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
         }
 
         /** Returns system view type by identifier. */
-        public static SystemViewType getById(int id) {
+        private static SystemViewType forId(int id) {
             if (id == 0) {
                 return NODE;
             } else {
@@ -155,14 +155,14 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
     /**
      * Serializer for {@link CatalogSystemViewDescriptor}.
      */
-    private static class SystemViewDescriptorSerializer implements CatalogEntrySerializer<CatalogSystemViewDescriptor> {
+    private static class SystemViewDescriptorSerializer implements CatalogObjectSerializer<CatalogSystemViewDescriptor> {
         @Override
         public CatalogSystemViewDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
             CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
-            List<CatalogTableColumnDescriptor> columns = readList(version, input, CatalogTableColumnDescriptor.SERIALIZER);
+            List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, input);
 
             byte sysViewTypeId = input.readByte();
-            SystemViewType sysViewType = SystemViewType.getById(sysViewTypeId);
+            SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
 
             return new CatalogSystemViewDescriptor(header.id(), header.name(), columns, sysViewType, header.updateToken());
         }

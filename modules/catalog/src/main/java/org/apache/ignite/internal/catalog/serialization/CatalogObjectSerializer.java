@@ -15,27 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage;
+package org.apache.ignite.internal.catalog.serialization;
 
-import org.apache.ignite.internal.catalog.Catalog;
+import java.io.IOException;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
- * Interface describing a particular change within the {@link VersionedUpdate group}.
+ * Catalog object serializer.
  */
-public interface UpdateEntry {
+public interface CatalogObjectSerializer<T> {
     /**
-     * Applies own change to the catalog.
+     * Reads catalog object from data input.
      *
-     * @param catalog Current catalog.
-     * @param causalityToken Token that is associated with the corresponding update being applied.
-     * @return New catalog.
+     * @param version Data format version.
+     * @param input Data input.
+     * @return Catalog entry.
      */
-    Catalog applyUpdate(Catalog catalog, long causalityToken);
+    T readFrom(int version, IgniteDataInput input) throws IOException;
 
     /**
-     * Returns the entry type used to serialize catalog entries.
+     * Writes catalog щиоусе to data input.
      *
-     * @return update entry type.
+     * @param value Catalog entry.
+     * @param version Required data format version.
+     * @param output Data output.
      */
-    int typeId();
+    void writeTo(T value, int version, IgniteDataOutput output) throws IOException;
 }

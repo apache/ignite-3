@@ -28,14 +28,14 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Entry representing a rename of a table. */
 public class RenameTableEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<RenameTableEntry> SERIALIZER = new RenameTableEntrySerializer();
+    public static final CatalogObjectSerializer<RenameTableEntry> SERIALIZER = new RenameTableEntrySerializer();
 
     private final int tableId;
 
@@ -46,17 +46,9 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
         this.newTableName = newTableName;
     }
 
-    public int tableId() {
-        return tableId;
-    }
-
-    public String newTableName() {
-        return newTableName;
-    }
-
     @Override
     public int typeId() {
-        return UpdateEntryType.RENAME_TABLE.id();
+        return EntrySerializationType.RENAME_TABLE.id();
     }
 
     @Override
@@ -91,15 +83,10 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
         );
     }
 
-    @Override
-    public String toString() {
-        return S.toString(this);
-    }
-
     /**
      * Serializer for {@link RenameTableEntry}.
      */
-    private static class RenameTableEntrySerializer implements CatalogEntrySerializer<RenameTableEntry> {
+    private static class RenameTableEntrySerializer implements CatalogObjectSerializer<RenameTableEntry> {
         @Override
         public RenameTableEntry readFrom(int version, IgniteDataInput input) throws IOException {
             int tableId = input.readInt();
@@ -110,8 +97,8 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
 
         @Override
         public void writeTo(RenameTableEntry entry, int version, IgniteDataOutput output) throws IOException {
-            output.writeInt(entry.tableId());
-            output.writeUTF(entry.newTableName());
+            output.writeInt(entry.tableId);
+            output.writeUTF(entry.newTableName);
         }
     }
 }

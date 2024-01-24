@@ -19,7 +19,8 @@ package org.apache.ignite.internal.catalog.storage;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -28,7 +29,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes update of the object id generator.
  */
 public class ObjectIdGenUpdateEntry implements UpdateEntry {
-    public static CatalogEntrySerializer<ObjectIdGenUpdateEntry> SERIALIZER = new ObjectIdGenUpdateEntrySerializer();
+    public static final CatalogObjectSerializer<ObjectIdGenUpdateEntry> SERIALIZER = new ObjectIdGenUpdateEntrySerializer();
 
     private final int delta;
 
@@ -59,7 +60,7 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
 
     @Override
     public int typeId() {
-        return UpdateEntryType.ID_GENERATOR.id();
+        return EntrySerializationType.ID_GENERATOR.id();
     }
 
     @Override
@@ -70,7 +71,7 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
     /**
      * Serializer for {@link ObjectIdGenUpdateEntry}.
      */
-    private static class ObjectIdGenUpdateEntrySerializer implements CatalogEntrySerializer<ObjectIdGenUpdateEntry> {
+    private static class ObjectIdGenUpdateEntrySerializer implements CatalogObjectSerializer<ObjectIdGenUpdateEntry> {
         @Override
         public ObjectIdGenUpdateEntry readFrom(int version, IgniteDataInput input) throws IOException {
             int delta = input.readInt();

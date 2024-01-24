@@ -26,7 +26,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -36,7 +37,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes addition of a new index.
  */
 public class NewIndexEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<NewIndexEntry> SERIALIZER = new NewIndexEntrySerializer();
+    public static final CatalogObjectSerializer<NewIndexEntry> SERIALIZER = new NewIndexEntrySerializer();
 
     private final CatalogIndexDescriptor descriptor;
 
@@ -58,14 +59,9 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
         return descriptor;
     }
 
-    /** Returns schema name. */
-    public String schemaName() {
-        return schemaName;
-    }
-
     @Override
     public int typeId() {
-        return UpdateEntryType.NEW_INDEX.id();
+        return EntrySerializationType.NEW_INDEX.id();
     }
 
     @Override
@@ -108,7 +104,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link NewIndexEntry}.
      */
-    private static class NewIndexEntrySerializer implements CatalogEntrySerializer<NewIndexEntry> {
+    private static class NewIndexEntrySerializer implements CatalogObjectSerializer<NewIndexEntry> {
         @Override
         public NewIndexEntry readFrom(int version, IgniteDataInput input) throws IOException {
             String schemaName = input.readUTF();
@@ -119,7 +115,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
 
         @Override
         public void writeTo(NewIndexEntry entry, int version, IgniteDataOutput output) throws IOException {
-            output.writeUTF(entry.schemaName());
+            output.writeUTF(entry.schemaName);
             CatalogIndexDescriptor.SERIALIZER.writeTo(entry.descriptor(), version, output);
         }
     }

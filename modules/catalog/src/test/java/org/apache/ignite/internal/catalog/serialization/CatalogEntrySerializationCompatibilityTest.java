@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.catalog.serialization;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.IntFunction;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
@@ -36,7 +35,7 @@ import org.junit.jupiter.api.Test;
  * Tests to verify catalog storage entries serialization protocol compatibility.
  */
 public class CatalogEntrySerializationCompatibilityTest {
-    private final IntFunction<CatalogEntrySerializer<UpdateEntry>> serializerProvider = (id) -> TestUpdateEntrySerializer.INSTANCE;
+    private final CatalogEntrySerializerProvider serializerProvider = (id) -> TestUpdateEntrySerializer.INSTANCE;
 
     @Test
     public void checkBackwardCompatibility() {
@@ -111,9 +110,9 @@ public class CatalogEntrySerializationCompatibilityTest {
         UpdateLogMarshaller marshallerV2 = new UpdateLogMarshallerImpl(2, serializerProvider);
 
         //noinspection ThrowableNotThrown
-        assertThrows(
-                IllegalStateException.class,
+        assertThrowsWithCause(
                 () -> marshallerV2.unmarshall(bytesV3),
+                IllegalStateException.class,
                 "An object could not be deserialized because it was using a newer version of the "
                         + "serialization protocol [objectVersion=3, supported=2]"
         );
@@ -161,8 +160,8 @@ public class CatalogEntrySerializationCompatibilityTest {
             return Objects.hash(name);
         }
 
-        static CatalogEntrySerializer<TestDescriptor1> serializer() {
-            return new CatalogEntrySerializer<>() {
+        static CatalogObjectSerializer<TestDescriptor1> serializer() {
+            return new CatalogObjectSerializer<>() {
                 @Override
                 public TestDescriptor1 readFrom(int version, IgniteDataInput input) throws IOException {
                     return new TestDescriptor1(input.readUTF());
@@ -202,8 +201,8 @@ public class CatalogEntrySerializationCompatibilityTest {
             return Objects.hash(strField, intField);
         }
 
-        static CatalogEntrySerializer<TestDescriptor2> serializer() {
-            return new CatalogEntrySerializer<>() {
+        static CatalogObjectSerializer<TestDescriptor2> serializer() {
+            return new CatalogObjectSerializer<>() {
                 @Override
                 public TestDescriptor2 readFrom(int version, IgniteDataInput input) throws IOException {
                     String strField = input.readUTF();
@@ -315,9 +314,9 @@ public class CatalogEntrySerializationCompatibilityTest {
         }
     }
 
-    private static class TestUpdateEntrySerializer<T extends TestUpdateEntry> implements CatalogEntrySerializer<T> {
+    private static class TestUpdateEntrySerializer<T extends TestUpdateEntry> implements CatalogObjectSerializer<T> {
         @SuppressWarnings({"unchecked", "rawtypes"})
-        private static final CatalogEntrySerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializer();
+        private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializer();
 
         @Override
         public T readFrom(int version, IgniteDataInput input) throws IOException {
@@ -328,7 +327,7 @@ public class CatalogEntrySerializationCompatibilityTest {
                 return (T) new TestUpdateEntry(descriptor1, value);
             }
 
-            List<TestDescriptor2> descList = CatalogSerializationUtils.readList(version, input, TestDescriptor2.serializer());
+            List<TestDescriptor2> descList = CatalogSerializationUtils.readList(version, TestDescriptor2.serializer(), input);
 
             if (version < 3) {
                 return (T) new TestUpdateEntryV2(descriptor1, value, descList);

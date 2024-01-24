@@ -20,39 +20,37 @@ package org.apache.ignite.internal.catalog.serialization;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import com.jayway.jsonpath.internal.Utils;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.IntFunction;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.apache.ignite.internal.catalog.storage.UpdateEntryType;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
+import org.apache.ignite.lang.MarshallerException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Marshaller of update log entries that uses an external serializer.
+ * Marshaller of update log entries that uses custom serializer.
  */
 public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
-    /** Current protocol version. */
+    /** Current data format version. */
     private static final int PROTOCOL_VERSION = 1;
 
-    /** Serialization version. */
+    /** Required data format version. */
     private final int version;
 
-    private final IntFunction<CatalogEntrySerializer<UpdateEntry>> serializerProvider;
+    /** Serializers provider. */
+    private final CatalogEntrySerializerProvider serializers;
 
     public UpdateLogMarshallerImpl() {
         this.version = PROTOCOL_VERSION;
-        this.serializerProvider = CatalogEntrySerializer::forTypeId;
+        this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
     }
 
     @TestOnly
-    UpdateLogMarshallerImpl(int version, IntFunction<CatalogEntrySerializer<UpdateEntry>> serializerProvider) {
+    UpdateLogMarshallerImpl(int version, CatalogEntrySerializerProvider serializers) {
         this.version = version;
-        this.serializerProvider = serializerProvider;
+        this.serializers = serializers;
     }
 
     @Override
@@ -67,7 +65,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
             for (UpdateEntry entry : update.entries()) {
                 output.writeShort(entry.typeId());
 
-                CatalogEntrySerializer<UpdateEntry> serializer = serializerProvider.apply(entry.typeId());
+                CatalogObjectSerializer<? super UpdateEntry> serializer = serializers.get(entry.typeId());
                 serializer.writeTo(entry, version, output);
             }
 
@@ -75,8 +73,8 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
             output.writeLong(update.delayDurationMs());
 
             return output.array();
-        } catch (IOException e) {
-            throw new IgniteInternalException("Could not serialize update: " + update, e);
+        } catch (Throwable t) {
+            throw new MarshallerException(t);
         } finally {
             Utils.closeQuietly(output);
         }
@@ -98,7 +96,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
             for (int i = 0; i < size; i++) {
                 short entryTypeId = input.readShort();
 
-                CatalogEntrySerializer<UpdateEntry> serializer = serializerProvider.apply(entryTypeId);
+                CatalogObjectSerializer<UpdateEntry> serializer = serializers.get(entryTypeId);
 
                 entries.add(serializer.readFrom(updateEntryVersion, input));
             }
@@ -107,8 +105,8 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
             long delayDurationMs = input.readLong();
 
             return new VersionedUpdate(version, delayDurationMs, entries);
-        } catch (IOException e) {
-            throw new IgniteInternalException("Could not deserialize an object", e);
+        } catch (Throwable t) {
+            throw new MarshallerException(t);
         }
     }
 }

@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.catalog.serialization.CatalogSerializat
 import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeNullableString;
 
 import java.io.IOException;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -31,7 +31,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  */
 // TODO: IGNITE-19719 Must be storage engine specific
 public class CatalogDataStorageDescriptor {
-    public static CatalogEntrySerializer<CatalogDataStorageDescriptor> SERIALIZER = new DataStorageDescriptorSerializer();
+    public static CatalogObjectSerializer<CatalogDataStorageDescriptor> SERIALIZER = new DataStorageDescriptorSerializer();
 
     private final String engine;
 
@@ -70,7 +70,7 @@ public class CatalogDataStorageDescriptor {
     /**
      * Serializer for {@link CatalogDataStorageDescriptor}.
      */
-    private static class DataStorageDescriptorSerializer implements CatalogEntrySerializer<CatalogDataStorageDescriptor> {
+    private static class DataStorageDescriptorSerializer implements CatalogObjectSerializer<CatalogDataStorageDescriptor> {
         @Override
         public CatalogDataStorageDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
             if (!input.readBoolean()) {

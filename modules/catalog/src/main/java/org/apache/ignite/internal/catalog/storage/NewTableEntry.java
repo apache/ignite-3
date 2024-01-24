@@ -27,7 +27,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -37,7 +38,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes addition of a new table.
  */
 public class NewTableEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<NewTableEntry> SERIALIZER = new NewTableEntrySerializer();
+    public static final CatalogObjectSerializer<NewTableEntry> SERIALIZER = new NewTableEntrySerializer();
 
     private final CatalogTableDescriptor descriptor;
 
@@ -59,14 +60,9 @@ public class NewTableEntry implements UpdateEntry, Fireable {
         return descriptor;
     }
 
-    /** Returns schema name. */
-    public String schemaName() {
-        return schemaName;
-    }
-
     @Override
     public int typeId() {
-        return UpdateEntryType.NEW_TABLE.id();
+        return EntrySerializationType.NEW_TABLE.id();
     }
 
     @Override
@@ -111,7 +107,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link NewTableEntry}.
      */
-    private static class NewTableEntrySerializer implements CatalogEntrySerializer<NewTableEntry> {
+    private static class NewTableEntrySerializer implements CatalogObjectSerializer<NewTableEntry> {
         @Override
         public NewTableEntry readFrom(int version, IgniteDataInput input) throws IOException {
             CatalogTableDescriptor descriptor = CatalogTableDescriptor.SERIALIZER.readFrom(version, input);
@@ -123,7 +119,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
         @Override
         public void writeTo(NewTableEntry entry, int version, IgniteDataOutput output) throws IOException {
             CatalogTableDescriptor.SERIALIZER.writeTo(entry.descriptor(), version, output);
-            output.writeUTF(entry.schemaName());
+            output.writeUTF(entry.schemaName);
         }
     }
 }

@@ -25,7 +25,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -34,7 +35,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes altering zone.
  */
 public class AlterZoneEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<AlterZoneEntry> SERIALIZER = new AlterZoneEntrySerializer();
+    public static final CatalogObjectSerializer<AlterZoneEntry> SERIALIZER = new AlterZoneEntrySerializer();
 
     private final CatalogZoneDescriptor descriptor;
 
@@ -54,7 +55,7 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return UpdateEntryType.ALTER_ZONE.id();
+        return EntrySerializationType.ALTER_ZONE.id();
     }
 
     @Override
@@ -90,7 +91,7 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link AlterZoneEntry}.
      */
-    private static class AlterZoneEntrySerializer implements CatalogEntrySerializer<AlterZoneEntry> {
+    private static class AlterZoneEntrySerializer implements CatalogObjectSerializer<AlterZoneEntry> {
         @Override
         public AlterZoneEntry readFrom(int version, IgniteDataInput input) throws IOException {
             CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(version, input);

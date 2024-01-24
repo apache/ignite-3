@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.io.IOException;
 import java.util.Objects;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -28,7 +28,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Indexed column descriptor.
  */
 public class CatalogIndexColumnDescriptor {
-    public static CatalogEntrySerializer<CatalogIndexColumnDescriptor> SERIALIZER = new IndexColumnDescriptorSerializer();
+    public static CatalogObjectSerializer<CatalogIndexColumnDescriptor> SERIALIZER = new IndexColumnDescriptorSerializer();
 
     private final String name;
 
@@ -53,7 +53,7 @@ public class CatalogIndexColumnDescriptor {
         return S.toString(this);
     }
 
-    private static class IndexColumnDescriptorSerializer implements CatalogEntrySerializer<CatalogIndexColumnDescriptor> {
+    private static class IndexColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexColumnDescriptor> {
         @Override
         public CatalogIndexColumnDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
             String name = input.readUTF();

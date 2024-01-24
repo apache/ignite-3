@@ -33,7 +33,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -43,7 +44,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes addition of new columns.
  */
 public class NewColumnsEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<NewColumnsEntry> SERIALIZER = new NewColumnsEntrySerializer();
+    public static final CatalogObjectSerializer<NewColumnsEntry> SERIALIZER = new NewColumnsEntrySerializer();
 
     private final int tableId;
     private final List<CatalogTableColumnDescriptor> descriptors;
@@ -71,14 +72,9 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
         return descriptors;
     }
 
-    /** Returns schema name. */
-    public String schemaName() {
-        return schemaName;
-    }
-
     @Override
     public int typeId() {
-        return UpdateEntryType.NEW_COLUMN.id();
+        return EntrySerializationType.NEW_COLUMN.id();
     }
 
     @Override
@@ -121,10 +117,10 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link NewColumnsEntry}.
      */
-    private static class NewColumnsEntrySerializer implements CatalogEntrySerializer<NewColumnsEntry> {
+    private static class NewColumnsEntrySerializer implements CatalogObjectSerializer<NewColumnsEntry> {
         @Override
         public NewColumnsEntry readFrom(int version, IgniteDataInput in) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = readList(version, in, CatalogTableColumnDescriptor.SERIALIZER);
+            List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, in);
             int tableId = in.readInt();
             String schemaName = in.readUTF();
 
@@ -135,7 +131,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
         public void writeTo(NewColumnsEntry entry, int version, IgniteDataOutput out) throws IOException {
             writeList(entry.descriptors(), version, CatalogTableColumnDescriptor.SERIALIZER, out);
             out.writeInt(entry.tableId());
-            out.writeUTF(entry.schemaName());
+            out.writeUTF(entry.schemaName);
         }
     }
 }

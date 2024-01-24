@@ -24,7 +24,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -34,7 +35,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes addition of a new zone.
  */
 public class NewZoneEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<NewZoneEntry> SERIALIZER = new NewZoneEntrySerializer();
+    public static final CatalogObjectSerializer<NewZoneEntry> SERIALIZER = new NewZoneEntrySerializer();
 
     private final CatalogZoneDescriptor descriptor;
 
@@ -54,7 +55,7 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return UpdateEntryType.NEW_ZONE.id();
+        return EntrySerializationType.NEW_ZONE.id();
     }
 
     @Override
@@ -88,7 +89,7 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link NewZoneEntry}.
      */
-    private static class NewZoneEntrySerializer implements CatalogEntrySerializer<NewZoneEntry> {
+    private static class NewZoneEntrySerializer implements CatalogObjectSerializer<NewZoneEntry> {
         @Override
         public NewZoneEntry readFrom(int version, IgniteDataInput input) throws IOException {
             CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(version, input);

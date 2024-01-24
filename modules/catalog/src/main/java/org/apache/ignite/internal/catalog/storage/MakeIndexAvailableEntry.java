@@ -24,13 +24,14 @@ import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Entry for {@link MakeIndexAvailableCommand}. */
 public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry implements Fireable {
-    public static CatalogEntrySerializer<MakeIndexAvailableEntry> SERIALIZER = new MakeIndexAvailableEntrySerializer();
+    public static final CatalogObjectSerializer<MakeIndexAvailableEntry> SERIALIZER = new MakeIndexAvailableEntrySerializer();
 
     /** Constructor. */
     public MakeIndexAvailableEntry(int indexId) {
@@ -39,7 +40,7 @@ public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry impl
 
     @Override
     public int typeId() {
-        return UpdateEntryType.MAKE_INDEX_AVAILABLE.id();
+        return EntrySerializationType.MAKE_INDEX_AVAILABLE.id();
     }
 
     @Override
@@ -55,7 +56,7 @@ public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry impl
     /**
      * Serializer for {@link MakeIndexAvailableEntry}.
      */
-    private static class MakeIndexAvailableEntrySerializer implements CatalogEntrySerializer<MakeIndexAvailableEntry> {
+    private static class MakeIndexAvailableEntrySerializer implements CatalogObjectSerializer<MakeIndexAvailableEntry> {
         @Override
         public MakeIndexAvailableEntry readFrom(int version, IgniteDataInput input) throws IOException {
             int indexId = input.readInt();
@@ -65,7 +66,7 @@ public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry impl
 
         @Override
         public void writeTo(MakeIndexAvailableEntry object, int version, IgniteDataOutput output) throws IOException {
-            output.writeInt(object.indexId());
+            output.writeInt(object.indexId);
         }
     }
 }

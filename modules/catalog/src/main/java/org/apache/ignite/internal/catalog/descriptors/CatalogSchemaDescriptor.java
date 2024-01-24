@@ -27,9 +27,8 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -37,13 +36,10 @@ import org.jetbrains.annotations.Nullable;
 
 /** Schema definition contains database schema objects. */
 public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
-    public static CatalogEntrySerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
+    public static CatalogObjectSerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
 
-    @IgniteToStringInclude
     private final CatalogTableDescriptor[] tables;
-    @IgniteToStringInclude
     private final CatalogIndexDescriptor[] indexes;
-    @IgniteToStringInclude
     private final CatalogSystemViewDescriptor[] systemViews;
 
     @IgniteToStringExclude
@@ -113,14 +109,14 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     /**
      * Serializer for {@link CatalogSchemaDescriptor}.
      */
-    private static class SchemaDescriptorSerializer implements CatalogEntrySerializer<CatalogSchemaDescriptor> {
+    private static class SchemaDescriptorSerializer implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
         @Override
         public CatalogSchemaDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
             CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
-            CatalogTableDescriptor[] tables = readArray(version, input, CatalogTableDescriptor.SERIALIZER, CatalogTableDescriptor.class);
-            CatalogIndexDescriptor[] indexes = readArray(version, input, CatalogIndexDescriptor.SERIALIZER, CatalogIndexDescriptor.class);
+            CatalogTableDescriptor[] tables = readArray(version, CatalogTableDescriptor.SERIALIZER, input, CatalogTableDescriptor.class);
+            CatalogIndexDescriptor[] indexes = readArray(version, CatalogIndexDescriptor.SERIALIZER, input, CatalogIndexDescriptor.class);
             CatalogSystemViewDescriptor[] systemViews =
-                    readArray(version, input, CatalogSystemViewDescriptor.SERIALIZER, CatalogSystemViewDescriptor.class);
+                    readArray(version, CatalogSystemViewDescriptor.SERIALIZER, input, CatalogSystemViewDescriptor.class);
 
             return new CatalogSchemaDescriptor(header.id(), header.name(), tables, indexes, systemViews, header.updateToken());
         }

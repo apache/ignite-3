@@ -24,7 +24,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * Table column descriptor.
  */
 public class CatalogTableColumnDescriptor {
-    public static CatalogEntrySerializer<CatalogTableColumnDescriptor> SERIALIZER = new TableColumnDescriptorSerializer();
+    public static CatalogObjectSerializer<CatalogTableColumnDescriptor> SERIALIZER = new TableColumnDescriptorSerializer();
 
     private final String name;
     private final ColumnType type;
@@ -147,7 +147,7 @@ public class CatalogTableColumnDescriptor {
     /**
      * Serializer for {@link CatalogTableColumnDescriptor}.
      */
-    private static class TableColumnDescriptorSerializer implements CatalogEntrySerializer<CatalogTableColumnDescriptor> {
+    private static class TableColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
         @Override
         public CatalogTableColumnDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
             DefaultValue defaultValue = DefaultValueSerializer.INSTANCE.readFrom(version, input);
@@ -182,7 +182,7 @@ public class CatalogTableColumnDescriptor {
     /**
      * Serializer for {@link DefaultValue}.
      */
-    private static class DefaultValueSerializer implements CatalogEntrySerializer<DefaultValue> {
+    private static class DefaultValueSerializer implements CatalogObjectSerializer<DefaultValue> {
         static DefaultValueSerializer INSTANCE = new DefaultValueSerializer();
 
         @Override
@@ -193,7 +193,7 @@ public class CatalogTableColumnDescriptor {
                 return null;
             }
 
-            Type type = Type.getById(typeId);
+            Type type = Type.forId(typeId);
 
             switch (type) {
                 case FUNCTION_CALL:

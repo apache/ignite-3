@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUS
 import java.io.IOException;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -105,7 +105,7 @@ public abstract class CatalogObjectDescriptor {
     /**
      * Catalog object descriptor header serializer.
      */
-    static class CatalogDescriptorBaseSerializer implements CatalogEntrySerializer<CatalogDescriptorBase> {
+    static class CatalogDescriptorBaseSerializer implements CatalogObjectSerializer<CatalogDescriptorBase> {
         @Override
         public CatalogDescriptorBase readFrom(int version, IgniteDataInput input) throws IOException {
             return new CatalogDescriptorBase(version, input);

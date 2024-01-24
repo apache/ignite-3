@@ -32,7 +32,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  * Table descriptor.
  */
 public class CatalogTableDescriptor extends CatalogObjectDescriptor {
-    public static CatalogEntrySerializer<CatalogTableDescriptor> SERIALIZER = new TableDescriptorSerializer();
+    public static CatalogObjectSerializer<CatalogTableDescriptor> SERIALIZER = new TableDescriptorSerializer();
 
     public static final int INITIAL_TABLE_VERSION = 1;
 
@@ -100,7 +100,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param causalityToken Token of the update of the descriptor.
      * @param creationToken Token of the creation of the table descriptor.
      */
-    public CatalogTableDescriptor(
+    private CatalogTableDescriptor(
             int id,
             int schemaId,
             int pkIndexId,
@@ -225,12 +225,12 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     /**
      * Serializer for {@link CatalogTableDescriptor}.
      */
-    private static class TableDescriptorSerializer implements CatalogEntrySerializer<CatalogTableDescriptor> {
+    private static class TableDescriptorSerializer implements CatalogObjectSerializer<CatalogTableDescriptor> {
         @Override
         public CatalogTableDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
             CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
             CatalogTableSchemaVersions schemaVersions = CatalogTableSchemaVersions.SERIALIZER.readFrom(version, input);
-            List<CatalogTableColumnDescriptor> columns = readList(version, input, CatalogTableColumnDescriptor.SERIALIZER);
+            List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, input);
 
             int schemaId = input.readInt();
             int pkIndexId = input.readInt();

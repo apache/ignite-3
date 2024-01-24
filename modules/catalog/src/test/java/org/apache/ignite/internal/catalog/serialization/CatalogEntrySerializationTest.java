@@ -19,13 +19,11 @@ package org.apache.ignite.internal.catalog.serialization;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -41,8 +39,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
@@ -65,6 +61,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.sql.ColumnType;
+import org.assertj.core.api.BDDAssertions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -198,7 +195,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
-        List<CatalogTableColumnDescriptor> columns = Arrays.asList(col1, col2);
+        List<CatalogTableColumnDescriptor> columns = List.of(col1, col2);
 
         CatalogTableDescriptor[] tables = {
                 newTableDescriptor("Table1", columns),
@@ -215,7 +212,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 new CatalogSystemViewDescriptor(1, "view2", columns, SystemViewType.CLUSTER)
         };
 
-        CatalogEntrySerializer<CatalogSchemaDescriptor> serializer = CatalogSchemaDescriptor.SERIALIZER;
+        CatalogObjectSerializer<CatalogSchemaDescriptor> serializer = CatalogSchemaDescriptor.SERIALIZER;
 
         CatalogSchemaDescriptor descriptor = new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, 1);
 
@@ -229,7 +226,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         CatalogSchemaDescriptor deserialized = serializer.readFrom(1, input);
 
-        assertThat(deserialized.toString(), equalTo(descriptor.toString()));
+        BDDAssertions.assertThat(deserialized).usingRecursiveComparison().isEqualTo(descriptor);
     }
 
     @Test
@@ -238,9 +235,9 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
         CatalogSystemViewDescriptor nodeDesc =
-                new CatalogSystemViewDescriptor(1, "view1", Arrays.asList(col1, col2), SystemViewType.NODE);
+                new CatalogSystemViewDescriptor(1, "view1", List.of(col1, col2), SystemViewType.NODE);
         CatalogSystemViewDescriptor clusterDesc =
-                new CatalogSystemViewDescriptor(1, "view1", Arrays.asList(col1, col2), SystemViewType.CLUSTER);
+                new CatalogSystemViewDescriptor(1, "view1", List.of(col1, col2), SystemViewType.CLUSTER);
 
         NewSystemViewEntry nodeEntry = new NewSystemViewEntry(nodeDesc, "PUBLIC");
         NewSystemViewEntry clusterEntry = new NewSystemViewEntry(clusterDesc, "PUBLIC");
@@ -285,8 +282,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
             UpdateEntry expectedEntry = expected.entries().get(i);
             UpdateEntry actualEntry = update.entries().get(i);
 
-            // TODO think.
-            assertThat(actualEntry.toString(), equalTo(expectedEntry.toString()));
+            BDDAssertions.assertThat(actualEntry).usingRecursiveComparison().isEqualTo(expectedEntry);
         }
     }
 
@@ -324,11 +320,11 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogIndexColumnDescriptor colDesc1 = new CatalogIndexColumnDescriptor("C1", CatalogColumnCollation.ASC_NULLS_FIRST);
         CatalogIndexColumnDescriptor colDesc2 = new CatalogIndexColumnDescriptor("C2", CatalogColumnCollation.DESC_NULLS_LAST);
 
-        return new CatalogSortedIndexDescriptor(1, name, 12, false, Arrays.asList(colDesc1, colDesc2), CatalogIndexStatus.AVAILABLE);
+        return new CatalogSortedIndexDescriptor(1, name, 12, false, List.of(colDesc1, colDesc2), CatalogIndexStatus.AVAILABLE);
     }
 
     private static CatalogHashIndexDescriptor newHashIndexDescriptor(String name) {
-        return new CatalogHashIndexDescriptor(1, "idx2", 12, true, Arrays.asList("C1", "C2"), CatalogIndexStatus.REGISTERED);
+        return new CatalogHashIndexDescriptor(1, "idx2", 12, true, List.of("C1", "C2"), CatalogIndexStatus.REGISTERED);
     }
 
     private static CatalogTableDescriptor newTableDescriptor(String name, List<CatalogTableColumnDescriptor> columns) {
@@ -339,11 +335,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 name,
                 17,
                 columns,
-                Arrays.asList(columns.get(0).name()),
-                Arrays.asList(columns.get(0).name()),
-                new CatalogTableSchemaVersions(321, new TableVersion(columns)),
-                123,
-                121
+                List.of(columns.get(0).name()),
+                List.of(columns.get(0).name())
         );
     }
 

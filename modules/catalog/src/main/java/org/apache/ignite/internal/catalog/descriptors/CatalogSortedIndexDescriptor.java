@@ -23,12 +23,10 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Sorted index descriptor. */
 public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
-    @IgniteToStringInclude
     private final List<CatalogIndexColumnDescriptor> columns;
 
     /**
@@ -85,7 +83,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param causalityToken Token of the update of the descriptor.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
-    public CatalogSortedIndexDescriptor(
+    CatalogSortedIndexDescriptor(
             int id,
             String name,
             int tableId,

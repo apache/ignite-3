@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUS
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -30,7 +30,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Distribution zone descriptor base class.
  */
 public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
-    public static CatalogEntrySerializer<CatalogZoneDescriptor> SERIALIZER = new ZoneDescriptorSerializer();
+    public static CatalogObjectSerializer<CatalogZoneDescriptor> SERIALIZER = new ZoneDescriptorSerializer();
 
     /** Amount of zone partitions. */
     private final int partitions;
@@ -95,7 +95,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param dataStorage Data storage descriptor.
      * @param causalityToken Token of the update of the descriptor.
      */
-    public CatalogZoneDescriptor(
+    private CatalogZoneDescriptor(
             int id,
             String name,
             int partitions,
@@ -182,7 +182,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     /**
      * Serializer for {@link CatalogZoneDescriptor}.
      */
-    private static class ZoneDescriptorSerializer implements CatalogEntrySerializer<CatalogZoneDescriptor> {
+    private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
         @Override
         public CatalogZoneDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
             CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);

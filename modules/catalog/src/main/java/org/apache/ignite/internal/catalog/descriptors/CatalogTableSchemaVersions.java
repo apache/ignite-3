@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.catalog.serialization.CatalogSerializat
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * Class that holds a list of table version descriptors.
  */
 public class CatalogTableSchemaVersions {
-    public static CatalogEntrySerializer<CatalogTableSchemaVersions> SERIALIZER = new TableSchemaVersionsSerializer();
+    public static CatalogObjectSerializer<CatalogTableSchemaVersions> SERIALIZER = new TableSchemaVersionsSerializer();
 
     /**
      * Descriptor of a single table version.
@@ -61,14 +61,6 @@ public class CatalogTableSchemaVersions {
     private final int base;
     private final TableVersion[] versions;
 
-    public int base() {
-        return base;
-    }
-
-    public TableVersion[] versions() {
-        return versions;
-    }
-
     /**
      * Constructor.
      *
@@ -78,7 +70,7 @@ public class CatalogTableSchemaVersions {
         this(CatalogTableDescriptor.INITIAL_TABLE_VERSION, versions);
     }
 
-    public CatalogTableSchemaVersions(int base, TableVersion... versions) {
+    private CatalogTableSchemaVersions(int base, TableVersion... versions) {
         this.base = base;
         this.versions = versions;
     }
@@ -117,18 +109,13 @@ public class CatalogTableSchemaVersions {
         return new CatalogTableSchemaVersions(base, ArrayUtils.concat(versions, tableVersion));
     }
 
-    @Override
-    public String toString() {
-        return S.toString(this);
-    }
-
     /**
      * Serializer for {@link CatalogTableSchemaVersions}.
      */
-    private static class TableSchemaVersionsSerializer implements CatalogEntrySerializer<CatalogTableSchemaVersions> {
+    private static class TableSchemaVersionsSerializer implements CatalogObjectSerializer<CatalogTableSchemaVersions> {
         @Override
         public CatalogTableSchemaVersions readFrom(int version, IgniteDataInput input) throws IOException {
-            TableVersion[] versions = readArray(version, input, TableVersionSerializer.INSTANCE, TableVersion.class);
+            TableVersion[] versions = readArray(version, TableVersionSerializer.INSTANCE, input, TableVersion.class);
             int base = input.readInt();
 
             return new CatalogTableSchemaVersions(base, versions);
@@ -136,20 +123,20 @@ public class CatalogTableSchemaVersions {
 
         @Override
         public void writeTo(CatalogTableSchemaVersions tabVersions, int version, IgniteDataOutput output) throws IOException {
-            writeArray(tabVersions.versions(), version, TableVersionSerializer.INSTANCE, output);
-            output.writeInt(tabVersions.base());
+            writeArray(tabVersions.versions, version, TableVersionSerializer.INSTANCE, output);
+            output.writeInt(tabVersions.base);
         }
     }
 
     /**
      * Serializer for {@link TableVersion}.
      */
-    private static class TableVersionSerializer implements CatalogEntrySerializer<TableVersion> {
-        static CatalogEntrySerializer<TableVersion> INSTANCE = new TableVersionSerializer();
+    private static class TableVersionSerializer implements CatalogObjectSerializer<TableVersion> {
+        static CatalogObjectSerializer<TableVersion> INSTANCE = new TableVersionSerializer();
 
         @Override
         public TableVersion readFrom(int version, IgniteDataInput input) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = readList(version, input, CatalogTableColumnDescriptor.SERIALIZER);
+            List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, input);
 
             return new TableVersion(columns);
         }

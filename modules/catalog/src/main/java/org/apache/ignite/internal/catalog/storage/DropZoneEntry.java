@@ -24,7 +24,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -33,7 +34,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes deletion of a zone.
  */
 public class DropZoneEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<DropZoneEntry> SERIALIZER = new DropZoneEntrySerializer();
+    public static final CatalogObjectSerializer<DropZoneEntry> SERIALIZER = new DropZoneEntrySerializer();
 
     private final int zoneId;
 
@@ -53,7 +54,7 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return UpdateEntryType.DROP_ZONE.id();
+        return EntrySerializationType.DROP_ZONE.id();
     }
 
     @Override
@@ -85,7 +86,7 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link DropZoneEntry}.
      */
-    private static class DropZoneEntrySerializer implements CatalogEntrySerializer<DropZoneEntry> {
+    private static class DropZoneEntrySerializer implements CatalogObjectSerializer<DropZoneEntry> {
         @Override
         public DropZoneEntry readFrom(int version, IgniteDataInput input) throws IOException {
             int zoneId = input.readInt();

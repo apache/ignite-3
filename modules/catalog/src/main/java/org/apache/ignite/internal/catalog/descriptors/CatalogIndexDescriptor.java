@@ -26,14 +26,14 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Index descriptor base class. */
 public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
-    public static CatalogEntrySerializer<CatalogIndexDescriptor> SERIALIZER = new IndexDescriptorSerializer();
+    public static CatalogObjectSerializer<CatalogIndexDescriptor> SERIALIZER = new IndexDescriptorSerializer();
 
     /** Table ID. */
     private final int tableId;
@@ -79,7 +79,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         IndexDescriptorHeader(int tableId, boolean unique, int statusId) {
             this.tableId = tableId;
             this.unique = unique;
-            this.status = CatalogIndexStatus.getById(statusId);
+            this.status = CatalogIndexStatus.forId(statusId);
         }
 
         IndexDescriptorHeader(CatalogIndexDescriptor indexDescriptor) {
@@ -89,7 +89,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         }
     }
 
-    static class IndexDescriptorHeaderSerializer implements CatalogEntrySerializer<IndexDescriptorHeader> {
+    static class IndexDescriptorHeaderSerializer implements CatalogObjectSerializer<IndexDescriptorHeader> {
         static IndexDescriptorHeaderSerializer INSTANCE = new IndexDescriptorHeaderSerializer();
 
         @Override
@@ -109,17 +109,17 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         }
     }
 
-    private static class IndexDescriptorSerializer implements CatalogEntrySerializer<CatalogIndexDescriptor> {
+    private static class IndexDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexDescriptor> {
         @Override
         public CatalogIndexDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
             byte idxType = input.readByte();
 
-            assert idxType == 0 || idxType == 1 : "Unknown index type";
+            assert idxType == 0 || idxType == 1 : "Unknown index type: " + idxType;
 
             if (idxType == 0) {
                 CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
                 IndexDescriptorHeader idxHeader = IndexDescriptorHeaderSerializer.INSTANCE.readFrom(version, input);
-                List<CatalogIndexColumnDescriptor> columns = readList(version, input, CatalogIndexColumnDescriptor.SERIALIZER);
+                List<CatalogIndexColumnDescriptor> columns = readList(version, CatalogIndexColumnDescriptor.SERIALIZER, input);
 
                 return new CatalogSortedIndexDescriptor(
                         header.id(),

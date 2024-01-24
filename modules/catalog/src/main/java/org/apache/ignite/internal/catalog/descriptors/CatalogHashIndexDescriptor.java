@@ -21,13 +21,25 @@ import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUS
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Hash index descriptor. */
 public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
-    @IgniteToStringInclude
     private final List<String> columns;
+
+    /**
+     * Constructs a hash index descriptor in status {@link CatalogIndexStatus#REGISTERED}.
+     *
+     * @param id Id of the index.
+     * @param name Name of the index.
+     * @param tableId Id of the table index belongs to.
+     * @param unique Unique flag.
+     * @param columns A list of indexed columns. Must not contains duplicates.
+     * @throws IllegalArgumentException If columns list contains duplicates.
+     */
+    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
+        this(id, name, tableId, unique, columns, CatalogIndexStatus.REGISTERED, INITIAL_CAUSALITY_TOKEN);
+    }
 
     /**
      * Constructs a hash index descriptor.
@@ -56,7 +68,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param causalityToken Token of the update of the descriptor.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(
+    CatalogHashIndexDescriptor(
             int id,
             String name,
             int tableId,

@@ -52,6 +52,7 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -161,6 +162,11 @@ public class UpdateLogImpl implements UpdateLog {
             Iif iif = iif(versionAsExpected, appendUpdateEntryAndBumpVersion, ops().yield(false));
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
+        } catch (MarshallerException ex) {
+            LOG.warn("Failed to append update log.", ex);
+
+            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
@@ -230,9 +236,16 @@ public class UpdateLogImpl implements UpdateLog {
 
                 assert payload != null : eventEntry;
 
-                VersionedUpdate update = marshaller.unmarshall(payload);
+                try {
+                    VersionedUpdate update = marshaller.unmarshall(payload);
 
-                handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
+                    handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
+                } catch (MarshallerException ex) {
+                    LOG.warn("Failed to deserialize update.", ex);
+
+                    //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+                    return failedFuture(ex);
+                }
             }
 
             return allOf(handleFutures.toArray(CompletableFuture[]::new));

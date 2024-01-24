@@ -27,7 +27,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -36,7 +37,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes deletion of an index.
  */
 public class DropIndexEntry implements UpdateEntry, Fireable {
-    public static DropIndexEntrySerializer SERIALIZER = new DropIndexEntrySerializer();
+    public static final DropIndexEntrySerializer SERIALIZER = new DropIndexEntrySerializer();
 
     private final int indexId;
 
@@ -67,14 +68,9 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
         return tableId;
     }
 
-    /** Returns the schema name of the table being modified. */
-    public String schemaName() {
-        return schemaName;
-    }
-
     @Override
     public int typeId() {
-        return UpdateEntryType.DROP_INDEX.id();
+        return EntrySerializationType.DROP_INDEX.id();
     }
 
     @Override
@@ -115,7 +111,7 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link DropIndexEntry}.
      */
-    private static class DropIndexEntrySerializer implements CatalogEntrySerializer<DropIndexEntry> {
+    private static class DropIndexEntrySerializer implements CatalogObjectSerializer<DropIndexEntry> {
         @Override
         public DropIndexEntry readFrom(int version, IgniteDataInput input) throws IOException {
             int indexId = input.readInt();
@@ -129,7 +125,7 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
         public void writeTo(DropIndexEntry entry, int version, IgniteDataOutput out) throws IOException {
             out.writeInt(entry.indexId());
             out.writeInt(entry.tableId());
-            out.writeUTF(entry.schemaName());
+            out.writeUTF(entry.schemaName);
         }
     }
 }

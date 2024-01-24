@@ -32,8 +32,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -42,7 +43,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes dropping of columns.
  */
 public class DropColumnsEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<DropColumnsEntry> SERIALIZER = new DropColumnEntrySerializer();
+    public static final CatalogObjectSerializer<DropColumnsEntry> SERIALIZER = new DropColumnEntrySerializer();
 
     private final int tableId;
     private final Set<String> columns;
@@ -71,14 +72,9 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
         return columns;
     }
 
-    /** Returns the schema name of the table being modified. */
-    public String schemaName() {
-        return schemaName;
-    }
-
     @Override
     public int typeId() {
-        return UpdateEntryType.DROP_COLUMN.id();
+        return EntrySerializationType.DROP_COLUMN.id();
     }
 
     @Override
@@ -123,7 +119,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link DropColumnsEntry}.
      */
-    private static class DropColumnEntrySerializer implements CatalogEntrySerializer<DropColumnsEntry> {
+    private static class DropColumnEntrySerializer implements CatalogObjectSerializer<DropColumnsEntry> {
         @Override
         public DropColumnsEntry readFrom(int version, IgniteDataInput in) throws IOException {
             String schemaName = in.readUTF();
@@ -135,7 +131,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
 
         @Override
         public void writeTo(DropColumnsEntry object, int version, IgniteDataOutput out) throws IOException {
-            out.writeUTF(object.schemaName());
+            out.writeUTF(object.schemaName);
             out.writeInt(object.tableId());
             writeStringCollection(object.columns(), out);
         }

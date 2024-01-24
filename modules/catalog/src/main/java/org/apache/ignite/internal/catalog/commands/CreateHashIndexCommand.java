@@ -22,7 +22,6 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
 /**
  * A command that adds a new hash index to the catalog.
@@ -51,7 +50,7 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
     @Override
     protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId) {
         return new CatalogHashIndexDescriptor(
-                indexId, indexName, tableId, unique, columns, CatalogIndexStatus.REGISTERED
+                indexId, indexName, tableId, unique, columns
         );
     }
 

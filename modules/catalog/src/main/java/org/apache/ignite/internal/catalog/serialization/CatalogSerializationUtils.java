@@ -31,17 +31,10 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Utility methods used when serializing catalog entries.
+ * Utility methods used for serializing catalog objects.
  */
 public class CatalogSerializationUtils {
-    public static void writeNullableString(@Nullable String str, DataOutput out) throws IOException {
-        out.writeBoolean(str != null);
-
-        if (str != null) {
-            out.writeUTF(str);
-        }
-    }
-
+    /** Reads nullable string. */
     public static @Nullable String readNullableString(DataInput in) throws IOException {
         if (!in.readBoolean()) {
             return null;
@@ -50,6 +43,16 @@ public class CatalogSerializationUtils {
         return in.readUTF();
     }
 
+    /** Writes nullable string. */
+    public static void writeNullableString(@Nullable String str, DataOutput out) throws IOException {
+        out.writeBoolean(str != null);
+
+        if (str != null) {
+            out.writeUTF(str);
+        }
+    }
+
+    /** Writes collection containing strings. */
     public static void writeStringCollection(Collection<String> list, DataOutput out) throws IOException {
         out.writeInt(list.size());
 
@@ -58,31 +61,37 @@ public class CatalogSerializationUtils {
         }
     }
 
+    /** Reads list of strings. */
     public static List<String> readStringList(DataInput in) throws IOException {
         int size = in.readInt();
 
-        return readStringCollection(in, new ArrayList<>(size), size);
+        return readStringCollection(in, size, new ArrayList<>(size));
     }
 
+    /** Reads set of strings. */
     public static Set<String> readStringSet(DataInput in) throws IOException {
         int size = in.readInt();
 
-        return readStringCollection(in, new HashSet<>(), size);
+        return readStringCollection(in, size, new HashSet<>());
     }
 
-    public static <T> T[] readArray(int version, IgniteDataInput in, CatalogEntrySerializer<T> serializer, Class<T> clazz) throws IOException {
-        int len = in.readInt();
+    /** Reads array of objects. */
+    public static <T> T[] readArray(int version, CatalogObjectSerializer<T> serializer, IgniteDataInput input, Class<T> clazz)
+            throws IOException {
+        int len = input.readInt();
 
         T[] arr = (T[]) Array.newInstance(clazz, len);
 
         for (int i = 0; i < len; i++) {
-            arr[i] = serializer.readFrom(version, in);
+            arr[i] = serializer.readFrom(version, input);
         }
 
         return arr;
     }
 
-    public static <T> void writeArray(T[] items, int version, CatalogEntrySerializer<T> serializer, IgniteDataOutput output) throws IOException {
+    /** Writes array of objects. */
+    public static <T> void writeArray(T[] items, int version, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
+            throws IOException {
         output.writeInt(items.length);
 
         for (T item : items) {
@@ -90,13 +99,14 @@ public class CatalogSerializationUtils {
         }
     }
 
-    public static <T> List<T> readList(int version, IgniteDataInput in, CatalogEntrySerializer<T> serializer) throws IOException {
-        int len = in.readInt();
+    /** Reads list of objects. */
+    public static <T> List<T> readList(int version, CatalogObjectSerializer<T> serializer, IgniteDataInput input) throws IOException {
+        int len = input.readInt();
 
         List<T> entries = new ArrayList<>(len);
 
         for (int i = 0; i < len; i++) {
-            T item = serializer.readFrom(version, in);
+            T item = serializer.readFrom(version, input);
 
             entries.add(item);
         }
@@ -104,17 +114,19 @@ public class CatalogSerializationUtils {
         return entries;
     }
 
-    public static <T> void writeList(List<T> items, int version, CatalogEntrySerializer<T> serializer, IgniteDataOutput out) throws IOException {
-        out.writeInt(items.size());
+    /** Writes list of objects. */
+    public static <T> void writeList(List<T> items, int version, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
+            throws IOException {
+        output.writeInt(items.size());
 
         for (T item : items) {
-            serializer.writeTo(item, version, out);
+            serializer.writeTo(item, version, output);
         }
     }
 
-    private static <T extends Collection<String>> T readStringCollection(DataInput in, T collection, int size) throws IOException {
+    private static <T extends Collection<String>> T readStringCollection(DataInput input, int size, T collection) throws IOException {
         for (int i = 0; i < size; i++) {
-            collection.add(in.readUTF());
+            collection.add(input.readUTF());
         }
 
         return collection;

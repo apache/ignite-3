@@ -27,7 +27,6 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 
 /**
@@ -72,7 +71,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, indexColumnDescriptors, CatalogIndexStatus.REGISTERED
+                indexId, indexName, tableId, unique, indexColumnDescriptors
         );
     }
 

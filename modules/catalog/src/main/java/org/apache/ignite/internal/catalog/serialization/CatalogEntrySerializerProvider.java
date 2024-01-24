@@ -15,27 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage;
+package org.apache.ignite.internal.catalog.serialization;
 
-import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
- * Interface describing a particular change within the {@link VersionedUpdate group}.
+ * Catalog entry serializer provider.
  */
-public interface UpdateEntry {
+@FunctionalInterface
+public interface CatalogEntrySerializerProvider {
     /**
-     * Applies own change to the catalog.
+     * Gets a catalog entry serializer that supports serialization of the specified type.
      *
-     * @param catalog Current catalog.
-     * @param causalityToken Token that is associated with the corresponding update being applied.
-     * @return New catalog.
+     * @param typeId Type id.
+     * @return catalog update entry serializer.
      */
-    Catalog applyUpdate(Catalog catalog, long causalityToken);
+    CatalogObjectSerializer<UpdateEntry> get(int typeId);
 
-    /**
-     * Returns the entry type used to serialize catalog entries.
-     *
-     * @return update entry type.
-     */
-    int typeId();
+    /** Default implementation. */
+    CatalogEntrySerializerProvider DEFAULT_PROVIDER = (id) -> EntrySerializationType.forId(id).serializer();
 }

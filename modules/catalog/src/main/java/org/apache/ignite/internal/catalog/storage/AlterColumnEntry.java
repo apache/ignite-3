@@ -31,7 +31,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -40,7 +41,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Describes a column replacement.
  */
 public class AlterColumnEntry implements UpdateEntry, Fireable {
-    public static CatalogEntrySerializer<AlterColumnEntry> SERIALIZER = new AlterColumnEntrySerializer();
+    public static final CatalogObjectSerializer<AlterColumnEntry> SERIALIZER = new AlterColumnEntrySerializer();
 
     private final int tableId;
 
@@ -61,16 +62,6 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
         this.schemaName = schemaName;
     }
 
-    /** Returns an id the table to be modified. */
-    public int tableId() {
-        return tableId;
-    }
-
-    /** Returns the schema name of the table being modified. */
-    public String schemaName() {
-        return schemaName;
-    }
-
     /** Returns a descriptor for the column to be replaced. */
     public CatalogTableColumnDescriptor descriptor() {
         return column;
@@ -78,7 +69,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return UpdateEntryType.ALTER_COLUMN.id();
+        return EntrySerializationType.ALTER_COLUMN.id();
     }
 
     @Override
@@ -123,7 +114,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     /**
      * Serializer for {@link AlterColumnEntry}.
      */
-    private static class AlterColumnEntrySerializer implements CatalogEntrySerializer<AlterColumnEntry> {
+    private static class AlterColumnEntrySerializer implements CatalogObjectSerializer<AlterColumnEntry> {
         @Override
         public AlterColumnEntry readFrom(int version, IgniteDataInput input) throws IOException {
             CatalogTableColumnDescriptor descriptor = CatalogTableColumnDescriptor.SERIALIZER.readFrom(version, input);
@@ -138,8 +129,8 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
         public void writeTo(AlterColumnEntry value, int version, IgniteDataOutput output) throws IOException {
             CatalogTableColumnDescriptor.SERIALIZER.writeTo(value.descriptor(), version, output);
 
-            output.writeUTF(value.schemaName());
-            output.writeInt(value.tableId());
+            output.writeUTF(value.schemaName);
+            output.writeInt(value.tableId);
         }
     }
 }

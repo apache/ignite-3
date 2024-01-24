@@ -69,7 +69,7 @@ public enum CatalogIndexStatus {
     }
 
     /** Returns index status by identifier. */
-    public static CatalogIndexStatus getById(int id) {
+    static CatalogIndexStatus forId(int id) {
         if (id >= 0 && id < VALS.length) {
             return VALS[id];
         }
