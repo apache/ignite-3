@@ -43,7 +43,6 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -148,7 +147,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(units, jobClassName, executionOptions, args).resultAsync().join();
+            return this.<R>executeAsync(nodes, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -175,13 +174,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     ) {
         ExecutionOptions executionOptions = ExecutionOptions.from(options);
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(units, jobClassName, executionOptions, args);
+            return computeComponent.executeLocally(executionOptions, units, jobClassName, args);
         } else {
             return new ComputeJobFailover<R>(
                     computeComponent, logicalTopologyService, topologyService,
                     targetNode, nextWorkerSelector, failoverExecutor, units,
-                    computeComponent, nodeLeftEventsSource,
-                    targetNode, failoverCandidates, units,
                     jobClassName, executionOptions, args
             ).failSafeExecute();
         }
@@ -215,23 +212,22 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Tuple tuple,
             List<DeploymentUnit> units,
             String jobClassName,
-            JobExecutionOptions jobExecutionOptions,
+            JobExecutionOptions options,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(tuple);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(jobExecutionOptions);
+        Objects.requireNonNull(options);
 
-        ExecutionOptions executionOptions = ExecutionOptions.from(jobExecutionOptions);
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
                         .thenCompose(table -> primaryReplicaForPartitionByTupleKey(table, tuple)
                                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, tuple),
-                                        units, jobClassName, executionOptions, args
+                                        units, jobClassName, options, args
                                 )))
         );
     }
@@ -244,7 +240,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            JobExecutionOptions jobExecutionOptions,
+            JobExecutionOptions options,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
@@ -252,9 +248,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
-        Objects.requireNonNull(jobExecutionOptions);
-
-        ExecutionOptions executionOptions = ExecutionOptions.from(jobExecutionOptions);
+        Objects.requireNonNull(options);
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
@@ -262,7 +256,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, keyMapper),
-                                        units, jobClassName, executionOptions, args
+                                        units, jobClassName, options, args
                                 )))
         );
     }
