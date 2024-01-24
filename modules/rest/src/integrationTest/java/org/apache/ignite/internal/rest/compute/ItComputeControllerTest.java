@@ -120,11 +120,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     void shouldReturnStatusesOfAllJobs() {
         IgniteImpl entryNode = CLUSTER.node(0);
 
-        JobExecution<String> localExecution = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), List.of(), BlockingJob.class.getName());
+        JobExecution<String> localExecution = runBlockingJob(entryNode, Set.of(entryNode.node()));
 
-        JobExecution<String> remoteExecution = entryNode.compute()
-                .executeAsync(Set.of(CLUSTER.node(1).node()), List.of(), BlockingJob.class.getName());
+        JobExecution<String> remoteExecution = runBlockingJob(entryNode, Set.of(CLUSTER.node(1).node()));
 
         UUID localJobId = localExecution.idAsync().join();
         UUID remoteJobId = remoteExecution.idAsync().join();
@@ -141,8 +139,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     void shouldReturnStatusOfLocalJob() {
         IgniteImpl entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(entryNode.node()));
 
         UUID jobId = execution.idAsync().join();
 
@@ -157,8 +154,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     void shouldReturnStatusOfRemoteJob() {
         IgniteImpl entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(CLUSTER.node(1).node()), List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(CLUSTER.node(1).node()));
 
         UUID jobId = execution.idAsync().join();
 
@@ -189,8 +185,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     void shouldCancelJobLocally() {
         IgniteImpl entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(entryNode.node()));
 
         UUID jobId = execution.idAsync().join();
 
@@ -205,8 +200,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     void shouldCancelJobRemotely() {
         IgniteImpl entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(CLUSTER.node(1).node()), List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(CLUSTER.node(1).node()));
 
         UUID jobId = execution.idAsync().join();
 
@@ -237,8 +231,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     void shouldReturnFalseIfCancelCompletedJob() {
         IgniteImpl entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(entryNode.node()));
 
         UUID jobId = execution.idAsync().join();
 
@@ -257,13 +250,13 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         Set<ClusterNode> nodes = Set.of(entryNode.node());
 
-        JobExecution<String> execution = entryNode.compute().executeAsync(nodes, List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, nodes);
 
         UUID jobId = execution.idAsync().join();
 
         await().until(() -> getJobStatus(client0, jobId), executing(jobId));
 
-        JobExecution<String> execution2 = entryNode.compute().executeAsync(nodes, List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution2 = runBlockingJob(entryNode, nodes);
 
         UUID jobId2 = execution2.idAsync().join();
 
@@ -278,13 +271,13 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         Set<ClusterNode> nodes = Set.of(CLUSTER.node(1).node());
 
-        JobExecution<String> execution = entryNode.compute().executeAsync(nodes, List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, nodes);
 
         UUID jobId = execution.idAsync().join();
 
         await().until(() -> getJobStatus(client0, jobId), executing(jobId));
 
-        JobExecution<String> execution2 = entryNode.compute().executeAsync(nodes, List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution2 = runBlockingJob(entryNode, nodes);
 
         UUID jobId2 = execution2.idAsync().join();
 
@@ -315,7 +308,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         Set<ClusterNode> nodes = Set.of(entryNode.node());
 
-        JobExecution<String> execution = entryNode.compute().executeAsync(nodes, List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, nodes);
 
         UUID jobId = execution.idAsync().join();
 
@@ -330,7 +323,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         Set<ClusterNode> nodes = Set.of(entryNode.node());
 
-        JobExecution<String> execution = entryNode.compute().executeAsync(nodes, List.of(), BlockingJob.class.getName());
+        JobExecution<String> execution = runBlockingJob(entryNode, nodes);
 
         UUID jobId = execution.idAsync().join();
 
@@ -341,6 +334,10 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
         await().until(() -> getJobStatus(client0, jobId), completed(jobId));
 
         assertThat(updatePriority(client0, jobId, 1), is(failureResult()));
+    }
+
+    private static JobExecution<String> runBlockingJob(IgniteImpl entryNode, Set<ClusterNode> nodes) {
+        return entryNode.compute().executeAsync(nodes, List.of(), BlockingJob.class.getName());
     }
 
     private static void unblockJob() {

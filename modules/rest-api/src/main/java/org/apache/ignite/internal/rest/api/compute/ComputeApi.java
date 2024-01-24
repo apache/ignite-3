@@ -26,6 +26,7 @@ import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Put;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -50,7 +51,7 @@ public interface ComputeApi {
     @ApiResponse(
             responseCode = "200",
             description = "Successful retrieval of job statuses.",
-            content = @Content(mediaType = APPLICATION_JSON)
+            content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = JobStatus.class)))
     )
     @Get("jobs")
     CompletableFuture<Collection<JobStatus>> jobStatuses();
@@ -65,7 +66,7 @@ public interface ComputeApi {
     @ApiResponse(
             responseCode = "200",
             description = "Successful retrieval of the job status.",
-            content = @Content(mediaType = APPLICATION_JSON)
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = JobStatus.class))
     )
     @ApiResponse(
             responseCode = "404",

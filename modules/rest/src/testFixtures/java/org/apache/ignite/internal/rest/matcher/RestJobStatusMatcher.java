@@ -34,29 +34,14 @@ import org.hamcrest.TypeSafeMatcher;
  * Matcher for {@link JobStatus}.
  */
 public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
-    private final Matcher<UUID> idMatcher;
-    private final Matcher<JobState> stateMatcher;
-    private final Matcher<Instant> createTimeMatcher;
-    private final Matcher<Instant> startTimeMatcher;
-    private final Matcher<Instant> finishTimeMatcher;
+    private Matcher<JobState> stateMatcher = AnythingMatcher.anything();
+    private Matcher<UUID> idMatcher = AnythingMatcher.anything();
+    private Matcher<Instant> createTimeMatcher = AnythingMatcher.anything();
+    private Matcher<Instant> startTimeMatcher = AnythingMatcher.anything();
+    private Matcher<Instant> finishTimeMatcher = AnythingMatcher.anything();
 
-    private RestJobStatusMatcher(
-            Matcher<UUID> idMatcher,
-            Matcher<JobState> stateMatcher,
-            Matcher<Instant> createTimeMatcher,
-            Matcher<Instant> startTimeMatcher,
-            Matcher<Instant> finishTimeMatcher
-    ) {
-        this.idMatcher = idMatcher;
-        this.stateMatcher = stateMatcher;
-        this.createTimeMatcher = createTimeMatcher;
-        this.startTimeMatcher = startTimeMatcher;
-        this.finishTimeMatcher = finishTimeMatcher;
-    }
-
-    // Static method to start building
-    public static Builder builder() {
-        return new Builder();
+    public static RestJobStatusMatcher isJobStatus() {
+        return new RestJobStatusMatcher();
     }
 
     public static RestJobStatusMatcher queued(UUID id) {
@@ -70,12 +55,10 @@ public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
      * @return Matcher.
      */
     public static RestJobStatusMatcher queued(Matcher<UUID> idMatcher) {
-        return builder()
-                .withId(idMatcher)
+        return isJobStatus().withId(idMatcher)
                 .withState(JobState.QUEUED)
                 .withCreateTime(notNullValue(Instant.class))
-                .withStartTime(nullValue(Instant.class))
-                .build();
+                .withStartTime(nullValue(Instant.class));
     }
 
     /**
@@ -85,13 +68,11 @@ public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
      * @return Matcher.
      */
     public static RestJobStatusMatcher executing(UUID id) {
-        return builder()
-                .withId(id)
+        return isJobStatus().withId(id)
                 .withState(JobState.EXECUTING)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(notNullValue(Instant.class))
-                .withFinishTime(nullValue(Instant.class))
-                .build();
+                .withFinishTime(nullValue(Instant.class));
     }
 
     /**
@@ -102,13 +83,11 @@ public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
      * @return Matcher.
      */
     public static RestJobStatusMatcher failed(UUID id, boolean wasRunning) {
-        return builder()
-                .withId(id)
+        return isJobStatus().withId(id)
                 .withState(JobState.FAILED)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(wasRunning ? notNullValue(Instant.class) : AnythingMatcher.anything())
-                .withFinishTime(notNullValue(Instant.class))
-                .build();
+                .withFinishTime(notNullValue(Instant.class));
     }
 
     /**
@@ -118,13 +97,11 @@ public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
      * @return Matcher.
      */
     public static RestJobStatusMatcher completed(UUID id) {
-        return builder()
-                .withId(id)
+        return isJobStatus().withId(id)
                 .withState(JobState.COMPLETED)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(notNullValue(Instant.class))
-                .withFinishTime(notNullValue(Instant.class))
-                .build();
+                .withFinishTime(notNullValue(Instant.class));
     }
 
     /**
@@ -135,13 +112,11 @@ public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
      * @return Matcher.
      */
     public static RestJobStatusMatcher canceling(UUID id, boolean wasRunning) {
-        return builder()
-                .withId(id)
+        return isJobStatus().withId(id)
                 .withState(JobState.CANCELING)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(wasRunning ? notNullValue(Instant.class) : AnythingMatcher.anything())
-                .withFinishTime(notNullValue(Instant.class))
-                .build();
+                .withFinishTime(notNullValue(Instant.class));
     }
 
     /**
@@ -152,13 +127,58 @@ public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
      * @return Matcher.
      */
     public static RestJobStatusMatcher canceled(UUID id, boolean wasRunning) {
-        return builder()
-                .withId(id)
+        return isJobStatus().withId(id)
                 .withState(JobState.CANCELED)
                 .withCreateTime(notNullValue(Instant.class))
                 .withStartTime(wasRunning ? notNullValue(Instant.class) : AnythingMatcher.anything())
-                .withFinishTime(notNullValue(Instant.class))
-                .build();
+                .withFinishTime(notNullValue(Instant.class));
+    }
+
+
+    public RestJobStatusMatcher withState(JobState state) {
+        return withState(equalTo(state));
+    }
+
+    public RestJobStatusMatcher withState(Matcher<JobState> stateMatcher) {
+        this.stateMatcher = stateMatcher;
+        return this;
+    }
+
+
+    public RestJobStatusMatcher withId(UUID id) {
+        return withId(equalTo(id));
+    }
+
+    public RestJobStatusMatcher withId(Matcher<UUID> idMatcher) {
+        this.idMatcher = idMatcher;
+        return this;
+    }
+
+    public RestJobStatusMatcher withCreateTime(Instant createTime) {
+        return withCreateTime(equalTo(createTime));
+    }
+
+    public RestJobStatusMatcher withCreateTime(Matcher<Instant> createTimeMatcher) {
+        this.createTimeMatcher = createTimeMatcher;
+        return this;
+    }
+
+    public RestJobStatusMatcher withStartTime(Instant startTime) {
+        return withStartTime(equalTo(startTime));
+    }
+
+    public RestJobStatusMatcher withStartTime(Matcher<Instant> startTimeMatcher) {
+        this.startTimeMatcher = startTimeMatcher;
+        return this;
+    }
+
+    public RestJobStatusMatcher withFinishTime(Instant finishTime) {
+        return withFinishTime(equalTo(finishTime));
+    }
+
+    public RestJobStatusMatcher withFinishTime(Matcher<Instant> finishTimeMatcher) {
+        this.finishTimeMatcher = finishTimeMatcher;
+        return this;
     }
 
     @Override
@@ -172,16 +192,16 @@ public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
 
     @Override
     protected void describeMismatchSafely(JobStatus status, Description mismatchDescription) {
-        mismatchDescription.appendText("was a JobStatus with id ");
-        idMatcher.describeMismatch(status.id(), mismatchDescription);
-        mismatchDescription.appendText("state ");
-        stateMatcher.describeMismatch(status.state(), mismatchDescription);
-        mismatchDescription.appendText(", create time ");
-        createTimeMatcher.describeMismatch(status.createTime(), mismatchDescription);
-        mismatchDescription.appendText(", start time ");
-        startTimeMatcher.describeMismatch(status.startTime(), mismatchDescription);
-        mismatchDescription.appendText(" and finish time ");
-        finishTimeMatcher.describeMismatch(status.finishTime(), mismatchDescription);
+        mismatchDescription.appendText("was a JobStatus with id ")
+                .appendValue(status.id())
+                .appendText(", state ")
+                .appendValue(status.state())
+                .appendText(", create time ")
+                .appendValue(status.createTime())
+                .appendText(", start time ")
+                .appendValue(status.startTime())
+                .appendText(" and finish time ")
+                .appendValue(status.finishTime());
     }
 
     @Override
@@ -196,94 +216,5 @@ public class RestJobStatusMatcher extends TypeSafeMatcher<JobStatus> {
                 .appendDescriptionOf(startTimeMatcher)
                 .appendText(" and finish time ")
                 .appendDescriptionOf(finishTimeMatcher);
-    }
-
-    public Builder toBuilder() {
-        return new Builder(this);
-    }
-
-    /**
-     * Builder for {@link RestJobStatusMatcher}.
-     */
-    public static class Builder {
-        private Matcher<UUID> expectedId = AnythingMatcher.anything();
-        private Matcher<JobState> expectedState = AnythingMatcher.anything();
-        private Matcher<Instant> expectedCreateTime = AnythingMatcher.anything();
-        private Matcher<Instant> expectedStartTime = AnythingMatcher.anything();
-        private Matcher<Instant> expectedFinishTime = AnythingMatcher.anything();
-
-        private Builder() {
-        }
-
-        private Builder(RestJobStatusMatcher matcher) {
-            this.expectedId = matcher.idMatcher;
-            this.expectedState = matcher.stateMatcher;
-            this.expectedCreateTime = matcher.createTimeMatcher;
-            this.expectedStartTime = matcher.startTimeMatcher;
-            this.expectedFinishTime = matcher.finishTimeMatcher;
-        }
-
-        public Builder withId(UUID id) {
-            this.expectedId = equalTo(id);
-            return this;
-        }
-
-        public Builder withId(Matcher<UUID> id) {
-            this.expectedId = id;
-            return this;
-        }
-
-        public Builder withState(JobState state) {
-            this.expectedState = equalTo(state);
-            return this;
-        }
-
-        public Builder withState(Matcher<JobState> state) {
-            this.expectedState = state;
-            return this;
-        }
-
-        public Builder withCreateTime(Instant createTime) {
-            this.expectedCreateTime = equalTo(createTime);
-            return this;
-        }
-
-        public Builder withCreateTime(Matcher<Instant> createTime) {
-            this.expectedCreateTime = createTime;
-            return this;
-        }
-
-        public Builder withStartTime(Instant startTime) {
-            this.expectedStartTime = equalTo(startTime);
-            return this;
-        }
-
-        public Builder withStartTime(Matcher<Instant> startTime) {
-            this.expectedStartTime = startTime;
-            return this;
-        }
-
-        public Builder withFinishTime(Instant finishTime) {
-            this.expectedFinishTime = equalTo(finishTime);
-            return this;
-        }
-
-        public Builder withFinishTime(Matcher<Instant> finishTime) {
-            this.expectedFinishTime = finishTime;
-            return this;
-        }
-
-        /**
-         * Builds a {@link RestJobStatusMatcher}.
-         */
-        public RestJobStatusMatcher build() {
-            return new RestJobStatusMatcher(
-                    expectedId,
-                    expectedState,
-                    expectedCreateTime,
-                    expectedStartTime,
-                    expectedFinishTime
-            );
-        }
     }
 }
