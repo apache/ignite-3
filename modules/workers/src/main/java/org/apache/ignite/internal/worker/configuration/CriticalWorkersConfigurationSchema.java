@@ -27,13 +27,28 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @ConfigurationRoot(rootName = "criticalWorkers", type = ConfigurationType.LOCAL)
 public class CriticalWorkersConfigurationSchema {
-    /** Interval between liveness checks (ms) performed by critical workers infrastructure. */
+    /**
+     * Interval between liveness checks (ms) performed by critical workers infrastructure.
+     *
+     * <p>Should not be greater than a half of {@link #maxAllowedLag}.
+     */
     @Value(hasDefault = true)
     @Range(min = 1)
     public long livenessCheckInterval = 200;
 
-    /** Maximum allowed delay of the last heartbeat from current time; if it's exceeded, the critical worker is considered to be blocked. */
+    /**
+     * Maximum allowed delay of the last heartbeat from current time; if it's exceeded, the critical worker is considered to be blocked.
+     *
+     * <p>Should exceed {@link #livenessCheckInterval} at least twice.
+     */
     @Value(hasDefault = true)
     @Range(min = 1)
     public long maxAllowedLag = 500;
+
+    /**
+     * Interval between heartbeats used to update Netty threads heartbeat timestamps.
+     */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public long nettyThreadsHeartbeatInterval = 100;
 }

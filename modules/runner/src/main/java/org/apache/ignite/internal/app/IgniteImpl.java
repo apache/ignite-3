@@ -386,8 +386,10 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
+        CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
+
         criticalWorkerRegistry = new CriticalWorkerWatchdog(
-                nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY),
+                criticalWorkersConfiguration,
                 threadPoolsManager.commonScheduler()
         );
 
@@ -395,7 +397,8 @@ public class IgniteImpl implements Ignite {
         nettyWorkersRegistrar = new NettyWorkersRegistrar(
                 criticalWorkerRegistry,
                 threadPoolsManager.commonScheduler(),
-                nettyBootstrapFactory
+                nettyBootstrapFactory,
+                criticalWorkersConfiguration
         );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(

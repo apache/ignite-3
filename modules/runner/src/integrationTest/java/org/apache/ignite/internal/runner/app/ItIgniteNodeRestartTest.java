@@ -257,7 +257,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler());
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
-        var nettyWorkersRegistrar = new NettyWorkersRegistrar(workerRegistry, threadPools.commonScheduler(), nettyBootstrapFactory);
+        var nettyWorkersRegistrar = new NettyWorkersRegistrar(
+                workerRegistry,
+                threadPools.commonScheduler(),
+                nettyBootstrapFactory,
+                workersConfiguration
+        );
 
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                 name,
