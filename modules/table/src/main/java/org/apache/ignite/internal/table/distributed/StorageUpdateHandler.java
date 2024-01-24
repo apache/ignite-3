@@ -22,10 +22,11 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -157,51 +158,77 @@ public class StorageUpdateHandler {
     ) {
         indexUpdateHandler.waitIndexes();
 
-        storage.runConsistently(locker -> {
-            int commitTblId = commitPartitionId.tableId();
-            int commitPartId = commitPartitionId.partitionId();
+        if (nullOrEmpty(rowsToUpdate)) {
+            return;
+        }
+        long batchSize = getBatchSize();
+        BiPredicate<List<Entry<UUID, TimedBinaryRow>>, Entry<UUID, TimedBinaryRow>> isFullByRowCount = (batch, row) ->
+                batch.size() + 1 > batchSize;
+        List<List<Map.Entry<UUID, TimedBinaryRow>>> batches = getTimedBinaryRowBatches(rowsToUpdate, isFullByRowCount);
+        batches.forEach((batch) ->
+                storage.runConsistently(locker -> {
+                    int commitTblId = commitPartitionId.tableId();
+                    int commitPartId = commitPartitionId.partitionId();
 
-            if (!nullOrEmpty(rowsToUpdate)) {
-                List<RowId> rowIds = new ArrayList<>();
+                    List<RowId> rowIds = new ArrayList<>();
+                    for (Map.Entry<UUID, TimedBinaryRow> entry : batch) {
+                        RowId rowId = new RowId(partitionId, entry.getKey());
+                        BinaryRow row = entry.getValue() == null ? null : entry.getValue().binaryRow();
 
-                // Sort IDs to prevent deadlock. Natural UUID order matches RowId order within the same partition.
-                SortedMap<UUID, TimedBinaryRow> sortedRowsToUpdateMap = new TreeMap<>(rowsToUpdate);
+                        locker.lock(rowId);
 
-                for (Map.Entry<UUID, TimedBinaryRow> entry : sortedRowsToUpdateMap.entrySet()) {
-                    RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = entry.getValue() == null ? null : entry.getValue().binaryRow();
+                        performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
 
-                    locker.lock(rowId);
+                        if (commitTs != null) {
+                            storage.addWriteCommitted(rowId, row, commitTs);
+                        } else {
+                            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
-                    performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
-
-                    if (commitTs != null) {
-                        storage.addWriteCommitted(rowId, row, commitTs);
-                    } else {
-                        BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
-
-                        if (oldRow != null) {
-                            assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
-                            // Previous uncommitted row should be removed from indexes.
-                            tryRemovePreviousWritesIndex(rowId, oldRow);
+                            if (oldRow != null) {
+                                assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
+                                // Previous uncommitted row should be removed from indexes.
+                                tryRemovePreviousWritesIndex(rowId, oldRow);
+                            }
                         }
+
+                        rowIds.add(rowId);
+                        indexUpdateHandler.addToIndexes(row, rowId);
                     }
 
-                    rowIds.add(rowId);
-                    indexUpdateHandler.addToIndexes(row, rowId);
-                }
+                    if (trackWriteIntent) {
+                        pendingRows.addPendingRowIds(txId, rowIds);
+                    }
 
-                if (trackWriteIntent) {
-                    pendingRows.addPendingRowIds(txId, rowIds);
-                }
+                    if (onApplication != null) {
+                        onApplication.run();
+                    }
 
-                if (onApplication != null) {
-                    onApplication.run();
-                }
+                    return null;
+                }));
+    }
+
+    //draft, TODO get from config
+    private long getBatchSize() {
+        return 10;
+    }
+
+    private List<List<Map.Entry<UUID, TimedBinaryRow>>> getTimedBinaryRowBatches(
+            Map<UUID, TimedBinaryRow> rows,
+            BiPredicate<List<Entry<UUID, TimedBinaryRow>>, Map.Entry<UUID, TimedBinaryRow>> isFull
+    ) {
+        // Sort IDs to prevent deadlock. Natural UUID order matches RowId order within the same partition.
+        List<Entry<UUID, TimedBinaryRow>> sortedRows = rows.entrySet().stream().sorted().collect(Collectors.toList());
+        List<List<Entry<UUID, TimedBinaryRow>>> batches = new ArrayList<>();
+        List<Entry<UUID, TimedBinaryRow>> lastBatch = new ArrayList<>();
+        batches.add(lastBatch);
+        for (Entry<UUID, TimedBinaryRow> row : sortedRows) {
+            if (isFull.test(lastBatch, row)) {
+                lastBatch = new ArrayList<>();
+                batches.add(lastBatch);
             }
-
-            return null;
-        });
+            lastBatch.add(row);
+        }
+        return batches;
     }
 
     private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {
@@ -284,8 +311,8 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Switches write intents created by the transaction to regular values if the transaction is committed
-     * or removes them if the transaction is aborted.
+     * Switches write intents created by the transaction to regular values if the transaction is committed or removes them if the
+     * transaction is aborted.
      *
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
@@ -296,8 +323,8 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Switches write intents created by the transaction to regular values if the transaction is committed
-     * or removes them if the transaction is aborted.
+     * Switches write intents created by the transaction to regular values if the transaction is committed or removes them if the
+     * transaction is aborted.
      *
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
