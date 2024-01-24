@@ -161,7 +161,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         }
     }
 
-    private static class DeqNexWorkerSelector implements NextWorkerSelector {
+    private static class DeqNextWorkerSelector implements NextWorkerSelector {
         private final ConcurrentLinkedDeque<ClusterNode> deque;
 
         private DeqNexWorkerSelector(ConcurrentLinkedDeque<ClusterNode> deque) {
