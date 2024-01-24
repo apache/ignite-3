@@ -95,6 +95,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -195,6 +196,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Garbage collector configuration. */
     @InjectConfiguration
     private GcConfiguration gcConfig;
+
+    /** Storage update configuration. */
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
+
 
     @InjectConfiguration
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
@@ -705,6 +711,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
+                storageUpdateConfiguration,
                 clusterService,
                 rm,
                 replicaMgr,

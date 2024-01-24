@@ -146,6 +146,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
@@ -1040,10 +1041,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     catalogManager
             );
 
+            StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
             tableManager = new TableManager(
                     name,
                     registry,
                     gcConfig,
+                    storageUpdateConfiguration,
                     clusterService,
                     raftManager,
                     replicaManager,

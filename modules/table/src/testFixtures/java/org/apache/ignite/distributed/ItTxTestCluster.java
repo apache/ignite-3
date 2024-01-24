@@ -65,7 +65,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -164,6 +163,8 @@ public class ItTxTestCluster {
 
     private final TransactionConfiguration txConfiguration;
 
+    private final StorageUpdateConfiguration storageUpdateConfiguration;
+
     private final Path workDir;
 
     private final int nodes;
@@ -250,8 +251,6 @@ public class ItTxTestCluster {
     };
 
     private final TestInfo testInfo;
-    @InjectConfiguration
-    protected static StorageUpdateConfiguration storageUpdateConfig;
 
     /** Observable timestamp tracker. */
     private final HybridTimestampTracker timestampTracker;
@@ -263,6 +262,7 @@ public class ItTxTestCluster {
             TestInfo testInfo,
             RaftConfiguration raftConfig,
             TransactionConfiguration txConfiguration,
+            StorageUpdateConfiguration storageUpdateConfiguration,
             Path workDir,
             int nodes,
             int replicas,
@@ -271,6 +271,7 @@ public class ItTxTestCluster {
     ) {
         this.raftConfig = raftConfig;
         this.txConfiguration = txConfiguration;
+        this.storageUpdateConfiguration = storageUpdateConfiguration;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -537,7 +538,7 @@ public class ItTxTestCluster {
                         partId,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        storageUpdateConfig
+                        storageUpdateConfiguration
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(

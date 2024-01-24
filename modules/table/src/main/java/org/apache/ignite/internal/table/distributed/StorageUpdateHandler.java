@@ -54,7 +54,7 @@ public class StorageUpdateHandler {
 
     /** A container for rows that were inserted, updated or removed. */
     private final PendingRows pendingRows = new PendingRows();
-    private final StorageUpdateConfiguration storageUpdateCfg;
+    private final StorageUpdateConfiguration storageUpdateConfiguration;
 
     /**
      * The constructor.
@@ -67,12 +67,12 @@ public class StorageUpdateHandler {
             int partitionId,
             PartitionDataStorage storage,
             IndexUpdateHandler indexUpdateHandler,
-            StorageUpdateConfiguration storageUpdateCfg
+            StorageUpdateConfiguration storageUpdateConfiguration
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexUpdateHandler = indexUpdateHandler;
-        this.storageUpdateCfg = storageUpdateCfg;
+        this.storageUpdateConfiguration = storageUpdateConfiguration;
     }
 
     /**
@@ -164,12 +164,13 @@ public class StorageUpdateHandler {
         if (nullOrEmpty(rowsToUpdate)) {
             return;
         }
+
         int commitTblId = commitPartitionId.tableId();
         int commitPartId = commitPartitionId.partitionId();
 
-        long batchSize = getBatchSize();
+        long batchSize = storageUpdateConfiguration.batchSize().value();
 
-        BatchFullPredicate<Entry<UUID, TimedBinaryRow>> isFullByRowCount = (batch, row) ->
+        BatchOverfillPredicate<Entry<UUID, TimedBinaryRow>> isFullByRowCount = (batch, row) ->
                 batch.size() + 1 > batchSize;
         List<List<Map.Entry<UUID, TimedBinaryRow>>> batches = splitToBatches(rowsToUpdate, isFullByRowCount);
         for (List<Map.Entry<UUID, TimedBinaryRow>> batch : batches) {
@@ -213,14 +214,9 @@ public class StorageUpdateHandler {
         }
     }
 
-    //draft, TODO get from config
-    private long getBatchSize() {
-        return 10;
-    }
-
     private List<List<Map.Entry<UUID, TimedBinaryRow>>> splitToBatches(
             Map<UUID, TimedBinaryRow> rows,
-            BatchFullPredicate isFull
+            BatchOverfillPredicate<Entry<UUID, TimedBinaryRow>> wouldOverfill
     ) {
         // Sort IDs to prevent deadlock. Natural UUID order matches RowId order within the same partition.
         List<Entry<UUID, TimedBinaryRow>> sortedEntries = rows.entrySet().stream()
@@ -230,7 +226,7 @@ public class StorageUpdateHandler {
         List<Entry<UUID, TimedBinaryRow>> batch = new ArrayList<>();
         batches.add(batch);
         for (Entry<UUID, TimedBinaryRow> row : sortedEntries) {
-            if (isFull.test(batch, row)) {
+            if (!batch.isEmpty() && wouldOverfill.test(batch, row)) {
                 batch = new ArrayList<>();
                 batches.add(batch);
             }

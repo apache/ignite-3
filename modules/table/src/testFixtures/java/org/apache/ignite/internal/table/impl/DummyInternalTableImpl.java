@@ -365,7 +365,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 PART_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                this.storageUpdateConfiguration
+                storageUpdateConfiguration
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);

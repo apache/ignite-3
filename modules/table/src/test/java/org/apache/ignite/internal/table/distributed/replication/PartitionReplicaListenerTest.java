@@ -87,6 +87,8 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -109,6 +111,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
@@ -210,7 +213,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /** Tests for partition replica listener. */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
@@ -318,6 +321,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Mock
     private MessagingService messagingService;
+
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
     /** Schema descriptor for tests. */
     private SchemaDescriptor schemaDescriptor;
@@ -521,7 +527,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new StorageUpdateHandler(
                         PART_ID,
                         partitionDataStorage,
-                        indexUpdateHandler
+                        indexUpdateHandler,
+                        storageUpdateConfiguration
                 ),
                 validationSchemasSource,
                 localNode,

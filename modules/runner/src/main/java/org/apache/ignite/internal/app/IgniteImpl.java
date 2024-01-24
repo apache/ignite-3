@@ -621,12 +621,12 @@ public class IgniteImpl implements Ignite {
                 indexNodeFinishedRwTransactionsChecker
         );
 
-        StorageUpdateConfiguration storageUpdateCfg = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
+        StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
         distributedTblMgr = new TableManager(
                 name,
                 registry,
                 gcConfig,
-                storageUpdateCfg,
+                storageUpdateConfiguration,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,

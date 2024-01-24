@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
+package org.apache.ignite.internal.table.distributed;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import java.util.Collection;
+import java.util.function.BiPredicate;
 
 /**
- * Configuration schema for StorageUpdateHandler.
+ * Predicate to check if adding the row to the batch will exceed its size limit.
+ *
+ * @param <T> row type.
  */
-@ConfigurationRoot(rootName = "storageUpdate", type = ConfigurationType.DISTRIBUTED)
-public class StorageUpdateConfigurationSchema {
+public interface BatchOverfillPredicate<T> extends BiPredicate<Collection<T>, T> {
 
-    /**
-     * Maximum batch size of rows to update. Unit depends on filling predicate used.
-     **/
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public long batchSize = 1000;
 }

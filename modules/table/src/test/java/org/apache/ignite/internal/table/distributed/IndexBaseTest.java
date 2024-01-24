@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -51,11 +54,13 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base test for indexes. Sets up a table with (int, string) key and (int, string) value and three indexes: primary key, hash index over
  * value columns and sorted index over value columns.
  */
+@ExtendWith(ConfigurationExtension.class)
 public abstract class IndexBaseTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 0;
 
@@ -71,6 +76,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
             SCHEMA_DESCRIPTOR.column("INTVAL").schemaIndex(),
             SCHEMA_DESCRIPTOR.column("STRVAL").schemaIndex()
     };
+
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
     private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
 
@@ -151,7 +159,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                indexUpdateHandler
+                indexUpdateHandler,
+                storageUpdateConfiguration
         );
     }
 

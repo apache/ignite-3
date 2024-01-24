@@ -25,6 +25,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -49,6 +50,8 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
     protected static final int SCHEMA_VERSION = 1;
 
@@ -73,6 +76,6 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
     }
 
     protected final DummyInternalTableImpl createInternalTable(SchemaDescriptor schema) {
-        return new DummyInternalTableImpl(replicaService, schema, txConfiguration);
+        return new DummyInternalTableImpl(replicaService, schema, txConfiguration, storageUpdateConfiguration);
     }
 }
