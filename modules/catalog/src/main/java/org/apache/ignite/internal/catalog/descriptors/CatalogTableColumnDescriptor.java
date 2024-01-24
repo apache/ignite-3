@@ -198,6 +198,7 @@ public class CatalogTableColumnDescriptor {
             switch (type) {
                 case FUNCTION_CALL:
                     return FunctionCall.functionCall(in.readUTF());
+
                 case CONSTANT:
                     int length = in.readInt();
 
@@ -206,11 +207,10 @@ public class CatalogTableColumnDescriptor {
                     }
 
                     byte[] bytes = in.readByteArray(length);
-
                     return DefaultValue.constant(ByteUtils.fromBytes(bytes));
 
                 default:
-                    throw new UnsupportedOperationException("Unsupported default value type; " + type);
+                    throw new UnsupportedOperationException("Unexpected default value type; " + type);
             }
         }
 
@@ -229,24 +229,26 @@ public class CatalogTableColumnDescriptor {
                     out.writeUTF(((FunctionCall) value).functionName());
 
                     break;
+
                 case CONSTANT:
                     ConstantValue constValue = (ConstantValue) value;
-
                     Serializable val = constValue.value();
 
                     if (val == null) {
                         out.writeInt(-1);
-                    } else {
-                        byte[] bytes = ByteUtils.toBytes(val);
 
-                        out.writeInt(bytes.length);
-
-                        out.writeByteArray(bytes);
+                        break;
                     }
+
+                    byte[] bytes = ByteUtils.toBytes(val);
+
+                    out.writeInt(bytes.length);
+                    out.writeByteArray(bytes);
+
                     break;
 
                 default:
-                    throw new UnsupportedOperationException("Unsupported default value type: " + value.type());
+                    throw new UnsupportedOperationException("Unexpected default value type: " + value.type());
             }
         }
     }

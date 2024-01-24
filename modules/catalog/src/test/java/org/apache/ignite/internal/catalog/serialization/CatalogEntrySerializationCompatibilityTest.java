@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.serialization;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -29,16 +29,21 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.lang.MarshallerException;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests to verify catalog storage entries serialization protocol compatibility.
+ * Tests to verify catalog storage entries serialization compatibility.
  */
 public class CatalogEntrySerializationCompatibilityTest {
-    private final CatalogEntrySerializerProvider serializerProvider = (id) -> TestUpdateEntrySerializer.INSTANCE;
+    private final CatalogEntrySerializerProvider serializerProvider = (ignore) -> TestUpdateEntrySerializer.INSTANCE;
 
+    /**
+     * Checks whether the old version of an entity can be read by the new version's serializer.
+     */
     @Test
-    public void checkBackwardCompatibility() {
+    public void readPreviousVersionEntry() {
+        // Writes a version 1 entry, reads it using the version 2 and 3 serializer.
         {
             TestUpdateEntry entryV1 = TestEntryFactory.create(1);
 
@@ -62,6 +67,7 @@ public class CatalogEntrySerializationCompatibilityTest {
             assertThat(deserialized.entries(), equalTo(entries));
         }
 
+        // Writes a version 2 entry, reads it using the version 3 serializer.
         {
             TestUpdateEntryV2 entryV2 = TestEntryFactory.create(2);
 
@@ -79,23 +85,31 @@ public class CatalogEntrySerializationCompatibilityTest {
             deserialized = marshallerV3.unmarshall(bytesV2);
             assertThat(deserialized.entries(), equalTo(entries));
         }
-
-        {
-            TestUpdateEntryV3 entryV3 = TestEntryFactory.create(3);
-            TestUpdateEntry entryV1 = TestEntryFactory.create(1);
-
-            UpdateLogMarshaller marshallerV1 = new UpdateLogMarshallerImpl(1, serializerProvider);
-
-            List<UpdateEntry> entries = List.of(entryV3, entryV3);
-            VersionedUpdate update = new VersionedUpdate(1, 2, entries);
-
-            byte[] bytesV1 = marshallerV1.marshall(update);
-
-            VersionedUpdate deserialized = marshallerV1.unmarshall(bytesV1);
-            assertThat(deserialized.entries(), equalTo(List.of(entryV1, entryV1)));
-        }
     }
 
+    /**
+     * Checks whether the entry can be written in the previous format.
+     */
+    @Test
+    public void writePreviousVersionEntry() {
+        TestUpdateEntryV3 entryV3 = TestEntryFactory.create(3);
+
+        UpdateLogMarshaller marshallerV1 = new UpdateLogMarshallerImpl(1, serializerProvider);
+
+        List<UpdateEntry> entries = List.of(entryV3, entryV3);
+        VersionedUpdate update = new VersionedUpdate(1, 2, entries);
+
+        byte[] bytesV1 = marshallerV1.marshall(update);
+
+        VersionedUpdate deserialized = marshallerV1.unmarshall(bytesV1);
+
+        TestUpdateEntry entryV1 = TestEntryFactory.create(1);
+        assertThat(deserialized.entries(), equalTo(List.of(entryV1, entryV1)));
+    }
+
+    /**
+     * Ensures that the new version entry cannot be read by the previous version serializer.
+     */
     @Test
     public void forwardCompatibilityIsNotSupported() {
         TestUpdateEntryV3 entryV3 = TestEntryFactory.create(3);
@@ -110,9 +124,9 @@ public class CatalogEntrySerializationCompatibilityTest {
         UpdateLogMarshaller marshallerV2 = new UpdateLogMarshallerImpl(2, serializerProvider);
 
         //noinspection ThrowableNotThrown
-        assertThrowsWithCause(
+        assertThrows(
+                MarshallerException.class,
                 () -> marshallerV2.unmarshall(bytesV3),
-                IllegalStateException.class,
                 "An object could not be deserialized because it was using a newer version of the "
                         + "serialization protocol [objectVersion=3, supported=2]"
         );
