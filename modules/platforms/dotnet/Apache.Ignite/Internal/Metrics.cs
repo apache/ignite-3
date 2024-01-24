@@ -53,7 +53,7 @@ internal static class Metrics
     /// Total number of connections established.
     /// </summary>
     public static readonly Counter<long> ConnectionsEstablished = Meter.CreateCounter<long>(
-        name: "connections-established",
+        name: MetricNames.ConnectionsEstablished,
         unit: "connections",
         description: "Total number of established connections");
 
@@ -61,7 +61,7 @@ internal static class Metrics
     /// Total number of connections lost.
     /// </summary>
     public static readonly Counter<long> ConnectionsLost = Meter.CreateCounter<long>(
-        name: "connections-lost",
+        name: MetricNames.ConnectionsLost,
         unit: "connections",
         description: "Total number of lost connections");
 
@@ -69,7 +69,7 @@ internal static class Metrics
     /// Total number of connections lost due to timeout.
     /// </summary>
     public static readonly Counter<long> ConnectionsLostTimeout = Meter.CreateCounter<long>(
-        name: "connections-lost-timeout",
+        name: MetricNames.ConnectionsLostTimeout,
         unit: "connections",
         description: "Total number of lost connections due to network timeout");
 
@@ -77,7 +77,7 @@ internal static class Metrics
     /// Handshakes failed.
     /// </summary>
     public static readonly Counter<long> HandshakesFailed = Meter.CreateCounter<long>(
-        name: "handshakes-failed",
+        name: MetricNames.HandshakesFailed,
         unit: "handshakes",
         description: "Total number of failed handshakes (due to version mismatch, auth failure, etc)");
 

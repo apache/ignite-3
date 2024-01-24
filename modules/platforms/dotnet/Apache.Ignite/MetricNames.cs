@@ -35,17 +35,27 @@ public static class MetricNames
     public const string MeterVersion = "3.0.0";
 
     /// <summary>
-    /// Currently active connections metric name.
+    /// Currently active connections.
     /// </summary>
     public const string ConnectionsActive = "connections-active";
 
     /// <summary>
-    /// Total number of connections established during the lifetime of the process.
+    /// Total number of connections established (unlike <see cref="ConnectionsActive"/>, this metric only goes up).
     /// </summary>
     public const string ConnectionsEstablished = "connections-established";
 
     /// <summary>
-    /// Total number of connections lost during the lifetime of the process.
+    /// Total number of connections lost.
     /// </summary>
     public const string ConnectionsLost = "connections-lost";
+
+    /// <summary>
+    /// Total number of connections lost due to a timeout.
+    /// </summary>
+    public const string ConnectionsLostTimeout = "connections-lost-timeout";
+
+    /// <summary>
+    /// Total number of failed handshakes (due to version mismatch, auth failure, or other problems).
+    /// </summary>
+    public const string HandshakesFailed = "handshakes-failed";
 }
