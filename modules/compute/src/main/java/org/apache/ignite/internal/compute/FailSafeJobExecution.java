@@ -78,9 +78,9 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
                 .completeOnTimeout(failedStatus(), 10, TimeUnit.SECONDS)
                 .whenComplete((status, e) -> {
                     if (status != null) {
-                        this.capturedStatus.set(status);
+                        this.capturedStatus.compareAndSet(null, status);
                     } else {
-                        this.capturedStatus.set(failedStatus());
+                        this.capturedStatus.compareAndSet(null, failedStatus());
                     }
                 });
     }
@@ -113,10 +113,20 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
      * Transforms the status by modifying the fields that should be always the same regardless of the job execution attempt. For example,
      * the job creation time should be the same for all attempts.
      *
+     * <p>Can update {@link #capturedStatus} as a side-effect if the one is null.
+     *
      * @param jobStatus current job status.
      * @return transformed job status.
      */
-    private JobStatus transformStatus(JobStatus jobStatus) {
+    private @Nullable JobStatus transformStatus(@Nullable JobStatus jobStatus) {
+        if (jobStatus == null) {
+            return null;
+        }
+
+        if (capturedStatus.get() == null) {
+            capturedStatus.compareAndSet(null, jobStatus);
+        }
+
         return jobStatus.toBuilder()
                 .createTime(capturedStatus.get().createTime())
                 .id(capturedStatus.get().id())
@@ -142,7 +152,7 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
 
         return runningJobExecution.get()
                 .statusAsync()
-                .thenApply(jobStatus -> jobStatus != null ? transformStatus(jobStatus) : null);
+                .thenApply(this::transformStatus);
     }
 
     @Override
