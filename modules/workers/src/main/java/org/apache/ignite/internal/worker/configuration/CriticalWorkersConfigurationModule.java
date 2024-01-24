@@ -15,19 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.worker;
+package org.apache.ignite.internal.worker.configuration;
+
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * {@link CriticalWorkerRegistry} implementation that does nothing.
+ * {@link ConfigurationModule} for the configuration of critical workers handling.
  */
-public class NoOpCriticalWorkerRegistry implements CriticalWorkerRegistry {
+@AutoService(ConfigurationModule.class)
+public class CriticalWorkersConfigurationModule implements ConfigurationModule {
     @Override
-    public void register(CriticalWorker worker) {
-        // No-op.
+    public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
     }
 
     @Override
-    public void unregister(CriticalWorker worker) {
-        // No-op.
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Set.of(CriticalWorkersConfiguration.KEY);
     }
 }

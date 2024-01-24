@@ -79,6 +79,7 @@ dependencies {
     implementation project(':ignite-catalog')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-system-view')
+    implementation project(':ignite-workers')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -148,6 +149,7 @@ dependencies {
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-workers')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

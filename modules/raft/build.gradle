@@ -74,6 +74,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
+    integrationTestImplementation testFixtures(project(':ignite-workers'))
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.dropwizard.metrics
