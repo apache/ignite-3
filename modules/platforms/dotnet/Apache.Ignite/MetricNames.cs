@@ -64,7 +64,7 @@ public static class MetricNames
     public const string MeterVersion = "3.0.0";
 
     /// <summary>
-    /// Currently active connections.
+    /// Total number of currently active connections.
     /// </summary>
     public const string ConnectionsActive = "connections-active";
 

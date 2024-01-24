@@ -47,7 +47,7 @@ internal static class Metrics
         name: MetricNames.ConnectionsActive,
         observeValue: () => Interlocked.CompareExchange(ref _connectionsActive, 0, 0),
         unit: "connections",
-        description: "Currently active connections");
+        description: "Total number of currently active connections");
 
     /// <summary>
     /// Total number of connections established.
