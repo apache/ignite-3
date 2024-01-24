@@ -273,6 +273,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::FAIL_TO_GET_JOB_STATUS:
         case error::code::COMPUTE_JOB_FAILED:
         case error::code::CHANGE_JOB_PRIORITY_NO_JOB:
+        case error::code::PRIMARY_REPLICA_RESOLVE:
         case error::code::CHANGE_JOB_PRIORITY:
             return sql_state::SHY000_GENERAL_ERROR;
 
