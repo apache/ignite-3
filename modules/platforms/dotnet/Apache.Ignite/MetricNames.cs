@@ -89,7 +89,7 @@ public static class MetricNames
     public const string HandshakesFailed = "handshakes-failed";
 
     /// <summary>
-    /// Total number of failed handshakes due to network timeout.
+    /// Total number of failed handshakes due to a network timeout.
     /// </summary>
     public const string HandshakesFailedTimeout = "handshakes-failed-timeout";
 

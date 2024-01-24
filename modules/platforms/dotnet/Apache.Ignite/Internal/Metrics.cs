@@ -87,7 +87,7 @@ internal static class Metrics
     public static readonly Counter<long> HandshakesFailedTimeout = Meter.CreateCounter<long>(
         name: MetricNames.HandshakesFailedTimeout,
         unit: "handshakes",
-        description: "Total number of failed handshakes due to network timeout");
+        description: "Total number of failed handshakes due to a network timeout");
 
     /// <summary>
     /// Currently active requests (request sent, waiting for response).
