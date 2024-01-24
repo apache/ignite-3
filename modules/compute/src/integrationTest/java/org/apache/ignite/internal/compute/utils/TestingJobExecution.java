@@ -130,7 +130,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     }
 
     /**
-     * Checks that the job execution object has failed stated.
+     * Checks that the job execution has failed.
      */
     public void assertFailed() {
         await().untilAsserted(() -> {
