@@ -38,6 +38,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -70,6 +71,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ComputeComponentImpl computeComponent;
+
+    @Mock
+    private LogicalTopologyService logicalTopologyService;
 
     @Mock
     private PlacementDriver placementDriver;
