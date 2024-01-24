@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.rest.compute;
 
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toList;
 
 import io.micronaut.http.annotation.Controller;
-import java.util.Set;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.compute.ComputeComponent;
@@ -43,9 +43,9 @@ public class ComputeController implements ComputeApi {
     }
 
     @Override
-    public CompletableFuture<Set<JobStatus>> jobStatuses() {
+    public CompletableFuture<Collection<JobStatus>> jobStatuses() {
         return computeComponent.statusesAsync()
-                .thenApply(statuses -> statuses.stream().map(ComputeController::toJobStatus).collect(toSet()));
+                .thenApply(statuses -> statuses.stream().map(ComputeController::toJobStatus).collect(toList()));
     }
 
     @Override

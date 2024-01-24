@@ -30,7 +30,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.Set;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -53,7 +53,7 @@ public interface ComputeApi {
             content = @Content(mediaType = APPLICATION_JSON)
     )
     @Get("jobs")
-    CompletableFuture<Set<JobStatus>> jobStatuses();
+    CompletableFuture<Collection<JobStatus>> jobStatuses();
 
     /**
      * Retrieves the status of a specific compute job.

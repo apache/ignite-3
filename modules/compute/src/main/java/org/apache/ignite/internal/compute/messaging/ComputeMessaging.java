@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.messaging;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.compute.ComputeUtils.cancelFromJobCancelResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.changePriorityFromJobChangePriorityResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.jobIdFromExecuteResponse;
@@ -34,11 +35,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -191,7 +190,7 @@ public class ComputeMessaging {
     ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         ExecuteRequest executeRequest = messagesFactory.executeRequest()
                 .executeOptions(options)
@@ -256,7 +255,7 @@ public class ComputeMessaging {
         messagingService.respond(senderConsistentId, jobResultResponse, correlationId);
     }
 
-    CompletableFuture<Set<JobStatus>> remoteStatusesAsync(ClusterNode remoteNode) {
+    CompletableFuture<Collection<JobStatus>> remoteStatusesAsync(ClusterNode remoteNode) {
         JobStatusesRequest jobStatusRequest = messagesFactory.jobStatusesRequest()
                 .build();
 
@@ -266,13 +265,23 @@ public class ComputeMessaging {
 
     private void processJobStatusesRequest(JobStatusesRequest message, String senderConsistentId, long correlationId) {
         executionManager.localStatusesAsync()
-                .thenCompose(statuses -> {
-                    JobStatusesResponse jobStatusesResponse = messagesFactory.jobStatusesResponse()
-                            .statuses(statuses)
-                            .build();
+                .whenComplete((statuses, throwable) ->
+                        this.sendJobStatusesResponse(statuses, throwable, senderConsistentId, correlationId)
+                );
+    }
 
-                    return messagingService.respond(senderConsistentId, jobStatusesResponse, correlationId);
-                });
+    private void sendJobStatusesResponse(
+            @Nullable Collection<JobStatus> statuses,
+            @Nullable Throwable throwable,
+            String senderConsistentId,
+            Long correlationId
+    ) {
+        JobStatusesResponse jobStatusResponse = messagesFactory.jobStatusesResponse()
+                .statuses(statuses)
+                .throwable(throwable)
+                .build();
+
+        messagingService.respond(senderConsistentId, jobStatusResponse, correlationId);
     }
 
     /**
@@ -393,7 +402,7 @@ public class ComputeMessaging {
      *
      * @return The future which will be completed with the collection of statuses from all nodes.
      */
-    public CompletableFuture<Set<JobStatus>> broadcastStatusesAsync() {
+    public CompletableFuture<Collection<JobStatus>> broadcastStatusesAsync() {
         return broadcastAsyncAndCollect(
                 node -> remoteStatusesAsync(node),
                 throwable -> new ComputeException(
@@ -404,7 +413,7 @@ public class ComputeMessaging {
                     return statuses.stream()
                             .flatMap(Collection::stream)
                             .filter(Objects::nonNull)
-                            .collect(Collectors.toSet());
+                            .collect(toList());
                 });
     }
 
@@ -515,12 +524,14 @@ public class ComputeMessaging {
             return Arrays.stream(futures)
                     .map(CompletableFuture::join)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-        })
-                .thenAccept(result::complete)
-                .whenComplete((unused, throwable) -> {
-                    result.completeExceptionally(error.apply(throwable));
-                });
+                    .collect(toList());
+        }).whenComplete((collection, throwable) -> {
+            if (throwable == null) {
+                result.complete(collection);
+            } else {
+                result.completeExceptionally(error.apply(throwable));
+            }
+        });
 
         return result;
     }

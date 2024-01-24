@@ -350,8 +350,8 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Map<UUID, JobStatus> getJobStatuses(HttpClient client) {
-        Set<JobStatus> statuses = client.toBlocking()
-                .retrieve(HttpRequest.GET("/jobs"), Argument.setOf(JobStatus.class));
+        List<JobStatus> statuses = client.toBlocking()
+                .retrieve(HttpRequest.GET("/jobs"), Argument.listOf(JobStatus.class));
 
         return statuses.stream().collect(Collectors.toMap(JobStatus::id, s -> s));
     }

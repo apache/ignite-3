@@ -113,8 +113,7 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
     protected void describeMismatchSafely(HttpResponse<?> item, Description mismatchDescription) {
         mismatchDescription.appendText("status code was ")
                 .appendValue(item.code())
-                .appendText(" and ")
-                .appendText("body was ")
+                .appendText(" and body was ")
                 .appendValue(item.getBody(String.class));
     }
 }
