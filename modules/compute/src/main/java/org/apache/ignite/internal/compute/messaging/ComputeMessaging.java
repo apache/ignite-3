@@ -31,7 +31,6 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CHANGE_JOB_PRIORITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.FAIL_TO_GET_JOB_STATUS_ERR;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -63,6 +62,7 @@ import org.apache.ignite.internal.compute.message.JobStatusesRequest;
 import org.apache.ignite.internal.compute.message.JobStatusesResponse;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
@@ -521,12 +521,7 @@ public class ComputeMessaging {
                 .map(request::apply)
                 .toArray(CompletableFuture[]::new);
 
-        allOf(futures).thenApply(unused -> {
-            return Arrays.stream(futures)
-                    .map(CompletableFuture::join)
-                    .filter(Objects::nonNull)
-                    .collect(toList());
-        }).whenComplete((collection, throwable) -> {
+        CompletableFutures.allOf(futures).whenComplete((collection, throwable) -> {
             if (throwable == null) {
                 result.complete(collection);
             } else {
