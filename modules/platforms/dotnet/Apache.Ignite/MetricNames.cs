@@ -22,7 +22,7 @@ namespace Apache.Ignite;
 ///
 /// TODO: brief description of the usage.
 /// </summary>
-public static class Metrics
+public static class MetricNames
 {
     /// <summary>
     /// Meter name.
@@ -33,4 +33,19 @@ public static class Metrics
     /// Meter version.
     /// </summary>
     public const string MeterVersion = "3.0.0";
+
+    /// <summary>
+    /// Currently active connections metric name.
+    /// </summary>
+    public const string ConnectionsActive = "connections-active";
+
+    /// <summary>
+    /// Total number of connections established during the lifetime of the process.
+    /// </summary>
+    public const string ConnectionsEstablished = "connections-established";
+
+    /// <summary>
+    /// Total number of connections lost during the lifetime of the process.
+    /// </summary>
+    public const string ConnectionsLost = "connections-lost";
 }

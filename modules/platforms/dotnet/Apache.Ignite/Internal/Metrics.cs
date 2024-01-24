@@ -21,8 +21,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Threading;
 
-using MetricNames = Apache.Ignite.Metrics;
-
 /// <summary>
 /// Ignite.NET client metrics.
 /// </summary>
@@ -46,7 +44,7 @@ internal static class Metrics
     /// Currently active connections.
     /// </summary>
     public static readonly ObservableCounter<int> ConnectionsActive = Meter.CreateObservableCounter(
-        name: "connections-active",
+        name: MetricNames.ConnectionsActive,
         observeValue: () => Interlocked.CompareExchange(ref _connectionsActive, 0, 0),
         unit: "connections",
         description: "Currently active connections");
