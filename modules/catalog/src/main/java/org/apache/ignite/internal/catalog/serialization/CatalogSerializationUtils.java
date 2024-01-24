@@ -33,8 +33,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Utility methods used when serializing catalog entries.
  */
-class CatalogSerializationUtils {
-    static void writeNullableString(@Nullable String str, DataOutput out) throws IOException {
+public class CatalogSerializationUtils {
+    public static void writeNullableString(@Nullable String str, DataOutput out) throws IOException {
         out.writeBoolean(str != null);
 
         if (str != null) {
@@ -42,7 +42,7 @@ class CatalogSerializationUtils {
         }
     }
 
-    static @Nullable String readNullableString(DataInput in) throws IOException {
+    public static @Nullable String readNullableString(DataInput in) throws IOException {
         if (!in.readBoolean()) {
             return null;
         }
@@ -50,7 +50,7 @@ class CatalogSerializationUtils {
         return in.readUTF();
     }
 
-    static void writeStringCollection(Collection<String> list, DataOutput out) throws IOException {
+    public static void writeStringCollection(Collection<String> list, DataOutput out) throws IOException {
         out.writeInt(list.size());
 
         for (String item : list) {
@@ -58,19 +58,19 @@ class CatalogSerializationUtils {
         }
     }
 
-    static List<String> readStringList(DataInput in) throws IOException {
+    public static List<String> readStringList(DataInput in) throws IOException {
         int size = in.readInt();
 
         return readStringCollection(in, new ArrayList<>(size), size);
     }
 
-    static Set<String> readStringSet(DataInput in) throws IOException {
+    public static Set<String> readStringSet(DataInput in) throws IOException {
         int size = in.readInt();
 
         return readStringCollection(in, new HashSet<>(), size);
     }
 
-    static <T> T[] readArray(int version, IgniteDataInput in, CatalogEntrySerializer<T> serializer, Class<T> clazz) throws IOException {
+    public static <T> T[] readArray(int version, IgniteDataInput in, CatalogEntrySerializer<T> serializer, Class<T> clazz) throws IOException {
         int len = in.readInt();
 
         T[] arr = (T[]) Array.newInstance(clazz, len);
@@ -82,7 +82,7 @@ class CatalogSerializationUtils {
         return arr;
     }
 
-    static <T> void writeArray(T[] items, int version, CatalogEntrySerializer<T> serializer, IgniteDataOutput output) throws IOException {
+    public static <T> void writeArray(T[] items, int version, CatalogEntrySerializer<T> serializer, IgniteDataOutput output) throws IOException {
         output.writeInt(items.length);
 
         for (T item : items) {
@@ -90,7 +90,7 @@ class CatalogSerializationUtils {
         }
     }
 
-    static <T> List<T> readList(int version, IgniteDataInput in, CatalogEntrySerializer<T> serializer) throws IOException {
+    public static <T> List<T> readList(int version, IgniteDataInput in, CatalogEntrySerializer<T> serializer) throws IOException {
         int len = in.readInt();
 
         List<T> entries = new ArrayList<>(len);
@@ -104,7 +104,7 @@ class CatalogSerializationUtils {
         return entries;
     }
 
-    static <T> void writeList(List<T> items, int version, CatalogEntrySerializer<T> serializer, IgniteDataOutput out) throws IOException {
+    public static <T> void writeList(List<T> items, int version, CatalogEntrySerializer<T> serializer, IgniteDataOutput out) throws IOException {
         out.writeInt(items.size());
 
         for (T item : items) {

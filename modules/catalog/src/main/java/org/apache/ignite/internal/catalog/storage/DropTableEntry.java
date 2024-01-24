@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -26,14 +27,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes deletion of a table.
  */
 public class DropTableEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 7727583734058987315L;
+    public static CatalogEntrySerializer<DropTableEntry> SERIALIZER = new DropTableEntrySerializer();
 
     private final int tableId;
 
@@ -98,5 +101,24 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link DropTableEntry}.
+     */
+    private static class DropTableEntrySerializer implements CatalogEntrySerializer<DropTableEntry> {
+        @Override
+        public DropTableEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            int tableId = input.readInt();
+            String schemaName = input.readUTF();
+
+            return new DropTableEntry(tableId, schemaName);
+        }
+
+        @Override
+        public void writeTo(DropTableEntry entry, int version, IgniteDataOutput out) throws IOException {
+            out.writeInt(entry.tableId());
+            out.writeUTF(entry.schemaName());
+        }
     }
 }

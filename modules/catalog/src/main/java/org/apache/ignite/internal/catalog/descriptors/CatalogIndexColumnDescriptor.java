@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.Serializable;
+import java.io.IOException;
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Indexed column descriptor.
  */
-public class CatalogIndexColumnDescriptor implements Serializable {
-    private static final long serialVersionUID = 5750677168056750717L;
+public class CatalogIndexColumnDescriptor {
+    public static CatalogEntrySerializer<CatalogIndexColumnDescriptor> SERIALIZER = new IndexColumnDescriptorSerializer();
 
     private final String name;
 
@@ -48,5 +51,25 @@ public class CatalogIndexColumnDescriptor implements Serializable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    private static class IndexColumnDescriptorSerializer implements CatalogEntrySerializer<CatalogIndexColumnDescriptor> {
+        @Override
+        public CatalogIndexColumnDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+            String name = input.readUTF();
+            boolean asc = input.readBoolean();
+            boolean nullsFirst = input.readBoolean();
+
+            CatalogColumnCollation collation = CatalogColumnCollation.get(asc, nullsFirst);
+
+            return new CatalogIndexColumnDescriptor(name, collation);
+        }
+
+        @Override
+        public void writeTo(CatalogIndexColumnDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+            output.writeUTF(descriptor.name());
+            output.writeBoolean(descriptor.collation().asc());
+            output.writeBoolean(descriptor.collation().nullsFirst());
+        }
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
@@ -28,15 +29,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateSystemViewEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes addition of a new system view.
  */
 public class NewSystemViewEntry implements UpdateEntry, Fireable {
-
-    private static final long serialVersionUID = 2929374580760746317L;
+    public static CatalogEntrySerializer<NewSystemViewEntry> SERIALIZER = new NewSystemViewEntrySerializer();
 
     private final CatalogSystemViewDescriptor descriptor;
 
@@ -114,5 +116,24 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link NewSystemViewEntry}.
+     */
+    private static class NewSystemViewEntrySerializer implements CatalogEntrySerializer<NewSystemViewEntry> {
+        @Override
+        public NewSystemViewEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            CatalogSystemViewDescriptor descriptor = CatalogSystemViewDescriptor.SERIALIZER.readFrom(version, input);
+            String schema = input.readUTF();
+
+            return new NewSystemViewEntry(descriptor, schema);
+        }
+
+        @Override
+        public void writeTo(NewSystemViewEntry entry, int version, IgniteDataOutput output) throws IOException {
+            CatalogSystemViewDescriptor.SERIALIZER.writeTo(entry.descriptor(), version, output);
+            output.writeUTF(entry.schemaName());
+        }
     }
 }

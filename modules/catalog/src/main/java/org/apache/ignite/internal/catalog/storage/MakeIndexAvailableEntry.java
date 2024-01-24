@@ -19,15 +19,18 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 
+import java.io.IOException;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Entry for {@link MakeIndexAvailableCommand}. */
 public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry implements Fireable {
-    private static final long serialVersionUID = -5686678143537999594L;
+    public static CatalogEntrySerializer<MakeIndexAvailableEntry> SERIALIZER = new MakeIndexAvailableEntrySerializer();
 
     /** Constructor. */
     public MakeIndexAvailableEntry(int indexId) {
@@ -47,5 +50,22 @@ public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry impl
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
         return new MakeIndexAvailableEventParameters(causalityToken, catalogVersion, indexId);
+    }
+
+    /**
+     * Serializer for {@link MakeIndexAvailableEntry}.
+     */
+    private static class MakeIndexAvailableEntrySerializer implements CatalogEntrySerializer<MakeIndexAvailableEntry> {
+        @Override
+        public MakeIndexAvailableEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            int indexId = input.readInt();
+
+            return new MakeIndexAvailableEntry(indexId);
+        }
+
+        @Override
+        public void writeTo(MakeIndexAvailableEntry object, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(object.indexId());
+        }
     }
 }

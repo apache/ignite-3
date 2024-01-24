@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readArray;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeArray;
+
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /** Schema definition contains database schema objects. */
 public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
-    private static final long serialVersionUID = -233494425779955410L;
+    public static CatalogEntrySerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
 
     @IgniteToStringInclude
     private final CatalogTableDescriptor[] tables;
@@ -41,11 +47,11 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private final CatalogSystemViewDescriptor[] systemViews;
 
     @IgniteToStringExclude
-    private transient Map<String, CatalogTableDescriptor> tablesMap;
+    private Map<String, CatalogTableDescriptor> tablesMap;
     @IgniteToStringExclude
-    private transient Map<String, CatalogIndexDescriptor> indexesMap;
+    private Map<String, CatalogIndexDescriptor> indexesMap;
     @IgniteToStringExclude
-    private transient Map<String, CatalogSystemViewDescriptor> systemViewsMap;
+    private Map<String, CatalogSystemViewDescriptor> systemViewsMap;
 
     /**
      * Constructor.
@@ -92,12 +98,6 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         return systemViewsMap.get(name);
     }
 
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        in.defaultReadObject();
-
-        rebuildMaps();
-    }
-
     private void rebuildMaps() {
         tablesMap = Arrays.stream(tables).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
         indexesMap = Arrays.stream(indexes).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
@@ -108,5 +108,29 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link CatalogSchemaDescriptor}.
+     */
+    private static class SchemaDescriptorSerializer implements CatalogEntrySerializer<CatalogSchemaDescriptor> {
+        @Override
+        public CatalogSchemaDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+            CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
+            CatalogTableDescriptor[] tables = readArray(version, input, CatalogTableDescriptor.SERIALIZER, CatalogTableDescriptor.class);
+            CatalogIndexDescriptor[] indexes = readArray(version, input, CatalogIndexDescriptor.SERIALIZER, CatalogIndexDescriptor.class);
+            CatalogSystemViewDescriptor[] systemViews =
+                    readArray(version, input, CatalogSystemViewDescriptor.SERIALIZER, CatalogSystemViewDescriptor.class);
+
+            return new CatalogSchemaDescriptor(header.id(), header.name(), tables, indexes, systemViews, header.updateToken());
+        }
+
+        @Override
+        public void writeTo(CatalogSchemaDescriptor value, int version, IgniteDataOutput output) throws IOException {
+            CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(value), version, output);
+            writeArray(value.tables(), version, CatalogTableDescriptor.SERIALIZER, output);
+            writeArray(value.indexes(), version, CatalogIndexDescriptor.SERIALIZER, output);
+            writeArray(value.systemViews(), version, CatalogSystemViewDescriptor.SERIALIZER, output);
+        }
     }
 }

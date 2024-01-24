@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntryType;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
@@ -45,7 +46,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
     public UpdateLogMarshallerImpl() {
         this.version = PROTOCOL_VERSION;
-        this.serializerProvider = (id) -> CatalogEntrySerializer.forTypeId((short) id);
+        this.serializerProvider = CatalogEntrySerializer::forTypeId;
     }
 
     @TestOnly
@@ -97,15 +98,9 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
             for (int i = 0; i < size; i++) {
                 short entryTypeId = input.readShort();
 
-                UpdateEntryType entryType = UpdateEntryType.getById(entryTypeId);
-
-                if (entryType == null) {
-                    throw new IllegalStateException("Unknown entry type: " + entryTypeId);
-                }
-
                 CatalogEntrySerializer<UpdateEntry> serializer = serializerProvider.apply(entryTypeId);
 
-                entries.add(serializer.readFrom((short) updateEntryVersion, input));
+                entries.add(serializer.readFrom(updateEntryVersion, input));
             }
 
             int version = input.readInt();

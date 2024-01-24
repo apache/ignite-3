@@ -22,7 +22,9 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeStringCollection;
 
+import java.io.IOException;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -30,14 +32,17 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes dropping of columns.
  */
 public class DropColumnsEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 2970125889493580121L;
+    public static CatalogEntrySerializer<DropColumnsEntry> SERIALIZER = new DropColumnEntrySerializer();
 
     private final int tableId;
     private final Set<String> columns;
@@ -113,5 +118,26 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link DropColumnsEntry}.
+     */
+    private static class DropColumnEntrySerializer implements CatalogEntrySerializer<DropColumnsEntry> {
+        @Override
+        public DropColumnsEntry readFrom(int version, IgniteDataInput in) throws IOException {
+            String schemaName = in.readUTF();
+            int tableId = in.readInt();
+            Set<String> columns = CatalogSerializationUtils.readStringSet(in);
+
+            return new DropColumnsEntry(tableId, columns, schemaName);
+        }
+
+        @Override
+        public void writeTo(DropColumnsEntry object, int version, IgniteDataOutput out) throws IOException {
+            out.writeUTF(object.schemaName());
+            out.writeInt(object.tableId());
+            writeStringCollection(object.columns(), out);
+        }
     }
 }

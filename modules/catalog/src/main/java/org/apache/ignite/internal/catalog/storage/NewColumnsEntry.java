@@ -21,7 +21,10 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeList;
 
+import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -30,15 +33,17 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes addition of new columns.
  */
 public class NewColumnsEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 2970125889493580121L;
+    public static CatalogEntrySerializer<NewColumnsEntry> SERIALIZER = new NewColumnsEntrySerializer();
 
     private final int tableId;
     private final List<CatalogTableColumnDescriptor> descriptors;
@@ -111,5 +116,26 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link NewColumnsEntry}.
+     */
+    private static class NewColumnsEntrySerializer implements CatalogEntrySerializer<NewColumnsEntry> {
+        @Override
+        public NewColumnsEntry readFrom(int version, IgniteDataInput in) throws IOException {
+            List<CatalogTableColumnDescriptor> columns = readList(version, in, CatalogTableColumnDescriptor.SERIALIZER);
+            int tableId = in.readInt();
+            String schemaName = in.readUTF();
+
+            return new NewColumnsEntry(tableId, columns, schemaName);
+        }
+
+        @Override
+        public void writeTo(NewColumnsEntry entry, int version, IgniteDataOutput out) throws IOException {
+            writeList(entry.descriptors(), version, CatalogTableColumnDescriptor.SERIALIZER, out);
+            out.writeInt(entry.tableId());
+            out.writeUTF(entry.schemaName());
+        }
     }
 }

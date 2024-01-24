@@ -19,15 +19,18 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 
+import java.io.IOException;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Entry for {@link StartBuildingIndexCommand}. */
 public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
-    private static final long serialVersionUID = 6738120002994636883L;
+    public static CatalogEntrySerializer<StartBuildingIndexEntry> SERIALIZER = new StartBuildingIndexEntrySerializer();
 
     /** Constructor. */
     public StartBuildingIndexEntry(int indexId) {
@@ -47,5 +50,22 @@ public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry impl
     @Override
     public int typeId() {
         return UpdateEntryType.START_BUILDING_INDEX.id();
+    }
+
+    /**
+     * Serializer for {@link StartBuildingIndexEntry}.
+     */
+    private static class StartBuildingIndexEntrySerializer implements CatalogEntrySerializer<StartBuildingIndexEntry> {
+        @Override
+        public StartBuildingIndexEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            int indexId = input.readInt();
+
+            return new StartBuildingIndexEntry(indexId);
+        }
+
+        @Override
+        public void writeTo(StartBuildingIndexEntry object, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(object.indexId());
+        }
     }
 }

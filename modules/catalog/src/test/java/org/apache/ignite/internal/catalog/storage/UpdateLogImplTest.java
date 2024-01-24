@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -271,7 +272,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         return new VersionedUpdate(version, 1, List.of(new TestUpdateEntry("foo_" + version)));
     }
 
-    static class TestUpdateEntry implements UpdateEntry {
+    static class TestUpdateEntry implements UpdateEntry, Serializable {
         private static final long serialVersionUID = 4865078624964906600L;
 
         final String payload;

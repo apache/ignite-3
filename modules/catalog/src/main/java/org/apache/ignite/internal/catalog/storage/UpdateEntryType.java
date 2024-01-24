@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.serialization;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.catalog.storage;
 
 /**
  * Update entry type.
@@ -59,7 +57,11 @@ public enum UpdateEntryType {
         return id;
     }
 
-    public static @Nullable UpdateEntryType getById(int id) {
-        return id >= 0 && id < VALS.length ? VALS[id] : null;
+    public static UpdateEntryType getById(int id) {
+        if (id >= 0 && id < VALS.length) {
+            return VALS[id];
+        }
+
+        throw new IllegalArgumentException("Unknown entry type identifier: " + id);
     }
 }

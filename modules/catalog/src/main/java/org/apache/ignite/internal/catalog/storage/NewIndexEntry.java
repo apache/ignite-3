@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -25,15 +26,17 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes addition of a new index.
  */
 public class NewIndexEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 6717363577013237711L;
+    public static CatalogEntrySerializer<NewIndexEntry> SERIALIZER = new NewIndexEntrySerializer();
 
     private final CatalogIndexDescriptor descriptor;
 
@@ -100,5 +103,24 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link NewIndexEntry}.
+     */
+    private static class NewIndexEntrySerializer implements CatalogEntrySerializer<NewIndexEntry> {
+        @Override
+        public NewIndexEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            String schemaName = input.readUTF();
+            CatalogIndexDescriptor descriptor = CatalogIndexDescriptor.SERIALIZER.readFrom(version, input);
+
+            return new NewIndexEntry(descriptor, schemaName);
+        }
+
+        @Override
+        public void writeTo(NewIndexEntry entry, int version, IgniteDataOutput output) throws IOException {
+            output.writeUTF(entry.schemaName());
+            CatalogIndexDescriptor.SERIALIZER.writeTo(entry.descriptor(), version, output);
+        }
     }
 }

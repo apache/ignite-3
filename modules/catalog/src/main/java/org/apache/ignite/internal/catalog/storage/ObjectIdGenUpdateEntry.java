@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes update of the object id generator.
  */
 public class ObjectIdGenUpdateEntry implements UpdateEntry {
-    private static final long serialVersionUID = -6550888305785861504L;
+    public static CatalogEntrySerializer<ObjectIdGenUpdateEntry> SERIALIZER = new ObjectIdGenUpdateEntrySerializer();
 
     private final int delta;
 
@@ -62,5 +65,22 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link ObjectIdGenUpdateEntry}.
+     */
+    private static class ObjectIdGenUpdateEntrySerializer implements CatalogEntrySerializer<ObjectIdGenUpdateEntry> {
+        @Override
+        public ObjectIdGenUpdateEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            int delta = input.readInt();
+
+            return new ObjectIdGenUpdateEntry(delta);
+        }
+
+        @Override
+        public void writeTo(ObjectIdGenUpdateEntry entry, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(entry.delta());
+        }
     }
 }

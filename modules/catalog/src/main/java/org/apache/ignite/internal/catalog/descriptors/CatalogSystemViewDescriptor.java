@@ -18,17 +18,23 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeList;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * System view descriptor.
  */
 public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
-
-    private static final long serialVersionUID = -245956820725588288L;
+    public static CatalogEntrySerializer<CatalogSystemViewDescriptor> SERIALIZER = new SystemViewDescriptorSerializer();
 
     private final List<CatalogTableColumnDescriptor> columns;
 
@@ -118,24 +124,24 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
         /**
          * Node system view.
          */
-        NODE((byte) 0),
+        NODE(0),
         /**
          * Cluster-wide system view.
          */
-        CLUSTER((byte) 1);
+        CLUSTER(1);
 
-        private final byte id;
+        private final int id;
 
-        SystemViewType(byte id) {
+        SystemViewType(int id) {
             this.id = id;
         }
 
-        public byte id() {
+        public int id() {
             return id;
         }
 
         /** Returns system view type by identifier. */
-        public static SystemViewType getById(byte id) {
+        public static SystemViewType getById(int id) {
             if (id == 0) {
                 return NODE;
             } else {
@@ -143,7 +149,29 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
 
                 return CLUSTER;
             }
+        }
+    }
 
+    /**
+     * Serializer for {@link CatalogSystemViewDescriptor}.
+     */
+    private static class SystemViewDescriptorSerializer implements CatalogEntrySerializer<CatalogSystemViewDescriptor> {
+        @Override
+        public CatalogSystemViewDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+            CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
+            List<CatalogTableColumnDescriptor> columns = readList(version, input, CatalogTableColumnDescriptor.SERIALIZER);
+
+            byte sysViewTypeId = input.readByte();
+            SystemViewType sysViewType = SystemViewType.getById(sysViewTypeId);
+
+            return new CatalogSystemViewDescriptor(header.id(), header.name(), columns, sysViewType, header.updateToken());
+        }
+
+        @Override
+        public void writeTo(CatalogSystemViewDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+            CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(descriptor), version, output);
+            writeList(descriptor.columns(), version, CatalogTableColumnDescriptor.SERIALIZER, output);
+            output.writeByte(descriptor.systemViewType().id());
         }
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -26,14 +27,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes deletion of an index.
  */
 public class DropIndexEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = -604729846502020728L;
+    public static DropIndexEntrySerializer SERIALIZER = new DropIndexEntrySerializer();
 
     private final int indexId;
 
@@ -107,5 +110,26 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link DropIndexEntry}.
+     */
+    private static class DropIndexEntrySerializer implements CatalogEntrySerializer<DropIndexEntry> {
+        @Override
+        public DropIndexEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            int indexId = input.readInt();
+            int tableId = input.readInt();
+            String schemaName = input.readUTF();
+
+            return new DropIndexEntry(indexId, tableId, schemaName);
+        }
+
+        @Override
+        public void writeTo(DropIndexEntry entry, int version, IgniteDataOutput out) throws IOException {
+            out.writeInt(entry.indexId());
+            out.writeInt(entry.tableId());
+            out.writeUTF(entry.schemaName());
+        }
     }
 }

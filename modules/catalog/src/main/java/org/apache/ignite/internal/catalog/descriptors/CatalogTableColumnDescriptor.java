@@ -17,18 +17,26 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Table column descriptor.
  */
-public class CatalogTableColumnDescriptor implements Serializable {
-    private static final long serialVersionUID = 7684890562398520509L;
+public class CatalogTableColumnDescriptor {
+    public static CatalogEntrySerializer<CatalogTableColumnDescriptor> SERIALIZER = new TableColumnDescriptorSerializer();
 
     private final String name;
     private final ColumnType type;
@@ -134,5 +142,112 @@ public class CatalogTableColumnDescriptor implements Serializable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link CatalogTableColumnDescriptor}.
+     */
+    private static class TableColumnDescriptorSerializer implements CatalogEntrySerializer<CatalogTableColumnDescriptor> {
+        @Override
+        public CatalogTableColumnDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+            DefaultValue defaultValue = DefaultValueSerializer.INSTANCE.readFrom(version, input);
+            String name = input.readUTF();
+            int typeId = input.readInt();
+
+            ColumnType type = ColumnType.getById(typeId);
+
+            assert type != null : typeId;
+
+            boolean nullable = input.readBoolean();
+            int precision = input.readInt();
+            int scale = input.readInt();
+            int length = input.readInt();
+
+            return new CatalogTableColumnDescriptor(name, type, nullable, precision, scale, length, defaultValue);
+        }
+
+        @Override
+        public void writeTo(CatalogTableColumnDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+            DefaultValueSerializer.INSTANCE.writeTo(descriptor.defaultValue(), version, output);
+
+            output.writeUTF(descriptor.name());
+            output.writeInt(descriptor.type().id());
+            output.writeBoolean(descriptor.nullable());
+            output.writeInt(descriptor.precision());
+            output.writeInt(descriptor.scale());
+            output.writeInt(descriptor.length());
+        }
+    }
+
+    /**
+     * Serializer for {@link DefaultValue}.
+     */
+    private static class DefaultValueSerializer implements CatalogEntrySerializer<DefaultValue> {
+        static DefaultValueSerializer INSTANCE = new DefaultValueSerializer();
+
+        @Override
+        @Nullable public DefaultValue readFrom(int version, IgniteDataInput in) throws IOException {
+            int typeId = in.readInt();
+
+            if (typeId == -1) {
+                return null;
+            }
+
+            Type type = Type.getById(typeId);
+
+            switch (type) {
+                case FUNCTION_CALL:
+                    return FunctionCall.functionCall(in.readUTF());
+                case CONSTANT:
+                    int length = in.readInt();
+
+                    if (length == -1) {
+                        return DefaultValue.constant(null);
+                    }
+
+                    byte[] bytes = in.readByteArray(length);
+
+                    return DefaultValue.constant(ByteUtils.fromBytes(bytes));
+
+                default:
+                    throw new UnsupportedOperationException("Unsupported default value type; " + type);
+            }
+        }
+
+        @Override
+        public void writeTo(@Nullable DefaultValue value, int version, IgniteDataOutput out) throws IOException {
+            if (value == null) {
+                out.writeInt(-1);
+
+                return;
+            }
+
+            out.writeInt(value.type().id());
+
+            switch (value.type()) {
+                case FUNCTION_CALL:
+                    out.writeUTF(((FunctionCall) value).functionName());
+
+                    break;
+                case CONSTANT:
+                    ConstantValue constValue = (ConstantValue) value;
+
+                    Serializable val = constValue.value();
+
+                    if (val == null) {
+                        out.writeInt(-1);
+                    } else {
+                        byte[] bytes = ByteUtils.toBytes(val);
+
+                        out.writeInt(bytes.length);
+
+                        out.writeByteArray(bytes);
+                    }
+                    break;
+
+                default:
+                    throw new UnsupportedOperationException("Unsupported default value type: " + value.type());
+            }
+        }
     }
 }

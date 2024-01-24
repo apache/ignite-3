@@ -26,8 +26,6 @@ import org.apache.ignite.internal.tostring.S;
 
 /** Hash index descriptor. */
 public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
-    private static final long serialVersionUID = -6784028115063219759L;
-
     @IgniteToStringInclude
     private final List<String> columns;
 
@@ -82,5 +80,3 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
         return S.toString(this);
     }
 }
-
-

@@ -44,7 +44,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer.SchemaDescriptorSerializer;
 import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
@@ -216,7 +215,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 new CatalogSystemViewDescriptor(1, "view2", columns, SystemViewType.CLUSTER)
         };
 
-        SchemaDescriptorSerializer serializer = SchemaDescriptorSerializer.INSTANCE;
+        CatalogEntrySerializer<CatalogSchemaDescriptor> serializer = CatalogSchemaDescriptor.SERIALIZER;
 
         CatalogSchemaDescriptor descriptor = new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, 1);
 

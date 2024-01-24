@@ -17,21 +17,24 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes addition of a new zone.
  */
 public class NewZoneEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 2970125889493580121L;
+    public static CatalogEntrySerializer<NewZoneEntry> SERIALIZER = new NewZoneEntrySerializer();
 
     private final CatalogZoneDescriptor descriptor;
 
@@ -80,5 +83,22 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link NewZoneEntry}.
+     */
+    private static class NewZoneEntrySerializer implements CatalogEntrySerializer<NewZoneEntry> {
+        @Override
+        public NewZoneEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(version, input);
+
+            return new NewZoneEntry(descriptor);
+        }
+
+        @Override
+        public void writeTo(NewZoneEntry object, int version, IgniteDataOutput output) throws IOException {
+            CatalogZoneDescriptor.SERIALIZER.writeTo(object.descriptor(), version, output);
+        }
     }
 }

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSc
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 
+import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -30,14 +31,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.serialization.UpdateEntryType;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes a column replacement.
  */
 public class AlterColumnEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = -4552940987881338656L;
+    public static CatalogEntrySerializer<AlterColumnEntry> SERIALIZER = new AlterColumnEntrySerializer();
 
     private final int tableId;
 
@@ -115,5 +118,28 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link AlterColumnEntry}.
+     */
+    private static class AlterColumnEntrySerializer implements CatalogEntrySerializer<AlterColumnEntry> {
+        @Override
+        public AlterColumnEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            CatalogTableColumnDescriptor descriptor = CatalogTableColumnDescriptor.SERIALIZER.readFrom(version, input);
+
+            String schemaName = input.readUTF();
+            int tableId = input.readInt();
+
+            return new AlterColumnEntry(tableId, descriptor, schemaName);
+        }
+
+        @Override
+        public void writeTo(AlterColumnEntry value, int version, IgniteDataOutput output) throws IOException {
+            CatalogTableColumnDescriptor.SERIALIZER.writeTo(value.descriptor(), version, output);
+
+            output.writeUTF(value.schemaName());
+            output.writeInt(value.tableId());
+        }
     }
 }

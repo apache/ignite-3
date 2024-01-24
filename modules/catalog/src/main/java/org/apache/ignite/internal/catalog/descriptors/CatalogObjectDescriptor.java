@@ -19,17 +19,22 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 
-import java.io.Serializable;
+import java.io.IOException;
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Base class for catalog objects.
  * TODO: IGNITE-19082 Implement custom effective serialization instead.
  */
-public abstract class CatalogObjectDescriptor implements Serializable {
-    private static final long serialVersionUID = -6525237234280004860L;
+public abstract class CatalogObjectDescriptor {
+    public static CatalogDescriptorBaseSerializer SERIALIZER = new CatalogDescriptorBaseSerializer();
+
     private final int id;
     private final String name;
     private final Type type;
@@ -95,5 +100,55 @@ public abstract class CatalogObjectDescriptor implements Serializable {
         INDEX,
         ZONE,
         SYSTEM_VIEW
+    }
+
+    /**
+     * Catalog object descriptor header serializer.
+     */
+    static class CatalogDescriptorBaseSerializer implements CatalogEntrySerializer<CatalogDescriptorBase> {
+        @Override
+        public CatalogDescriptorBase readFrom(int version, IgniteDataInput input) throws IOException {
+            return new CatalogDescriptorBase(version, input);
+        }
+
+        @Override
+        public void writeTo(CatalogDescriptorBase descriptor, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(descriptor.id);
+            output.writeUTF(descriptor.name);
+            output.writeLong(descriptor.updateToken);
+        }
+
+        /**
+         * Utility class to read catalog object descriptor common part.
+         */
+        static class CatalogDescriptorBase {
+            private final int id;
+            private final String name;
+            private final long updateToken;
+
+            CatalogDescriptorBase(CatalogObjectDescriptor desc) {
+                this.id = desc.id();
+                this.name = desc.name();
+                this.updateToken = desc.updateToken();
+            }
+
+            CatalogDescriptorBase(int version, IgniteDataInput input) throws IOException {
+                id = input.readInt();
+                name = input.readUTF();
+                updateToken = input.readLong();
+            }
+
+            public int id() {
+                return id;
+            }
+
+            public String name() {
+                return name;
+            }
+
+            public long updateToken() {
+                return updateToken;
+            }
+        }
     }
 }

@@ -28,8 +28,6 @@ import org.apache.ignite.internal.tostring.S;
 
 /** Sorted index descriptor. */
 public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
-    private static final long serialVersionUID = 2085714310150728611L;
-
     @IgniteToStringInclude
     private final List<CatalogIndexColumnDescriptor> columns;
 

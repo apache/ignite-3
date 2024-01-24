@@ -18,25 +18,32 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readStringList;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeStringCollection;
 
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Table descriptor.
  */
 public class CatalogTableDescriptor extends CatalogObjectDescriptor {
-    private static final long serialVersionUID = -2021394971104316570L;
+    public static CatalogEntrySerializer<CatalogTableDescriptor> SERIALIZER = new TableDescriptorSerializer();
 
     public static final int INITIAL_TABLE_VERSION = 1;
 
@@ -53,7 +60,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private final List<String> colocationColumns;
 
     @IgniteToStringExclude
-    private transient Map<String, CatalogTableColumnDescriptor> columnsMap;
+    private Map<String, CatalogTableColumnDescriptor> columnsMap;
 
     private long creationToken;
 
@@ -199,11 +206,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return colocationColumns.contains(name);
     }
 
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        in.defaultReadObject();
-        this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
-    }
-
     @Override
     public String toString() {
         return S.toString(this);
@@ -218,5 +220,54 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         super.updateToken(updateToken);
 
         this.creationToken = this.creationToken == INITIAL_CAUSALITY_TOKEN ? updateToken : this.creationToken;
+    }
+
+    /**
+     * Serializer for {@link CatalogTableDescriptor}.
+     */
+    private static class TableDescriptorSerializer implements CatalogEntrySerializer<CatalogTableDescriptor> {
+        @Override
+        public CatalogTableDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+            CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
+            CatalogTableSchemaVersions schemaVersions = CatalogTableSchemaVersions.SERIALIZER.readFrom(version, input);
+            List<CatalogTableColumnDescriptor> columns = readList(version, input, CatalogTableColumnDescriptor.SERIALIZER);
+
+            int schemaId = input.readInt();
+            int pkIndexId = input.readInt();
+            int zoneId = input.readInt();
+
+            List<String> primaryKeyColumns = readStringList(input);
+            List<String> colocationColumns = readStringList(input);
+
+            long creationToken = input.readLong();
+
+            return new CatalogTableDescriptor(
+                    header.id(),
+                    schemaId,
+                    pkIndexId,
+                    header.name(),
+                    zoneId,
+                    columns,
+                    primaryKeyColumns,
+                    colocationColumns,
+                    schemaVersions,
+                    header.updateToken(),
+                    creationToken
+            );
+        }
+
+        @Override
+        public void writeTo(CatalogTableDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+            CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(descriptor), version, output);
+            CatalogTableSchemaVersions.SERIALIZER.writeTo(descriptor.schemaVersions(), version, output);
+            writeList(descriptor.columns(), version, CatalogTableColumnDescriptor.SERIALIZER, output);
+
+            output.writeInt(descriptor.schemaId());
+            output.writeInt(descriptor.primaryKeyIndexId());
+            output.writeInt(descriptor.zoneId());
+            writeStringCollection(descriptor.primaryKeyColumns(), output);
+            writeStringCollection(descriptor.colocationColumns(), output);
+            output.writeLong(descriptor.creationToken());
+        }
     }
 }
