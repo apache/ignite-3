@@ -110,7 +110,7 @@ public:
 
 private:
     /** Type constant. */
-    inline static const std::string TYPE{"basic"};
+    inline static const std::string TYPE{"password"};
 
     /** Request and response page size. */
     value_with_default<std::int32_t> m_page_size{default_value::page_size, false};

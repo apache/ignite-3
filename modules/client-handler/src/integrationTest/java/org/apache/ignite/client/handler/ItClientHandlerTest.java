@@ -222,7 +222,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(0);
             packer.packInt(0);
             packer.packInt(0);
-            packer.packInt(67); // Size.
+            packer.packInt(70); // Size.
 
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -233,7 +233,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packBinaryHeader(0); // Features.
             packer.packInt(3); // Extensions.
             packer.packString("authn-type");
-            packer.packString("basic");
+            packer.packString("password");
             packer.packString("authn-identity");
             packer.packString("admin");
             packer.packString("authn-secret");
@@ -290,7 +290,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(0);
             packer.packInt(0);
             packer.packInt(0);
-            packer.packInt(75); // Size.
+            packer.packInt(78); // Size.
 
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -301,7 +301,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packBinaryHeader(0); // Features.
             packer.packInt(3); // Extensions.
             packer.packString("authn-type");
-            packer.packString("basic");
+            packer.packString("password");
             packer.packString("authn-identity");
             packer.packString("admin");
             packer.packString("authn-secret");

@@ -75,8 +75,8 @@ public class JdbcUrlFactory {
         addIfSet(queryParams, JDBC_CLIENT_AUTH, "clientAuth");
         addIfSet(queryParams, JDBC_CIPHERS, "ciphers");
         addSslEnabledIfNeeded(queryParams);
-        addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthenticationUsername");
-        addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthenticationPassword");
+        addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "username");
+        addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "password");
         if (!queryParams.isEmpty()) {
             String query = queryParams.stream()
                     .collect(Collectors.joining("&", "?", ""));

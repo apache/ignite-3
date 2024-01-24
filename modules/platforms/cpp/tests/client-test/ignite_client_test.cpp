@@ -17,7 +17,7 @@
 
 #include "ignite_runner_suite.h"
 
-#include <ignite/client/basic_authenticator.h>
+#include <ignite/client/password_authenticator.h>
 #include <ignite/client/ignite_client.h>
 #include <ignite/client/ignite_client_configuration.h>
 

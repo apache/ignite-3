@@ -177,7 +177,7 @@ public interface IgniteClientConfiguration {
     /**
      * Gets the authenticator.
      *
-     * <p>See also: {@link BasicAuthenticator}.
+     * <p>See also: {@link PasswordAuthenticator}.
      *
      * @return Authenticator.
      */

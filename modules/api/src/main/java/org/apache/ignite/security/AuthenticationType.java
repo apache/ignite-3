@@ -17,24 +17,7 @@
 
 package org.apache.ignite.security;
 
-import java.util.Arrays;
-import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
-
 /** Authentication types. */
 public enum AuthenticationType {
-    BASIC;
-
-    /**
-     * Parses {@link AuthenticationType} from the given string.
-     *
-     * @param type String representation of the type.
-     * @return parsed {@link AuthenticationType}.
-     * @throws UnsupportedAuthenticationTypeException in case of unknown type.
-     */
-    public static AuthenticationType parse(String type) {
-        return Arrays.stream(values())
-                .filter(it -> type.equalsIgnoreCase(it.name()))
-                .findFirst()
-                .orElseThrow(() -> new UnsupportedAuthenticationTypeException("Unknown authentication type: " + type));
-    }
+    PASSWORD;
 }

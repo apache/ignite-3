@@ -24,12 +24,12 @@ import org.apache.ignite.security.AuthenticationType;
  *
  * <p>Credentials are sent to the server in plain text, unless SSL/TLS is enabled - see {@link IgniteClientConfiguration#ssl()}.
  */
-public class BasicAuthenticator implements IgniteClientAuthenticator {
+public class PasswordAuthenticator implements IgniteClientAuthenticator {
     private final String username;
 
     private final String password;
 
-    private BasicAuthenticator(String username, String password) {
+    private PasswordAuthenticator(String username, String password) {
         this.username = username;
         this.password = password;
     }
@@ -45,7 +45,7 @@ public class BasicAuthenticator implements IgniteClientAuthenticator {
 
     @Override
     public String type() {
-        return AuthenticationType.BASIC.name();
+        return AuthenticationType.PASSWORD.name();
     }
 
     @Override
@@ -94,8 +94,8 @@ public class BasicAuthenticator implements IgniteClientAuthenticator {
          *
          * @return Authenticator.
          */
-        public BasicAuthenticator build() {
-            return new BasicAuthenticator(username, password);
+        public PasswordAuthenticator build() {
+            return new PasswordAuthenticator(username, password);
         }
     }
 }

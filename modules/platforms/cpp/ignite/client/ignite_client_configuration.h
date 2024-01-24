@@ -142,7 +142,7 @@ public:
     /**
      * Gets the authenticator.
      *
-     * @see Also see basic_authenticator.
+     * @see Also see password_authenticator.
      *
      * @return Authenticator
      */

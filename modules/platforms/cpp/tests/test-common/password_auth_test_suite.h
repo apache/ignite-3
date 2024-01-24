@@ -19,7 +19,7 @@
 
 #include "tests/client-test/ignite_runner_suite.h"
 
-#include <ignite/client/basic_authenticator.h>
+#include <ignite/client/password_authenticator.h>
 #include <ignite/client/ignite_client.h>
 #include <ignite/client/ignite_client_configuration.h>
 
@@ -29,7 +29,7 @@
 /**
  * Test suite.
  */
-class basic_auth_test_suite : public ignite::ignite_runner_suite {
+class password_auth_test_suite : public ignite::ignite_runner_suite {
 public:
     /** Correct username */
     inline static const std::string CORRECT_USERNAME{"user-1"};
@@ -65,7 +65,7 @@ public:
     static ignite::ignite_client_configuration get_configuration(std::string user, std::string password) {
         ignite::ignite_client_configuration cfg{get_configuration()};
 
-        auto authenticator = std::make_shared<ignite::basic_authenticator>(std::move(user), std::move(password));
+        auto authenticator = std::make_shared<ignite::password_authenticator>(std::move(user), std::move(password));
         cfg.set_authenticator(authenticator);
 
         return cfg;

@@ -24,9 +24,9 @@ using NUnit.Framework;
 using Security.Exception;
 
 /// <summary>
-/// Tests for <see cref="BasicAuthenticator"/>.
+/// Tests for <see cref="PasswordAuthenticator"/>.
 /// </summary>
-public class BasicAuthenticatorTests : IgniteTestsBase
+public class PasswordAuthenticatorTests : IgniteTestsBase
 {
     private const string EnableAuthnJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$EnableAuthenticationJob";
 
@@ -40,7 +40,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
     {
         var cfg = new IgniteClientConfiguration(GetConfig())
         {
-            Authenticator = new BasicAuthenticator
+            Authenticator = new PasswordAuthenticator
             {
                 Username = "u",
                 Password = "p"
@@ -78,7 +78,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         {
             RetryPolicy = new RetryNonePolicy(),
             Authenticator = enableAuthn
-                ? new BasicAuthenticator
+                ? new PasswordAuthenticator
                 {
                     Username = "user-1",
                     Password = "password-1"

@@ -52,9 +52,9 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientAuthenticator;
+import org.apache.ignite.client.PasswordAuthenticator;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.TcpIgniteClient;
@@ -231,12 +231,12 @@ public class JdbcConnection implements Connection {
     }
 
     private static @Nullable IgniteClientAuthenticator extractAuthenticationConfiguration(ConnectionProperties connProps) {
-        String basicAuthenticationUsername = connProps.getBasicAuthenticationUsername();
-        String basicAuthenticationPassword = connProps.getBasicAuthenticationPassword();
-        if (basicAuthenticationUsername != null && basicAuthenticationPassword != null) {
-            return BasicAuthenticator.builder()
-                    .username(basicAuthenticationUsername)
-                    .password(basicAuthenticationPassword)
+        String username = connProps.getUsername();
+        String password = connProps.getPassword();
+        if (username != null && password != null) {
+            return PasswordAuthenticator.builder()
+                    .username(username)
+                    .password(password)
                     .build();
         } else {
             return null;

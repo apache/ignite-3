@@ -26,8 +26,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.typesafe.config.ConfigFactory;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.PasswordAuthenticator;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
@@ -57,7 +57,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     private SecurityConfiguration securityConfiguration;
 
-    private final BasicAuthenticator basicAuthenticator = BasicAuthenticator.builder()
+    private final PasswordAuthenticator passwordAuthenticator = PasswordAuthenticator.builder()
             .username(USERNAME_1)
             .password(PASSWORD_1)
             .build();
@@ -88,7 +88,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         assertThat(enableAuthentication, willCompleteSuccessfully());
 
         clientWithAuth = IgniteClient.builder()
-                .authenticator(basicAuthenticator)
+                .authenticator(passwordAuthenticator)
                 .reconnectThrottlingRetries(0)
                 .addresses(getClientAddresses().toArray(new String[0]))
                 .build();
@@ -164,7 +164,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                 + "}");
 
         try (IgniteClient client = IgniteClient.builder()
-                .authenticator(BasicAuthenticator.builder().username("newuser").password("newpassword").build())
+                .authenticator(PasswordAuthenticator.builder().username("newuser").password("newpassword").build())
                 .reconnectThrottlingRetries(0)
                 .addresses(getClientAddresses().toArray(new String[0]))
                 .build()) {
