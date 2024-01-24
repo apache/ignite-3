@@ -98,4 +98,24 @@ public static class MetricNames
     /// Total number of bytes received.
     /// </summary>
     public const string BytesReceived = "bytes-received";
+
+    /// <summary>
+    /// Total number of data streamer batches sent.
+    /// </summary>
+    public const string StreamerBatchesSent = "streamer-batches-sent";
+
+    /// <summary>
+    /// Total number of data streamer items sent.
+    /// </summary>
+    public const string StreamerItemsSent = "streamer-items-sent";
+
+    /// <summary>
+    /// Total number of active (in-memory) data streamer batches.
+    /// </summary>
+    public const string StreamerBatchesActive = "streamer-batches-active";
+
+    /// <summary>
+    /// Total number of queued data streamer items (rows).
+    /// </summary>
+    public const string StreamerItemsQueued = "streamer-items-queued";
 }
