@@ -25,11 +25,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -54,6 +54,7 @@ public class StorageUpdateHandler {
 
     /** A container for rows that were inserted, updated or removed. */
     private final PendingRows pendingRows = new PendingRows();
+    private final StorageUpdateConfiguration storageUpdateCfg;
 
     /**
      * The constructor.
@@ -65,11 +66,13 @@ public class StorageUpdateHandler {
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
-            IndexUpdateHandler indexUpdateHandler
+            IndexUpdateHandler indexUpdateHandler,
+            StorageUpdateConfiguration storageUpdateCfg
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexUpdateHandler = indexUpdateHandler;
+        this.storageUpdateCfg = storageUpdateCfg;
     }
 
     /**
@@ -161,50 +164,53 @@ public class StorageUpdateHandler {
         if (nullOrEmpty(rowsToUpdate)) {
             return;
         }
+        int commitTblId = commitPartitionId.tableId();
+        int commitPartId = commitPartitionId.partitionId();
+
         long batchSize = getBatchSize();
-        BiPredicate<List<Entry<UUID, TimedBinaryRow>>, Entry<UUID, TimedBinaryRow>> isFullByRowCount = (batch, row) ->
+
+        BatchFullPredicate<Entry<UUID, TimedBinaryRow>> isFullByRowCount = (batch, row) ->
                 batch.size() + 1 > batchSize;
-        List<List<Map.Entry<UUID, TimedBinaryRow>>> batches = getTimedBinaryRowBatches(rowsToUpdate, isFullByRowCount);
-        batches.forEach((batch) ->
-                storage.runConsistently(locker -> {
-                    int commitTblId = commitPartitionId.tableId();
-                    int commitPartId = commitPartitionId.partitionId();
+        List<List<Map.Entry<UUID, TimedBinaryRow>>> batches = splitToBatches(rowsToUpdate, isFullByRowCount);
+        for (List<Map.Entry<UUID, TimedBinaryRow>> batch : batches) {
+            storage.runConsistently(locker -> {
 
-                    List<RowId> rowIds = new ArrayList<>();
-                    for (Map.Entry<UUID, TimedBinaryRow> entry : batch) {
-                        RowId rowId = new RowId(partitionId, entry.getKey());
-                        BinaryRow row = entry.getValue() == null ? null : entry.getValue().binaryRow();
+                List<RowId> rowIds = new ArrayList<>();
+                for (Map.Entry<UUID, TimedBinaryRow> entry : batch) {
+                    RowId rowId = new RowId(partitionId, entry.getKey());
+                    BinaryRow row = entry.getValue() == null ? null : entry.getValue().binaryRow();
 
-                        locker.lock(rowId);
+                    locker.lock(rowId);
 
-                        performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
+                    performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
 
-                        if (commitTs != null) {
-                            storage.addWriteCommitted(rowId, row, commitTs);
-                        } else {
-                            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+                    if (commitTs != null) {
+                        storage.addWriteCommitted(rowId, row, commitTs);
+                    } else {
+                        BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
-                            if (oldRow != null) {
-                                assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
-                                // Previous uncommitted row should be removed from indexes.
-                                tryRemovePreviousWritesIndex(rowId, oldRow);
-                            }
+                        if (oldRow != null) {
+                            assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
+                            // Previous uncommitted row should be removed from indexes.
+                            tryRemovePreviousWritesIndex(rowId, oldRow);
                         }
-
-                        rowIds.add(rowId);
-                        indexUpdateHandler.addToIndexes(row, rowId);
                     }
 
-                    if (trackWriteIntent) {
-                        pendingRows.addPendingRowIds(txId, rowIds);
-                    }
+                    rowIds.add(rowId);
+                    indexUpdateHandler.addToIndexes(row, rowId);
+                }
 
-                    if (onApplication != null) {
-                        onApplication.run();
-                    }
+                if (trackWriteIntent) {
+                    pendingRows.addPendingRowIds(txId, rowIds);
+                }
 
-                    return null;
-                }));
+                if (onApplication != null) {
+                    onApplication.run();
+                }
+
+                return null;
+            });
+        }
     }
 
     //draft, TODO get from config
@@ -212,21 +218,23 @@ public class StorageUpdateHandler {
         return 10;
     }
 
-    private List<List<Map.Entry<UUID, TimedBinaryRow>>> getTimedBinaryRowBatches(
+    private List<List<Map.Entry<UUID, TimedBinaryRow>>> splitToBatches(
             Map<UUID, TimedBinaryRow> rows,
-            BiPredicate<List<Entry<UUID, TimedBinaryRow>>, Map.Entry<UUID, TimedBinaryRow>> isFull
+            BatchFullPredicate isFull
     ) {
         // Sort IDs to prevent deadlock. Natural UUID order matches RowId order within the same partition.
-        List<Entry<UUID, TimedBinaryRow>> sortedRows = rows.entrySet().stream().sorted().collect(Collectors.toList());
+        List<Entry<UUID, TimedBinaryRow>> sortedEntries = rows.entrySet().stream()
+                .sorted(Entry.comparingByKey())
+                .collect(Collectors.toList());
         List<List<Entry<UUID, TimedBinaryRow>>> batches = new ArrayList<>();
-        List<Entry<UUID, TimedBinaryRow>> lastBatch = new ArrayList<>();
-        batches.add(lastBatch);
-        for (Entry<UUID, TimedBinaryRow> row : sortedRows) {
-            if (isFull.test(lastBatch, row)) {
-                lastBatch = new ArrayList<>();
-                batches.add(lastBatch);
+        List<Entry<UUID, TimedBinaryRow>> batch = new ArrayList<>();
+        batches.add(batch);
+        for (Entry<UUID, TimedBinaryRow> row : sortedEntries) {
+            if (isFull.test(batch, row)) {
+                batch = new ArrayList<>();
+                batches.add(batch);
             }
-            lastBatch.add(row);
+            batch.add(row);
         }
         return batches;
     }

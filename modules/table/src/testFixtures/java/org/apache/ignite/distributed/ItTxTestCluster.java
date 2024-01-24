@@ -65,6 +65,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -88,6 +89,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -248,6 +250,8 @@ public class ItTxTestCluster {
     };
 
     private final TestInfo testInfo;
+    @InjectConfiguration
+    protected static StorageUpdateConfiguration storageUpdateConfig;
 
     /** Observable timestamp tracker. */
     private final HybridTimestampTracker timestampTracker;
@@ -532,7 +536,8 @@ public class ItTxTestCluster {
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        indexUpdateHandler
+                        indexUpdateHandler,
+                        storageUpdateConfig
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
