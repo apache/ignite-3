@@ -58,4 +58,44 @@ public static class MetricNames
     /// Total number of failed handshakes (due to version mismatch, auth failure, or other problems).
     /// </summary>
     public const string HandshakesFailed = "handshakes-failed";
+
+    /// <summary>
+    /// Total number of failed handshakes due to network timeout.
+    /// </summary>
+    public const string HandshakesFailedTimeout = "handshakes-failed-timeout";
+
+    /// <summary>
+    /// Currently active requests (being sent to the socket or waiting for response).
+    /// </summary>
+    public const string RequestsActive = "requests-active";
+
+    /// <summary>
+    /// Total number of requests sent.
+    /// </summary>
+    public const string RequestsSent = "requests-sent";
+
+    /// <summary>
+    /// Total number of requests completed (response received).
+    /// </summary>
+    public const string RequestsCompleted = "requests-completed";
+
+    /// <summary>
+    /// Total number of request retries.
+    /// </summary>
+    public const string RequestsRetried = "requests-retried";
+
+    /// <summary>
+    /// Total number of failed requests (failed to send, or completed with error).
+    /// </summary>
+    public const string RequestsFailed = "requests-failed";
+
+    /// <summary>
+    /// Total number of bytes sent.
+    /// </summary>
+    public const string BytesSent = "bytes-sent";
+
+    /// <summary>
+    /// Total number of bytes received.
+    /// </summary>
+    public const string BytesReceived = "bytes-received";
 }

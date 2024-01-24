@@ -85,7 +85,7 @@ internal static class Metrics
     /// Handshakes failed due to a timeout.
     /// </summary>
     public static readonly Counter<long> HandshakesFailedTimeout = Meter.CreateCounter<long>(
-        name: "handshakes-failed-timeout",
+        name: MetricNames.HandshakesFailedTimeout,
         unit: "handshakes",
         description: "Total number of failed handshakes due to network timeout");
 
@@ -93,7 +93,7 @@ internal static class Metrics
     /// Currently active requests (request sent, waiting for response).
     /// </summary>
     public static readonly ObservableCounter<int> RequestsActive = Meter.CreateObservableCounter(
-        name: "requests-active",
+        name: MetricNames.RequestsActive,
         observeValue: () => Interlocked.CompareExchange(ref _requestsActive, 0, 0),
         unit: "requests",
         description: "Currently active requests (request sent, waiting for response)");
@@ -102,7 +102,7 @@ internal static class Metrics
     /// Requests sent.
     /// </summary>
     public static readonly Counter<long> RequestsSent = Meter.CreateCounter<long>(
-        name: "requests-sent",
+        name: MetricNames.RequestsSent,
         unit: "requests",
         description: "Total number of requests sent");
 
@@ -110,7 +110,7 @@ internal static class Metrics
     /// Requests completed (response received).
     /// </summary>
     public static readonly Counter<long> RequestsCompleted = Meter.CreateCounter<long>(
-        name: "requests-completed",
+        name: MetricNames.RequestsCompleted,
         unit: "requests",
         description: "Total number of requests completed (response received)");
 
@@ -118,7 +118,7 @@ internal static class Metrics
     /// Total number of request retries.
     /// </summary>
     public static readonly Counter<long> RequestsRetried = Meter.CreateCounter<long>(
-        name: "requests-retried",
+        name: MetricNames.RequestsRetried,
         unit: "requests",
         description: "Total number of request retries");
 
@@ -126,7 +126,7 @@ internal static class Metrics
     /// Requests failed.
     /// </summary>
     public static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>(
-        name: "requests-failed",
+        name: MetricNames.RequestsFailed,
         unit: "requests",
         description: "Total number of failed requests (failed to send, or completed with error)");
 
@@ -134,7 +134,7 @@ internal static class Metrics
     /// Bytes sent.
     /// </summary>
     public static readonly Counter<long> BytesSent = Meter.CreateCounter<long>(
-        name: "bytes-sent",
+        name: MetricNames.BytesSent,
         unit: "bytes",
         description: "Total number of bytes sent");
 
@@ -142,7 +142,7 @@ internal static class Metrics
     /// Bytes received.
     /// </summary>
     public static readonly Counter<long> BytesReceived = Meter.CreateCounter<long>(
-        name: "bytes-received",
+        name: MetricNames.BytesReceived,
         unit: "bytes",
         description: "Total number of bytes received");
 
