@@ -21,6 +21,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Threading;
 
+using MetricNames = Apache.Ignite.Metrics;
+
 /// <summary>
 /// Ignite.NET client metrics.
 /// </summary>
@@ -30,7 +32,7 @@ using System.Threading;
     Justification = "Meter should be private and comes before metrics.")]
 internal static class Metrics
 {
-    private static readonly Meter Meter = new(name: "Apache.Ignite", version: "3.0.0");
+    private static readonly Meter Meter = new(name: MetricNames.MeterName, version: MetricNames.MeterVersion);
 
     private static int _connectionsActive;
 
