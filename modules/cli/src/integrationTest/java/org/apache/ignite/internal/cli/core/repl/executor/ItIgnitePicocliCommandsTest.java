@@ -277,7 +277,6 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                         "rocksDb",
                         "storageProfiles",
                         "criticalWorkers",
-                        "storageProfiles",
                         "sql"
                 )
         );
