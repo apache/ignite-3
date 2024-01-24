@@ -21,10 +21,11 @@ import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.UUID;
@@ -123,7 +124,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     /**
      * Checks that the job execution object is completed successfully.
      */
-    public void assertCompleted() throws {
+    public void assertCompleted() {
         assertThat(resultAsync(), willBe("Done"));
         assertThat(statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }

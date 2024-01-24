@@ -20,9 +20,7 @@ package org.apache.ignite.internal.compute;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
@@ -32,13 +30,13 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Fail-safe wrapper for the {@link JobExecution} that should be returned to the client. This wrapper holds the original
- * job execution object. This object can be updated during the lifetime of {@link FailSafeJobExecution}.
+ * Fail-safe wrapper for the {@link JobExecution} that should be returned to the client. This wrapper holds the original job execution
+ * object. This object can be updated during the lifetime of {@link FailSafeJobExecution}.
  *
  * <p>The problem that is solved by this wrapper is the following: client can join the {@link JobExecution#resultAsync()}
  * future but this original future will never be completed in case the remote worker node has left the topology. By returning
- * {@link FailSafeJobExecution} to the client we can update the original job execution object when it is restarted on another
- * node but the client will still be able to join the original future.
+ * {@link FailSafeJobExecution} to the client we can update the original job execution object when it is restarted on another node but the
+ * client will still be able to join the original future.
  *
  * @param <T> the type of the job result.
  */
@@ -76,21 +74,15 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     private void captureStatus(JobExecution<T> runningJobExecution) {
-        try {
-            runningJobExecution.statusAsync().whenComplete((status, e) -> {
-                if (status != null) {
-                    this.capturedStatus.set(status);
-                } else {
-                    this.capturedStatus.set(
-                            failedStatus()
-                    );
-                }
-            }).get(10, TimeUnit.SECONDS);
-        } catch (TimeoutException | InterruptedException | ExecutionException e) {
-            this.capturedStatus.set(
-                    failedStatus()
-            );
-        }
+        runningJobExecution.statusAsync()
+                .completeOnTimeout(failedStatus(), 10, TimeUnit.SECONDS)
+                .whenComplete((status, e) -> {
+                    if (status != null) {
+                        this.capturedStatus.set(status);
+                    } else {
+                        this.capturedStatus.set(failedStatus());
+                    }
+                });
     }
 
     private static JobStatus failedStatus() {
@@ -118,11 +110,10 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     /**
-     * Transforms the status by modifying the fields that should be always the same regardless of the job execution attempt.
-     * For example, the job creation time should be the same for all attempts.
+     * Transforms the status by modifying the fields that should be always the same regardless of the job execution attempt. For example,
+     * the job creation time should be the same for all attempts.
      *
      * @param jobStatus current job status.
-     *
      * @return transformed job status.
      */
     private JobStatus transformStatus(JobStatus jobStatus) {
@@ -151,7 +142,7 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
 
         return runningJobExecution.get()
                 .statusAsync()
-                .thenApply(this::transformStatus);
+                .thenApply(jobStatus -> jobStatus != null ? transformStatus(jobStatus) : null);
     }
 
     @Override
