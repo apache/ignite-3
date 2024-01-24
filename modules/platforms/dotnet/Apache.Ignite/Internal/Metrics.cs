@@ -96,7 +96,7 @@ internal static class Metrics
         name: MetricNames.RequestsActive,
         observeValue: () => Interlocked.CompareExchange(ref _requestsActive, 0, 0),
         unit: "requests",
-        description: "Currently active requests (request sent, waiting for response)");
+        description: "Currently active requests (requests being sent to the socket or waiting for response)");
 
     /// <summary>
     /// Requests sent.

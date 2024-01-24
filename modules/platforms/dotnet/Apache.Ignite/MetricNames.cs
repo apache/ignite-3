@@ -94,7 +94,7 @@ public static class MetricNames
     public const string HandshakesFailedTimeout = "handshakes-failed-timeout";
 
     /// <summary>
-    /// Currently active requests (being sent to the socket or waiting for response).
+    /// Currently active requests (requests being sent to the socket or waiting for response).
     /// </summary>
     public const string RequestsActive = "requests-active";
 
