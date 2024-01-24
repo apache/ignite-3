@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_ERR_GROUP;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
@@ -35,12 +36,14 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.ErrorGroup;
@@ -205,6 +208,45 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution2.resultAsync().isDone(), is(false));
     }
 
+    @Test
+    void executesJobLocallyWithOptions() {
+        IgniteImpl entryNode = node(0);
+
+        // Start 1 task in executor with 1 thread
+        JobExecution<String> execution1 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName());
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+
+        // Start one more long lasting task
+        JobExecution<String> execution2 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+
+        // Start third task it should be before task2 in the queue due to higher priority in options
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
+        JobExecution<String> execution3 = entryNode.compute()
+                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchThrowExceptionOnFirstExecutionJob.class.getName(), options);
+        await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+
+        // Task 1 and 2 are not competed, in queue state
+        assertThat(execution2.resultAsync().isDone(), is(false));
+        assertThat(execution3.resultAsync().isDone(), is(false));
+
+        // Run 1 and 3 task
+        WaitLatchJob.latch.countDown();
+        WaitLatchThrowExceptionOnFirstExecutionJob.latch.countDown();
+
+        // Tasks 1 and 3 completed successfully
+        assertThat(execution1.resultAsync(), willCompleteSuccessfully());
+        assertThat(execution3.resultAsync(), willCompleteSuccessfully());
+        assertThat(execution1.resultAsync().isDone(), is(true));
+        assertThat(execution3.resultAsync().isDone(), is(true));
+
+        // Task 3 should be executed 2 times
+        assertEquals(2, WaitLatchThrowExceptionOnFirstExecutionJob.counter.get());
+
+        // Task 2 is not completed
+        assertThat(execution2.resultAsync().isDone(), is(false));
+    }
+
     private static class ConcatJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
@@ -287,6 +329,27 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         public String execute(JobExecutionContext context, Object... args) {
             try {
                 latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        }
+    }
+
+    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<String> {
+
+        static final CountDownLatch latch = new CountDownLatch(1);
+
+        static final AtomicInteger counter = new AtomicInteger(0);
+
+        /** {@inheritDoc} */
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            try {
+                latch.await();
+                if (counter.incrementAndGet() == 1) {
+                    throw new RuntimeException();
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

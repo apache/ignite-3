@@ -124,28 +124,34 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void whenNodeIsLocalThenExecutesLocallyWithOptions() {
-        respondWhenExecutingSimpleJobLocally();
+        ExecutionOptions expectedOptions = ExecutionOptions.builder().priority(1).maxRetries(2).build();
 
+        when(computeComponent.executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+                .thenReturn(completedExecution("jobResponse"));
+
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
         assertThat(
-                compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME,
-                        JobExecutionOptions.DEFAULT, "a", 42).resultAsync(),
+                compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42).resultAsync(),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
     void whenNodeIsRemoteThenExecutesRemotelyWithOptions() {
-        respondWhenExecutingSimpleJobRemotely();
+        ExecutionOptions expectedOptions = ExecutionOptions.builder().priority(1).maxRetries(2).build();
+        when(computeComponent.executeRemotely(expectedOptions, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+                .thenReturn(completedExecution("remoteResponse"));
+
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
 
         assertThat(
-                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, JobExecutionOptions.DEFAULT, "a",
-                        42).resultAsync(),
+                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42).resultAsync(),
                 willBe("remoteResponse")
         );
 
-        verify(computeComponent).executeRemotely(ExecutionOptions.DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a",  42);
+        verify(computeComponent).executeRemotely(expectedOptions, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a",  42);
     }
 
     @Test
