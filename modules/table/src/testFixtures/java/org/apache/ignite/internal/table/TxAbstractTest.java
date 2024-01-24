@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.Collections.synchronizedList;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -46,14 +49,15 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -87,6 +91,7 @@ import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1981,7 +1986,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFinished(true, true, (transaction, uuid) -> {
+        testTransactionAlreadyFinished(true, true, (transaction, uuid, rv) -> {
             transaction.commit();
 
             log.info("Committed transaction {}", uuid);
@@ -1990,7 +1995,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFinished(false, true, (transaction, uuid) -> {
+        testTransactionAlreadyFinished(false, true, (transaction, uuid, rv) -> {
             transaction.rollback();
 
             log.info("Rolled back transaction {}", uuid);
@@ -2151,12 +2156,75 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertThrows(TransactionException.class, () -> keyValueView.put(youngNormalTx, 1L, "normal"));
     }
 
+    @Test
+    public void allOfTest() {
+        var a = new CompletableFuture<>();
+        var b = new CompletableFuture<>();
+        var c = allOf(a, b);
+
+        a.completeExceptionally(new Exception("testA"));
+        b.completeExceptionally(new Exception("testB"));
+
+        c.whenComplete((v, e) -> e.printStackTrace());
+
+        c.join();
+    }
+
+    @RepeatedTest(100)
+    public void testTransactionMultiThreadedCommit() {
+        int threadNum = Runtime.getRuntime().availableProcessors() * 10;
+
+        testTransactionAlreadyFinished(true, false, (tx, txId, rv) -> {
+            CyclicBarrier b = new CyclicBarrier(threadNum);
+            CountDownLatch finishLatch = new CountDownLatch(1);
+
+            var futFinishes = runMultiThreadedAsync(() -> {
+                b.await();
+
+                tx.commit();
+
+                finishLatch.countDown();
+
+                return null;
+            }, threadNum, "txCommitTestThread");
+
+            List<Exception> enlistExceptions = synchronizedList(new ArrayList<>());
+
+            var futEnlists = runMultiThreadedAsync(() -> {
+                finishLatch.await();
+
+                try {
+                    rv.upsert(tx, makeValue(2, 200.));
+                } catch (Exception e) {
+                    enlistExceptions.add(e);
+                }
+
+                return null;
+            }, threadNum, "txCommitTestThread");
+
+            assertThat(futFinishes, willSucceedFast());
+            assertThat(futEnlists, willSucceedFast());
+
+            assertEquals(threadNum, enlistExceptions.size());
+
+            for (var e : enlistExceptions) {
+                assertInstanceOf(TransactionException.class, e);
+            }
+        });
+    }
+
     /**
      * Checks operations that act after a transaction is committed, are finished with exception.
      *
      * @param commit True when transaction is committed, false the transaction is rolled back.
+     * @param checkLocks Whether to check locks after.
+     * @param finisher Finishing closure.
      */
-    protected void testTransactionAlreadyFinished(boolean commit, boolean checkLocks, BiConsumer<Transaction, UUID> finisher) {
+    protected void testTransactionAlreadyFinished(
+            boolean commit,
+            boolean checkLocks,
+            IgniteTriConsumer<Transaction, UUID, RecordView<Tuple>> finisher
+    ) {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
@@ -2172,7 +2240,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         validateBalance(res, 100., 200.);
 
-        finisher.accept(tx, txId);
+        finisher.accept(tx, txId, accountsRv);
 
         TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(1)));
         assertTrue(ex.getMessage().contains("Transaction is already finished."));
