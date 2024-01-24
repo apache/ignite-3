@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
+import java.lang.management.MonitorInfo;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Set;
@@ -104,7 +106,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
                 log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
-                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()), maxAllowedLag, threadInfo);
+                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()), maxAllowedLag, toString(threadInfo));
 
                 // TODO: IGNITE-16899 - invoke failure handler.
             }
@@ -135,6 +137,76 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         }
 
         return delayedThreadIdsToDelays;
+    }
+
+    @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
+    private static String toString(ThreadInfo threadInfo) {
+        // This method is based on code taken from ThreadInfo#toString(). The original method limits the depth of the
+        // stacktrace it includes in the string representation to just 8 frames, which is too few. Here, we
+        // removed this limitation and include the stack trace in its entirety.
+
+        StringBuilder sb = new StringBuilder("\"" + threadInfo.getThreadName() + "\""
+                + (threadInfo.isDaemon() ? " daemon" : "")
+                + " prio=" + threadInfo.getPriority()
+                + " Id=" + threadInfo.getThreadId() + " "
+                + threadInfo.getThreadState());
+        if (threadInfo.getLockName() != null) {
+            sb.append(" on " + threadInfo.getLockName());
+        }
+        if (threadInfo.getLockOwnerName() != null) {
+            sb.append(" owned by \"" + threadInfo.getLockOwnerName()
+                    + "\" Id=" + threadInfo.getLockOwnerId());
+        }
+        if (threadInfo.isSuspended()) {
+            sb.append(" (suspended)");
+        }
+        if (threadInfo.isInNative()) {
+            sb.append(" (in native)");
+        }
+        sb.append('\n');
+        int i = 0;
+        for (; i < threadInfo.getStackTrace().length; i++) {
+            StackTraceElement ste = threadInfo.getStackTrace()[i];
+            sb.append("\tat " + ste.toString());
+            sb.append('\n');
+            if (i == 0 && threadInfo.getLockInfo() != null) {
+                Thread.State ts = threadInfo.getThreadState();
+                switch (ts) {
+                    case BLOCKED:
+                        sb.append("\t-  blocked on " + threadInfo.getLockInfo());
+                        sb.append('\n');
+                        break;
+                    case WAITING:
+                        sb.append("\t-  waiting on " + threadInfo.getLockInfo());
+                        sb.append('\n');
+                        break;
+                    case TIMED_WAITING:
+                        sb.append("\t-  waiting on " + threadInfo.getLockInfo());
+                        sb.append('\n');
+                        break;
+                    default:
+                }
+            }
+
+            for (MonitorInfo mi : threadInfo.getLockedMonitors()) {
+                if (mi.getLockedStackDepth() == i) {
+                    sb.append("\t-  locked " + mi);
+                    sb.append('\n');
+                }
+            }
+        }
+
+        LockInfo[] locks = threadInfo.getLockedSynchronizers();
+        if (locks.length > 0) {
+            sb.append("\n\tNumber of locked synchronizers = " + locks.length);
+            sb.append('\n');
+            for (LockInfo li : locks) {
+                sb.append("\t- " + li);
+                sb.append('\n');
+            }
+        }
+        sb.append('\n');
+        return sb.toString();
     }
 
     @Override
