@@ -43,8 +43,7 @@ public abstract class AbstractTableCommand implements CatalogCommand {
 
     private void validate() {
         if (schemaName != null && CatalogUtils.isSystemSchema(schemaName)) {
-            throw new CatalogValidationException(format("Operations with reserved schemas "
-                    + "keywords are not allowed, schema: {}", schemaName));
+            throw new CatalogValidationException(format("Operations with reserved schemas are not allowed, schema: {}", schemaName));
         }
         validateIdentifier(schemaName, "Name of the schema");
         validateIdentifier(tableName, "Name of the table");

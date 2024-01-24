@@ -237,7 +237,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "Operations with reserved schemas keywords are not allowed"
+                "Operations with reserved schemas are not allowed"
         );
     }
 

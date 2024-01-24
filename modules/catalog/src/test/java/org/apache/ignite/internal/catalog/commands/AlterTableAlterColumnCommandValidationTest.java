@@ -542,7 +542,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "Operations with reserved schemas keywords are not allowed"
+                "Operations with reserved schemas are not allowed"
         );
     }
 
