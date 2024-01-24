@@ -123,9 +123,9 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     /**
      * Checks that the job execution object is completed successfully.
      */
-    public void assertCompleted() throws ExecutionException, InterruptedException, TimeoutException {
-        assertThat(resultSync(), equalTo("Done"));
-        assertThat(statusSync().state(), is(COMPLETED));
+    public void assertCompleted() throws {
+        assertThat(resultAsync(), willBe("Done"));
+        assertThat(statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     /**
