@@ -30,6 +30,7 @@ import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.tx.Transaction;
@@ -83,10 +84,28 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
+     * Benchmark for get via thin client.
+     */
+    @Benchmark
+    public void kvGetNonNullTxDisablesPartitionAwareness(NoPartitionAwarenessState state) {
+        state.get(makeKey(state.nextId()));
+    }
+
+    /**
      * Benchmark for SQL select via thin client.
      */
     @Benchmark
     public void sqlGet(ThinClientState state) {
+        try (var rs = state.sql(SELECT_FROM_USERTABLE, state.nextId())) {
+            rs.next();
+        }
+    }
+
+    /**
+     * Benchmark for SQL select via thin client.
+     */
+    @Benchmark
+    public void sqlGetNonNullTxDisablesPartitionAwareness(NoPartitionAwarenessState state) {
         try (var rs = state.sql(SELECT_FROM_USERTABLE, state.nextId())) {
             rs.next();
         }
@@ -103,28 +122,10 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark for get via thin client.
-     */
-    @Benchmark
-    public void kvGetNoPartitionAwareness(NoPartitionAwarenessState state) {
-        state.get(makeKey(state.nextId()));
-    }
-
-    /**
-     * Benchmark for SQL select via thin client.
-     */
-    @Benchmark
-    public void sqlGetNoPartitionAwareness(NoPartitionAwarenessState state) {
-        try (var rs = state.sql(SELECT_FROM_USERTABLE, state.nextId())) {
-            rs.next();
-        }
-    }
-
-    /**
      * Benchmark for Criteria get via thin client.
      */
     @Benchmark
-    public void criteriaGetNoPartitionAwareness(NoPartitionAwarenessState state) {
+    public void criteriaGetNonNullTxDisablesPartitionAwareness(NoPartitionAwarenessState state) {
         try (Cursor<Tuple> cur = state.query(columnValue("ycsb_key", equalTo(state.nextId())))) {
             cur.next();
         }
@@ -183,7 +184,6 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + CriteriaThinClientBenchmark.class.getSimpleName() + ".*")
-                .param("clusterSize", "2")
                 .build();
 
         new Runner(opt).run();
@@ -200,6 +200,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
 
         protected IgniteClient client;
         protected Session  session;
+        protected RecordView<Tuple> view;
 
         @Nullable
         protected Transaction tx;
@@ -211,6 +212,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             client = IgniteClient.builder().addresses(getClientAddresses(CLUSTER_NODES)).build();
             session = client.sql().createSession();
+            view = client.tables().table(TABLE_NAME).recordView();
         }
 
         /**
@@ -222,7 +224,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         @Nullable Tuple get(Tuple key) {
-            return client.tables().table(TABLE_NAME).recordView().get(tx, key);
+            return view.get(tx, key);
         }
 
         ResultSet<SqlRow> sql(String query, Object... args) {
@@ -230,7 +232,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         Cursor<Tuple> query(@Nullable Criteria criteria) {
-            return client.tables().table(TABLE_NAME).recordView().query(tx, criteria);
+            return view.query(tx, criteria);
         }
 
         int nextId() {
@@ -248,7 +250,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             super.setUp();
 
-            tx = client.transactions().begin(new TransactionOptions().readOnly(true));
+            tx = client.transactions().begin();
         }
 
         /**
@@ -262,14 +264,6 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
             }
 
             IgniteUtils.closeAll(client);
-        }
-
-        /**
-         * @return Odd number in range.
-         */
-        @Override
-        int nextId() {
-            return random.nextInt(TABLE_SIZE) | 1;
         }
     }
 
