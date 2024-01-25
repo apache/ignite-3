@@ -52,6 +52,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Flow;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -2156,72 +2157,128 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertThrows(TransactionException.class, () -> keyValueView.put(youngNormalTx, 1L, "normal"));
     }
 
-    @Test
-    public void allOfTest() {
-        var a = new CompletableFuture<>();
-        var b = new CompletableFuture<>();
-        var c = allOf(a, b);
-
-        a.completeExceptionally(new Exception("testA"));
-        b.completeExceptionally(new Exception("testB"));
-
-        c.whenComplete((v, e) -> e.printStackTrace());
-
-        c.join();
+    @RepeatedTest(10)
+    public void testTransactionMultiThreadedCommit() {
+        testTransactionMultiThreadedFinish(1);
     }
 
-    @RepeatedTest(100)
-    public void testTransactionMultiThreadedCommit() {
+    @RepeatedTest(10)
+    public void testTransactionMultiThreadedRollback() {
+        testTransactionMultiThreadedFinish(0);
+    }
+
+    @RepeatedTest(10)
+    public void testTransactionMultiThreadedMixed() {
+        testTransactionMultiThreadedFinish(-1);
+    }
+
+    /**
+     * Test trying to finish a tx in multiple threads simultaneously, and enlist new operations right after the first finish.
+     *
+     * @param finishMode 1 is commit, 0 is rollback, otherwise random outcome.
+     */
+    public void testTransactionMultiThreadedFinish(int finishMode) {
+        var rv = accounts.recordView();
+
+        rv.upsert(null, makeValue(1, 1.));
+
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
 
         log.info("Started transaction {}", txId);
 
-        var rv = accounts.recordView();
-
-        rv.upsert(tx, makeValue(1, 100.));
+        rv.upsert(tx, makeValue(2, 100.));
         rv.upsert(tx, makeValue(2, 200.));
 
-        int threadNum = Runtime.getRuntime().availableProcessors() * 10;
+        int threadNum = Runtime.getRuntime().availableProcessors();
 
-        //testTransactionAlreadyFinished(true, false, (tx, txId, rv) -> {
-            CyclicBarrier b = new CyclicBarrier(threadNum);
-            CountDownLatch finishLatch = new CountDownLatch(1);
+        CyclicBarrier b = new CyclicBarrier(threadNum);
+        CountDownLatch finishLatch = new CountDownLatch(1);
 
-            var futFinishes = runMultiThreadedAsync(() -> {
-                b.await();
+        List<Exception> enlistExceptions = synchronizedList(new ArrayList<>());
 
-                tx.commit();
+        var futEnlists = runMultiThreadedAsync(() -> {
+            finishLatch.await();
 
-                finishLatch.countDown();
-
-                return null;
-            }, threadNum, "txCommitTestThread");
-
-            List<Exception> enlistExceptions = synchronizedList(new ArrayList<>());
-
-            var futEnlists = runMultiThreadedAsync(() -> {
-                finishLatch.await();
-
-                try {
-                    rv.upsert(tx, makeValue(2, 200.));
-                } catch (Exception e) {
-                    enlistExceptions.add(e);
-                }
-
-                return null;
-            }, threadNum, "txCommitTestThread");
-
-            assertThat(futFinishes, willSucceedFast());
-            assertThat(futEnlists, willSucceedFast());
-
-            assertEquals(threadNum, enlistExceptions.size());
-
-            for (var e : enlistExceptions) {
-                assertInstanceOf(TransactionException.class, e);
+            try {
+                rv.upsert(tx, makeValue(2, 200.));
+            } catch (Exception e) {
+                enlistExceptions.add(e);
             }
-        //});
+
+            return null;
+        }, threadNum, "txCommitTestThread");
+
+        var futFinishes = runMultiThreadedAsync(() -> {
+            b.await();
+
+            finishTx(tx, finishMode);
+
+            finishLatch.countDown();
+
+            return null;
+        }, threadNum, "txCommitTestThread");
+
+        assertThat(futFinishes, willSucceedFast());
+        assertThat(futEnlists, willSucceedFast());
+
+        assertEquals(threadNum, enlistExceptions.size());
+
+        for (var e : enlistExceptions) {
+            assertInstanceOf(TransactionException.class, e);
+        }
+
+        assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
+    }
+
+    @RepeatedTest(10)
+    public void testReadOnlyTransactionMultiThreadedFinish() {
+        var rv = accounts.recordView();
+
+        rv.upsert(null, makeValue(1, 1.));
+
+        Transaction tx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
+
+        rv.get(tx, makeKey(1));
+
+        int threadNum = Runtime.getRuntime().availableProcessors();
+
+        CyclicBarrier b = new CyclicBarrier(threadNum);
+        CountDownLatch finishLatch = new CountDownLatch(1);
+
+        var futFinishes = runMultiThreadedAsync(() -> {
+            b.await();
+
+            finishTx(tx, -1);
+
+            finishLatch.countDown();
+
+            return null;
+        }, threadNum, "txCommitTestThread");
+
+        assertThat(futFinishes, willSucceedFast());
+    }
+
+    /**
+     * Finish the tx.
+     *
+     * @param tx Transaction.
+     * @param finishMode 1 is commit, 0 is rollback, otherwise random outcome.
+     */
+    private void finishTx(Transaction tx, int finishMode) {
+        if (finishMode == 0) {
+            tx.rollback();
+        } else if (finishMode == 1) {
+            tx.commit();
+        } else {
+            var rnd = ThreadLocalRandom.current();
+            if (rnd.nextBoolean()) {
+                tx.commit();
+            } else {
+                tx.rollback();
+            }
+        }
     }
 
     /**
