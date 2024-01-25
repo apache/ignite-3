@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -75,8 +76,13 @@ import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -179,6 +185,7 @@ import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -1599,6 +1606,116 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         checkAssignmentsInMetaStorage(node0.metaStorageManager(), assignmentsKey.bytes(), expectedAssignments);
         checkAssignmentsInMetaStorage(msManagerRestartedW, assignmentsKey.bytes(), expectedAssignments);
         checkAssignmentsInMetaStorage(msManagerRestartedP, assignmentsKey.bytes(), expectedAssignments);
+    }
+
+    @RepeatedTest(10)
+    public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
+        var node0 = startNode(0);
+        var node1 = startNode(1);
+
+        String tableName = "TEST";
+        String zoneName = "ZONE_TEST";
+
+        try (Session session = node0.sql().createSession()) {
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
+        }
+
+        int catalogVersionBeforeTable = node0.catalogManager().latestCatalogVersion();
+
+        WatchListenerInhibitor nodeInhibitor0 = WatchListenerInhibitor.metastorageEventsInhibitor(node0);
+        WatchListenerInhibitor nodeInhibitor1 = WatchListenerInhibitor.metastorageEventsInhibitor(node1);
+
+        nodeInhibitor0.startInhibit();
+        nodeInhibitor1.startInhibit();
+
+        // Assume that the table id is always 7, there is an assertion below to ensure this.
+        int tableId = 7;
+
+        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0));
+
+        var tableFut = createTableInCatalog(node0.catalogManager(), tableName, zoneName);
+
+        stopNode(1);
+
+        var alterZoneFut = alterZoneAsync(node0.catalogManager(), zoneName, 1);
+
+        // Wait for the next catalog version: table creation.
+        // The next catalog update (alter zone) can't be processed until the table creation is completed.
+        assertTrue(waitForCondition(() -> {
+            int ver = latestCatalogVersionInMs(node0.metaStorageManager());
+
+            return ver == catalogVersionBeforeTable + 1;
+        }, 10_000));
+
+        // Double check that the version is exactly as expected, if it's not, the synchronous sequential catalog update processing may be
+        // broken.
+        assertEquals(catalogVersionBeforeTable + 1, latestCatalogVersionInMs(node0.metaStorageManager()));
+
+        Thread.sleep(1000);
+
+        forceSnapshotUsageOnRestart(node0);
+
+        log.info("Restarting node 1.");
+
+        node1 = startNode(1);
+
+        waitForValueInLocalMs(node1.metaStorageManager(), assignmentsKey);
+
+        nodeInhibitor0.stopInhibit();
+
+        assertThat(tableFut, willCompleteSuccessfully());
+        assertThat(alterZoneFut, willCompleteSuccessfully());
+
+        assertEquals(tableId, tableId(node0, tableName));
+
+        waitForValueInLocalMs(node0.metaStorageManager(), assignmentsKey);
+
+        var finalNode1 = node1;
+
+        // Restart is followed by rebalance, because data nodes are recalculated after full table creation that is completed after restart.
+        assertTrue(waitForCondition(() -> {
+            Set<Assignment> assignments0 = getAssignmentsFromMetaStorage(node0.metaStorageManager(), assignmentsKey.bytes());
+            Set<Assignment> assignments1 = getAssignmentsFromMetaStorage(finalNode1.metaStorageManager(), assignmentsKey.bytes());
+
+            return assignments0.size() == 1 && assignments0.equals(assignments1);
+
+        }, 10_000));
+    }
+
+    private int latestCatalogVersionInMs(MetaStorageManager metaStorageManager) {
+        var e = metaStorageManager.getLocally(new ByteArray("catalog.version".getBytes(StandardCharsets.UTF_8)), 1000);
+
+        if (e == null || e.empty()) {
+            return -1;
+        }
+
+        return ByteUtils.bytesToInt(e.value());
+    }
+
+    private static CompletableFuture<Void> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
+        var tableColumn = ColumnParams.builder().name("id").type(INT32).build();
+
+        var createTableCommand = CreateTableCommand.builder()
+                .schemaName("PUBLIC")
+                .tableName(tableName)
+                .columns(List.of(tableColumn))
+                .primaryKeyColumns(List.of("id"))
+                .zone(zoneName)
+                .build();
+
+        return catalogManager.execute(createTableCommand);
+    }
+
+    private static CompletableFuture<Void> alterZoneAsync(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer replicas
+    ) {
+        AlterZoneCommandBuilder builder = AlterZoneCommand.builder().zoneName(zoneName);
+
+        builder.replicas(replicas);
+
+        return catalogManager.execute(builder.build());
     }
 
     private void waitForValueInLocalMs(MetaStorageManager metaStorageManager, ByteArray key) throws InterruptedException {
