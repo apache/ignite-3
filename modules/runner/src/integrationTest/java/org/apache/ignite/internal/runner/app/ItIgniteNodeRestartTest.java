@@ -642,6 +642,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         return ignite;
     }
+
     /**
      * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
      */
