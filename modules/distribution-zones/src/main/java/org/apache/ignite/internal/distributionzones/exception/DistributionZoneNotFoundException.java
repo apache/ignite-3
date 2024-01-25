@@ -15,26 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones;
+package org.apache.ignite.internal.distributionzones.exception;
 
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_ALREADY_EXISTS_ERR;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
 
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-20098
 /**
- * This exception is thrown when a new distribution zone failed to be created,
- * because a distribution zone with same name already exists.
+ * Exception is thrown when appropriate distribution zone can`t be found.
  */
-public class DistributionZoneAlreadyExistsException extends IgniteInternalException {
+public class DistributionZoneNotFoundException extends IgniteInternalException {
+    private static final long serialVersionUID = 4690347752201656106L;
+
     /**
      * The constructor.
      *
-     * @param zoneName Zone name.
+     * @param zoneId Zone id.
      */
-    public DistributionZoneAlreadyExistsException(String zoneName) {
-        this(zoneName, null);
+    public DistributionZoneNotFoundException(int zoneId) {
+        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneId=" + zoneId + ']');
     }
 
     /**
@@ -43,8 +44,8 @@ public class DistributionZoneAlreadyExistsException extends IgniteInternalExcept
      * @param zoneName Zone name.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public DistributionZoneAlreadyExistsException(String zoneName, Throwable cause) {
-        super(ZONE_ALREADY_EXISTS_ERR, "Distribution zone already exists [zoneName=" + zoneName + ']', cause);
+    public DistributionZoneNotFoundException(String zoneName, @Nullable Throwable cause) {
+        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneName=" + zoneName + ']', cause);
     }
 
     /**
@@ -55,7 +56,7 @@ public class DistributionZoneAlreadyExistsException extends IgniteInternalExcept
      * @param message Error message.
      * @param cause Cause exception.
      */
-    public DistributionZoneAlreadyExistsException(UUID traceId, int code, String message, Throwable cause) {
+    public DistributionZoneNotFoundException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

@@ -229,11 +229,7 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10
-        case error::code::ZONE_ALREADY_EXISTS:
         case error::code::ZONE_NOT_FOUND:
-        case error::code::ZONE_RENAME:
-        case error::code::ZONE_DROP:
-        case error::code::ZONE_DEFINITION:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Network group. Group code: 11
@@ -277,7 +273,9 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::FAIL_TO_GET_JOB_STATUS:
         case error::code::COMPUTE_JOB_FAILED:
         case error::code::CHANGE_JOB_PRIORITY_NO_JOB:
+        case error::code::PRIMARY_REPLICA_RESOLVE:
         case error::code::CHANGE_JOB_PRIORITY_JOB_EXECUTING:
+        case error::code::CHANGE_JOB_PRIORITY:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17

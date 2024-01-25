@@ -32,7 +32,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 /**
  * Client SQL request for the parameter metadata.
  */
-public class ClientSqlParameterMetadataRequest {
+public class ClientSqlQueryMetadataRequest {
     /**
      * Processes the request.
      *
@@ -67,5 +67,7 @@ public class ClientSqlParameterMetadataRequest {
             out.packInt(param.scale());
             out.packInt(param.precision());
         }
+
+        ClientSqlCommon.packColumns(out, meta.columns());
     }
 }

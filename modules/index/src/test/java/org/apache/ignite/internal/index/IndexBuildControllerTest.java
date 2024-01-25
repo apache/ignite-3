@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -128,6 +129,27 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         createIndex(INDEX_NAME);
 
+        verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
+                eq(LOCAL_NODE),
+                anyLong()
+        );
+    }
+
+    @Test
+    void testStartBuildIndexesOnIndexBuilding() {
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
+
+        clearInvocations(indexBuilder);
+
+        createIndex(INDEX_NAME);
+
+        startBuildingIndex(indexId(INDEX_NAME));
+
         verify(indexBuilder).scheduleBuildIndex(
                 eq(tableId()),
                 eq(PARTITION_ID),
@@ -142,6 +164,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     @Test
     void testStartBuildIndexesOnPrimaryReplicaElected() {
         createIndex(INDEX_NAME);
+
+        startBuildingIndex(indexId(INDEX_NAME));
 
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
@@ -210,19 +234,21 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testStartBuildIndexesOnPrimaryReplicaElectedOnlyForRegisteredIndexes() {
-        createIndex(INDEX_NAME);
+    void testStartBuildIndexesOnPrimaryReplicaElectedOnlyForBuildingIndexes() {
+        createIndex(INDEX_NAME + 0);
+        createIndex(INDEX_NAME + 1);
 
-        int indexId = indexId(INDEX_NAME);
+        int indexId0 = indexId(INDEX_NAME + 0);
 
-        makeIndexAvailable(indexId);
+        startBuildingIndex(indexId0);
+        makeIndexAvailable(indexId0);
 
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder, never()).scheduleBuildIndex(
                 eq(tableId()),
                 eq(PARTITION_ID),
-                eq(indexId(INDEX_NAME)),
+                anyInt(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -232,6 +258,10 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     private void createIndex(String indexName) {
         createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
+    }
+
+    private void startBuildingIndex(int indexId) {
+        assertThat(catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }
 
     private void makeIndexAvailable(int indexId) {

@@ -56,6 +56,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -766,6 +767,11 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         RowCollectingTableRwoConverter(TestInput testData) {
             this.testInput = testData;
+        }
+
+        @Override
+        public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

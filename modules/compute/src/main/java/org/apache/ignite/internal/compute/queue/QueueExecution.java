@@ -46,8 +46,10 @@ public interface QueueExecution<R> {
 
     /**
      * Cancels the job.
+     *
+     * @return {@code true} if job was successfully cancelled.
      */
-    void cancel();
+    boolean cancel();
 
     /**
      * Change job priority. Priority can be changed only if task still in executor's queue.
@@ -55,6 +57,7 @@ public interface QueueExecution<R> {
      * Queue entry will be executed last in the queue of entries with the same priority (FIFO).
      *
      * @param newPriority new priority.
+     * @return {@code true} if job priority was successfully changed.
      */
-    void changePriority(int newPriority);
+    boolean changePriority(int newPriority);
 }

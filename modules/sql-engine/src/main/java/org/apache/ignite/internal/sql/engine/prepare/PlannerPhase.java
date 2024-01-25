@@ -33,7 +33,6 @@ import org.apache.calcite.rel.logical.LogicalSort;
 import org.apache.calcite.rel.rules.AggregateMergeRule;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule;
-import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule;
 import org.apache.calcite.rel.rules.FilterMergeRule;
 import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
 import org.apache.calcite.rel.rules.JoinPushExpressionsRule;
@@ -47,7 +46,6 @@ import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.ignite.internal.sql.engine.rule.CorrelateToNestedLoopRule;
-import org.apache.ignite.internal.sql.engine.rule.CorrelatedNestedLoopJoinRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToHashIndexSpoolRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToSortedIndexSpoolRule;
@@ -65,7 +63,7 @@ import org.apache.ignite.internal.sql.engine.rule.UnionConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
-import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
 
 /**
@@ -93,7 +91,7 @@ public enum PlannerPhase {
             CoreRules.FILTER_MERGE,
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
             CoreRules.FILTER_SET_OP_TRANSPOSE,
-            CoreRules.JOIN_CONDITION_PUSH,
+            IgniteJoinConditionPushRule.INSTANCE,
             CoreRules.FILTER_CORRELATE,
             CoreRules.FILTER_INTO_JOIN,
             CoreRules.FILTER_PROJECT_TRANSPOSE
@@ -133,9 +131,7 @@ public enum PlannerPhase {
             JoinPushExpressionsRule.Config.DEFAULT
                     .withOperandFor(LogicalJoin.class).toRule(),
 
-            JoinConditionPushRule.JoinConditionPushRuleConfig.DEFAULT
-                    .withOperandSupplier(b -> b.operand(LogicalJoin.class)
-                            .anyInputs()).toRule(),
+            IgniteJoinConditionPushRule.INSTANCE,
 
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
                     .withOperandSupplier(b0 ->
@@ -202,11 +198,15 @@ public enum PlannerPhase {
             FilterScanMergeRule.INDEX_SCAN,
             FilterScanMergeRule.SYSTEM_VIEW_SCAN,
 
-            LogicalOrToUnionRule.INSTANCE,
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21287
+            // LogicalOrToUnionRule.INSTANCE,
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-16334 join rules ordering is significant here.
             MergeJoinConverterRule.INSTANCE,
-            CorrelatedNestedLoopJoinRule.INSTANCE,
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21286
+            // CorrelatedNestedLoopJoinRule.INSTANCE,
+
             CorrelateToNestedLoopRule.INSTANCE,
             NestedLoopJoinConverterRule.INSTANCE,
 

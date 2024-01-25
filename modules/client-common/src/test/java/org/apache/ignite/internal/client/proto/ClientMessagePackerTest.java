@@ -24,6 +24,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
@@ -138,6 +139,17 @@ public class ClientMessagePackerTest {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Test
+    public void testWriteStringCapacityGrow() {
+        // This number is important! Exactly this number showed nasty bug before it was fixed. Do not change.
+        int magicBytes = 249;
+
+        byte[] ignored = packIgnite(p -> {
+            p.packByteBuffer(ByteBuffer.allocate(magicBytes));
+            p.packString("Lorem Ipsum");
+        });
     }
 
     @ParameterizedTest

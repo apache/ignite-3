@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -527,7 +529,8 @@ public class TestBuilders {
 
             var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(Map.of(), () -> "aipersist"), PLANNING_TIMEOUT, mock(MetricManager.class));
+                    new DdlSqlToCommandConverter(Map.of(), () -> "aipersist"), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
+                    mock(MetricManager.class));
 
             Map<String, List<String>> owningNodesByTableName = new HashMap<>();
             for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
@@ -650,10 +653,11 @@ public class TestBuilders {
                             .findAny()
                             .orElseThrow(() -> new AssertionError("IndexDescriptor does not exist: " + indexName));
 
-                    CatalogCommand command = MakeIndexAvailableCommand.builder()
-                            .indexId(index.id())
-                            .build();
-                    makeIndexesAvailable.add(command);
+                    CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
+                    CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(index.id()).build();
+
+                    makeIndexesAvailable.add(startBuildIndexCommand);
+                    makeIndexesAvailable.add(makeIndexAvailableCommand);
                 }
             }
 

@@ -29,6 +29,9 @@ import org.apache.ignite.compute.JobExecution;
  * @param <T> type of the result of the job.
  */
 class RemoteExecutionContext<T> {
+
+    private final ExecutionOptions executionOptions;
+
     private final List<DeploymentUnit> units;
 
     private final String jobClassName;
@@ -37,7 +40,8 @@ class RemoteExecutionContext<T> {
 
     private final AtomicReference<FailSafeJobExecution<T>> jobExecution;
 
-    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, Object[] args) {
+    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, Object[] args) {
+        this.executionOptions = executionOptions;
         this.units = units;
         this.jobClassName = jobClassName;
         this.args = args;
@@ -78,6 +82,10 @@ class RemoteExecutionContext<T> {
      */
     void updateJobExecution(JobExecution<T> jobExecution) {
         failSafeJobExecution().updateJobExecution(jobExecution);
+    }
+
+    ExecutionOptions executionOptions() {
+        return executionOptions;
     }
 
     List<DeploymentUnit> units() {

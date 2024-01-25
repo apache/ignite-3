@@ -15,10 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception;
+package org.apache.ignite.internal.catalog.commands;
 
-/**
- * Exception that is thrown when the cluster is not initialized.
- */
-public class ClusterNotInitializedException extends RuntimeException {
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+
+/** Tests to verify validation of {@link StartBuildingIndexCommand}. */
+public class StartBuildingIndexCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
+    @Override
+    CatalogCommand createCommand(int indexId) {
+        return StartBuildingIndexCommand.builder().indexId(indexId).build();
+    }
+
+    @Override
+    boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
+        return indexStatus != REGISTERED;
+    }
 }

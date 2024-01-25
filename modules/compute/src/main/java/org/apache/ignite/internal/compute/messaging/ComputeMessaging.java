@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.messaging;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.compute.ComputeUtils.cancelFromJobCancelResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.changePriorityFromJobChangePriorityResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.jobIdFromExecuteResponse;
@@ -24,12 +25,13 @@ import static org.apache.ignite.internal.compute.ComputeUtils.resultFromJobResul
 import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatusResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.CHANGE_JOB_PRIORITY_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.FAIL_TO_GET_JOB_STATUS_ERR;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
@@ -39,6 +41,7 @@ import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.compute.ComputeUtils;
+import org.apache.ignite.internal.compute.ExecutionManager;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobStarter;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
@@ -52,14 +55,13 @@ import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,23 +72,31 @@ public class ComputeMessaging {
 
     private final ComputeMessagesFactory messagesFactory = new ComputeMessagesFactory();
 
+    private final ExecutionManager executionManager;
+
     private final MessagingService messagingService;
+
+    private final TopologyService topologyService;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    //TODO https://issues.apache.org/jira/browse/IGNITE-21168
-    private final Map<UUID, JobExecution<Object>> executions = new ConcurrentHashMap<>();
-
-    public ComputeMessaging(MessagingService messagingService) {
+    /**
+     * Constructor.
+     *
+     * @param executionManager Execution manager.
+     * @param messagingService Messaging service.
+     * @param topologyService Topology service.
+     */
+    public ComputeMessaging(ExecutionManager executionManager, MessagingService messagingService, TopologyService topologyService) {
+        this.executionManager = executionManager;
         this.messagingService = messagingService;
+        this.topologyService = topologyService;
     }
 
     /**
      * Start messaging service.
-     *
-     * @param starter Compute job starter.
      */
-    public void start(JobStarter starter, Function<UUID, JobStatus> jobStatus) {
+    public void start(JobStarter starter) {
         messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderConsistentId, correlationId) -> {
             assert correlationId != null;
 
@@ -101,7 +111,7 @@ public class ComputeMessaging {
             }
 
             try {
-                processRequest(message, senderConsistentId, correlationId, starter, jobStatus);
+                processRequest(message, senderConsistentId, correlationId, starter);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -121,9 +131,9 @@ public class ComputeMessaging {
         } else if (message instanceof JobStatusRequest) {
             sendJobStatusResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
-            sendJobCancelResponse(ex, senderConsistentId, correlationId);
+            sendJobCancelResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobChangePriorityRequest) {
-            sendJobChangePriorityResponse(ex, senderConsistentId, correlationId);
+            sendJobChangePriorityResponse(null, ex, senderConsistentId, correlationId);
         }
     }
 
@@ -131,15 +141,14 @@ public class ComputeMessaging {
             NetworkMessage message,
             String senderConsistentId,
             long correlationId,
-            JobStarter starter,
-            Function<UUID, JobStatus> jobStatus
+            JobStarter starter
     ) {
         if (message instanceof ExecuteRequest) {
             processExecuteRequest(starter, (ExecuteRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobResultRequest) {
             processJobResultRequest((JobResultRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobStatusRequest) {
-            processJobStatusRequest(jobStatus, (JobStatusRequest) message, senderConsistentId, correlationId);
+            processJobStatusRequest((JobStatusRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
             processJobCancelRequest((JobCancelRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobChangePriorityRequest) {
@@ -190,12 +199,7 @@ public class ComputeMessaging {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
         JobExecution<Object> execution = starter.start(request.executeOptions(), units, request.jobClassName(), request.args());
-        execution.idAsync().whenComplete((jobId, err) -> {
-            if (jobId != null) {
-                executions.put(jobId, execution);
-            }
-            sendExecuteResponse(jobId, err, senderConsistentId, correlationId);
-        });
+        execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, senderConsistentId, correlationId));
     }
 
     private void sendExecuteResponse(@Nullable UUID jobId, @Nullable Throwable ex, String senderConsistentId, Long correlationId) {
@@ -225,19 +229,11 @@ public class ComputeMessaging {
     }
 
     private void processJobResultRequest(JobResultRequest request, String senderConsistentId, long correlationId) {
-        UUID jobId = request.jobId();
-        JobExecution<Object> execution = executions.get(jobId);
-        if (execution != null) {
-            execution.resultAsync()
-                    .whenComplete((result, err) -> sendJobResultResponse(result, err, senderConsistentId, correlationId)
-                            .whenComplete((unused, throwable) -> executions.remove(jobId)));
-        } else {
-            ComputeException ex = new ComputeException(Compute.RESULT_NOT_FOUND_ERR, "Job result not found for the job id " + jobId);
-            sendJobResultResponse(null, ex, senderConsistentId, correlationId);
-        }
+        executionManager.resultAsync(request.jobId())
+                .whenComplete((result, err) -> sendJobResultResponse(result, err, senderConsistentId, correlationId));
     }
 
-    private CompletableFuture<Void> sendJobResultResponse(
+    private void sendJobResultResponse(
             @Nullable Object result,
             @Nullable Throwable ex,
             String senderConsistentId,
@@ -248,7 +244,7 @@ public class ComputeMessaging {
                 .throwable(ex)
                 .build();
 
-        return messagingService.respond(senderConsistentId, jobResultResponse, correlationId);
+        messagingService.respond(senderConsistentId, jobResultResponse, correlationId);
     }
 
     /**
@@ -256,9 +252,9 @@ public class ComputeMessaging {
      *
      * @param remoteNode The job will be executed on this node.
      * @param jobId Compute job id.
-     * @return Job status future.
+     * @return The current status of the job, or {@code null} if there's no job with the specified id.
      */
-    CompletableFuture<JobStatus> remoteStatusAsync(ClusterNode remoteNode, UUID jobId) {
+    CompletableFuture<@Nullable JobStatus> remoteStatusAsync(ClusterNode remoteNode, UUID jobId) {
         JobStatusRequest jobStatusRequest = messagesFactory.jobStatusRequest()
                 .jobId(jobId)
                 .build();
@@ -268,12 +264,12 @@ public class ComputeMessaging {
     }
 
     private void processJobStatusRequest(
-            Function<UUID, JobStatus> jobStatus,
             JobStatusRequest request,
             String senderConsistentId,
             long correlationId
     ) {
-        sendJobStatusResponse(jobStatus.apply(request.jobId()), null, senderConsistentId, correlationId);
+        executionManager.statusAsync(request.jobId())
+                .whenComplete((status, throwable) -> sendJobStatusResponse(status, throwable, senderConsistentId, correlationId));
     }
 
     private void sendJobStatusResponse(
@@ -295,9 +291,10 @@ public class ComputeMessaging {
      *
      * @param remoteNode The job will be canceled on this node.
      * @param jobId Compute job id.
-     * @return Job cancel future (will be completed when cancel request is processed).
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
      */
-    CompletableFuture<Void> remoteCancelAsync(ClusterNode remoteNode, UUID jobId) {
+    CompletableFuture<@Nullable Boolean> remoteCancelAsync(ClusterNode remoteNode, UUID jobId) {
         JobCancelRequest jobCancelRequest = messagesFactory.jobCancelRequest()
                 .jobId(jobId)
                 .build();
@@ -307,22 +304,18 @@ public class ComputeMessaging {
     }
 
     private void processJobCancelRequest(JobCancelRequest request, String senderConsistentId, long correlationId) {
-        UUID jobId = request.jobId();
-        JobExecution<Object> execution = executions.get(jobId);
-        if (execution != null) {
-            execution.cancelAsync()
-                    .whenComplete((result, err) -> sendJobCancelResponse(err, senderConsistentId, correlationId));
-        } else {
-            sendJobCancelResponse(new CancellingException(jobId), senderConsistentId, correlationId);
-        }
+        executionManager.cancelAsync(request.jobId())
+                .whenComplete((result, err) -> sendJobCancelResponse(result, err, senderConsistentId, correlationId));
     }
 
     private void sendJobCancelResponse(
+            @Nullable Boolean result,
             @Nullable Throwable throwable,
             String senderConsistentId,
             Long correlationId
     ) {
         JobCancelResponse jobCancelResponse = messagesFactory.jobCancelResponse()
+                .result(result)
                 .throwable(throwable)
                 .build();
 
@@ -338,7 +331,7 @@ public class ComputeMessaging {
      *
      * @return Job change priority future (will be completed when change priority request is processed).
      */
-    CompletableFuture<Void> remoteChangePriorityAsync(ClusterNode remoteNode, UUID jobId, int newPriority) {
+    CompletableFuture<@Nullable Boolean> remoteChangePriorityAsync(ClusterNode remoteNode, UUID jobId, int newPriority) {
         JobChangePriorityRequest jobChangePriorityRequest = messagesFactory.jobChangePriorityRequest()
                 .jobId(jobId)
                 .priority(newPriority)
@@ -349,27 +342,112 @@ public class ComputeMessaging {
     }
 
     private void processJobChangePriorityRequest(JobChangePriorityRequest request, String senderConsistentId, long correlationId) {
-        UUID jobId = request.jobId();
-        JobExecution<Object> execution = executions.get(jobId);
-        if (execution != null) {
-            execution.changePriorityAsync(request.priority())
-                    .whenComplete((result, err) -> sendJobChangePriorityResponse(err, senderConsistentId, correlationId));
-        } else {
-            ComputeException ex = new ComputeException(Compute.CHANGE_JOB_PRIORITY_NO_JOB_ERR, "Can not change job priority,"
-                    + " job not found for the job id " + jobId);
-            sendJobChangePriorityResponse(ex, senderConsistentId, correlationId);
-        }
+        executionManager.changePriorityAsync(request.jobId(), request.priority())
+                .whenComplete((result, err) -> sendJobChangePriorityResponse(result, err, senderConsistentId, correlationId));
     }
 
     private void sendJobChangePriorityResponse(
+            @Nullable Boolean result,
             @Nullable Throwable throwable,
             String senderConsistentId,
             Long correlationId
     ) {
         JobChangePriorityResponse jobChangePriorityResponse = messagesFactory.jobChangePriorityResponse()
                 .throwable(throwable)
+                .result(result)
                 .build();
 
         messagingService.respond(senderConsistentId, jobChangePriorityResponse, correlationId);
+    }
+
+    /**
+     * Broadcasts job status request to all nodes in the cluster.
+     *
+     * @param jobId Job id.
+     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     */
+    public CompletableFuture<@Nullable JobStatus> broadcastStatusAsync(UUID jobId) {
+        return broadcastAsync(
+                node -> remoteStatusAsync(node, jobId),
+                throwable -> new ComputeException(
+                        FAIL_TO_GET_JOB_STATUS_ERR,
+                        "Failed to retrieve status of the job with ID: " + jobId,
+                        throwable
+                ));
+    }
+
+    /**
+     * Broadcasts job cancel request to all nodes in the cluster.
+     *
+     * @param jobId Job id.
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
+     */
+    public CompletableFuture<@Nullable Boolean> broadcastCancelAsync(UUID jobId) {
+        return broadcastAsync(
+                node -> remoteCancelAsync(node, jobId),
+                throwable -> new ComputeException(
+                        CANCELLING_ERR,
+                        "Failed to cancel job with ID: " + jobId,
+                        throwable
+                ));
+    }
+
+    /**
+     * Broadcasts job priority change request to all nodes in the cluster.
+     *
+     * @param jobId Job id.
+     * @param newPriority New priority.
+     * @return The future which will be completed with {@code true} when the priority is changed, {@code false} when the priority couldn't
+     *         be changed (it's already executing or completed), or {@code null} if there's no job with the specified id.
+     */
+    public CompletableFuture<@Nullable Boolean> broadcastChangePriorityAsync(UUID jobId, int newPriority) {
+        return broadcastAsync(
+                node -> remoteChangePriorityAsync(node, jobId, newPriority),
+                throwable -> new ComputeException(
+                        CHANGE_JOB_PRIORITY_ERR,
+                        "Failed to change priority for job with ID: " + jobId,
+                        throwable
+                ));
+    }
+
+    /**
+     * Broadcasts a request to all nodes in the cluster.
+     *
+     * @param request Function which maps a node to the request future.
+     * @param error Function which creates a specific error from the exception thrown from the request.
+     * @return The future which will be completed when request is processed.
+     */
+    private <R> CompletableFuture<@Nullable R> broadcastAsync(
+            Function<ClusterNode, CompletableFuture<@Nullable R>> request,
+            Function<Throwable, Throwable> error
+    ) {
+        CompletableFuture<@Nullable R> result = new CompletableFuture<>();
+
+        CompletableFuture<?>[] futures = topologyService.allMembers()
+                .stream()
+                .map(node -> request.apply(node)
+                        .thenAccept(response -> {
+                            if (response != null) {
+                                result.complete(response);
+                            }
+                        }))
+                .toArray(CompletableFuture[]::new);
+
+        allOf(futures).whenComplete((unused, throwable) -> {
+            // If none of the nodes returned non-null status it means that either we couldn't find the status
+            // or the node which had the status thrown an exception. If any of the futures completed exceptionally
+            // but the result is non-null, then ignore the exceptions from other futures.
+            if (!result.isDone()) {
+                // allOf will complete exceptionally if any of the futures failed, so this condition means that we
+                // successfully couldn't find a status.
+                if (throwable == null) {
+                    result.complete(null);
+                    return;
+                }
+                result.completeExceptionally(error.apply(throwable));
+            }
+        });
+        return result;
     }
 }

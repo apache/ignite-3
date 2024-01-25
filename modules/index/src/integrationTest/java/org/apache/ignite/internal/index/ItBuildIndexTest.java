@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -419,6 +420,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
 
-        return indexDescriptor != null && indexDescriptor.available();
+        return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }
 }

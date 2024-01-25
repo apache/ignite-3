@@ -15,22 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.worker.configuration;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * This exception is thrown when an attempt is made to make an index {@link CatalogIndexDescriptor#available() available} a second time.
+ * {@link ConfigurationModule} for the configuration of critical workers handling.
  */
-public class IndexAlreadyAvailableValidationException extends CatalogValidationException {
-    private static final long serialVersionUID = 5482919822886169473L;
+@AutoService(ConfigurationModule.class)
+public class CriticalWorkersConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
+    }
 
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public IndexAlreadyAvailableValidationException(String message) {
-        super(message);
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Set.of(CriticalWorkersConfiguration.KEY);
     }
 }

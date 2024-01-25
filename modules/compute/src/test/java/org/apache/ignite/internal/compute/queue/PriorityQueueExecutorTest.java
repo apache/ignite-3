@@ -30,14 +30,12 @@ import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
@@ -238,7 +236,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
 
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
 
         await().until(
                 execution::status,
@@ -258,7 +256,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
 
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
 
         await().until(
                 execution::status,
@@ -274,7 +272,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
 
-        assertThrows(CancellingException.class, execution::cancel);
+        assertThat(execution.cancel(), is(false));
 
         assertThat(execution.status().state(), is(COMPLETED));
     }
@@ -297,7 +295,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         await().until(execution::status, jobStatusWithState(QUEUED));
 
         // Cancel the task
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
         assertThat(execution.status(), jobStatusWithState(CANCELED));
 
         // Finish the running task
@@ -392,7 +390,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task3.isDone(), is(false));
 
         //Change priority on task3, it should be executed before task2
-        runningExecution3.changePriority(20);
+        assertThat(runningExecution3.changePriority(20), is(true));
 
         //Task 1 should be completed
         latch1.countDown();
@@ -457,7 +455,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task4.isDone(), is(false));
 
         //Change priority on task3, it should be executed before task2 and task4
-        runningExecution.changePriority(20);
+        assertThat(runningExecution.changePriority(20), is(true));
 
         //Current executing task is 3 because we changed priority
         latch2.countDown();
@@ -502,8 +500,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task1.isDone(), is(false));
         assertThat(task2.isDone(), is(false));
 
-        //Change priority on task1, it is already in executing stage, exception should be thrown
-        assertThrows(ComputeException.class, () -> runningExecution1.changePriority(20));
+        //Change priority on task1, it is already in executing stage, should return false
+        assertThat(runningExecution1.changePriority(20), is(false));
 
         //Task 1 should not be completed because change priority failed and task2 has higher priority
         latch1.countDown();
@@ -540,7 +538,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task2.isDone(), is(false));
 
         //Change priority on task3, it should be executed before task2
-        assertThrows(ComputeException.class, () -> runningExecution.changePriority(2));
+        assertThat(runningExecution.changePriority(2), is(false));
 
         //Task 1 should not be completed because of changed priority of task3
         latch1.countDown();
@@ -563,10 +561,11 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
+        String nodeName = "testNode";
         priorityQueueExecutor = new PriorityQueueExecutor(
                 configuration,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix("testNode", "compute"), LOG),
-                new InMemoryComputeStateMachine(configuration)
+                NamedThreadFactory.create(nodeName, "compute", LOG),
+                new InMemoryComputeStateMachine(configuration, nodeName)
         );
     }
 

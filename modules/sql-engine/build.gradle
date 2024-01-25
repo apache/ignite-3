@@ -65,6 +65,7 @@ dependencies {
     implementation libs.guava
 
     annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.value.annotation.processor
     annotationProcessor libs.auto.service
 
@@ -95,6 +96,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-transactions')))
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
