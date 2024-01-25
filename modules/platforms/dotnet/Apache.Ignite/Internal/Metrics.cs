@@ -79,7 +79,7 @@ internal static class Metrics
     public static readonly Counter<long> HandshakesFailed = Meter.CreateCounter<long>(
         name: MetricNames.HandshakesFailed,
         unit: "handshakes",
-        description: "Total number of failed handshakes (due to version mismatch, auth failure, etc)");
+        description: "Total number of failed handshakes (due to version mismatch, auth failure, or other problems)");
 
     /// <summary>
     /// Handshakes failed due to a timeout.
@@ -128,7 +128,7 @@ internal static class Metrics
     public static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>(
         name: MetricNames.RequestsFailed,
         unit: "requests",
-        description: "Total number of failed requests (due to failure to send, or completed with error)");
+        description: "Total number of failed requests (completed with error or failed to send)");
 
     /// <summary>
     /// Bytes sent.
