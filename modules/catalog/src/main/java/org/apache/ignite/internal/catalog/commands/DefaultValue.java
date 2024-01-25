@@ -51,27 +51,10 @@ public class DefaultValue implements Serializable {
     /** Types of the defaults. */
     public enum Type {
         /** Default is specified as a constant. */
-        CONSTANT(1),
+        CONSTANT,
 
         /** Default is specified as a call to a function. */
-        FUNCTION_CALL(2);
-
-        private final int id;
-
-        Type(int id) {
-            this.id = id;
-        }
-
-        public int id() {
-            return id;
-        }
-
-        /** Gets type by ID. */
-        public static Type forId(int id) {
-            assert id == 1 || id == 2 : "Unknown default value type id: " + id;
-
-            return id == 1 ? CONSTANT : FUNCTION_CALL;
-        }
+        FUNCTION_CALL
     }
 
     protected final Type type;
