@@ -23,6 +23,10 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.AssignmentsTrackerEvent.ASSIGNMENTS_CHANGED;
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.LeaseNegotiatorEvent.LEASE_ACCEPTED;
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.TopologyTrackerEvent.TOPOLOGY_CHANGED;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,6 +36,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -52,7 +59,7 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -68,10 +75,10 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /** Update attempts interval in milliseconds. */
-    private static final long UPDATE_LEASE_MS = 500L;
+    private static final long UPDATE_LEASE_MS = 2500L;
 
     /** Lease holding interval. */
-    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+    private static final long LEASE_INTERVAL = 2 * UPDATE_LEASE_MS;
 
     /** The lock is available when the actor is changing state. */
     private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
@@ -102,8 +109,8 @@ public class LeaseUpdater {
     /** Closure to update leases. */
     private final Updater updater;
 
-    /** Dedicated thread to update leases. */
-    private IgniteThread updaterThread;
+    /** Dedicated single-thread executor to update leases. */
+    private volatile ScheduledExecutorService updaterExecutor;
 
     /** Processor to communicate with the leaseholder to negotiate the lease. */
     private LeaseNegotiator leaseNegotiator;
@@ -169,12 +176,35 @@ public class LeaseUpdater {
 
             leaseNegotiator = new LeaseNegotiator(clusterService);
 
-            updaterThread = new IgniteThread(nodeName, "lease-updater", updater);
+            updaterExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-lease-updater", LOG));
 
-            updaterThread.start();
+            updaterExecutor.scheduleAtFixedRate(updater, 0, UPDATE_LEASE_MS, TimeUnit.MILLISECONDS);
+
+            // Listeners are just an optimisation in order to detect lease renewal triggers faster. If it'll be missed for some reason,
+            // nothing will break, because common scheduler will catch up given triggers. This is also the reason
+            // why instead of adding/removing listener on activation/deactivation every node ones activated will get the notification
+            // and check whether it's active or not. Given approach is simpler and thus less error prone.
+            assignmentsTracker.listen(ASSIGNMENTS_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
+            topologyTracker.listen(TOPOLOGY_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
+            leaseNegotiator.listen(LEASE_ACCEPTED, ((parameters, exception) -> onRenewLeasesTrigger()));
+
         } finally {
             stateChangingLock.unblock();
         }
+    }
+
+    private CompletableFuture<Boolean> onRenewLeasesTrigger() {
+        stateChangingLock.enterBusy();
+
+        try {
+            if (active()) {
+                updaterExecutor.submit(updater);
+            }
+        } finally {
+            stateChangingLock.leaveBusy();
+        }
+
+        return falseCompletedFuture();
     }
 
     /** Stops a dedicated thread to renew or assign leases. */
@@ -192,9 +222,12 @@ public class LeaseUpdater {
 
             leaseNegotiator = null;
 
-            updaterThread.interrupt();
+            // We do shutdownNow() right away without doing usual shutdown()+awaitTermination() because
+            // this would make us wait till all the scheduled tasks get executed (which might take a lot
+            // of time).
+            updaterExecutor.shutdownNow();
 
-            this.updaterThread = null;
+            this.updaterExecutor = null;
 
         } finally {
             stateChangingLock.unblock();
@@ -277,32 +310,20 @@ public class LeaseUpdater {
     private class Updater implements Runnable {
         @Override
         public void run() {
-            while (active() && !Thread.interrupted()) {
-                if (!stateChangingLock.enterBusy()) {
-                    continue;
-                }
+            stateChangingLock.enterBusy();
 
-                try {
-                    if (active()) {
-                        updateLeaseBatchInternal();
-                    }
-                } finally {
-                    stateChangingLock.leaveBusy();
+            try {
+                if (active()) {
+                    updateLeaseBatchInternal();
                 }
-
-                try {
-                    Thread.sleep(UPDATE_LEASE_MS);
-                } catch (InterruptedException e) {
-                    LOG.warn("Lease updater is interrupted");
-                }
+            } finally {
+                stateChangingLock.leaveBusy();
             }
         }
 
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
             HybridTimestamp now = clock.now();
-
-            long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
@@ -342,27 +363,25 @@ public class LeaseUpdater {
                     }
                 }
 
-                // The lease is expired or close to this.
-                if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                    ClusterNode candidate = nextLeaseHolder(
-                            entry.getValue(),
-                            lease.isProlongable() ? lease.getLeaseholder() : null
-                    );
+                // Prolong existing leases.
+                ClusterNode candidate = nextLeaseHolder(
+                        entry.getValue(),
+                        lease.isProlongable() ? lease.getLeaseholder() : null
+                );
 
-                    if (candidate == null) {
-                        continue;
-                    }
+                if (candidate == null) {
+                    continue;
+                }
 
-                    // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
-                    // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
-                    // leaseholders at all.
-                    if (isLeaseOutdated(lease)) {
-                        // New lease is granting.
-                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
-                    } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
-                        // Old lease is renewing.
-                        prolongLease(grpId, lease, renewedLeases);
-                    }
+                // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
+                // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
+                // leaseholders at all.
+                if (isLeaseOutdated(lease)) {
+                    // New lease is granting.
+                    writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
+                    // Old lease is renewing.
+                    prolongLease(grpId, lease, renewedLeases);
                 }
             }
 

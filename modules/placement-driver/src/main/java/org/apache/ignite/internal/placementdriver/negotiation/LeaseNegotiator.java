@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.placementdriver.negotiation;
 
 import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement.UNDEFINED_AGREEMENT;
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.LeaseNegotiatorEvent.LEASE_ACCEPTED;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.event.VoidEventParameters;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -30,13 +33,14 @@ import org.apache.ignite.internal.placementdriver.LeaseUpdater;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.LeaseNegotiatorEvent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 
 /**
  * This class negotiates a lease with leaseholder. If the lease is negotiated, it is ready available to accept.
  */
-public class LeaseNegotiator {
+public class LeaseNegotiator extends AbstractEventProducer<LeaseNegotiatorEvent, VoidEventParameters> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
 
@@ -125,6 +129,9 @@ public class LeaseNegotiator {
      * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
      */
     private void triggerToRenewLeases() {
-        //TODO: IGNITE-18879 Implement lease maintenance.
+        fireEvent(
+                LEASE_ACCEPTED,
+                new VoidEventParameters()
+        );
     }
 }

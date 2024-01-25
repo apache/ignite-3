@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.TopologyTrackerEvent.TOPOLOGY_CHANGED;
+
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.event.VoidEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.LeaseNegotiatorEvent;
+import org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.TopologyTrackerEvent;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -31,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The class tracks a logical topology.
  */
-public class TopologyTracker {
+public class TopologyTracker extends AbstractEventProducer<TopologyTrackerEvent, VoidEventParameters> {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TopologyTracker.class);
 
@@ -151,6 +157,9 @@ public class TopologyTracker {
      * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
      */
     private void triggerToRenewLeases() {
-        //TODO: IGNITE-18879 Implement lease maintenance.
+        fireEvent(
+                TOPOLOGY_CHANGED,
+                new VoidEventParameters()
+        );
     }
 }
