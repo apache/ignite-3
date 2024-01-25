@@ -122,7 +122,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Implements a query plan.
@@ -148,14 +147,12 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * Constructor.
      *
      * @param ctx Root context.
-     * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
      * @param resolvedDependencies Dependencies required to execute this query.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
-            HashFunctionFactory<RowT> hashFuncFactory,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSvc,
             ResolvedDependencies resolvedDependencies) {
@@ -165,7 +162,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         this.resolvedDependencies = resolvedDependencies;
 
         expressionFactory = ctx.expressionFactory();
-        destinationFactory = new DestinationFactory<>(ctx.rowHandler(), hashFuncFactory, resolvedDependencies);
+        destinationFactory = new DestinationFactory<>(ctx.rowHandler(), resolvedDependencies);
     }
 
     /** {@inheritDoc} */
