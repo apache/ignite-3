@@ -190,14 +190,14 @@ public class StorageUpdateHandler {
         return storage.runConsistently(locker -> {
             List<RowId> rowIds = new ArrayList<>();
             Entry<UUID, TimedBinaryRow> entry;
-            int size = 0;
+            int batchSize = 0;
             entry = entryToProcess;
             while (entry != null) {
                 RowId rowId = new RowId(partitionId, entry.getKey());
                 BinaryRow row = entry.getValue() == null ? null : entry.getValue().binaryRow();
-                int rowSize = entry.getValue() == null ? 0 : row.tupleSliceLength();
-                size += rowSize;
-                if (!rowIds.isEmpty() && size > MAX_BATCH_LENGTH || !locker.tryLock(rowId)) {
+                int rowSize = row == null ? 0 : row.tupleSliceLength();
+                batchSize += rowSize;
+                if (!rowIds.isEmpty() && batchSize > MAX_BATCH_LENGTH || !locker.tryLock(rowId)) {
                     break;
                 }
                 performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
