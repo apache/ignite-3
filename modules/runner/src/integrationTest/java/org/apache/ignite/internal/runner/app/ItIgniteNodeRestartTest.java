@@ -642,13 +642,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             TestIgnitionManager.init(initParameters);
         }
 
-        return futures.stream()
+        var startedNodes = futures.stream()
                 .map(future -> {
                     assertThat(future, willCompleteSuccessfully());
 
                     return (IgniteImpl) future.join();
                 })
                 .collect(toList());
+
+        // TODO: sanpwc addTodo.
+        assertTrue(waitForLogicalTopology(startedNodes, amount, 10_000));
+
+        return startedNodes;
     }
 
     /**
@@ -1107,6 +1112,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         log.info("Stopping the node.");
 
         stopNode(nodes.size() - 1);
+
+        assertTrue(waitForLogicalTopology(List.of(nodes.get(0), nodes.get(1)), 2, 10_000));
 
         nodes.set(nodes.size() - 1, null);
 
@@ -1802,5 +1809,29 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     private interface InvokeInterceptor {
         Boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
+    }
+
+    private static boolean waitForLogicalTopology(Collection<IgniteImpl> cluster, int expected, long timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while (System.currentTimeMillis() < stop) {
+            boolean allMatch = true;
+
+            for (IgniteImpl node : cluster) {
+                allMatch = allMatch && (node.distributionZoneManager().logicalTopology().size() == expected);
+            }
+
+            if (allMatch) {
+                return true;
+            }
+
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 }
