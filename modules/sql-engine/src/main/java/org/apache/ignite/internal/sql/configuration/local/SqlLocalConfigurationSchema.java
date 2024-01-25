@@ -15,10 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception;
+package org.apache.ignite.internal.sql.configuration.local;
 
-/**
- * Exception that is thrown when the cluster is not initialized.
- */
-public class ClusterNotInitializedException extends RuntimeException {
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+
+/** Configuration schema for local sql endpoint subtree. */
+@ConfigurationRoot(rootName = "sql", type = ConfigurationType.LOCAL)
+public class SqlLocalConfigurationSchema {
+    /** Represent a configuration related to SQL execution. */
+    @ConfigValue
+    public SqlExecutionLocalConfigurationSchema execution;
+
+    /** Represent a configuration related to SQL planner. */
+    @ConfigValue
+    public SqlPlannerLocalConfigurationSchema planner;
+
 }

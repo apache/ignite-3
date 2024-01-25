@@ -17,27 +17,39 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.List;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link CatalogUtils} testing. */
@@ -50,146 +62,152 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private static final String COLUMN_NAME = "key";
 
-    @Test
-    void testCollectIndexesAfterCreateTable() throws Exception {
-        withCatalogManager(catalogManager -> {
-            createTable(catalogManager, TABLE_NAME);
+    private final HybridClock clock = new HybridClockImpl();
 
-            int latestCatalogVersion = catalogManager.latestCatalogVersion();
-            int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+    private final CatalogManager catalogManager = createTestCatalogManager("test", clock);
 
-            int tableId = tableId(catalogManager, latestCatalogVersion, TABLE_NAME);
+    @BeforeEach
+    void setUp() {
+        catalogManager.start();
+    }
 
-            assertThat(
-                    collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
-            );
-
-            assertThat(
-                    collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
-            );
-        });
+    @AfterEach
+    void tearDown() throws Exception {
+        catalogManager.stop();
     }
 
     @Test
-    void testCollectIndexesAfterCreateIndex() throws Exception {
-        withCatalogManager(catalogManager -> {
-            createTable(catalogManager, TABLE_NAME);
-            createIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+    void testCollectIndexesAfterCreateTable() {
+        createTable(TABLE_NAME);
 
-            int latestCatalogVersion = catalogManager.latestCatalogVersion();
-            int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
 
-            int tableId = tableId(catalogManager, latestCatalogVersion, TABLE_NAME);
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
 
-            assertThat(
-                    collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    hasItems(
-                            index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                            index(catalogManager, latestCatalogVersion, INDEX_NAME)
-                    )
-            );
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+        );
 
-            assertThat(
-                    collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    hasItems(
-                            index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                            index(catalogManager, latestCatalogVersion, INDEX_NAME)
-                    )
-            );
-        });
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+        );
     }
 
     @Test
-    void testCollectIndexesAfterCreateIndexAndStartBuildingIndexAndMakeAvailableIndex() throws Exception {
-        withCatalogManager(catalogManager -> {
-            String indexName0 = INDEX_NAME + 0;
-            String indexName1 = INDEX_NAME + 1;
-            String indexName2 = INDEX_NAME + 2;
+    void testCollectIndexesAfterCreateIndex() {
+        createTable(TABLE_NAME);
+        createIndex(TABLE_NAME, INDEX_NAME);
 
-            createTable(catalogManager, TABLE_NAME);
-            createIndex(catalogManager, TABLE_NAME, indexName0);
-            createIndex(catalogManager, TABLE_NAME, indexName1);
-            createIndex(catalogManager, TABLE_NAME, indexName2);
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
 
-            startBuildingIndex(catalogManager, indexName1);
-            makeIndexAvailable(catalogManager, indexName1);
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
 
-            startBuildingIndex(catalogManager, indexName2);
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, INDEX_NAME)
+                )
+        );
 
-            int latestCatalogVersion = catalogManager.latestCatalogVersion();
-            int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
-
-            int tableId = tableId(catalogManager, latestCatalogVersion, TABLE_NAME);
-
-            assertThat(
-                    collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    hasItems(
-                            index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                            index(catalogManager, latestCatalogVersion, indexName0),
-                            index(catalogManager, latestCatalogVersion, indexName1),
-                            index(catalogManager, latestCatalogVersion, indexName2)
-                    )
-            );
-
-            assertThat(
-                    collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    hasItems(
-                            index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                            index(catalogManager, latestCatalogVersion, indexName0),
-                            index(catalogManager, latestCatalogVersion, indexName1),
-                            index(catalogManager, latestCatalogVersion, indexName2)
-                    )
-            );
-        });
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, INDEX_NAME)
+                )
+        );
     }
 
     @Test
-    void testCollectIndexesAfterDropIndexes() throws Exception {
-        withCatalogManager(catalogManager -> {
-            String indexName0 = INDEX_NAME + 0;
-            String indexName1 = INDEX_NAME + 1;
-            String indexName2 = INDEX_NAME + 2;
+    void testCollectIndexesAfterCreateIndexAndStartBuildingIndexAndMakeAvailableIndex() {
+        String indexName0 = INDEX_NAME + 0;
+        String indexName1 = INDEX_NAME + 1;
+        String indexName2 = INDEX_NAME + 2;
 
-            createTable(catalogManager, TABLE_NAME);
-            createIndex(catalogManager, TABLE_NAME, indexName0);
-            createIndex(catalogManager, TABLE_NAME, indexName1);
-            createIndex(catalogManager, TABLE_NAME, indexName2);
+        createTable(TABLE_NAME);
+        createIndex(TABLE_NAME, indexName0);
+        createIndex(TABLE_NAME, indexName1);
+        createIndex(TABLE_NAME, indexName2);
 
-            startBuildingIndex(catalogManager, indexName1);
-            makeIndexAvailable(catalogManager, indexName1);
+        startBuildingIndex(indexName1);
+        makeIndexAvailable(indexName1);
 
-            startBuildingIndex(catalogManager, indexName2);
+        startBuildingIndex(indexName2);
 
-            int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
 
-            dropIndex(catalogManager, indexName0);
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
 
-            int catalogVersionBeforeDropIndex1 = catalogManager.latestCatalogVersion();
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, indexName0),
+                        index(catalogManager, latestCatalogVersion, indexName1),
+                        index(catalogManager, latestCatalogVersion, indexName2)
+                )
+        );
 
-            dropIndex(catalogManager, indexName1);
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, indexName0),
+                        index(catalogManager, latestCatalogVersion, indexName1),
+                        index(catalogManager, latestCatalogVersion, indexName2)
+                )
+        );
+    }
 
-            int latestCatalogVersion = catalogManager.latestCatalogVersion();
-            int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+    @Test
+    void testCollectIndexesAfterDropIndexes() {
+        String indexName0 = INDEX_NAME + 0;
+        String indexName1 = INDEX_NAME + 1;
+        String indexName2 = INDEX_NAME + 2;
 
-            int tableId = tableId(catalogManager, latestCatalogVersion, TABLE_NAME);
+        createTable(TABLE_NAME);
+        createIndex(TABLE_NAME, indexName0);
+        createIndex(TABLE_NAME, indexName1);
+        createIndex(TABLE_NAME, indexName2);
 
-            assertThat(
-                    collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
-            );
+        startBuildingIndex(indexName1);
+        makeIndexAvailable(indexName1);
 
-            assertThat(
-                    collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    hasItems(
-                            index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                            index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
-                            index(catalogManager, catalogVersionBeforeDropIndex1, indexName1),
-                            index(catalogManager, catalogVersionBeforeDropIndex1, indexName2)
-                    )
-            );
-        });
+        startBuildingIndex(indexName2);
+
+        int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
+
+        dropIndex(indexName0);
+
+        int catalogVersionBeforeDropIndex1 = catalogManager.latestCatalogVersion();
+
+        dropIndex(indexName1);
+
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+        );
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
+                        index(catalogManager, catalogVersionBeforeDropIndex1, indexName1),
+                        index(catalogManager, catalogVersionBeforeDropIndex1, indexName2)
+                )
+        );
     }
 
     /**
@@ -212,74 +230,102 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
      * </pre>
      */
     @Test
-    void testCollectIndexesComplexCase() throws Exception {
-        withCatalogManager(catalogManager -> {
-            String indexName0 = INDEX_NAME + 0;
-            String indexName1 = INDEX_NAME + 1;
-            String indexName2 = INDEX_NAME + 2;
-            String indexName3 = INDEX_NAME + 3;
+    void testCollectIndexesComplexCase() {
+        String indexName0 = INDEX_NAME + 0;
+        String indexName1 = INDEX_NAME + 1;
+        String indexName2 = INDEX_NAME + 2;
+        String indexName3 = INDEX_NAME + 3;
 
-            createTable(catalogManager, TABLE_NAME);
-            createIndex(catalogManager, TABLE_NAME, indexName0);
-            createIndex(catalogManager, TABLE_NAME, indexName1);
-            createIndex(catalogManager, TABLE_NAME, indexName2);
-            createIndex(catalogManager, TABLE_NAME, indexName3);
+        createTable(TABLE_NAME);
+        createIndex(TABLE_NAME, indexName0);
+        createIndex(TABLE_NAME, indexName1);
+        createIndex(TABLE_NAME, indexName2);
+        createIndex(TABLE_NAME, indexName3);
 
-            startBuildingIndex(catalogManager, indexName0);
-            startBuildingIndex(catalogManager, indexName1);
-            startBuildingIndex(catalogManager, indexName2);
+        startBuildingIndex(indexName0);
+        startBuildingIndex(indexName1);
+        startBuildingIndex(indexName2);
 
-            makeIndexAvailable(catalogManager, indexName0);
-            makeIndexAvailable(catalogManager, indexName2);
+        makeIndexAvailable(indexName0);
+        makeIndexAvailable(indexName2);
 
-            int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
+        int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
 
-            dropIndex(catalogManager, indexName0);
+        dropIndex(indexName0);
 
-            int catalogVersionBeforeDropIndex3 = catalogManager.latestCatalogVersion();
+        int catalogVersionBeforeDropIndex3 = catalogManager.latestCatalogVersion();
 
-            dropIndex(catalogManager, indexName3);
+        dropIndex(indexName3);
 
-            int latestCatalogVersion = catalogManager.latestCatalogVersion();
-            int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
 
-            int tableId = tableId(catalogManager, latestCatalogVersion, TABLE_NAME);
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
 
-            assertThat(
-                    collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    hasItems(
-                            index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                            index(catalogManager, latestCatalogVersion, indexName1),
-                            index(catalogManager, latestCatalogVersion, indexName2)
-                    )
-            );
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, indexName1),
+                        index(catalogManager, latestCatalogVersion, indexName2)
+                )
+        );
 
-            assertThat(
-                    collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    hasItems(
-                            index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                            index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
-                            index(catalogManager, latestCatalogVersion, indexName1),
-                            index(catalogManager, latestCatalogVersion, indexName2),
-                            index(catalogManager, catalogVersionBeforeDropIndex3, indexName3)
-                    )
-            );
-        });
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
+                        index(catalogManager, latestCatalogVersion, indexName1),
+                        index(catalogManager, latestCatalogVersion, indexName2),
+                        index(catalogManager, catalogVersionBeforeDropIndex3, indexName3)
+                )
+        );
     }
 
-    private static void withCatalogManager(Consumer<CatalogManager> fun) throws Exception {
-        CatalogManager catalogManager = createTestCatalogManager("test", new HybridClockImpl());
+    @Test
+    void testReplaceTable() {
+        createTable("foo");
+        createTable("bar");
 
-        try {
-            catalogManager.start();
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
 
-            fun.accept(catalogManager);
-        } finally {
-            catalogManager.stop();
-        }
+        assertThat(schema, is(notNullValue()));
+
+        CatalogTableDescriptor fooTable = catalogManager.table("foo", clock.nowLong());
+
+        assertThat(fooTable, is(notNullValue()));
+
+        CatalogTableDescriptor bazTable = fooTable.newDescriptor(
+                "baz",
+                fooTable.tableVersion(),
+                fooTable.columns(),
+                fooTable.updateToken()
+        );
+
+        CatalogSchemaDescriptor updatedSchema = replaceTable(schema, bazTable);
+
+        List<String> tableNames = Arrays.stream(updatedSchema.tables()).map(CatalogTableDescriptor::name).collect(toList());
+
+        assertThat(tableNames, contains("baz", "bar"));
     }
 
-    private static void createTable(CatalogManager catalogManager, String tableName) {
+    @Test
+    void testReplaceTableMissingTable() {
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+
+        assertThat(schema, is(notNullValue()));
+
+        var table = mock(CatalogTableDescriptor.class);
+
+        when(table.id()).thenReturn(Integer.MAX_VALUE);
+
+        Exception e = assertThrows(CatalogValidationException.class, () -> replaceTable(schema, table));
+
+        assertThat(e.getMessage(), is(String.format("Table with ID %d has not been found in schema with ID %d", Integer.MAX_VALUE, 0)));
+    }
+
+    private void createTable(String tableName) {
         CatalogCommand catalogCommand = CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
@@ -292,7 +338,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private static void createIndex(CatalogManager catalogManager, String tableName, String indexName) {
+    private void createIndex(String tableName, String indexName) {
         CatalogCommand catalogCommand = CreateHashIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(tableName)
@@ -304,7 +350,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private static void startBuildingIndex(CatalogManager catalogManager, String indexName) {
+    private void startBuildingIndex(String indexName) {
         CatalogIndexDescriptor index = index(catalogManager, catalogManager.latestCatalogVersion(), indexName);
 
         CatalogCommand catalogCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
@@ -312,7 +358,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private static void makeIndexAvailable(CatalogManager catalogManager, String indexName) {
+    private void makeIndexAvailable(String indexName) {
         CatalogIndexDescriptor index = index(catalogManager, catalogManager.latestCatalogVersion(), indexName);
 
         CatalogCommand catalogCommand = MakeIndexAvailableCommand.builder()
@@ -322,7 +368,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private static void dropIndex(CatalogManager catalogManager, String indexName) {
+    private void dropIndex(String indexName) {
         CatalogCommand catalogCommand = DropIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .indexName(indexName)
@@ -331,8 +377,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private static int tableId(CatalogService catalogService, int catalogVersion, String tableName) {
-        CatalogTableDescriptor tableDescriptor = catalogService.tables(catalogVersion).stream()
+    private int tableId(int catalogVersion, String tableName) {
+        CatalogTableDescriptor tableDescriptor = catalogManager.tables(catalogVersion).stream()
                 .filter(table -> tableName.equals(table.name()))
                 .findFirst()
                 .orElse(null);

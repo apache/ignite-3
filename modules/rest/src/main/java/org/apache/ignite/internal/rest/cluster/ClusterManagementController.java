@@ -31,7 +31,6 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
-import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 
@@ -63,7 +62,7 @@ public class ClusterManagementController implements ClusterManagementApi {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterState> clusterState() {
-        return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
+        return clusterManagementGroupManager.clusterState().thenApply(ClusterManagementController::mapClusterState);
     }
 
     /** {@inheritDoc} */
@@ -84,11 +83,7 @@ public class ClusterManagementController implements ClusterManagementApi {
         });
     }
 
-    private ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
-        if (clusterState == null) {
-            throw new ClusterNotInitializedException();
-        }
-
+    private static ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
         return new ClusterState(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),

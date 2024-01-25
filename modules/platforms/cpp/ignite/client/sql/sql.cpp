@@ -26,8 +26,8 @@ void sql::execute_async(transaction *tx, const sql_statement &statement, std::ve
     m_impl->execute_async(tx, statement, std::move(args), std::move(callback));
 }
 
-void sql::execute_script_async(const sql_statement &statement, std::vector<primitive> args,
-    ignite_callback<void> callback) {
+void sql::execute_script_async(
+    const sql_statement &statement, std::vector<primitive> args, ignite_callback<void> callback) {
     m_impl->execute_script_async(statement, std::move(args), std::move(callback));
 }
 

@@ -119,8 +119,8 @@ enum class client_operation {
     /** Execute SQL script. */
     SQL_EXEC_SCRIPT = 56,
 
-    /** SQL parameter metadata. */
-    SQL_PARAM_META = 57,
+    /** SQL query metadata. */
+    SQL_QUERY_META = 57,
 };
 
 } // namespace ignite::protocol

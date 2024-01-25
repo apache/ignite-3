@@ -29,9 +29,13 @@ import org.apache.ignite.internal.logger.Loggers;
 public class RestManager {
     private static final IgniteLogger LOG = Loggers.forClass(RestManager.class);
 
-    private static final String DURING_INITIALIZATION = "REST temporary unavailable";
+    private static final String DURING_INITIALIZATION_TITLE = "REST temporarily unavailable";
 
-    private static final String CLUSTER_NOT_INITIALIZED = "Cluster is not initialized. "
+    private static final String DURING_INITIALIZATION_REASON = "REST services are unavailable during cluster initialization";
+
+    private static final String CLUSTER_NOT_INITIALIZED_TITLE = "Cluster is not initialized";
+
+    private static final String CLUSTER_NOT_INITIALIZED_REASON = "Cluster is not initialized. "
             + "Call /management/v1/cluster/init in order to initialize cluster.";
 
     private static final String[] DEFAULT_ENDPOINTS = {
@@ -64,9 +68,11 @@ public class RestManager {
             case INITIALIZED:
                 return available();
             case INITIALIZATION:
-                return unavailable(DURING_INITIALIZATION);
+                return unavailable(DURING_INITIALIZATION_TITLE, DURING_INITIALIZATION_REASON);
             case NOT_INITIALIZED:
-                return pathDisabledForNotInitializedCluster(requestPath) ? unavailable(CLUSTER_NOT_INITIALIZED) : available();
+                return pathDisabledForNotInitializedCluster(requestPath)
+                        ? unavailable(CLUSTER_NOT_INITIALIZED_TITLE, CLUSTER_NOT_INITIALIZED_REASON)
+                        : available();
             default:
                 throw new IllegalStateException("Unrecognized state " + state);
         }

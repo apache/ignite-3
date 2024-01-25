@@ -222,7 +222,6 @@ public class RestComponent implements IgniteComponent {
         result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
         result.put("micronaut.security.intercept-url-map[0].pattern", "/**");
         result.put("micronaut.security.intercept-url-map[0].access", "isAuthenticated()");
-        result.put("ignite.endpoints.filter-non-initialized", "true");
 
         if (sslEnabled) {
             KeyStoreView keyStore = restSslView.keyStore();
