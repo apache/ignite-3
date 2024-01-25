@@ -2177,7 +2177,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      *
      * @param finishMode 1 is commit, 0 is rollback, otherwise random outcome.
      */
-    public void testTransactionMultiThreadedFinish(int finishMode) {
+    private void testTransactionMultiThreadedFinish(int finishMode) {
         var rv = accounts.recordView();
 
         rv.upsert(null, makeValue(1, 1.));
@@ -2232,6 +2232,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
     }
 
+    /**
+     * Test trying to finish a read only tx in multiple threads simultaneously.
+     */
     @RepeatedTest(10)
     public void testReadOnlyTransactionMultiThreadedFinish() {
         var rv = accounts.recordView();
