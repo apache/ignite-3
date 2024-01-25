@@ -57,8 +57,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -1987,7 +1987,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFinished(true, true, (transaction, uuid, rv) -> {
+        testTransactionAlreadyFinished(true, true, (transaction, uuid) -> {
             transaction.commit();
 
             log.info("Committed transaction {}", uuid);
@@ -1996,7 +1996,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFinished(false, true, (transaction, uuid, rv) -> {
+        testTransactionAlreadyFinished(false, true, (transaction, uuid) -> {
             transaction.rollback();
 
             log.info("Rolled back transaction {}", uuid);
@@ -2291,7 +2291,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected void testTransactionAlreadyFinished(
             boolean commit,
             boolean checkLocks,
-            IgniteTriConsumer<Transaction, UUID, RecordView<Tuple>> finisher
+            BiConsumer<Transaction, UUID> finisher
     ) {
         Transaction tx = igniteTransactions.begin();
 
@@ -2308,7 +2308,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         validateBalance(res, 100., 200.);
 
-        finisher.accept(tx, txId, accountsRv);
+        finisher.accept(tx, txId);
 
         TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(1)));
         assertTrue(ex.getMessage().contains("Transaction is already finished."));
