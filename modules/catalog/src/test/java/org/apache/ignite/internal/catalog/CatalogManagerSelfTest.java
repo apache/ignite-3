@@ -96,6 +96,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -2262,6 +2263,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testCatalogs() {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        List<Catalog> expCatalogs = IntStream.rangeClosed(manager.earliestCatalogVersion(), manager.latestCatalogVersion())
+                .mapToObj(manager::catalog)
+                .collect(toList());
+
+        assertThat(manager.catalogs(), equalTo(expCatalogs));
     }
 
     private CompletableFuture<Void> changeColumn(

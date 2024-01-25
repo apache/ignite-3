@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.ClockWaiter;
@@ -37,6 +38,8 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -68,9 +71,15 @@ class IndexBuildingStarter implements ManuallyCloseable {
 
     private final ClusterService clusterService;
 
+    private final LogicalTopologyService logicalTopologyService;
+
+    private final HybridClock clock;
+
     private final ClockWaiter clockWaiter;
 
     private final PlacementDriver placementDriver;
+
+    private final Executor executor;
 
     /** Tables IDs for which the local node is the primary replica for the partition with ID {@code 0}. */
     private final Set<Integer> tableIds = ConcurrentHashMap.newKeySet();
@@ -84,13 +93,19 @@ class IndexBuildingStarter implements ManuallyCloseable {
     IndexBuildingStarter(
             CatalogManager catalogManager,
             ClusterService clusterService,
+            LogicalTopologyService logicalTopologyService,
+            HybridClock clock,
             ClockWaiter clockWaiter,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            Executor executor
     ) {
         this.catalogManager = catalogManager;
         this.clusterService = clusterService;
+        this.logicalTopologyService = logicalTopologyService;
+        this.clock = clock;
         this.clockWaiter = clockWaiter;
         this.placementDriver = placementDriver;
+        this.executor = executor;
 
         addListeners();
     }
@@ -186,7 +201,17 @@ class IndexBuildingStarter implements ManuallyCloseable {
     private void tryScheduleTaskBusy(CatalogIndexDescriptor indexDescriptor) {
         IndexBuildingStarterTaskId taskId = new IndexBuildingStarterTaskId(indexDescriptor.tableId(), indexDescriptor.id());
 
-        IndexBuildingStarterTask task = new IndexBuildingStarterTask();
+        IndexBuildingStarterTask task = new IndexBuildingStarterTask(
+                indexDescriptor,
+                catalogManager,
+                placementDriver,
+                clusterService,
+                logicalTopologyService,
+                clock,
+                clockWaiter,
+                executor,
+                busyLock
+        );
 
         if (taskById.putIfAbsent(taskId, task) != null) {
             // Task has already been added and is running.

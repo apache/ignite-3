@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -73,8 +74,6 @@ import org.apache.ignite.network.ClusterService;
  * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
 class IndexBuildController implements ManuallyCloseable {
-    private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
-
     private final IndexBuilder indexBuilder;
 
     private final IndexManager indexManager;
@@ -317,7 +316,7 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private ClusterNode localNode() {
-        return clusterService.topologyService().localMember();
+        return IndexManagementUtils.localNode(clusterService);
     }
 
     private boolean isLeaseExpire(ReplicaMeta replicaMeta) {

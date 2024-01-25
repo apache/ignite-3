@@ -49,6 +49,11 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
+    public Collection<Catalog> catalogs() {
+        return null;
+    }
+
+    @Override
     public CatalogTableDescriptor table(String tableName, long timestamp) {
         return null;
     }

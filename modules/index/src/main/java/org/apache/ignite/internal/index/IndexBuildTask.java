@@ -212,22 +212,11 @@ class IndexBuildTask {
     }
 
     private boolean enterBusy() {
-        if (!busyLock.enterBusy()) {
-            return false;
-        }
-
-        if (!taskBusyLock.enterBusy()) {
-            busyLock.leaveBusy();
-
-            return false;
-        }
-
-        return true;
+        return IndexManagementUtils.enterBusy(busyLock, taskBusyLock);
     }
 
     private void leaveBusy() {
-        taskBusyLock.leaveBusy();
-        busyLock.leaveBusy();
+        IndexManagementUtils.leaveBusy(busyLock, taskBusyLock);
     }
 
     private String createCommonIndexInfo() {

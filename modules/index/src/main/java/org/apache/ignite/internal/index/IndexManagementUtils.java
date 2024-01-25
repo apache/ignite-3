@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
@@ -62,6 +65,9 @@ class IndexManagementUtils {
      * {@code "indexBuild.partition.<indexId>.<partitionId>"}.
      */
     static final String PARTITION_BUILD_INDEX_KEY_PREFIX = "indexBuild.partition.";
+
+    /** Timeout to receive the primary replica meta in seconds. */
+    static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
 
     /**
      * Returns {@code true} if the {@code key} is <b>absent</b> in the metastore locally.
@@ -266,12 +272,80 @@ class IndexManagementUtils {
     }
 
     /**
+     * Returns the local node.
+     *
+     * @param clusterService Cluster service.
+     */
+    static ClusterNode localNode(ClusterService clusterService) {
+        return clusterService.topologyService().localMember();
+    }
+
+    /**
      * Returns {@code true} if the passed node ID is equal to the local node ID, {@code false} otherwise.
      *
      * @param clusterService Cluster service.
      * @param nodeId Node ID of interest.
      */
     static boolean isLocalNode(ClusterService clusterService, String nodeId) {
-        return nodeId.equals(clusterService.topologyService().localMember().id());
+        return nodeId.equals(localNode(clusterService).id());
+    }
+
+    /**
+     * Enters "busy" state for two locks.
+     *
+     * <p>NOTE: Then you should {@link IndexManagementUtils#leaveBusy(IgniteSpinBusyLock, IgniteSpinBusyLock)} with the same order of
+     * locks.</p>
+     *
+     * @return {@code true} if entered to busy state.
+     */
+    static boolean enterBusy(IgniteSpinBusyLock busyLock0, IgniteSpinBusyLock busyLock1) {
+        if (!busyLock0.enterBusy()) {
+            return false;
+        }
+
+        if (!busyLock1.enterBusy()) {
+            busyLock0.leaveBusy();
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Leaves "busy" state for two locks.
+     *
+     * <p>NOTE: Before this you need to {@link IndexManagementUtils#enterBusy(IgniteSpinBusyLock, IgniteSpinBusyLock)} with the same order
+     * of locks.</p>
+     */
+    static void leaveBusy(IgniteSpinBusyLock busyLock0, IgniteSpinBusyLock busyLock1) {
+        busyLock1.leaveBusy();
+        busyLock0.leaveBusy();
+    }
+
+    /**
+     * Returns the catalog version in which the index appeared.
+     *
+     * <p>NOTE: Can be used outside of catalog/metastore events.</p>
+     *
+     * @param catalogService Catalog service.
+     * @param indexId Index ID of interest.
+     */
+    static int catalogVersionOfIndexCreation(CatalogService catalogService, int indexId) {
+        Integer catalogVersion = null;
+
+        for (Catalog catalog : catalogService.catalogs()) {
+            CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
+
+            if (indexDescriptor != null && indexDescriptor.status() == REGISTERED) {
+                catalogVersion = catalog.version();
+
+                break;
+            }
+        }
+
+        assert catalogVersion != null : "Catalog version in which the index appeared was not found: " + indexId;
+
+        return catalogVersion;
     }
 }
