@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.immutables.value.Value;
 
@@ -114,14 +115,14 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
         for (RelHint hint : hints) {
             Collection<String> hintIdxNames = hint.listOptions;
-            boolean noIndex = hint.hintName.equals(NO_INDEX.name());
+            boolean forceIndex = hint.hintName.equals(FORCE_INDEX.name());
 
             if (hintIdxNames.isEmpty()) {
-                if (noIndex) {
-                    idxToSkip.addAll(tblIdxNames);
+                if (forceIndex) {
+                    continue;
                 }
 
-                continue;
+                hintIdxNames = CollectionUtils.difference(tblIdxNames, idxToUse);
             }
 
             for (String hintIdxName : hintIdxNames) {
@@ -129,10 +130,14 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
                     continue;
                 }
 
-                if (noIndex) {
-                    idxToSkip.addAll(hintIdxNames);
-                } else {
+                if (idxToSkip.contains(hintIdxName) || idxToUse.contains(hintIdxName)) {
+                    continue;
+                }
+
+                if (forceIndex) {
                     idxToUse.addAll(hintIdxNames);
+                } else {
+                    idxToSkip.addAll(hintIdxNames);
                 }
             }
         }
