@@ -33,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
+import io.micronaut.http.MediaType;
+import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
@@ -52,7 +54,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.compute.JobStatus;
 import org.apache.ignite.internal.rest.api.compute.OperationResult;
-import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
 import org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
@@ -358,8 +359,10 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static OperationResult updatePriority(HttpClient client, UUID jobId, int priority) {
-        return client.toBlocking()
-                .retrieve(PUT("/jobs/" + jobId + "/priority", new UpdateJobPriorityBody(priority)), OperationResult.class);
+        MutableHttpRequest<Integer> request = PUT("/jobs/" + jobId + "/priority", priority)
+                .contentType(MediaType.TEXT_PLAIN);
+
+        return client.toBlocking().retrieve(request, OperationResult.class);
     }
 
     private static OperationResult cancelJob(HttpClient client, UUID jobId) {

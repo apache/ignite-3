@@ -28,7 +28,6 @@ import org.apache.ignite.internal.rest.api.compute.ComputeApi;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.JobStatus;
 import org.apache.ignite.internal.rest.api.compute.OperationResult;
-import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
 import org.apache.ignite.internal.rest.compute.exception.ComputeJobNotFoundException;
 
 /**
@@ -61,8 +60,8 @@ public class ComputeController implements ComputeApi {
     }
 
     @Override
-    public CompletableFuture<OperationResult> updatePriority(UUID jobId, UpdateJobPriorityBody updateJobPriorityBody) {
-        return computeComponent.changePriorityAsync(jobId, updateJobPriorityBody.priority())
+    public CompletableFuture<OperationResult> updatePriority(UUID jobId, int priority) {
+        return computeComponent.changePriorityAsync(jobId, priority)
                 .thenApply(result -> {
                     if (result == null) {
                         throw new ComputeJobNotFoundException(jobId.toString());
