@@ -227,7 +227,7 @@ public class RecoveryDescriptor {
         return channelHolder.get();
     }
 
-    @Nullable Channel holderChannel() {
+    @Nullable public Channel holderChannel() {
         DescriptorAcquiry acquiry = holder();
         return acquiry == null ? null : acquiry.channel();
     }
