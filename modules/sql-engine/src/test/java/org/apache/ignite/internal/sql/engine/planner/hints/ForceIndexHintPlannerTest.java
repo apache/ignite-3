@@ -137,8 +137,8 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
         assertPlan("SELECT /*+ NO_INDEX, FORCE_INDEX(IDX_VAL3) */ * FROM TBL1 WHERE val1='v' AND val2='v' AND val3='v'", SCHEMA,
                 isTableScan(TBL1));
 
-        assertCertainIndex("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL3), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE " +
-                "val1='v' AND val2='v' AND val3='v'", TBL1, "IDX_VAL3");
+        assertCertainIndex("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL3), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE "
+                + "val1='v' AND val2='v' AND val3='v'", TBL1, "IDX_VAL3");
 
         assertPlan("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL1) */ * FROM TBL1 WHERE val1='v'", SCHEMA, isTableScan(TBL1));
     }
