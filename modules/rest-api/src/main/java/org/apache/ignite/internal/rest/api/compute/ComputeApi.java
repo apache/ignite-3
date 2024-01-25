@@ -38,7 +38,6 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.constants.MediaType;
 
 /**
  * API for managing compute tasks.
@@ -86,7 +85,7 @@ public interface ComputeApi {
      * Updates the priority of a compute job.
      *
      * @param jobId The unique identifier of the compute job.
-     * @param updateJobPriorityBody The new priority data for the job.
+     * @param priority The new priority of the compute job.
      * @return The result of the operation.
      */
     @Operation(summary = "Update a job's priority", description = "Updates the priority of a specific compute job identified by jobId.")

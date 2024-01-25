@@ -209,6 +209,7 @@ paths:
           description: The unique identifier of the compute job.
           format: uuid
       requestBody:
+        description: The new priority of the compute job.
         content:
           text/plain:
             schema:
