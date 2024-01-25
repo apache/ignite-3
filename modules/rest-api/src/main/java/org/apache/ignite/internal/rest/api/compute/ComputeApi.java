@@ -89,7 +89,7 @@ public interface ComputeApi {
     @ApiResponse(
             responseCode = "200",
             description = "Successful update of the job priority.",
-            content = @Content(mediaType = APPLICATION_JSON)
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = OperationResult.class))
     )
     @ApiResponse(
             responseCode = "404",
@@ -112,7 +112,7 @@ public interface ComputeApi {
     @ApiResponse(
             responseCode = "200",
             description = "Successful cancellation of the job.",
-            content = @Content(mediaType = APPLICATION_JSON)
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = OperationResult.class))
     )
     @ApiResponse(
             responseCode = "404",
