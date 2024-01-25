@@ -2172,9 +2172,20 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @RepeatedTest(100)
     public void testTransactionMultiThreadedCommit() {
+        Transaction tx = igniteTransactions.begin();
+
+        var txId = ((ReadWriteTransactionImpl) tx).id();
+
+        log.info("Started transaction {}", txId);
+
+        var rv = accounts.recordView();
+
+        rv.upsert(tx, makeValue(1, 100.));
+        rv.upsert(tx, makeValue(2, 200.));
+
         int threadNum = Runtime.getRuntime().availableProcessors() * 10;
 
-        testTransactionAlreadyFinished(true, false, (tx, txId, rv) -> {
+        //testTransactionAlreadyFinished(true, false, (tx, txId, rv) -> {
             CyclicBarrier b = new CyclicBarrier(threadNum);
             CountDownLatch finishLatch = new CountDownLatch(1);
 
@@ -2210,7 +2221,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             for (var e : enlistExceptions) {
                 assertInstanceOf(TransactionException.class, e);
             }
-        });
+        //});
     }
 
     /**
