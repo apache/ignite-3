@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -281,7 +280,7 @@ public class RebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             finalPartId,
-                            tableAssignments.isEmpty() ? emptySet() : tableAssignments.get(finalPartId)
+                            tableAssignments.get(finalPartId)
                     ));
         }
 
