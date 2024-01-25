@@ -109,26 +109,11 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-
-        if (testStart) {
-            storagesConfiguration.profiles().value().stream().forEach(p -> {
-                if (p instanceof VolatilePageMemoryProfileView) {
-                    addDataRegion(p.name());
-                }
-            });
-        } else {
-            // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-            storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<>() {
-                @Override
-                public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
-                    if (ctx.newValue() instanceof VolatilePageMemoryProfileView) {
-                        addDataRegion(ctx.newName(VolatilePageMemoryProfileView.class));
-                    }
-
-                    return nullCompletedFuture();
-                }
-            });
-        }
+        storagesConfiguration.profiles().value().stream().forEach(p -> {
+            if (p instanceof VolatilePageMemoryProfileView) {
+                addDataRegion(p.name());
+            }
+        });
 
         ThreadPoolExecutor destructionThreadPool = new ThreadPoolExecutor(
                 0,

@@ -48,6 +48,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.lang.ErrorGroups.Storage;
 import org.jetbrains.annotations.Nullable;
 
@@ -168,25 +169,11 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting checkpoint manager", e);
         }
 
-        if (testStart) {
-            storagesConfiguration.profiles().value().stream().forEach(p -> {
-                if (p instanceof PersistentPageMemoryProfileView) {
-                    addDataRegion(p.name());
-                }
-            });
-        } else {
-            // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-            storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {
-                @Override
-                public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
-                    if (ctx.newValue() instanceof PersistentPageMemoryProfileView) {
-                        addDataRegion(ctx.newName(PersistentPageMemoryProfileView.class));
-                    }
-
-                    return nullCompletedFuture();
-                }
-            });
-        }
+        storagesConfiguration.profiles().value().stream().forEach(p -> {
+            if (p instanceof PersistentPageMemoryProfileView) {
+                addDataRegion(p.name());
+            }
+        });
     }
 
     @Override
@@ -219,7 +206,16 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
         PersistentPageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
+        if (dataRegion == null) {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        dataRegion = regions.get(tableDescriptor.getDataRegion());
 
+        System.out.println(String.format("KKK Create table in the region %s in engine %s", tableDescriptor.getDataRegion(), this));
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getDataRegion();
 
         return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion);
@@ -241,6 +237,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 //        PersistentPageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
 //                ? engineConfig.defaultRegion()
 //                : engineConfig.regions().get(name);
+        System.out.println(String.format("KKK Add data region %s to storage engine %s", name, this));
         // TODO: why this cast is needed?
         PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
                 (PersistentPageMemoryProfileConfiguration) storagesConfiguration.profiles().get(name);
