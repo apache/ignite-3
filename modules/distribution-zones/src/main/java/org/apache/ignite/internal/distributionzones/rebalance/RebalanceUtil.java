@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.util.Collections.emptySet;
+import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -27,11 +27,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -270,7 +270,9 @@ public class RebalanceUtil {
             int finalPartId = partId;
 
             futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                    updatePendingAssignmentsKeys(
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
+                    // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
+                    tableAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
                             tableDescriptor,
                             replicaGrpId,
                             dataNodes,
@@ -278,7 +280,7 @@ public class RebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             finalPartId,
-                            tableAssignments.isEmpty() ? emptySet() : tableAssignments.get(finalPartId)
+                            tableAssignments.get(finalPartId)
                     ));
         }
 
@@ -507,16 +509,26 @@ public class RebalanceUtil {
         return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
                     if (entries.isEmpty()) {
-                        return Collections.emptyList();
+                        return emptyList();
                     }
 
                     Set<Assignment>[] result = new Set[numberOfPartitions];
+                    int numberOfMsPartitions = 0;
 
-                    for (var entry : entries.entrySet()) {
-                        result[partitionKeysToPartitionNumber.get(entry.getKey())] = ByteUtils.fromBytes(entry.getValue().value());
+                    for (var mapEntry : entries.entrySet()) {
+                        Entry entry = mapEntry.getValue();
+
+                        if (!entry.empty() && !entry.tombstone()) {
+                            result[partitionKeysToPartitionNumber.get(mapEntry.getKey())] = ByteUtils.fromBytes(entry.value());
+                            numberOfMsPartitions++;
+                        }
                     }
 
-                    return Arrays.asList(result);
+                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == numberOfPartitions
+                            : "Invalid number of stable partition entries received from meta storage [received="
+                            + numberOfMsPartitions + ", numberOfPartitions=" + numberOfPartitions + ", tableId=" + tableId + "].";
+
+                    return numberOfMsPartitions == 0 ? emptyList() : Arrays.asList(result);
                 });
     }
 

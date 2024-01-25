@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -84,6 +84,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "}";
 
     /** Nodes bootstrap configuration pattern. */
+    @Language("HOCON")
     protected static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
@@ -101,7 +102,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "  rest: {\n"
             + "    port: {}, \n"
             + "    ssl.port: {} \n"
-            + "  }\n"
+            + "  },\n"
+            + "  nodeAttributes: {"
+            + "    nodeAttributes: {}"
+            + "  }"
             + "}";
 
     public TestInfo testInfo;
@@ -116,7 +120,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(TestInfo testInfo) {
         this.testInfo = testInfo;
-        this.partialNodes = new ArrayList<>();
+        this.partialNodes = new CopyOnWriteArrayList<>();
     }
 
     /**
@@ -215,6 +219,17 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Configuration string.
      */
     protected static String configurationString(int idx) {
+        return configurationString(idx, "{}");
+    }
+
+    /**
+     * Build a configuration string.
+     *
+     * @param idx Node index.
+     * @param attributes Node attributes, should be empty string if not needed.
+     * @return Configuration string.
+     */
+    protected static String configurationString(int idx, String attributes) {
         int port = DEFAULT_NODE_PORT + idx;
         int clientPort = DEFAULT_CLIENT_PORT + idx;
         int httpPort = DEFAULT_HTTP_PORT + idx;
@@ -223,16 +238,16 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         // The address of the first node.
         @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort, httpPort, httpsPort);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort, httpPort, httpsPort, attributes);
     }
 
     /**
      * Returns partial node. Chains deploying watches to configuration notifications and waits for it,
      * so returned partial node is started and ready to work.
      *
+     * @param name Node name.
      * @param nodeCfgMgr Node configuration manager.
      * @param clusterCfgMgr Cluster configuration manager.
-     * @param revisionCallback RevisionCallback Callback on storage revision update.
      * @param components Started components of a node.
      * @param localConfigurationGenerator Local configuration generator.
      * @param logicalTopology Logical topology.
@@ -242,10 +257,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Partial node.
      */
     public PartialNode partialNode(
+            String name,
             ConfigurationManager nodeCfgMgr,
             ConfigurationManager clusterCfgMgr,
             MetaStorageManager metaStorageMgr,
-            @Nullable Consumer<Long> revisionCallback,
             List<IgniteComponent> components,
             ConfigurationTreeGenerator localConfigurationGenerator,
             LogicalTopologyImpl logicalTopology,
@@ -272,6 +287,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevision);
 
         return new PartialNode(
+                name,
                 components,
                 List.of(localConfigurationGenerator, distributedConfigurationGenerator),
                 logicalTopology,
@@ -360,6 +376,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * Node with partially started components.
      */
     public static class PartialNode {
+        private final String name;
+
         private final List<IgniteComponent> startedComponents;
 
         private final List<ManuallyCloseable> closeables;
@@ -371,17 +389,28 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         private final HybridClock clock;
 
         PartialNode(
+                String name,
                 List<IgniteComponent> startedComponents,
                 List<ManuallyCloseable> closeables,
                 LogicalTopology logicalTopology,
                 IgniteLogger log,
                 HybridClock clock
         ) {
+            this.name = name;
             this.startedComponents = startedComponents;
             this.closeables = closeables;
             this.logicalTopology = logicalTopology;
             this.log = log;
             this.clock = clock;
+        }
+
+        /**
+         * Node name.
+         *
+         * @return Node name.
+         */
+        public String name() {
+            return name;
         }
 
         /**
@@ -393,7 +422,11 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             while (iter.hasPrevious()) {
                 IgniteComponent prev = iter.previous();
 
-                prev.beforeNodeStop();
+                try {
+                    prev.beforeNodeStop();
+                } catch (Exception e) {
+                    log.error("Error during calling `beforeNodeStop`", e);
+                }
             }
 
             iter = startedComponents.listIterator(startedComponents.size());
