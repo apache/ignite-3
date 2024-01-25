@@ -259,6 +259,24 @@ public class Loza implements RaftManager {
         }
     }
 
+    public void startRaftGroupNodeWithoutService(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftGroupOptions groupOptions
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            startRaftGroupNodeInternalWithoutService(nodeId, configuration, lsnr, eventsLsnr, groupOptions);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     @Override
     public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
             RaftNodeId nodeId,
@@ -379,6 +397,27 @@ public class Loza implements RaftManager {
         return raftServiceFactory == null
                 ? (CompletableFuture<T>) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller)
                 : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor, cmdMarshaller);
+    }
+
+    private void startRaftGroupNodeInternalWithoutService(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener raftGrpEvtsLsnr,
+            RaftGroupOptions groupOptions
+    ) {
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
+        }
+
+        boolean started = raftServer.startRaftNode(nodeId, configuration, raftGrpEvtsLsnr, lsnr, groupOptions);
+
+        if (!started) {
+            throw new IgniteInternalException(IgniteStringFormatter.format(
+                    "Raft group on the node is already started [nodeId={}]",
+                    nodeId
+            ));
+        }
     }
 
     private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(
