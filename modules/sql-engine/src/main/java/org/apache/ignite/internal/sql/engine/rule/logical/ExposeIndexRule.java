@@ -115,29 +115,27 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
         for (RelHint hint : hints) {
             Collection<String> hintIdxNames = hint.listOptions;
-            boolean forceIndex = hint.hintName.equals(FORCE_INDEX.name());
+            boolean noIndex = hint.hintName.equals(NO_INDEX.name());
 
             if (hintIdxNames.isEmpty()) {
-                if (forceIndex) {
-                    continue;
+                if (noIndex) {
+                    idxToSkip.addAll(CollectionUtils.difference(tblIdxNames, idxToUse));
+
+                    break;
                 }
 
-                hintIdxNames = CollectionUtils.difference(tblIdxNames, idxToUse);
+                continue;
             }
 
             for (String hintIdxName : hintIdxNames) {
-                if (!tblIdxNames.contains(hintIdxName)) {
+                if (!tblIdxNames.contains(hintIdxName) || idxToSkip.contains(hintIdxName) || idxToUse.contains(hintIdxName)) {
                     continue;
                 }
 
-                if (idxToSkip.contains(hintIdxName) || idxToUse.contains(hintIdxName)) {
-                    continue;
-                }
-
-                if (forceIndex) {
-                    idxToUse.addAll(hintIdxNames);
-                } else {
+                if (noIndex) {
                     idxToSkip.addAll(hintIdxNames);
+                } else {
+                    idxToUse.addAll(hintIdxNames);
                 }
             }
         }
