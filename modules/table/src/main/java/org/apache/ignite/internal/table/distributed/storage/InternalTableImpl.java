@@ -1377,7 +1377,7 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (commit, fut) -> onScanComplete(txId, partGroupId, fut, recipientNode, commit)
+                (commit, fut) -> completeScan(txId, partGroupId, fut, recipientNode, commit)
         );
     }
 
@@ -1499,18 +1499,18 @@ public class InternalTableImpl implements InternalTable {
      * @param replicaGrpId Replication group id.
      * @param scanIdFut Future to scan id.
      * @param recipientNode Server node where the scan was started.
-     * @param commit Commit flag, when the flag is {@code null} the scan was closed manually.
+     * @param manualClose The flag is true when the scan was closed manually and false when the scan cursor was finished.
      * @return The future.
      */
-    private CompletableFuture<Void> onScanComplete(
+    private CompletableFuture<Void> completeScan(
             UUID txId,
             ReplicationGroupId replicaGrpId,
             CompletableFuture<Long> scanIdFut,
             ClusterNode recipientNode,
-            Boolean commit
+            boolean manualClose
     ) {
         return scanIdFut.thenCompose(scanId -> {
-            if (commit) {
+            if (manualClose) {
                 ScanCloseReplicaRequest scanCloseReplicaRequest = tableMessagesFactory.scanCloseReplicaRequest()
                         .groupId(replicaGrpId)
                         .transactionId(txId)
@@ -1901,7 +1901,7 @@ public class InternalTableImpl implements InternalTable {
              * @param commit {@code True} to commit.
              * @return Future to complete.
              */
-            private void cancel(Throwable t, Boolean commit) {
+            private void cancel(Throwable t, boolean commit) {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
