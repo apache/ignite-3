@@ -42,7 +42,6 @@ import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
-import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.network.RecipientLeftException;
 import org.apache.ignite.network.UnresolvableConsistentIdException;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
@@ -87,7 +86,6 @@ public class IgniteExceptionArchTest {
         exclusions.add(IgniteClientConnectionException.class.getCanonicalName());
         exclusions.add(IgniteClientFeatureNotSupportedByServerException.class.getCanonicalName());
         exclusions.add(UnresolvableConsistentIdException.class.getCanonicalName());
-        exclusions.add(NoMorePagesException.class.getCanonicalName());
         exclusions.add(CursorClosedException.class.getCanonicalName());
         exclusions.add(NoRowSetExpectedException.class.getCanonicalName());
         exclusions.add(InvalidCredentialsException.class.getCanonicalName());
