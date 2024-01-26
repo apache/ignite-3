@@ -144,7 +144,7 @@ public class StorageUpdateHandler {
             int commitPartId,
             RowId rowId,
             UUID txId,
-            BinaryRow row,
+            @Nullable BinaryRow row,
             @Nullable HybridTimestamp lastCommitTs,
             @Nullable HybridTimestamp commitTs,
             boolean useTryLock
@@ -209,6 +209,7 @@ public class StorageUpdateHandler {
                     commitTblId,
                     commitPartId,
                     it,
+                    storageUpdateConfiguration.batchLength().value(),
                     useTryLock
             );
             useTryLock = true;
@@ -227,19 +228,20 @@ public class StorageUpdateHandler {
             int commitTblId,
             int commitPartId,
             Iterator<Entry<UUID, TimedBinaryRow>> it,
+            int maxBatchLength,
             boolean useTryLock
     ) {
         return storage.runConsistently(locker -> {
             List<RowId> processedRowIds = new ArrayList<>();
-            int batchSize = 0;
+            int batchLength = 0;
             Entry<UUID, TimedBinaryRow> entryToProcess = lastUnprocessedEntry;
             while (entryToProcess != null) {
                 RowId rowId = new RowId(partitionId, entryToProcess.getKey());
                 BinaryRow row = entryToProcess.getValue() == null ? null : entryToProcess.getValue().binaryRow();
                 if (row != null) {
-                    batchSize += row.tupleSliceLength();
+                    batchLength += row.tupleSliceLength();
                 }
-                if (!processedRowIds.isEmpty() && batchSize > MAX_BATCH_LENGTH) {
+                if (!processedRowIds.isEmpty() && batchLength > maxBatchLength) {
                     break;
                 }
                 boolean rowProcessed = tryProcessRow(

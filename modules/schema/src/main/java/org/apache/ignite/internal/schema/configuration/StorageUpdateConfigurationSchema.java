@@ -33,5 +33,5 @@ public class StorageUpdateConfigurationSchema {
      **/
     @Range(min = 1)
     @Value(hasDefault = true)
-    public long batchSize = 1000;
+    public int batchLength = 64;
 }
