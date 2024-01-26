@@ -104,13 +104,13 @@ public class ConnectionTest extends AbstractClientTest {
     @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testNoResponseFromServerWithinOperationTimeoutThrowsException() throws Exception {
-        Function<Integer, Integer> responseDelay = x -> x > 2 ? 500 : 0;
+        Function<Integer, Integer> responseDelay = x -> x > 2 ? 100 : 0;
 
         try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
                     .retryPolicy(new RetryLimitPolicy().retryLimit(1))
-                    .operationTimeout(50);
+                    .operationTimeout(30);
 
             try (IgniteClient client = builder.build()) {
                 client.tables().tables();
