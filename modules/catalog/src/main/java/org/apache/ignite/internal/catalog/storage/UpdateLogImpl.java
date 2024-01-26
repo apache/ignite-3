@@ -169,7 +169,7 @@ public class UpdateLogImpl implements UpdateLog {
         }
 
         // Note: below, we optimistically get local snapshot version, then prepare list of outdated updates, then atomically replace
-        // old snapshot using relaxed condition (old snapshop version < new snapshot version) and cleaup the log.
+        // old snapshot using relaxed condition (old snapshot version < new snapshot version) and cleanup the log.
         // If someone bumps snapshot version to a intermediate version in-between, then it means some outdated versions were removed.
         // So, some remove operations may become be no-op, which is ok and we no need to retry.
         try {
