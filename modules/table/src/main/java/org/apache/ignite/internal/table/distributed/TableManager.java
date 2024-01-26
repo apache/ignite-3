@@ -26,8 +26,16 @@ import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -37,13 +45,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
-import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
-import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
-import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
@@ -74,7 +75,6 @@ import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -93,6 +93,7 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -177,7 +178,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.utils.RebalanceUtil;
+import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -609,7 +610,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false);
     }
 
-    private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(
+    /**
+     * Writes the set of assignments to meta storage. If there are some assignments already, gets them from meta storage. Returns
+     * the list of assignments that really are in meta storage.
+     *
+     * @param tableId  Table id.
+     * @param assignmentsFuture Assignments future, to get the assignments that should be written.
+     * @return Real list of assignments.
+     */
+    private CompletableFuture<List<Set<Assignment>>> writeTableAssignmentsToMetastore(
             int tableId,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture
     ) {
@@ -629,6 +638,41 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())
+                    .thenCompose(invokeResult -> {
+                        if (invokeResult) {
+                            LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully "
+                                            + "written to meta storage [tableId={}, assignments={}]", tableId, newAssignments));
+
+                            return completedFuture(newAssignments);
+                        } else {
+                            Set<ByteArray> partKeys = IntStream.range(0, newAssignments.size())
+                                    .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
+                                    .collect(toSet());
+
+                            CompletableFuture<Map<ByteArray, Entry>> resFuture = metaStorageMgr.getAll(partKeys);
+
+                            return resFuture.thenApply(metaStorageAssignments -> {
+                                List<Set<Assignment>> realAssignments = new ArrayList<>();
+
+                                for (int p = 0; p < newAssignments.size(); p++) {
+                                    var partId = new TablePartitionId(tableId, p);
+                                    Entry assignmentsEntry = metaStorageAssignments.get(stablePartAssignmentsKey(partId));
+
+                                    assert assignmentsEntry != null && !assignmentsEntry.empty() && !assignmentsEntry.tombstone()
+                                            : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "].";
+
+                                    Set<Assignment> real = ByteUtils.fromBytes(assignmentsEntry.value());
+
+                                    realAssignments.add(real);
+                                }
+
+                                LOG.info(IgniteStringFormatter.format("Assignments picked up from meta storage [tableId={}, "
+                                        + "assignments={}]", tableId, realAssignments));
+
+                                return realAssignments;
+                            });
+                        }
+                    })
                     .exceptionally(e -> {
                         LOG.error("Couldn't write assignments to metastore", e);
 
@@ -1095,9 +1139,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
 
-            // Check if the table already has assignments in the vault.
-            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-20993
+            // Check if the table already has assignments in the meta storage locally.
+            // So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
+            // of the new ones.
             if (partitionAssignmentsGetLocally(metaStorageMgr, tableId, 0, causalityToken) != null) {
                 assignmentsFuture = completedFuture(
                         tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
@@ -1108,16 +1152,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 zoneDescriptor.partitions(),
                                 zoneDescriptor.replicas()
                         ));
+
+                assignmentsFuture.thenAccept(assignmentsList -> {
+                    LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
+                                    + "revision={}]", tableDescriptor.name(), tableId, assignmentsList, causalityToken));
+                });
             }
+
+            CompletableFuture<List<Set<Assignment>>> assignmentsFutureAfterInvoke =
+                    writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
 
             return createTableLocally(
                     causalityToken,
                     tableDescriptor,
                     zoneDescriptor,
-                    assignmentsFuture,
+                    assignmentsFutureAfterInvoke,
                     catalogVersion,
                     onNodeRecovery
-            ).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
+            );
         });
     }
 
@@ -1336,7 +1388,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
                 .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         metaStorageMgr.removeAll(assignmentKeys);
     }
@@ -1684,8 +1736,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
                             LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                                            + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                                    stringKey, partId, table.name(), localNode().address());
+                                            + " [key={}, partition={}, table={}, localMemberAddress={}, pendingAssignments={}]",
+                                    stringKey, partId, table.name(), localNode().address(), pendingAssignments);
                         }
 
                         Set<Assignment> stableAssignments = stableAssignmentsEntry.value() == null
@@ -1895,7 +1947,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 long causalityToken = zoneDescriptor.updateToken();
 
                                 return distributionZoneManager.dataNodes(causalityToken, catalogVersion, tableDescriptor.zoneId())
-                                        .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
+                                        .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
                                                 metaStorageMgr,
                                                 dataNodes,
                                                 zoneDescriptor.replicas(),

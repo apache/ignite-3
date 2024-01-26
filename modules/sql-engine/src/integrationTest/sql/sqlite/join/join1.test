@@ -22,6 +22,8 @@ INSERT INTO t2 VALUES(2,3,4);
 statement ok
 INSERT INTO t2 VALUES(3,4,5);
 
+skipif ignite3
+# Ignore https://issues.apache.org/jira/browse/IGNITE-21286
 query III rowsort
 SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */ t2.* FROM t2 NATURAL JOIN t1;
 ----

@@ -24,10 +24,10 @@ import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.sql.engine.util.Commons.getFieldFromBiRows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -35,6 +35,7 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -342,17 +343,21 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest<Object[]>
         }
         project.register(join);
 
-        try (RootNode<Object[]> node = new RootNode<>(ctx)) {
-            node.register(project);
+        // first, let's rewind just created tree -- it's how it actually being executed
+        project.rewind();
 
-            ArrayList<Object[]> rows = new ArrayList<>();
+        int times = 2;
+        do {
+            TestDownstream<Object[]> downstream = new TestDownstream<>();
+            project.onRegister(downstream);
 
-            while (node.hasNext()) {
-                rows.add(node.next());
-            }
+            ctx.execute(() -> project.request(1024), project::onError);
 
-            assertArrayEquals(expRes, rows.toArray(EMPTY));
-        }
+            assertArrayEquals(expRes, await(downstream.result()).toArray(EMPTY));
+
+            // now let's rewind and restart test to check whether all state has been correctly reset
+            project.rewind();
+        } while (times-- > 0);
     }
 
     /**

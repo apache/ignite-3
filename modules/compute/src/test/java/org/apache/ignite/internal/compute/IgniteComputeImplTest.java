@@ -24,8 +24,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,7 +36,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -65,6 +72,15 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     @Mock
     private ComputeComponentImpl computeComponent;
 
+    @Mock
+    private LogicalTopologyService logicalTopologyService;
+
+    @Mock
+    private PlacementDriver placementDriver;
+
+    @Mock
+    private HybridClock clock;
+
     @InjectMocks
     private IgniteComputeImpl compute;
 
@@ -84,35 +100,61 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void whenNodeIsLocalThenExecutesLocally() {
-        respondWhenExecutingSimpleJobLocally();
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
 
         assertThat(
                 compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
     void whenNodeIsRemoteThenExecutesRemotely() {
-        respondWhenExecutingSimpleJobRemotely();
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
         assertThat(
                 compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
                 willBe("remoteResponse")
         );
 
-        verify(computeComponent).executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeRemotely(ExecutionOptions.DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a",  42);
+    }
+
+    @Test
+    void whenNodeIsLocalThenExecutesLocallyWithOptions() {
+        ExecutionOptions expectedOptions = ExecutionOptions.builder().priority(1).maxRetries(2).build();
+        respondWhenExecutingSimpleJobLocally(expectedOptions);
+
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
+        assertThat(
+                compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42).resultAsync(),
+                willBe("jobResponse")
+        );
+
+        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+    }
+
+    @Test
+    void whenNodeIsRemoteThenExecutesRemotelyWithOptions() {
+        ExecutionOptions expectedOptions = ExecutionOptions.builder().priority(1).maxRetries(2).build();
+        respondWhenExecutingSimpleJobRemotely(expectedOptions);
+
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
+
+        assertThat(
+                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42).resultAsync(),
+                willBe("remoteResponse")
+        );
+
+        verify(computeComponent).executeRemotely(expectedOptions, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a",  42);
     }
 
     @Test
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() {
-        respondWhenExecutingSimpleJobRemotely();
-
-        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
-        doReturn(42).when(table).partition(any());
-        doReturn(remoteNode).when(table).leaderAssignment(42);
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
+        respondWhenAskForPrimaryReplica();
 
         assertThat(
                 compute.<String>executeColocatedAsync(
@@ -128,11 +170,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() {
-        respondWhenExecutingSimpleJobRemotely();
-
-        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
-        doReturn(42).when(table).partition(any(), any());
-        doReturn(remoteNode).when(table).leaderAssignment(42);
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
+        respondWhenAskForPrimaryReplica();
 
         assertThat(
                 compute.<Integer, String>executeColocatedAsync(
@@ -147,13 +186,22 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private void respondWhenExecutingSimpleJobLocally() {
-        when(computeComponent.executeLocally(testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+    private void respondWhenAskForPrimaryReplica() {
+        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
+        ReplicaMeta replicaMeta = mock(ReplicaMeta.class);
+        doReturn("").when(replicaMeta).getLeaseholderId();
+        CompletableFuture<ReplicaMeta> toBeReturned = completedFuture(replicaMeta);
+        doReturn(toBeReturned).when(placementDriver).awaitPrimaryReplica(any(), any(), anyLong(), any());
+        doReturn(remoteNode).when(topologyService).getById(any());
+    }
+
+    private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
                 .thenReturn(completedExecution("jobResponse"));
     }
 
-    private void respondWhenExecutingSimpleJobRemotely() {
-        when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+    private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions executionOptions) {
+        when(computeComponent.executeRemotely(executionOptions, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
                 .thenReturn(completedExecution("remoteResponse"));
     }
 

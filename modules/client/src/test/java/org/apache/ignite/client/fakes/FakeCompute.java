@@ -31,11 +31,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -56,7 +58,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     public static volatile @Nullable RuntimeException err;
 
-    public static volatile @Nullable JobStatus status;
+    private final Map<UUID, JobStatus> statuses = new ConcurrentHashMap<>();
 
     public static volatile CountDownLatch latch = new CountDownLatch(0);
 
@@ -67,9 +69,12 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
-        initStatus();
-
+    public <R> JobExecution<R> executeAsync(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object... args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return completedExecution((R) unitString);
@@ -94,10 +99,11 @@ public class FakeCompute implements IgniteComputeInternal {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(nodes, units, jobClassName, args).resultAsync().join();
+            return this.<R>executeAsync(nodes, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
@@ -109,9 +115,9 @@ public class FakeCompute implements IgniteComputeInternal {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
-        initStatus();
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
     }
 
@@ -122,9 +128,9 @@ public class FakeCompute implements IgniteComputeInternal {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
-        initStatus();
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
     }
 
@@ -135,10 +141,11 @@ public class FakeCompute implements IgniteComputeInternal {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).resultAsync().join();
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
@@ -152,10 +159,11 @@ public class FakeCompute implements IgniteComputeInternal {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).resultAsync().join();
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
@@ -166,28 +174,31 @@ public class FakeCompute implements IgniteComputeInternal {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         return null;
     }
 
-    private static <R> JobExecution<R> completedExecution(R result) {
+    private <R> JobExecution<R> completedExecution(R result) {
         return jobExecution(completedFuture(result));
     }
 
-    private static void initStatus() {
-        status = JobStatus.builder()
-                .id(UUID.randomUUID())
+    private <R> JobExecution<R> jobExecution(CompletableFuture<R> result) {
+        UUID jobId = UUID.randomUUID();
+
+        JobStatus status = JobStatus.builder()
+                .id(jobId)
                 .state(EXECUTING)
                 .createTime(Instant.now())
                 .startTime(Instant.now())
                 .build();
-    }
+        statuses.put(jobId, status);
 
-    private static <R> JobExecution<R> jobExecution(CompletableFuture<R> result) {
         result.whenComplete((r, throwable) -> {
             JobState state = throwable != null ? FAILED : COMPLETED;
-            status = status.toBuilder().state(state).finishTime(Instant.now()).build();
+            JobStatus newStatus = status.toBuilder().state(state).finishTime(Instant.now()).build();
+            statuses.put(jobId, newStatus);
         });
         return new JobExecution<>() {
             @Override
@@ -197,7 +208,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
             @Override
             public CompletableFuture<@Nullable JobStatus> statusAsync() {
-                return completedFuture(status);
+                return completedFuture(statuses.get(jobId));
             }
 
             @Override
@@ -214,7 +225,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     @Override
     public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
-        return completedFuture(status);
+        return completedFuture(statuses.get(jobId));
     }
 
     @Override

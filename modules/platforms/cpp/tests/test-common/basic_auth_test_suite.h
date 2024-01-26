@@ -101,7 +101,7 @@ public:
         }
 
         // Wait for the server to apply the configuration change and drop the client connection.
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+        std::this_thread::sleep_for(std::chrono::seconds(5));
 
         m_auth_enabled = enable;
     }

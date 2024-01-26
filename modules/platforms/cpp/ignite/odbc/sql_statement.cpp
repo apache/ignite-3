@@ -457,7 +457,7 @@ void sql_statement::get_parameters_number(uint16_t &param_num) {
     IGNITE_ODBC_API_CALL(internal_get_parameters_number(param_num));
 }
 
-sql_result sql_statement::internal_get_parameters_number(uint16_t &param_num) {
+sql_result sql_statement::internal_get_parameters_number(std::uint16_t &param_num) {
     if (!m_current_query) {
         add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
 
@@ -470,14 +470,15 @@ sql_result sql_statement::internal_get_parameters_number(uint16_t &param_num) {
         return sql_result::AI_SUCCESS;
     }
 
-    if (!m_parameters.is_metadata_set()) {
-        sql_result res = update_params_meta();
+    auto qry0 = static_cast<data_query *>(m_current_query.get());
+    if (!qry0->is_param_meta_available()) {
+        sql_result res = qry0->update_meta();
 
         if (res != sql_result::AI_SUCCESS)
             return res;
     }
 
-    param_num = m_parameters.get_expected_param_num();
+    param_num = std::uint16_t(qry0->get_expected_param_num());
 
     return sql_result::AI_SUCCESS;
 }
@@ -979,14 +980,19 @@ sql_result sql_statement::internal_describe_param(
         return sql_result::AI_ERROR;
     }
 
-    auto sql_param = m_parameters.get_sql_param(std::int16_t(param_num));
-    if (!sql_param) {
-        sql_result res = update_params_meta();
+    auto qry0 = static_cast<data_query *>(qry);
+    if (!qry0->is_param_meta_available()) {
+        sql_result res = qry0->update_meta();
 
         if (res != sql_result::AI_SUCCESS)
             return res;
+    }
 
-        sql_param = m_parameters.get_sql_param(std::int16_t(param_num));
+    auto sql_param = qry0->get_sql_param(std::int16_t(param_num));
+    if (!sql_param) {
+        add_status_record(sql_state::S07009_INVALID_DESCRIPTOR_INDEX, "Parameter index is out of range.");
+
+        return sql_result::AI_ERROR;
     }
 
     LOG_MSG("Type: " << (int) sql_param->data_type);
@@ -1004,61 +1010,6 @@ sql_result sql_statement::internal_describe_param(
         *nullable = sql_param->nullable ? SQL_NULLABLE : SQL_NO_NULLS;
 
     return sql_result::AI_SUCCESS;
-}
-
-sql_result sql_statement::update_params_meta() {
-    auto *qry0 = m_current_query.get();
-
-    assert(qry0);
-    assert(qry0->get_type() == query_type::DATA);
-
-    auto *qry = static_cast<data_query *>(qry0);
-
-    auto &schema = m_connection.get_schema();
-    auto &sql = qry->get_query();
-
-    auto success = catch_errors([&] {
-        auto tx = m_connection.get_transaction_id();
-        auto response =
-            m_connection.sync_request(protocol::client_operation::SQL_PARAM_META, [&](protocol::writer &writer) {
-                if (tx)
-                    writer.write(*tx);
-                else
-                    writer.write_nil();
-
-                writer.write(schema);
-                writer.write(sql);
-            });
-
-        if (tx) {
-            m_connection.mark_transaction_non_empty();
-        }
-
-        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-        auto num = reader->read_int32();
-
-        if (num < 0) {
-            throw odbc_error(
-                sql_state::SHY000_GENERAL_ERROR, "Unexpected number of parameters: " + std::to_string(num));
-        }
-
-        std::vector<sql_parameter> params;
-        params.reserve(num);
-
-        for (std::int32_t i = 0; i < num; ++i) {
-            sql_parameter param{};
-            param.nullable = reader->read_bool();
-            param.data_type = ignite_type(reader->read_int32());
-            param.scale = reader->read_int32();
-            param.precision = reader->read_int32();
-
-            params.emplace_back(param);
-        }
-
-        m_parameters.update_sql_params(std::move(params));
-    });
-
-    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
 uint16_t sql_statement::sql_result_to_row_result(sql_result value) {

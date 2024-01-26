@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -63,45 +64,12 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 causalityToken
         );
 
-        CatalogSchemaDescriptor newSchemaDescriptor = replaceTableDescriptor(schemaDescriptor, newTableDescriptor, causalityToken);
-
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(newSchemaDescriptor, catalog.schemas())
+                replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas())
         );
-    }
-
-    private static CatalogSchemaDescriptor replaceTableDescriptor(
-            CatalogSchemaDescriptor schemaDescriptor,
-            CatalogTableDescriptor newTableDescriptor,
-            long causalityToken
-    ) {
-        CatalogTableDescriptor[] tableDescriptors = schemaDescriptor.tables().clone();
-
-        tableDescriptors[indexOf(tableDescriptors, newTableDescriptor)] = newTableDescriptor;
-
-        return new CatalogSchemaDescriptor(
-                schemaDescriptor.id(),
-                schemaDescriptor.name(),
-                tableDescriptors,
-                schemaDescriptor.indexes(),
-                schemaDescriptor.systemViews(),
-                causalityToken
-        );
-    }
-
-    private static int indexOf(CatalogTableDescriptor[] tableDescriptors, CatalogTableDescriptor newTableDescriptor) {
-        for (int i = 0; i < tableDescriptors.length; i++) {
-            if (tableDescriptors[i].id() == newTableDescriptor.id()) {
-                return i;
-            }
-        }
-
-        throw new IllegalStateException(String.format(
-                "Table with ID %d has not been found in schema with ID %d", newTableDescriptor.id(), newTableDescriptor.schemaId()
-        ));
     }
 }

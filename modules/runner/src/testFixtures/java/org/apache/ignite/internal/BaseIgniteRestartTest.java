@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,9 +31,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -49,6 +54,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -78,6 +84,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "}";
 
     /** Nodes bootstrap configuration pattern. */
+    @Language("HOCON")
     protected static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
@@ -95,7 +102,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "  rest: {\n"
             + "    port: {}, \n"
             + "    ssl.port: {} \n"
-            + "  }\n"
+            + "  },\n"
+            + "  nodeAttributes: {"
+            + "    nodeAttributes: {}"
+            + "  }"
             + "}";
 
     public TestInfo testInfo;
@@ -110,7 +120,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(TestInfo testInfo) {
         this.testInfo = testInfo;
-        this.partialNodes = new ArrayList<>();
+        this.partialNodes = new CopyOnWriteArrayList<>();
     }
 
     /**
@@ -209,6 +219,17 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Configuration string.
      */
     protected static String configurationString(int idx) {
+        return configurationString(idx, "{}");
+    }
+
+    /**
+     * Build a configuration string.
+     *
+     * @param idx Node index.
+     * @param attributes Node attributes, should be empty string if not needed.
+     * @return Configuration string.
+     */
+    protected static String configurationString(int idx, String attributes) {
         int port = DEFAULT_NODE_PORT + idx;
         int clientPort = DEFAULT_CLIENT_PORT + idx;
         int httpPort = DEFAULT_HTTP_PORT + idx;
@@ -217,16 +238,16 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         // The address of the first node.
         @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort, httpPort, httpsPort);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort, httpPort, httpsPort, attributes);
     }
 
     /**
      * Returns partial node. Chains deploying watches to configuration notifications and waits for it,
      * so returned partial node is started and ready to work.
      *
+     * @param name Node name.
      * @param nodeCfgMgr Node configuration manager.
      * @param clusterCfgMgr Cluster configuration manager.
-     * @param revisionCallback RevisionCallback Callback on storage revision update.
      * @param components Started components of a node.
      * @param localConfigurationGenerator Local configuration generator.
      * @param logicalTopology Logical topology.
@@ -236,10 +257,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Partial node.
      */
     public PartialNode partialNode(
+            String name,
             ConfigurationManager nodeCfgMgr,
             ConfigurationManager clusterCfgMgr,
             MetaStorageManager metaStorageMgr,
-            @Nullable Consumer<Long> revisionCallback,
             List<IgniteComponent> components,
             ConfigurationTreeGenerator localConfigurationGenerator,
             LogicalTopologyImpl logicalTopology,
@@ -266,6 +287,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevision);
 
         return new PartialNode(
+                name,
                 components,
                 List.of(localConfigurationGenerator, distributedConfigurationGenerator),
                 logicalTopology,
@@ -275,9 +297,87 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     }
 
     /**
+     * Starts a node with the given parameters.
+     *
+     * @param idx Node index.
+     * @return Created node instance.
+     */
+    protected IgniteImpl startNode(int idx) {
+        return startNode(idx, null);
+    }
+
+    /**
+     * Starts a node with the given parameters.
+     *
+     * @param idx Node index.
+     * @param cfg Configuration string or {@code null} to use the default configuration.
+     * @return Created node instance.
+     */
+    protected IgniteImpl startNode(int idx, @Nullable String cfg) {
+        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
+
+        CompletableFuture<Ignite> future = startNodeAsync(idx, cfg);
+
+        if (initNeeded) {
+            String nodeName = CLUSTER_NODES_NAMES.get(0);
+
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+            TestIgnitionManager.init(initParameters);
+        }
+
+        assertThat(future, willCompleteSuccessfully());
+
+        Ignite ignite = future.join();
+
+        return (IgniteImpl) ignite;
+    }
+
+    /**
+     * Starts a node with the given parameters. Does not run the Init command.
+     *
+     * @param idx Node index.
+     * @param cfg Configuration string or {@code null} to use the default configuration.
+     * @return Future that completes with a created node instance.
+     */
+    protected CompletableFuture<Ignite> startNodeAsync(int idx, @Nullable String cfg) {
+        String nodeName = testNodeName(testInfo, idx);
+
+        String cfgString = cfg == null ? configurationString(idx) : cfg;
+
+        if (CLUSTER_NODES_NAMES.size() == idx) {
+            CLUSTER_NODES_NAMES.add(nodeName);
+        } else {
+            assertNull(CLUSTER_NODES_NAMES.get(idx));
+
+            CLUSTER_NODES_NAMES.set(idx, nodeName);
+        }
+
+        return TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+    }
+
+    /**
+     * Stop the node with given index.
+     *
+     * @param idx Node index.
+     */
+    protected void stopNode(int idx) {
+        String nodeName = CLUSTER_NODES_NAMES.set(idx, null);
+
+        if (nodeName != null) {
+            IgnitionManager.stop(nodeName);
+        }
+    }
+
+    /**
      * Node with partially started components.
      */
     public static class PartialNode {
+        private final String name;
+
         private final List<IgniteComponent> startedComponents;
 
         private final List<ManuallyCloseable> closeables;
@@ -289,17 +389,28 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         private final HybridClock clock;
 
         PartialNode(
+                String name,
                 List<IgniteComponent> startedComponents,
                 List<ManuallyCloseable> closeables,
                 LogicalTopology logicalTopology,
                 IgniteLogger log,
                 HybridClock clock
         ) {
+            this.name = name;
             this.startedComponents = startedComponents;
             this.closeables = closeables;
             this.logicalTopology = logicalTopology;
             this.log = log;
             this.clock = clock;
+        }
+
+        /**
+         * Node name.
+         *
+         * @return Node name.
+         */
+        public String name() {
+            return name;
         }
 
         /**
@@ -311,7 +422,11 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             while (iter.hasPrevious()) {
                 IgniteComponent prev = iter.previous();
 
-                prev.beforeNodeStop();
+                try {
+                    prev.beforeNodeStop();
+                } catch (Exception e) {
+                    log.error("Error during calling `beforeNodeStop`", e);
+                }
             }
 
             iter = startedComponents.listIterator(startedComponents.size());

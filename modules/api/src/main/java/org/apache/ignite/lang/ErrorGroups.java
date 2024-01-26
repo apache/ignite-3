@@ -542,8 +542,17 @@ public class ErrorGroups {
         /** Compute job failed. */
         public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
 
+        /** Cannot change job priority, compute job not found error. */
+        public static final int CHANGE_JOB_PRIORITY_NO_JOB_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
+
+        /** Cannot change job priority, compute job is already executing. */
+        public static final int CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 11);
+
+        /** Cannot resolve primary replica for colocated execution. */
+        public static final int PRIMARY_REPLICA_RESOLVE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 12);
+
         /** Cannot change job priority. */
-        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Catalog error group. */

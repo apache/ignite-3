@@ -108,8 +108,8 @@ class ItJdbcAuthenticationTest extends IgniteIntegrationTest {
         @DisplayName("Jdbc client can connect with basic authentication configured")
         void jdbcCanConnectWithBasicAuthentication() throws SQLException {
             var url = "jdbc:ignite:thin://127.0.0.1:10800"
-                    + "?basicAuthenticationUsername=usr"
-                    + "&basicAuthenticationPassword=pwd";
+                    + "?username=usr"
+                    + "&password=pwd";
             try (Connection ignored = DriverManager.getConnection(url)) {
                 // No-op.
             }

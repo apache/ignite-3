@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.Objects;
+import org.apache.ignite.compute.JobExecutionOptions;
+
 /**
  * Compute job execution options.
  */
@@ -48,6 +51,27 @@ public class ExecutionOptions {
 
     public int maxRetries() {
         return maxRetries;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ExecutionOptions that = (ExecutionOptions) o;
+        return priority == that.priority && maxRetries == that.maxRetries;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(priority, maxRetries);
+    }
+
+    public static ExecutionOptions from(JobExecutionOptions jobExecutionOptions) {
+        return builder().priority(jobExecutionOptions.priority()).maxRetries(jobExecutionOptions.maxRetries()).build();
     }
 
     /** Builder. */

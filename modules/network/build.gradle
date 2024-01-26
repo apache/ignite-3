@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation project(':ignite-vault')
+    implementation project(':ignite-workers')
     implementation libs.jetbrains.annotations
     implementation libs.scalecube.cluster
     implementation libs.fastutil.core
@@ -68,6 +69,7 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
+    testFixturesImplementation(testFixtures(project(':ignite-workers')))
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
     testFixturesImplementation libs.jetbrains.annotations

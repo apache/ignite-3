@@ -64,6 +64,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -96,6 +97,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -2261,6 +2263,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testCatalogVersionsSnapshot() {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        List<Catalog> expCatalogs = IntStream.rangeClosed(manager.earliestCatalogVersion(), manager.latestCatalogVersion())
+                .mapToObj(manager::catalog)
+                .collect(toList());
+
+        assertThat(expCatalogs, hasSize(greaterThanOrEqualTo(2)));
+        assertThat(manager.catalogVersionsSnapshot(), equalTo(expCatalogs));
     }
 
     @Test
