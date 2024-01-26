@@ -63,7 +63,7 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        catalogManager.start();
+        assertThat(catalogManager.start(), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
