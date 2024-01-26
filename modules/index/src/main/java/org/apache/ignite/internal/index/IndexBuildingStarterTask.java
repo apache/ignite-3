@@ -24,7 +24,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
-import static org.apache.ignite.internal.index.IndexManagementUtils.catalogVersionOfIndexCreation;
+import static org.apache.ignite.internal.index.IndexManagementUtils.earliestCatalogVersionOfIndexInRegisteredStatus;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.index.IndexManagementUtils.localNode;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -61,7 +61,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.RecipientLeftException;
-import org.jetbrains.annotations.Nullable;
 
 /** Пока нет документации. */
 // TODO: IGNITE-21115 код, тесты и документация
@@ -92,7 +91,7 @@ class IndexBuildingStarterTask {
 
     private final IgniteSpinBusyLock busyLock;
 
-    private volatile @Nullable Integer catalogVersionOfIndexCreation;
+    private volatile int catalogVersionOfIndexCreation = -1;
 
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
@@ -132,7 +131,11 @@ class IndexBuildingStarterTask {
 
         try {
             return supplyAsync(() -> {
-                catalogVersionOfIndexCreation = catalogVersionOfIndexCreation(catalogManager, indexDescriptor.id());
+                int catalogVersionOfIndexCreation = earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexDescriptor.id());
+
+                assert catalogVersionOfIndexCreation >= 0 : indexDescriptor;
+
+                this.catalogVersionOfIndexCreation = catalogVersionOfIndexCreation;
 
                 return awaitActivateForCatalogVersionOfIndexCreation()
                         .thenCompose(unused -> ensureThatLocalNodeStillPrimaryReplica())
@@ -168,8 +171,6 @@ class IndexBuildingStarterTask {
 
     private CompletableFuture<Void> awaitActivateForCatalogVersionOfIndexCreation() {
         return inBusyLock(() -> {
-            assert catalogVersionOfIndexCreation != null : indexDescriptor;
-
             Catalog catalog = catalogManager.catalog(catalogVersionOfIndexCreation);
 
             assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [index={}, catalogVersion={}]",
@@ -272,8 +273,6 @@ class IndexBuildingStarterTask {
     }
 
     private IsNodeFinishedRwTransactionsStartedBeforeRequest isNodeFinishedRwTransactionsStartedBeforeRequest() {
-        assert catalogVersionOfIndexCreation != null : indexDescriptor;
-
         return FACTORY.isNodeFinishedRwTransactionsStartedBeforeRequest().targetCatalogVersion(catalogVersionOfIndexCreation).build();
     }
 
