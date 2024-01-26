@@ -31,25 +31,35 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
     /**
      * Constructor.
      *
-     * @param expectedLeaseholder Expected leaseholder.
-     * @param currentLeaseholder Current leaseholder, {@code null} if absent.
-     * @param expectedPrimaryReplicaTerm Expected term from, {@code null} if absent.
-     * @param currentPrimaryReplicaTerm Current raft term, {@code null} if absent.
+     * @param expectedLeaseholderName Expected leaseholder name.
+     * @param currentLeaseholderName Current leaseholder name, {@code null} if absent.
+     * @param expectedLeaseholderId Expected leaseholder id.
+     * @param currentLeaseholderId Current leaseholder id, {@code null} if absent.
+     * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
+     * @param currentEnlistmentConsistencyToken Current enlistment consistency token, {@code null} if absent.
      * @param cause Cause exception, {@code null} if absent.
      */
     public PrimaryReplicaMissException(
-            String expectedLeaseholder,
-            @Nullable String currentLeaseholder,
-            @Nullable Long expectedPrimaryReplicaTerm,
-            @Nullable Long currentPrimaryReplicaTerm,
+            String expectedLeaseholderName,
+            @Nullable String currentLeaseholderName,
+            String expectedLeaseholderId,
+            @Nullable String currentLeaseholderId,
+            @Nullable Long expectedEnlistmentConsistencyToken,
+            @Nullable Long currentEnlistmentConsistencyToken,
             @Nullable Throwable cause
     ) {
         super(
                 REPLICA_MISS_ERR,
                 "The primary replica has changed "
-                        + "[expectedLeaseholder={}, currentLeaseholder={}, expectedPrimaryReplicaTerm={}, currentPrimaryReplicaTerm={}]",
+                        + "[expectedLeaseholderName={}, currentLeaseholderName={}, expectedLeaseholderId={}, currentLeaseholderId={},"
+                        + " expectedEnlistmentConsistencyToken={}, currentEnlistmentConsistencyToken={}]",
                 cause,
-                expectedLeaseholder, currentLeaseholder, expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm
+                expectedLeaseholderName,
+                currentLeaseholderName,
+                expectedLeaseholderId,
+                currentLeaseholderId,
+                expectedEnlistmentConsistencyToken,
+                currentEnlistmentConsistencyToken
         );
     }
 }
