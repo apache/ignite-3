@@ -109,7 +109,7 @@ public class TestNode implements LifecycleAware {
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
-        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName);
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4);
         queryExec.exceptionHandler((t, e) -> exceptionRaised = true);
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);

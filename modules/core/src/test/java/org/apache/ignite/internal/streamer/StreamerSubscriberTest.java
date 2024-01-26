@@ -71,7 +71,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public int batchSize() {
+        public int pageSize() {
             return batchSize;
         }
 

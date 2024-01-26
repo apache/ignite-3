@@ -26,10 +26,14 @@ public class PathAvailability {
     private final boolean isAvailable;
 
     @Nullable
+    private final String unavailableTitle;
+
+    @Nullable
     private final String unavailableReason;
 
-    private PathAvailability(boolean isAvailable, @Nullable String unavailableReason) {
+    private PathAvailability(boolean isAvailable, @Nullable String unavailableTitle, @Nullable String unavailableReason) {
         this.isAvailable = isAvailable;
+        this.unavailableTitle = unavailableTitle;
         this.unavailableReason = unavailableReason;
     }
 
@@ -38,16 +42,21 @@ public class PathAvailability {
     }
 
     @Nullable
+    public String unavailableTitle() {
+        return unavailableTitle;
+    }
+
+    @Nullable
     public String unavailableReason() {
         return unavailableReason;
     }
 
     public static PathAvailability available() {
-        return new PathAvailability(true, null);
+        return new PathAvailability(true, null, null);
     }
 
-    public static PathAvailability unavailable(String reason) {
-        return new PathAvailability(false, reason);
+    public static PathAvailability unavailable(String title, String reason) {
+        return new PathAvailability(false, title, reason);
     }
 
     @Override
@@ -64,12 +73,16 @@ public class PathAvailability {
         if (isAvailable != that.isAvailable) {
             return false;
         }
+        if (unavailableTitle != null ? !unavailableTitle.equals(that.unavailableTitle) : that.unavailableTitle != null) {
+            return false;
+        }
         return unavailableReason != null ? unavailableReason.equals(that.unavailableReason) : that.unavailableReason == null;
     }
 
     @Override
     public int hashCode() {
         int result = (isAvailable ? 1 : 0);
+        result = 31 * result + (unavailableTitle != null ? unavailableTitle.hashCode() : 0);
         result = 31 * result + (unavailableReason != null ? unavailableReason.hashCode() : 0);
         return result;
     }

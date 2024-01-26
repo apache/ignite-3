@@ -154,7 +154,7 @@ public:
      *
      * @return Current page size.
      */
-    [[nodiscard]] const std::vector<ignite_tuple>& current_page() const & {
+    [[nodiscard]] const std::vector<ignite_tuple> &current_page() const & {
         require_result_set();
 
         return m_page;

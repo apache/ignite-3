@@ -29,6 +29,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -36,6 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Index spool test.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
 public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 

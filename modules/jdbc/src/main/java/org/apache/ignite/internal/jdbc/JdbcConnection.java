@@ -231,12 +231,12 @@ public class JdbcConnection implements Connection {
     }
 
     private static @Nullable IgniteClientAuthenticator extractAuthenticationConfiguration(ConnectionProperties connProps) {
-        String basicAuthenticationUsername = connProps.getBasicAuthenticationUsername();
-        String basicAuthenticationPassword = connProps.getBasicAuthenticationPassword();
-        if (basicAuthenticationUsername != null && basicAuthenticationPassword != null) {
+        String username = connProps.getUsername();
+        String password = connProps.getPassword();
+        if (username != null && password != null) {
             return BasicAuthenticator.builder()
-                    .username(basicAuthenticationUsername)
-                    .password(basicAuthenticationPassword)
+                    .username(username)
+                    .password(password)
                     .build();
         } else {
             return null;

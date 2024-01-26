@@ -234,22 +234,32 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testCollectIndexesForRecoveryForCreatedAndDroppedIndexes() {
+    void testCollectIndexesForRecoveryForCreatedAndDroppedAndBuildingIndexes() {
         createTable(OTHER_TABLE_NAME);
 
         String indexName0 = INDEX_NAME + 0;
         String indexName1 = INDEX_NAME + 1;
         String indexName2 = INDEX_NAME + 2;
         String indexName3 = INDEX_NAME + 3;
+        String indexName4 = INDEX_NAME + 4;
 
         String indexNameOtherTable0 = INDEX_NAME + "-other" + 0;
         String indexNameOtherTable1 = INDEX_NAME + "-other" + 1;
         String indexNameOtherTable2 = INDEX_NAME + "-other" + 2;
         String indexNameOtherTable3 = INDEX_NAME + "-other" + 3;
+        String indexNameOtherTable4 = INDEX_NAME + "-other" + 4;
 
-        createIndexes(TABLE_NAME, indexName0, indexName1, indexName2, indexName3);
-        createIndexes(OTHER_TABLE_NAME, indexNameOtherTable0, indexNameOtherTable1, indexNameOtherTable2, indexNameOtherTable3);
+        createIndexes(
+                TABLE_NAME,
+                indexName0, indexName1, indexName2, indexName3, indexName4
+        );
 
+        createIndexes(
+                OTHER_TABLE_NAME,
+                indexNameOtherTable0, indexNameOtherTable1, indexNameOtherTable2, indexNameOtherTable3, indexNameOtherTable4
+        );
+
+        startBuildingIndexes(indexName0, indexName2, indexName4, indexNameOtherTable1, indexNameOtherTable3, indexNameOtherTable4);
         makeIndexesAvailable(indexName0, indexName2, indexNameOtherTable1, indexNameOtherTable3);
 
         List<CatalogIndexDescriptor> droppedIndexes = dropIndexes(indexName1, indexName2);
@@ -271,6 +281,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                         index(latestCatalogVersion, PK_INDEX_NAME),
                         index(latestCatalogVersion, indexName0),
                         index(latestCatalogVersion, indexName3),
+                        index(latestCatalogVersion, indexName4),
                         droppedIndexes.get(0),
                         droppedIndexes.get(1)
                 )
@@ -282,6 +293,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                         index(latestCatalogVersion, PK_INDEX_NAME_OTHER_TABLE),
                         index(latestCatalogVersion, indexNameOtherTable2),
                         index(latestCatalogVersion, indexNameOtherTable3),
+                        index(latestCatalogVersion, indexNameOtherTable4),
                         droppedIndexesOtherTable.get(0),
                         droppedIndexesOtherTable.get(1)
                 )
@@ -307,8 +319,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         String indexName1 = INDEX_NAME + 1;
         String indexName2 = INDEX_NAME + 2;
         String indexName3 = INDEX_NAME + 3;
+        String indexName4 = INDEX_NAME + 4;
 
-        createIndexes(TABLE_NAME, indexName0, indexName1, indexName2, indexName3);
+        createIndexes(TABLE_NAME, indexName0, indexName1, indexName2, indexName3, indexName4);
+
+        startBuildingIndexes(indexName0, indexName2, indexName4);
 
         makeIndexesAvailable(indexName0, indexName2);
 
@@ -324,7 +339,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         ArgumentCaptor<StorageHashIndexDescriptor> captor = ArgumentCaptor.forClass(StorageHashIndexDescriptor.class);
 
-        verify(tableViewInternal, times(5)).registerHashIndex(captor.capture(), anyBoolean(), any(), any());
+        verify(tableViewInternal, times(6)).registerHashIndex(captor.capture(), anyBoolean(), any(), any());
 
         CatalogTableDescriptor table = table(catalogManager.latestCatalogVersion(), TABLE_NAME);
 
@@ -411,6 +426,12 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(COLUMN_NAME), false);
     }
 
+    private void startBuildingIndex(String indexName) {
+        CatalogIndexDescriptor index = index(catalogManager.latestCatalogVersion(), indexName);
+
+        TestIndexManagementUtils.startBuildingIndex(catalogManager, index.id());
+    }
+
     private void makeIndexAvailable(String indexName) {
         CatalogIndexDescriptor index = index(catalogManager.latestCatalogVersion(), indexName);
 
@@ -430,6 +451,12 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     private void makeIndexesAvailable(String... indexNames) {
         for (String indexName : indexNames) {
             makeIndexAvailable(indexName);
+        }
+    }
+
+    private void startBuildingIndexes(String... indexNames) {
+        for (String indexName : indexNames) {
+            startBuildingIndex(indexName);
         }
     }
 

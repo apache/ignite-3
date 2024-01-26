@@ -26,6 +26,16 @@
 namespace ignite {
 
 /**
+ * SQL parameter.
+ */
+struct sql_parameter {
+    bool nullable;
+    ignite_type data_type;
+    std::int32_t scale;
+    std::int32_t precision;
+};
+
+/**
  * Data query.
  */
 class data_query : public query {
@@ -119,6 +129,36 @@ public:
      */
     [[nodiscard]] const std::string &get_query() const { return m_query; }
 
+    /**
+     * Make result set metadata request.
+     *
+     * @return Result.
+     */
+    sql_result update_meta();
+
+    /**
+     * Get the parameter by index.
+     *
+     * @param idx Parameter index.
+     * @return Parameter.
+     */
+    [[nodiscard]] const sql_parameter *get_sql_param(std::int16_t idx);
+
+    /**
+     * Get expected parameter number.
+     * Using metadata. If metadata was not updated returns zero.
+     *
+     * @return Expected parameters number.
+     */
+    [[nodiscard]] std::size_t get_expected_param_num() const { return m_params_meta.size(); }
+
+    /**
+     * Check if parameters meta is available.
+     *
+     * @return @c true if available.
+     */
+    [[nodiscard]] bool is_param_meta_available() const { return m_params_meta_available; }
+
 private:
     /**
      * Check whether all cursors are closed remotely.
@@ -165,13 +205,6 @@ private:
     sql_result make_request_fetch(std::unique_ptr<result_page> &page);
 
     /**
-     * Make result set metadata request.
-     *
-     * @return Result.
-     */
-    sql_result make_request_resultset_meta();
-
-    /**
      * Process column conversion operation result.
      *
      * @param conv_res Conversion result.
@@ -186,7 +219,14 @@ private:
      *
      * @param value Metadata.
      */
-    void set_resultset_meta(const column_meta_vector &value);
+    void set_resultset_meta(column_meta_vector value);
+
+    /**
+     * Set metadata for params.
+     *
+     * @param value Metadata.
+     */
+    void set_params_meta(std::vector<sql_parameter> value);
 
     /**
      * Close query.
@@ -204,11 +244,17 @@ private:
     /** Parameter bindings. */
     const parameter_set &m_params;
 
+    /** Parameter types. */
+    std::vector<sql_parameter> m_params_meta{};
+
     /** Indicating if the query was executed. */
     bool m_executed{false};
 
+    /** Parameter metadata is available. */
+    volatile bool m_params_meta_available{false};
+
     /** Result set metadata is available */
-    bool m_result_meta_available{false};
+    volatile bool m_result_meta_available{false};
 
     /** Result set metadata. */
     column_meta_vector m_result_meta;

@@ -162,20 +162,30 @@ namespace Apache.Ignite.Internal.Sql
             using var bufferWriter = ProtoCommon.GetMessageWriter();
             WriteStatement(bufferWriter, statement, args, tx, writeTx: true);
 
+            PooledBuffer? buf = null;
+
             try
             {
-                var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
+                (buf, var socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
                 // ResultSet will dispose the pooled buffer.
                 return new ResultSet<T>(socket, buf, rowReaderFactory);
             }
             catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
             {
+                buf?.Dispose();
+
                 throw new SqlException(
                     e.TraceId,
                     ErrorGroups.Sql.StmtValidation,
                     "Invalid query, check inner exceptions for details: " + statement,
                     e);
+            }
+            catch (Exception)
+            {
+                buf?.Dispose();
+
+                throw;
             }
         }
 

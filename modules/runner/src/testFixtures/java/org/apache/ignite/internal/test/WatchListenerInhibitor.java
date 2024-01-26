@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReadWriteLock;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -53,10 +54,20 @@ public class WatchListenerInhibitor {
     public static WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite) {
         IgniteImpl igniteImpl = (IgniteImpl) ignite;
 
-        var metaStorageManager = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
+        return metastorageEventsInhibitor(igniteImpl.metaStorageManager());
+    }
+
+    /**
+     * Creates the specific listener which can inhibit events for real metastorage listener.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @return Listener inhibitor.
+     */
+    public static WatchListenerInhibitor metastorageEventsInhibitor(MetaStorageManager metaStorageManager) {
+        var metaStorageManager0 = metaStorageManager;
 
         //TODO: IGNITE-15723 After a component factory is implemented, need to got rid of reflection here.
-        var storage = (RocksDbKeyValueStorage) getFieldValue(metaStorageManager, MetaStorageManagerImpl.class, "storage");
+        var storage = (RocksDbKeyValueStorage) getFieldValue(metaStorageManager0, MetaStorageManagerImpl.class, "storage");
 
         var watchProcessor = (WatchProcessor) getFieldValue(storage, RocksDbKeyValueStorage.class, "watchProcessor");
 

@@ -587,15 +587,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             CompletableFuture<? extends NetworkMessage> fut
     ) {
         if (recoverable(err)) {
+            Peer randomPeer = randomNode(peer);
+
             LOG.warn(
                     "Recoverable error during the request occurred (will be retried on the randomly selected node) "
-                            + "[request={}, peer={}].",
+                            + "[request={}, peer={}, newPeer={}].",
                     err,
                     sentRequest,
-                    peer
+                    peer,
+                    randomPeer
             );
 
-            scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
+            scheduleRetry(() -> sendWithRetry(randomPeer, requestFactory, stopTime, fut));
         } else {
             fut.completeExceptionally(err);
         }

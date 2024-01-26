@@ -379,6 +379,31 @@ public class Cluster {
     }
 
     /**
+     * Stops a node by name.
+     *
+     * @param name Name of the node in the cluster.
+     */
+    public void stopNode(String name) {
+        stopNode(nodeIndex(name));
+    }
+
+    /**
+     * Returns index of the node.
+     *
+     * @param name Node name.
+     * @return Node index.
+     */
+    public int nodeIndex(String name) {
+        for (int i = 0; i < nodes.size(); i++) {
+            if (nodes.get(i) != null && nodes.get(i).name().equals(name)) {
+                return i;
+            }
+        }
+
+        throw new IllegalArgumentException("Node is not found: " + name);
+    }
+
+    /**
      * Restarts a node by index.
      *
      * @param index Node index in the cluster.

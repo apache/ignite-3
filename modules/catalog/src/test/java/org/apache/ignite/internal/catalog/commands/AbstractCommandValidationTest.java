@@ -98,7 +98,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         ));
     }
 
-    protected static CatalogCommand createIndexCommand(String tableName, String indexName) {
+    static CatalogCommand createIndexCommand(String tableName, String indexName) {
         return CreateHashIndexCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .indexName(indexName)
@@ -107,10 +107,15 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    protected static CatalogCommand createTableCommand(String tableName) {
+    static CatalogCommand createTableCommand(String tableName) {
+        return createTableCommand(ZONE_NAME, tableName);
+    }
+
+    static CatalogCommand createTableCommand(String zoneName, String tableName) {
         return CreateTableCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
+                .zone(zoneName)
                 .columns(List.of(
                         ColumnParams.builder().name("ID").type(INT32).build(),
                         ColumnParams.builder().name("VAL").type(INT32).build()
@@ -119,7 +124,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    private static CatalogCommand createZoneCommand(String zoneName) {
+    static CatalogCommand createZoneCommand(String zoneName) {
         return CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .build();
