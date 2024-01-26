@@ -39,6 +39,7 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -69,6 +70,8 @@ class TestIndexManagementUtils {
     static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
     static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(NODE_ID, NODE_NAME, mock(NetworkAddress.class));
+
+    static final LogicalNode LOGICAL_LOCAL_NODE = new LogicalNode(NODE_ID, NODE_NAME, mock(NetworkAddress.class));
 
     static void createTable(CatalogManager catalogManager, String tableName, String columnName) {
         TableTestUtils.createTable(
