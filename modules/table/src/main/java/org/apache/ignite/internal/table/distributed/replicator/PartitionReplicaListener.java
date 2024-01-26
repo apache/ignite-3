@@ -1562,7 +1562,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 commitTimestamp,
                                 txCoordinatorId,
                                 catalogVersion,
-                        aggregatedGroupIds.stream()
+                                aggregatedGroupIds.stream()
                                         .map(PartitionReplicaListener::tablePartitionId)
                                         .collect(toList())
                         )

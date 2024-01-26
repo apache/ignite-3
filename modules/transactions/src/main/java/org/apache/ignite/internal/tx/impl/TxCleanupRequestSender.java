@@ -99,7 +99,7 @@ public class TxCleanupRequestSender {
     /**
      * Sends cleanup request to the primary nodes of each one of {@code partitions}.
      *
-     * @param enlistedPartitions Enlisted partition groups.
+     * @param enlistedPartitions Map of enlisted partition group to the initial primary node.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @param txId Transaction id.

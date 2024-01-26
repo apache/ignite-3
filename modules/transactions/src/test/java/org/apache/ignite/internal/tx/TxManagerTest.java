@@ -732,9 +732,8 @@ public class TxManagerTest extends IgniteAbstractTest {
     private InternalTransaction prepareTransaction() {
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-//        ClusterNode node = mock(ClusterNode.class);
-
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+
         tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
         tx.assignCommitPartition(tablePartitionId1);
 
