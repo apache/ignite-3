@@ -21,7 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Group of changes that relates to specified version.
+ * A catalog snapshot relates to specified version.
  */
 public class SnapshotUpdate extends VersionedUpdate {
     private static final long serialVersionUID = 3676869450184989214L;

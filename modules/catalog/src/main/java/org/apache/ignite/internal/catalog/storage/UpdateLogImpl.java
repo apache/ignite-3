@@ -252,7 +252,7 @@ public class UpdateLogImpl implements UpdateLog {
             return ByteArray.fromString("catalog.update.");
         }
 
-        public static ByteArray snapshotVersion() {
+        static ByteArray snapshotVersion() {
             return ByteArray.fromString("catalog.snapshot.version");
         }
     }

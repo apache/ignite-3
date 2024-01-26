@@ -42,11 +42,11 @@ public interface UpdateLog extends IgniteComponent {
     CompletableFuture<Boolean> append(VersionedUpdate update);
 
     /**
-     * Saves an snapshot entry and drop updates of previous versions from the log, if supported, otherwise do nothing.
+     * Saves a snapshot entry and drop updates of previous versions from the log, if supported, otherwise do nothing.
      *
      * @param snapshotEntry An entry, which represents a result of merging updates of previous versions.
      * @return A {@code true} if snapshot has been successfully appended, {@code false} otherwise
-     *      if update with the same version already exists, or snapshots are not unsupported.
+     *      if a snapshot with the same or greater version already exists, or snapshots are not supported.
      */
     CompletableFuture<Boolean> saveSnapshot(SnapshotUpdate snapshotEntry);
 

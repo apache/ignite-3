@@ -20,6 +20,8 @@ package org.apache.ignite.internal.util.io;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collection;
+import java.util.function.Supplier;
 
 /**
  * Extended data output.

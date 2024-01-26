@@ -342,8 +342,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CompletableFuture<Void> compactCatalog(long timestamp) {
         Catalog catalog = catalogAt(timestamp);
 
-        truncateUpTo(catalog.version(), catalog.time());
-
         return updateLog.saveSnapshot(new SnapshotUpdate(catalog.version(), new SnapshotEntry(catalog))).thenAccept(ignore -> {});
     }
 
@@ -352,9 +350,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         catalogByTs.put(newCatalog.time(), newCatalog);
     }
 
-    private void truncateUpTo(int version, long time) {
-        catalogByVer.headMap(version, false).clear();
-        catalogByTs.headMap(time, false).clear();
+    private void truncateUpTo(Catalog catalog) {
+        catalogByVer.headMap(catalog.version(), false).clear();
+        catalogByTs.headMap(catalog.time(), false).clear();
     }
 
     private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
@@ -441,10 +439,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         @Override
         public CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             if (update instanceof SnapshotUpdate) {
-                Catalog catalog = ((SnapshotUpdate) update).snapshotEntry().applyUpdate(catalogByVer.get(0), causalityToken);
+                Catalog catalog = ((SnapshotUpdate) update).snapshotEntry().applyUpdate(null, causalityToken);
 
+                // On recovery phase, we must register catalog from the snapshot.
+                // In other cases, it is ok to rewrite an existed version, because it's exactly the same.
                 registerCatalog(catalog);
-                truncateUpTo(catalog.version(), catalog.time());
+                truncateUpTo(catalog);
 
                 return nullCompletedFuture();
             }
