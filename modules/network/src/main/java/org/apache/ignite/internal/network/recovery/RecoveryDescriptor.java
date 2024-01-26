@@ -145,7 +145,9 @@ public class RecoveryDescriptor {
     public void add(OutNetworkObject msg) {
         msg.shouldBeSavedForRecovery(false);
         sentCount++;
-        unacknowledgedMessages.add(msg);
+
+        boolean added = unacknowledgedMessages.add(msg);
+        assert added : "Wasn't added as the queue is full: " + msg.networkMessage();
     }
 
     /**

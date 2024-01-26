@@ -22,6 +22,7 @@ import static java.util.Collections.emptyList;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoop;
+import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.EventExecutor;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,8 +85,14 @@ class HandshakeManagerUtils {
     }
 
     private static EventLoop eventLoopForKey(ChannelKey channelKey, Channel channel) {
+        EventLoopGroup group = channel.eventLoop().parent();
+        if (group == null) {
+            // EmbeddedEventLoop#parent() returns null, handle this.
+            return channel.eventLoop();
+        }
+
         List<EventLoop> eventLoops = new ArrayList<>();
-        for (EventExecutor childExecutor : channel.eventLoop().parent()) {
+        for (EventExecutor childExecutor : group) {
             eventLoops.add((EventLoop) childExecutor);
         }
 

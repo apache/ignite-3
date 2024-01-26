@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 
 import io.netty.channel.Channel;
@@ -199,6 +200,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             }
 
             List<OutNetworkObject> networkMessages = recoveryDescriptor.unacknowledgedMessages();
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Resending on handshake: {}", networkMessages.stream().map(OutNetworkObject::networkMessage).collect(toList()));
+            }
 
             for (OutNetworkObject networkMessage : networkMessages) {
                 channel.write(networkMessage);
@@ -432,6 +436,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         // Complete the master future with the local future of the current handshake as there was no competitor (or we won the competition).
         masterHandshakeCompleteFuture.complete(localHandshakeCompleteFuture);
-        localHandshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId));
+        localHandshakeCompleteFuture.complete(
+                new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId, recoveryDescriptor)
+        );
     }
 }

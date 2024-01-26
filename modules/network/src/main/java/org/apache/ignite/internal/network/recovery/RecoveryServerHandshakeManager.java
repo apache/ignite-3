@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.shouldCloseChannel;
 
@@ -397,6 +398,9 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             futs[0] = sendFuture;
 
             List<OutNetworkObject> networkMessages = descriptor.unacknowledgedMessages();
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Resending on handshake: {}", networkMessages.stream().map(OutNetworkObject::networkMessage).collect(toList()));
+            }
 
             for (int i = 0; i < networkMessages.size(); i++) {
                 OutNetworkObject networkMessage = networkMessages.get(i);
@@ -448,6 +452,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
-        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId));
+        handshakeCompleteFuture.complete(
+                new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId, recoveryDescriptor)
+        );
     }
 }
