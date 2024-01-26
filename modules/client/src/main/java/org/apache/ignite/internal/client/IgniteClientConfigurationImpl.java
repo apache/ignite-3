@@ -68,6 +68,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final @Nullable  IgniteClientAuthenticator authenticator;
 
+    private final long operationTimeout;
+
     /**
      * Constructor.
      *
@@ -100,7 +102,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             @Nullable LoggerFactory loggerFactory,
             @Nullable SslConfiguration sslConfiguration,
             boolean metricsEnabled,
-            @Nullable IgniteClientAuthenticator authenticator) {
+            @Nullable IgniteClientAuthenticator authenticator,
+            long operationTimeout) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -118,6 +121,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.sslConfiguration = sslConfiguration;
         this.metricsEnabled = metricsEnabled;
         this.authenticator = authenticator;
+        this.operationTimeout = operationTimeout;
     }
 
     /** {@inheritDoc} */
@@ -202,5 +206,10 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public IgniteClientAuthenticator authenticator() {
         return authenticator;
+    }
+
+    @Override
+    public long operationTimeout() {
+        return operationTimeout;
     }
 }
