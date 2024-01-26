@@ -110,6 +110,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Heartbeat timeout in milliseconds. */
     private final long heartbeatTimeout;
 
+    /** Operation timeout in milliseconds. */
+    private final long operationTimeout;
+
     /** Heartbeat timer. */
     private volatile Timer heartbeatTimer;
 
@@ -138,6 +141,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         connectTimeout = cfg.clientConfiguration().connectTimeout();
         heartbeatTimeout = cfg.clientConfiguration().heartbeatTimeout();
+        operationTimeout = cfg.clientConfiguration().operationTimeout();
     }
 
     private CompletableFuture<ClientChannel> initAsync(ClientConnectionMultiplexer connMgr) {
@@ -272,7 +276,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 notificationHandlers.put(id, notificationFut);
             }
 
-            return send(opCode, id, payloadWriter, payloadReader, notificationFut);
+            ClientRequestFuture<T> fut = send(opCode, id, payloadWriter, payloadReader, notificationFut);
+
+            return operationTimeout <= 0
+                    ? fut
+                    : fut.orTimeout(operationTimeout, TimeUnit.MILLISECONDS);
+
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
         }
