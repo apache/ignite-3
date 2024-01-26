@@ -3,10 +3,10 @@ package org.apache.ignite.internal.table.distributed;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
@@ -136,7 +136,8 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testUpdateAllBatchedTryLockFailedOnce() {
+    void testUpdateAllBatchedTryLockFailed() {
+
         UUID txUuid = UUID.randomUUID();
 
         HybridTimestamp commitTs = CLOCK.now();
@@ -160,25 +161,24 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 id2, tb2,
                 id3, tb3
         );
-        // All batches consist of one row.
-        storageUpdateConfiguration.batchByteLength().update(0);
 
-        when(lock.tryLock(new RowId(partitionId.partitionId(), id1))).thenReturn(false).thenCallRealMethod();
-        when(lock.tryLock(new RowId(partitionId.partitionId(), id2))).thenReturn(false).thenCallRealMethod();
-        when(lock.tryLock(new RowId(partitionId.partitionId(), id3))).thenReturn(false).thenCallRealMethod();
+        doReturn(false).when(lock).tryLock(any());
 
         storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null);
 
         assertEquals(3, storage.rowsCount());
+
         // We have three writes to the storage.
         verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
 
-        // First batch uses lock() instead, second and third get lock after second try
-        verify(lock, times(4)).tryLock(any());
+        // First entry calls lock(). Second calls tryLock and fails, starts second batch, calls lock(). Same for third.
+        verify(lock, times(2)).tryLock(any());
+        verify(lock, times(3)).lock(any());
 
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         assertEquals(3, storage.rowsCount());
+
         // Those writes resulted in three commits.
         verify(storage, times(3)).commitWrite(any(), any());
 

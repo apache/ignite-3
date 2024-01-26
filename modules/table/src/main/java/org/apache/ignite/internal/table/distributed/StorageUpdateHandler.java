@@ -203,7 +203,6 @@ public class StorageUpdateHandler {
 
         int commitTblId = commitPartitionId.tableId();
         int commitPartId = commitPartitionId.partitionId();
-        boolean useTryLock = false;
 
         Iterator<Entry<UUID, TimedBinaryRow>> it = rowsToUpdate.entrySet().iterator();
         Entry<UUID, TimedBinaryRow> lastUnprocessedEntry = it.next();
@@ -217,11 +216,8 @@ public class StorageUpdateHandler {
                     commitTblId,
                     commitPartId,
                     it,
-                    storageUpdateConfiguration.batchByteLength().value(),
-                    useTryLock
+                    storageUpdateConfiguration.batchByteLength().value()
             );
-
-            useTryLock = true;
         }
 
         if (onApplication != null) {
@@ -237,8 +233,7 @@ public class StorageUpdateHandler {
             int commitTblId,
             int commitPartId,
             Iterator<Entry<UUID, TimedBinaryRow>> it,
-            int maxBatchLength,
-            boolean useTryLock
+            int maxBatchLength
     ) {
         return storage.runConsistently(locker -> {
             List<RowId> processedRowIds = new ArrayList<>();
@@ -265,7 +260,7 @@ public class StorageUpdateHandler {
                         row,
                         entryToProcess.getValue() == null ? null : entryToProcess.getValue().commitTimestamp(),
                         commitTs,
-                        useTryLock
+                        !processedRowIds.isEmpty()
                 );
 
                 if (!rowProcessed) {
