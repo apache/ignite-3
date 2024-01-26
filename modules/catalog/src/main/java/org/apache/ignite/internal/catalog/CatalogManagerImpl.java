@@ -307,11 +307,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return catalogByVer.get(catalogVersion);
     }
 
-    @Override
-    public Collection<Catalog> catalogs() {
-        return List.copyOf(catalogByVer.values());
-    }
-
     private Catalog catalogAt(long timestamp) {
         Entry<Long, Catalog> entry = catalogByTs.floorEntry(timestamp);
 

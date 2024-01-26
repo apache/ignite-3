@@ -52,8 +52,6 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     @Nullable Catalog catalog(int catalogVersion);
 
-    Collection<Catalog> catalogs();
-
     @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
 
     @Nullable CatalogTableDescriptor table(int tableId, long timestamp);

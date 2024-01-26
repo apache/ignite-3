@@ -65,7 +65,7 @@ import org.apache.ignite.network.ClusterService;
  * <br><p>On node recovery, tasks will be started on {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}, which will fire due to a change in
  * the {@link ReplicaMeta#getLeaseholderId()} on node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
-// TODO: IGNITE-21115 документация
+// TODO: IGNITE-21115 тесты
 class IndexBuildingStarter implements ManuallyCloseable {
     private final CatalogManager catalogManager;
 
