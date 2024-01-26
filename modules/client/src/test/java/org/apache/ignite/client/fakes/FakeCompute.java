@@ -75,6 +75,17 @@ public class FakeCompute implements IgniteComputeInternal {
             String jobClassName,
             JobExecutionOptions options,
             Object... args) {
+        return executeAsyncWithFailover(nodes.stream().findFirst().get(), nodes, units, jobClassName, options, args);
+    }
+
+    @Override
+    public <R> JobExecution<R> executeAsyncWithFailover(
+            ClusterNode targetNode,
+            Set<ClusterNode> candidates,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object... args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return completedExecution((R) unitString);

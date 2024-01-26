@@ -69,7 +69,7 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(nodes);
             IgniteArgumentCheck.NotNull(jobClassName);
 
-            return await ExecuteOnOneNode<T>(GetRandomNode(nodes), units, jobClassName, args).ConfigureAwait(false);
+            return await ExecuteOnNodes<T>(GetRandomNode(nodes), nodes, units, jobClassName, args).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -121,7 +121,7 @@ namespace Apache.Ignite.Internal.Compute
 
             foreach (var node in nodes)
             {
-                var task = ExecuteOnOneNode<T>(node, units0, jobClassName, args);
+                var task = ExecuteOnNodes<T>(node, new[] { node }, units0, jobClassName, args);
 
                 res[node] = task;
             }
@@ -182,19 +182,20 @@ namespace Apache.Ignite.Internal.Compute
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
         }
 
-        private async Task<T> ExecuteOnOneNode<T>(
-            IClusterNode node,
+        private async Task<T> ExecuteOnNodes<T>(
+            IClusterNode coordinatorNode,
+            IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
             object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(node);
+            IgniteArgumentCheck.NotNull(coordinatorNode);
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
             using PooledBuffer res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
+                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(coordinatorNode.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
             var notificationHandler = (NotificationHandler)res.Metadata!;
@@ -205,7 +206,9 @@ namespace Apache.Ignite.Internal.Compute
             {
                 var w = writer.MessageWriter;
 
-                w.Write(node.Name);
+                IEnumerable<string> nodeNames = nodes.Select(node => node.Name);
+                ICollection<object?> objs = (ICollection<object?>)nodeNames.ToList();
+                w.WriteObjectCollectionAsBinaryTuple(objs);
                 WriteUnits(units, writer);
                 w.Write(jobClassName);
 

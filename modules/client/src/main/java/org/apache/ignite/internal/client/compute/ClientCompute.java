@@ -102,7 +102,7 @@ public class ClientCompute implements IgniteCompute {
 
         ClusterNode node = randomNode(nodes);
 
-        return new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, options, args));
+        return new ClientJobExecution<>(ch, executeOnNodesAsync(node, nodes, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
@@ -252,7 +252,9 @@ public class ClientCompute implements IgniteCompute {
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            ClientJobExecution<R> execution = new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, options, args));
+            JobExecution<R> execution = new ClientJobExecution<>(ch, executeOnNodesAsync(
+                    node, Set.of(node), units, jobClassName, options, args
+            ));
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
@@ -261,8 +263,9 @@ public class ClientCompute implements IgniteCompute {
         return map;
     }
 
-    private CompletableFuture<PayloadInputChannel> executeOnOneNode(
-            ClusterNode node,
+    private CompletableFuture<PayloadInputChannel> executeOnNodesAsync(
+            ClusterNode coordinatorNode,
+            Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
@@ -271,16 +274,12 @@ public class ClientCompute implements IgniteCompute {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
-                    if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
-                        w.out().packNil();
-                    } else {
-                        w.out().packString(node.name());
-                    }
-
+                    String[] nodeNames = nodes.stream().map(ClusterNode::name).toArray(String[]::new);
+                    w.out().packObjectArrayAsBinaryTuple(nodeNames);
                     packJob(w.out(), units, jobClassName, options, args);
                 },
                 ch -> ch,
-                node.name(),
+                coordinatorNode.name(),
                 null,
                 true);
     }

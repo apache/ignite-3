@@ -83,12 +83,17 @@ void write_units(protocol::writer &writer, const std::vector<deployment_unit> &u
     }
 }
 
-void compute_impl::execute_on_one_node(cluster_node node, const std::vector<deployment_unit> &units,
+void compute_impl::execute_on_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
     std::string_view job_class_name, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
 
-    auto writer_func = [&node, job_class_name, &units, args](protocol::writer &writer) {
-        writer.write(node.get_name());
+    auto writer_func = [&nodes, job_class_name, &units, args](protocol::writer &writer) {
+        std::vector<primitive> node_names;
+        for (const auto &node : nodes) {
+            primitive val(node.get_name());
+            node_names.push_back(val);
+        }
+        write_primitives_as_binary_tuple(writer, node_names);
         write_units(writer, units);
         writer.write(job_class_name);
 

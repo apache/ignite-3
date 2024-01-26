@@ -191,7 +191,7 @@ TEST_F(compute_test, unknown_node_throws) {
             try {
                 m_client.get_compute().execute({unknown_node}, {}, ECHO_JOB, {"unused"});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("Specified node is not present in the cluster: random"));
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Specified nodes are not present in the cluster: [random]"));
                 throw;
             }
         },
