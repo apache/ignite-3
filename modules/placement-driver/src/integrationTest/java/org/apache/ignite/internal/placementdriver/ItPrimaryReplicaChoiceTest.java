@@ -244,6 +244,12 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         NodeUtils.transferPrimary(tbl, null, this::node);
 
+        assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
+        assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
+
+        rwTx.rollback();
+
+
         assertFalse(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(3, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
     }
