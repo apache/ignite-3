@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
@@ -135,9 +136,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-/**
- * Tests scenarios for table manager.
- */
+/** Tests scenarios for table manager. */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
@@ -235,8 +234,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
 
-        catalogMetastore.start();
-        catalogManager.start();
+        assertThat(allOf(catalogMetastore.start(), catalogManager.start()), willCompleteSuccessfully());
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
 
@@ -597,8 +595,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             subscriber.onComplete();
         });
 
-        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(nullCompletedFuture());
-        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(nullCompletedFuture());
+        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
@@ -753,9 +751,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
         };
 
-        sm.start();
-
-        tableManager.start();
+        assertThat(allOf(sm.start(), tableManager.start()), willCompleteSuccessfully());
 
         tblManagerFut.complete(tableManager);
 
@@ -775,7 +771,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null)
         );
 
-        manager.start();
+        assertThat(manager.start(), willCompleteSuccessfully());
 
         return manager;
     }

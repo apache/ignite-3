@@ -28,8 +28,7 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
- * QueryTaskExecutorImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Implementation of query task executor for any SQL related execution stage.
  */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
     private static final IgniteLogger LOG = Loggers.forClass(QueryTaskExecutorImpl.class);
@@ -40,20 +39,26 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
 
     private volatile StripedThreadPoolExecutor stripedThreadPoolExecutor;
 
+    private final int concurrencyLevel;
+
     private Thread.UncaughtExceptionHandler exHnd;
 
     /**
-     * Set node name.
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param concurrencyLevel concurrency Level for execution thread pool.
      */
-    public QueryTaskExecutorImpl(String nodeName) {
+    public QueryTaskExecutorImpl(String nodeName, int concurrencyLevel) {
         this.nodeName = nodeName;
+        this.concurrencyLevel = concurrencyLevel;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
-                4,
+                concurrencyLevel,
                 NamedThreadFactory.threadPrefix(nodeName, "sql-execution-pool"),
                 new LogUncaughtExceptionHandler(LOG),
                 false,
@@ -62,8 +67,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     }
 
     /**
-     * ExceptionHandler.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Set uncaught exception handler.
      *
      * @param exHnd Uncaught exception handler.
      */

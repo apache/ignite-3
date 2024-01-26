@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -37,20 +38,17 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests to verify {@link CatalogTestUtils}.
- */
+/** Tests to verify {@link CatalogTestUtils}. */
 class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
-
     /**
      * Simple smoke test to verify test manager is able to process several versions of catalog,
      * and returned instance follows the contract.
      */
     @Test
     void testManagerWorksAsExpected() throws Exception {
-        CatalogManager manager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
+        CatalogManager manager = createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
 
-        manager.start();
+        assertThat(manager.start(), willCompleteSuccessfully());
 
         CreateTableCommandBuilder createTableTemplate = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
@@ -60,15 +58,11 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
                 ))
                 .primaryKeyColumns(List.of("C1"));
 
-        await(manager.execute(
-                createTableTemplate.tableName("T1").build()
-        ));
+        assertThat(manager.execute(createTableTemplate.tableName("T1").build()), willCompleteSuccessfully());
 
         int version1 = manager.latestCatalogVersion();
 
-        await(manager.execute(
-                createTableTemplate.tableName("T2").build()
-        ));
+        assertThat(manager.execute(createTableTemplate.tableName("T2").build()), willCompleteSuccessfully());
 
         int version2 = manager.latestCatalogVersion();
 

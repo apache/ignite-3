@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -31,7 +30,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -41,10 +39,7 @@ import org.jetbrains.annotations.TestOnly;
 @TestOnly
 public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
         implements PlacementDriver {
-    private final Supplier<TestReplicaMetaImpl> primaryReplicaSupplier;
-
-    @Nullable
-    private BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> awaitPrimaryReplicaFunction = null;
+    private volatile Supplier<? extends ReplicaMeta> primaryReplicaSupplier;
 
     /** Auxiliary constructor that will create replica meta by {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)} internally. */
     public TestPlacementDriver(ClusterNode leaseholder) {
@@ -70,10 +65,6 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             long timeout,
             TimeUnit unit
     ) {
-        if (awaitPrimaryReplicaFunction != null) {
-            return awaitPrimaryReplicaFunction.apply(groupId, timestamp);
-        }
-
         return getReplicaMetaFuture();
     }
 
@@ -97,17 +88,19 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return super.fireEvent(event, parameters);
     }
 
-    public void setAwaitPrimaryReplicaFunction(
-            @Nullable BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> awaitPrimaryReplicaFunction
-    ) {
-        this.awaitPrimaryReplicaFunction = awaitPrimaryReplicaFunction;
-    }
-
     private CompletableFuture<ReplicaMeta> getReplicaMetaFuture() {
         try {
             return completedFuture(primaryReplicaSupplier.get());
         } catch (Throwable t) {
             return failedFuture(t);
         }
+    }
+
+    public Supplier<? extends ReplicaMeta> getPrimaryReplicaSupplier() {
+        return this.primaryReplicaSupplier;
+    }
+
+    public void setPrimaryReplicaSupplier(Supplier<? extends ReplicaMeta> primaryReplicaSupplier) {
+        this.primaryReplicaSupplier = primaryReplicaSupplier;
     }
 }

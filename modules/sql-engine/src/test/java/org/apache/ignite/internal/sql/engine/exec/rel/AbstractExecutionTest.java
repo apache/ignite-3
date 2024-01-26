@@ -46,7 +46,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
@@ -63,8 +62,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
- * AbstractExecutionTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Base abstract class for testing SQL execution.
  */
 public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     public static final Object[][] EMPTY = new Object[0][];
@@ -73,13 +71,12 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     @BeforeEach
     public void beforeTest() {
-        taskExecutor = new QueryTaskExecutorImpl("no_node");
+        taskExecutor = new QueryTaskExecutorImpl("no_node", 4);
         taskExecutor.start();
     }
 
     /**
-     * AfterTest.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * After each test.
      */
     @AfterEach
     public void afterTest() {
@@ -205,8 +202,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     }
 
     /**
-     * TestTable.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provides ability to generate test table data.
      */
     public static class TestTable implements Iterable<Object[]> {
         private int rowsCnt;
@@ -289,10 +285,6 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static class RootRewindable<RowT> extends RootNode<RowT> {
-        /**
-         * Constructor.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-         */
         public RootRewindable(ExecutionContext<RowT> ctx) {
             super(ctx);
         }

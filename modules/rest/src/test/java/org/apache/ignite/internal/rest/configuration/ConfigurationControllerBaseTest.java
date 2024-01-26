@@ -26,16 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
-import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import java.util.Set;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.api.InvalidParam;
@@ -49,19 +46,11 @@ import org.junit.jupiter.api.Test;
 @MicronautTest
 public abstract class ConfigurationControllerBaseTest {
 
-    private final Set<String> secretKeys = Set.of("password");
-
-    @Inject
-    private EmbeddedServer server;
-
     @Inject
     private ConfigurationPresentation<String> cfgPresentation;
 
     @Inject
     private ConfigurationRegistry configurationRegistry;
-
-    @Inject
-    private ApplicationContext context;
 
     abstract HttpClient client();
 

@@ -195,4 +195,12 @@ private:
 /** Column metadata vector alias. */
 typedef std::vector<column_meta> column_meta_vector;
 
+/**
+ * Reads result set metadata.
+ *
+ * @param reader Reader.
+ * @return Result set meta columns.
+ */
+column_meta_vector read_result_set_meta(protocol::reader &reader);
+
 } // namespace ignite
