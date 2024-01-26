@@ -19,8 +19,6 @@ package org.apache.ignite.internal.rest.compute;
 
 import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpRequest.PUT;
-import static org.apache.ignite.internal.rest.api.compute.OperationResult.failureResult;
-import static org.apache.ignite.internal.rest.api.compute.OperationResult.successResult;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.rest.matcher.RestJobStatusMatcher.canceled;
 import static org.apache.ignite.internal.rest.matcher.RestJobStatusMatcher.completed;
@@ -28,7 +26,6 @@ import static org.apache.ignite.internal.rest.matcher.RestJobStatusMatcher.execu
 import static org.apache.ignite.internal.rest.matcher.RestJobStatusMatcher.queued;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.core.type.Argument;
@@ -51,7 +48,6 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.compute.JobStatus;
-import org.apache.ignite.internal.rest.api.compute.OperationResult;
 import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
 import org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher;
 import org.apache.ignite.network.ClusterNode;
@@ -191,7 +187,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         await().until(() -> getJobStatus(client0, jobId), executing(jobId));
 
-        assertThat(cancelJob(client0, jobId), is(successResult()));
+        cancelJob(client0, jobId);
 
         await().until(() -> getJobStatus(client0, jobId), canceled(jobId, true));
     }
@@ -206,7 +202,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         await().until(() -> getJobStatus(client0, jobId), executing(jobId));
 
-        assertThat(cancelJob(client0, jobId), is(successResult()));
+        cancelJob(client0, jobId);
 
         await().until(() -> getJobStatus(client0, jobId), canceled(jobId, true));
     }
@@ -241,7 +237,17 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         await().until(() -> getJobStatus(client0, jobId), completed(jobId));
 
-        assertThat(cancelJob(client0, jobId), is(failureResult()));
+        HttpClientResponseException httpClientResponseException = assertThrows(
+                HttpClientResponseException.class,
+                () -> cancelJob(client0, jobId)
+        );
+
+        assertThat(
+                httpClientResponseException.getResponse(),
+                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
+                        .withBody(isProblem().withStatus(409)
+                                .withDetail("Compute job is in illegal state [jobId=" + jobId + ", state=COMPLETED]"), Problem.class)
+        );
     }
 
     @Test
@@ -262,7 +268,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         await().until(() -> getJobStatus(client0, jobId2), queued(jobId2));
 
-        assertThat(updatePriority(client0, jobId2, 1), is(successResult()));
+        updatePriority(client0, jobId2, 1);
     }
 
     @Test
@@ -283,7 +289,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         await().until(() -> getJobStatus(client0, jobId2), queued(jobId2));
 
-        assertThat(updatePriority(client0, jobId2, 1), is(successResult()));
+        updatePriority(client0, jobId2, 1);
     }
 
     @Test
@@ -314,7 +320,17 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         await().until(() -> getJobStatus(client0, jobId), executing(jobId));
 
-        assertThat(updatePriority(client0, jobId, 1), is(failureResult()));
+        HttpClientResponseException httpClientResponseException = assertThrows(
+                HttpClientResponseException.class,
+                () -> updatePriority(client0, jobId, 1)
+        );
+
+        assertThat(
+                httpClientResponseException.getResponse(),
+                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
+                        .withBody(isProblem().withStatus(409)
+                                .withDetail("Compute job is in illegal state [jobId=" + jobId + ", state=EXECUTING]"), Problem.class)
+        );
     }
 
     @Test
@@ -333,7 +349,17 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         await().until(() -> getJobStatus(client0, jobId), completed(jobId));
 
-        assertThat(updatePriority(client0, jobId, 1), is(failureResult()));
+        HttpClientResponseException httpClientResponseException = assertThrows(
+                HttpClientResponseException.class,
+                () -> updatePriority(client0, jobId, 1)
+        );
+
+        assertThat(
+                httpClientResponseException.getResponse(),
+                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
+                        .withBody(isProblem().withStatus(409)
+                                .withDetail("Compute job is in illegal state [jobId=" + jobId + ", state=COMPLETED]"), Problem.class)
+        );
     }
 
     private static JobExecution<String> runBlockingJob(IgniteImpl entryNode, Set<ClusterNode> nodes) {
@@ -357,13 +383,13 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
         return client.toBlocking().retrieve("/jobs/" + jobId, JobStatus.class);
     }
 
-    private static OperationResult updatePriority(HttpClient client, UUID jobId, int priority) {
-        return client.toBlocking()
-                .retrieve(PUT("/jobs/" + jobId + "/priority", new UpdateJobPriorityBody(priority)), OperationResult.class);
+    private static void updatePriority(HttpClient client, UUID jobId, int priority) {
+        client.toBlocking()
+                .exchange(PUT("/jobs/" + jobId + "/priority", new UpdateJobPriorityBody(priority)));
     }
 
-    private static OperationResult cancelJob(HttpClient client, UUID jobId) {
-        return client.toBlocking().retrieve(DELETE("/jobs/" + jobId), OperationResult.class);
+    private static void cancelJob(HttpClient client, UUID jobId) {
+        client.toBlocking().exchange(DELETE("/jobs/" + jobId));
     }
 
     private static class BlockingJob implements ComputeJob<String> {

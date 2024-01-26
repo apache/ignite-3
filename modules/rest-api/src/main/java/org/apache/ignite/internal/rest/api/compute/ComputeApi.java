@@ -89,15 +89,20 @@ public interface ComputeApi {
     @ApiResponse(
             responseCode = "200",
             description = "Successful update of the job priority.",
-            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = OperationResult.class))
+            content = @Content(mediaType = APPLICATION_JSON)
     )
     @ApiResponse(
             responseCode = "404",
             description = "Compute job not found.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
     )
+    @ApiResponse(
+            responseCode = "409",
+            description = "Compute job is in an illegal state.",
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
+    )
     @Put("jobs/{jobId}/priority")
-    CompletableFuture<OperationResult> updatePriority(
+    CompletableFuture<Void> updatePriority(
             @Schema(name = "jobId", description = "The unique identifier of the compute job.", requiredMode = REQUIRED) UUID jobId,
             @Body UpdateJobPriorityBody updateJobPriorityBody
     );
@@ -112,15 +117,20 @@ public interface ComputeApi {
     @ApiResponse(
             responseCode = "200",
             description = "Successful cancellation of the job.",
-            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = OperationResult.class))
+            content = @Content(mediaType = APPLICATION_JSON)
     )
     @ApiResponse(
             responseCode = "404",
             description = "Compute job not found.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
     )
+    @ApiResponse(
+            responseCode = "409",
+            description = "Compute job is in an illegal state.",
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
+    )
     @Delete("jobs/{jobId}")
-    CompletableFuture<OperationResult> cancelJob(
+    CompletableFuture<Void> cancelJob(
             @Schema(name = "jobId", description = "The unique identifier of the compute job.", requiredMode = REQUIRED) UUID jobId
     );
 }

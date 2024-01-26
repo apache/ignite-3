@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.rest.compute;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
@@ -27,9 +29,10 @@ import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.rest.api.compute.ComputeApi;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.JobStatus;
-import org.apache.ignite.internal.rest.api.compute.OperationResult;
 import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
 import org.apache.ignite.internal.rest.compute.exception.ComputeJobNotFoundException;
+import org.apache.ignite.internal.rest.compute.exception.ComputeJobStateException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * REST controller for compute operations.
@@ -50,36 +53,38 @@ public class ComputeController implements ComputeApi {
 
     @Override
     public CompletableFuture<JobStatus> jobStatus(UUID jobId) {
+        return jobStatus0(jobId);
+    }
+
+    @Override
+    public CompletableFuture<Void> updatePriority(UUID jobId, UpdateJobPriorityBody updateJobPriorityBody) {
+        return computeComponent.changePriorityAsync(jobId, updateJobPriorityBody.priority())
+                .thenCompose(result -> handleOperationResult(jobId, result));
+    }
+
+    @Override
+    public CompletableFuture<Void> cancelJob(UUID jobId) {
+        return computeComponent.cancelAsync(jobId)
+                .thenCompose(result -> handleOperationResult(jobId, result));
+    }
+
+    private CompletableFuture<Void> handleOperationResult(UUID jobId, @Nullable Boolean result) {
+        if (result == null) {
+            return failedFuture(new ComputeJobNotFoundException(jobId.toString()));
+        } else if (!result) {
+            return jobStatus0(jobId).thenCompose(status -> failedFuture(new ComputeJobStateException(jobId.toString(), status.state())));
+        } else {
+            return nullCompletedFuture();
+        }
+    }
+
+    private CompletableFuture<JobStatus> jobStatus0(UUID jobId) {
         return computeComponent.statusAsync(jobId)
                 .thenApply(status -> {
                     if (status == null) {
                         throw new ComputeJobNotFoundException(jobId.toString());
                     } else {
                         return toJobStatus(status);
-                    }
-                });
-    }
-
-    @Override
-    public CompletableFuture<OperationResult> updatePriority(UUID jobId, UpdateJobPriorityBody updateJobPriorityBody) {
-        return computeComponent.changePriorityAsync(jobId, updateJobPriorityBody.priority())
-                .thenApply(result -> {
-                    if (result == null) {
-                        throw new ComputeJobNotFoundException(jobId.toString());
-                    } else {
-                        return new OperationResult(result);
-                    }
-                });
-    }
-
-    @Override
-    public CompletableFuture<OperationResult> cancelJob(UUID jobId) {
-        return computeComponent.cancelAsync(jobId)
-                .thenApply(result -> {
-                    if (result == null) {
-                        throw new ComputeJobNotFoundException(jobId.toString());
-                    } else {
-                        return new OperationResult(result);
                     }
                 });
     }
