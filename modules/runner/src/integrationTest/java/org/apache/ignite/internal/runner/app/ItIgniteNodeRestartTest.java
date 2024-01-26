@@ -1131,6 +1131,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
+
+        log.info("Test finished.");
     }
 
     /**
