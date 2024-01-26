@@ -103,6 +103,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public void stop() throws StorageException {
+        System.out.println(">>> Intention to stop");
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -118,10 +119,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         } catch (Exception e) {
             throw new StorageException("Failed to stop PageMemory table storage: " + getTableId(), e);
         }
+        System.out.println(">>> stop finished");
     }
 
     @Override
     public CompletableFuture<Void> destroy() {
+        System.out.println(">>> Intention to destroy");
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -134,6 +137,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                     if (throwable == null) {
                         finishDestruction();
                     }
+                    System.out.println(">>> Destroy finished");
                 });
     }
 

@@ -186,6 +186,7 @@ import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -664,13 +665,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             TestIgnitionManager.init(initParameters);
         }
 
-        return futures.stream()
+        var startedNodes = futures.stream()
                 .map(future -> {
                     assertThat(future, willCompleteSuccessfully());
 
                     return (IgniteImpl) future.join();
                 })
                 .collect(toList());
+
+        // TODO: sanpwc addTodo.
+        assertTrue(waitForLogicalTopology(startedNodes, amount, 10_000));
+
+        return startedNodes;
     }
 
     /**
@@ -1120,7 +1126,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-    @Test
+    @RepeatedTest(100)
     public void testCfgGapWithoutData() {
         List<IgniteImpl> nodes = startNodes(3);
 
@@ -1129,6 +1135,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         log.info("Stopping the node.");
 
         stopNode(nodes.size() - 1);
+
+        assertTrue(waitForLogicalTopology(List.of(nodes.get(0), nodes.get(1)), 2, 10_000));
 
         nodes.set(nodes.size() - 1, null);
 
@@ -1145,6 +1153,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
+
+        log.info("Test finished.");
     }
 
     /**
@@ -1824,5 +1834,29 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     private interface InvokeInterceptor {
         Boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
+    }
+
+    private static boolean waitForLogicalTopology(Collection<IgniteImpl> cluster, int expected, long timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while (System.currentTimeMillis() < stop) {
+            boolean allMatch = true;
+
+            for (IgniteImpl node : cluster) {
+                allMatch = allMatch && (node.distributionZoneManager().logicalTopology().size() == expected);
+            }
+
+            if (allMatch) {
+                return true;
+            }
+
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 }

@@ -101,7 +101,9 @@ abstract class IndexWrapper {
 
         @Override
         TableSchemaAwareIndexStorage getStorage(int partitionId) {
+            System.out.println("!!! Before get index");
             IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
+            System.out.println("!!! After get index");
 
             assert index != null : tbl.name() + " part " + partitionId;
 

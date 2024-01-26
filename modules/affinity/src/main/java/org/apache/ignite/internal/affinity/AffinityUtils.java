@@ -25,11 +25,15 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Stateless affinity utils that produces helper methods for an affinity assignments calculation.
  */
 public class AffinityUtils {
+    private static final IgniteLogger LOG = Loggers.forClass(AffinityUtils.class);
+
     /**
      * Calculates affinity assignments.
      *
@@ -39,6 +43,7 @@ public class AffinityUtils {
      * @return List assignments by partition.
      */
     public static List<Set<Assignment>> calculateAssignments(Collection<String> dataNodes, int partitions, int replicas) {
+        LOG.info("calculateAssignments called [dataNodes={}]", dataNodes);
         List<Set<String>> affinityNodes = RendezvousAffinityFunction.assignPartitions(
                 dataNodes,
                 partitions,
