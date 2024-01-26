@@ -275,6 +275,8 @@ public class LeaseUpdater {
 
     /** Runnable to update lease in Meta storage. */
     private class Updater implements Runnable {
+        private final LeaseUpdateStatistics leaseUpdateStatistics = new LeaseUpdateStatistics();
+
         @Override
         public void run() {
             while (active() && !Thread.interrupted()) {
@@ -285,6 +287,13 @@ public class LeaseUpdater {
                 try {
                     if (active()) {
                         updateLeaseBatchInternal();
+                    }
+                } catch (Throwable e) {
+                    LOG.error("Error occurred when updating the leases.", e);
+
+                    if (e instanceof Error) {
+                        // TODO IGNITE-20368 The node should be halted in case of an error here.
+                        throw (Error) e;
                     }
                 } finally {
                     stateChangingLock.leaveBusy();
@@ -302,6 +311,8 @@ public class LeaseUpdater {
         private void updateLeaseBatchInternal() {
             HybridTimestamp now = clock.now();
 
+            leaseUpdateStatistics.onNewIteration();
+
             long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
@@ -314,6 +325,8 @@ public class LeaseUpdater {
             // Remove all expired leases that are no longer present in assignments.
             renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now)
                     && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
+
+            var currentAssignmentsSize = currentAssignments.size();
 
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
@@ -370,6 +383,9 @@ public class LeaseUpdater {
 
             var key = PLACEMENTDRIVER_LEASES_KEY;
 
+            var shouldLogLeaseStatistics = leaseUpdateStatistics.shouldLogLeaseStatistics();
+            var leasesUpdatedInCurrentIteration = leaseUpdateStatistics.leasesUpdatedInCurrentIteration();
+
             msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
@@ -385,6 +401,15 @@ public class LeaseUpdater {
                     LOG.debug("Lease update invocation failed");
 
                     return;
+                }
+
+                var totalLeases = leaseUpdateStatistics.onSuccessfulIteration(leasesUpdatedInCurrentIteration);
+
+                if (shouldLogLeaseStatistics) {
+                    LOG.info("Leases updated (printed once per " + LeaseUpdateStatistics.PRINT_ONCE_PER_ITERATIONS + " iterations): ["
+                            + "currentIteration=" + leasesUpdatedInCurrentIteration
+                            + ", total=" + totalLeases
+                            + ", currentAssignmentsSize=" + currentAssignmentsSize + "]");
                 }
 
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
@@ -416,6 +441,8 @@ public class LeaseUpdater {
             renewedLeases.put(grpId, renewedLease);
 
             toBeNegotiated.put(grpId, !lease.isAccepted() && Objects.equals(lease.getLeaseholder(), candidate.name()));
+
+            leaseUpdateStatistics.onLeaseCreate();
         }
 
         /**
@@ -430,6 +457,8 @@ public class LeaseUpdater {
             Lease renewedLease = lease.prolongLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
+
+            leaseUpdateStatistics.onLeaseProlong();
         }
 
         /**
@@ -445,6 +474,8 @@ public class LeaseUpdater {
             Lease renewedLease = lease.acceptLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
+
+            leaseUpdateStatistics.onLeasePublish();
         }
 
         /**
@@ -458,6 +489,99 @@ public class LeaseUpdater {
             HybridTimestamp now = clock.now();
 
             return now.after(lease.getExpirationTime());
+        }
+    }
+
+    private static class LeaseUpdateStatistics {
+        static final int PRINT_ONCE_PER_ITERATIONS = 10;
+
+        /** This field should be accessed only from updater thread. */
+        private int statisticsLogCounter;
+
+        /** This field is iteration-local and should be accessed only from updater thread. */
+        private LeaseUpdateStatisticsParameters iteration = new LeaseUpdateStatisticsParameters(0, 0, 0);
+
+        private final LeaseUpdateStatisticsParameters total = new LeaseUpdateStatisticsParameters(0, 0, 0);
+
+        /**
+         * Should be called only from the updater thread.
+         */
+        private void onLeaseCreate() {
+            iteration.leasesCreated++;
+        }
+
+        /**
+         * Should be called only from the updater thread.
+         */
+        private void onLeasePublish() {
+            iteration.leasesPublished++;
+        }
+
+        /**
+         * Should be called only from the updater thread.
+         */
+        private void onLeaseProlong() {
+            iteration.leasesProlonged++;
+        }
+
+        /**
+         * Should be called only from the updater thread.
+         */
+        private LeaseUpdateStatisticsParameters leasesUpdatedInCurrentIteration() {
+            return new LeaseUpdateStatisticsParameters(iteration.leasesCreated, iteration.leasesPublished, iteration.leasesProlonged);
+        }
+
+        /**
+         * Should be called only from the updater thread.
+         */
+        private boolean shouldLogLeaseStatistics() {
+            var result = ++statisticsLogCounter > PRINT_ONCE_PER_ITERATIONS;
+
+            if (result) {
+                statisticsLogCounter = 0;
+            }
+
+            return result;
+        }
+
+        /**
+         * Should be called only from the updater thread.
+         */
+        private void onNewIteration() {
+            iteration = new LeaseUpdateStatisticsParameters(0, 0, 0);
+        }
+
+        /**
+         * Updates the total count of updated leases after the successful update.
+         *
+         * @param iterationParameters Leases updated in current iteration.
+         * @return Updated value of total updated leases.
+         */
+        private synchronized LeaseUpdateStatisticsParameters onSuccessfulIteration(LeaseUpdateStatisticsParameters iterationParameters) {
+            total.leasesCreated += iterationParameters.leasesCreated;
+            total.leasesPublished += iterationParameters.leasesPublished;
+            total.leasesProlonged += iterationParameters.leasesProlonged;
+
+            return total;
+        }
+    }
+
+    private static class LeaseUpdateStatisticsParameters {
+        long leasesCreated;
+        long leasesPublished;
+        long leasesProlonged;
+
+        public LeaseUpdateStatisticsParameters(long leasesCreated, long leasesPublished, long leasesProlonged) {
+            this.leasesCreated = leasesCreated;
+            this.leasesPublished = leasesPublished;
+            this.leasesProlonged = leasesProlonged;
+        }
+
+        @Override
+        public String toString() {
+            return "[leasesCreated=" + leasesCreated
+                    + ", leasesPublished=" + leasesPublished
+                    + ", leasesProlonged=" + leasesProlonged + ']';
         }
     }
 
