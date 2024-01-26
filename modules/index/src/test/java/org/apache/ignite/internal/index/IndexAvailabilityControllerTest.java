@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
@@ -41,15 +43,12 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -75,7 +74,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private final MetaStorageManagerImpl metaStorageManager = StandaloneMetaStorageManager.create();
 
-    private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+    private final CatalogManager catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
     private final IndexBuilder indexBuilder = new IndexBuilder(
             NODE_NAME,
@@ -91,9 +90,10 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
-
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                allOf(metaStorageManager.start(), catalogManager.start(), metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
 
         CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 

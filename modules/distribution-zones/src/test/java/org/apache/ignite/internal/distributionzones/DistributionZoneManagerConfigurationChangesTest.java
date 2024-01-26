@@ -24,8 +24,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,9 +34,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests distribution zones configuration changes and reaction to that changes.
- */
+/** Tests distribution zones configuration changes and reaction to that changes. */
 public class DistributionZoneManagerConfigurationChangesTest extends BaseDistributionZoneManagerTest {
     private static final String ZONE_NAME = "zone1";
 
@@ -50,12 +46,10 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
     @BeforeEach
     @Override
-    public void setUp() throws InterruptedException {
+    public void setUp() throws Exception {
         super.setUp();
 
-        distributionZoneManager.start();
-
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        startDistributionZoneManager();
 
         topology.putNode(NODE_1);
 

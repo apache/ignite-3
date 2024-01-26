@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
@@ -72,7 +74,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -389,7 +390,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     private void createAndStartComponents() {
         metaStorageManager = StandaloneMetaStorageManager.create(new TestRocksDbKeyValueStorage(NODE_NAME, workDir));
 
-        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
         indexManager = new IndexManager(
                 mockSchemaManager,
@@ -399,11 +400,17 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply)
         );
 
-        List.of(metaStorageManager, catalogManager, indexManager).forEach(IgniteComponent::start);
-
-        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
-        assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                allOf(
+                        metaStorageManager.start(),
+                        catalogManager.start(),
+                        indexManager.start(),
+                        metaStorageManager.recoveryFinishedFuture(),
+                        metaStorageManager.notifyRevisionUpdateListenerOnStart(),
+                        metaStorageManager.deployWatches()
+                ),
+                willCompleteSuccessfully()
+        );
     }
 
     private CatalogTableDescriptor table(int catalogVersion, String tableName) {

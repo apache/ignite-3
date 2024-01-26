@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
@@ -46,12 +47,9 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -92,9 +90,9 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
+        assertThat(CompletableFuture.allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
 
         deployWatches();
 
@@ -201,9 +199,9 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        catalogManager = spy(CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
+        catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 
-        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
+        assertThat(CompletableFuture.allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
     }
 
     private void deployWatches() throws Exception {

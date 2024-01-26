@@ -27,12 +27,11 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -115,9 +114,10 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void startComponentsAndDeployWatches() {
-        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
-
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                CompletableFuture.allOf(metaStorageManager.start(), catalogManager.start(), metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
     private void stopComponents() throws Exception {

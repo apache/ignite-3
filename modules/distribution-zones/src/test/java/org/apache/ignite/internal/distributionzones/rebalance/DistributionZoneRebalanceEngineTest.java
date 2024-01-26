@@ -31,9 +31,11 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.sql.ColumnType.STRING;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -131,7 +133,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         String nodeName = "test";
 
         catalogManager = createTestCatalogManager(nodeName, clock);
-        catalogManager.start();
+        assertThat(catalogManager.start(), willCompleteSuccessfully());
 
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
