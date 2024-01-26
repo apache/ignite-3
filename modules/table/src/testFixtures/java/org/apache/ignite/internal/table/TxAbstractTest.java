@@ -2188,10 +2188,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         log.info("Started transaction {}", txId);
 
-        rv.upsert(tx, makeValue(2, 100.));
+        rv.upsert(tx, makeValue(1, 100.));
         rv.upsert(tx, makeValue(2, 200.));
 
-        int threadNum = Runtime.getRuntime().availableProcessors();
+        int threadNum = Runtime.getRuntime().availableProcessors() * 5;
 
         CyclicBarrier b = new CyclicBarrier(threadNum);
         CountDownLatch finishLatch = new CountDownLatch(1);
@@ -2200,9 +2200,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         var futEnlists = runMultiThreadedAsync(() -> {
             finishLatch.await();
+            var rnd = ThreadLocalRandom.current();
 
             try {
-                rv.upsert(tx, makeValue(2, 200.));
+                if (rnd.nextBoolean()) {
+                    rv.upsert(tx, makeValue(2, 200.));
+                } else {
+                    rv.get(tx, makeKey(1));
+                }
             } catch (Exception e) {
                 enlistExceptions.add(e);
             }
