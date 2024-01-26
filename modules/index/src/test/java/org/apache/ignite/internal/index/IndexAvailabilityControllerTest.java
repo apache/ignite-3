@@ -90,10 +90,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(
-                allOf(metaStorageManager.start(), catalogManager.start(), metaStorageManager.deployWatches()),
-                willCompleteSuccessfully()
-        );
+        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 

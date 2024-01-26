@@ -114,10 +114,8 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void startComponentsAndDeployWatches() {
-        assertThat(
-                allOf(metaStorageManager.start(), catalogManager.start(), metaStorageManager.deployWatches()),
-                willCompleteSuccessfully()
-        );
+        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     private void stopComponents() throws Exception {

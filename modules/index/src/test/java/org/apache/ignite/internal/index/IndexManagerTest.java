@@ -400,17 +400,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply)
         );
 
-        assertThat(
-                allOf(
-                        metaStorageManager.start(),
-                        catalogManager.start(),
-                        indexManager.start(),
-                        metaStorageManager.recoveryFinishedFuture(),
-                        metaStorageManager.notifyRevisionUpdateListenerOnStart(),
-                        metaStorageManager.deployWatches()
-                ),
-                willCompleteSuccessfully()
-        );
+        assertThat(allOf(metaStorageManager.start(), catalogManager.start(), indexManager.start()), willCompleteSuccessfully());
+
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     private CatalogTableDescriptor table(int catalogVersion, String tableName) {

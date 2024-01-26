@@ -133,7 +133,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     void startDistributionZoneManager() {
-        assertThat(allOf(distributionZoneManager.start(), metaStorageManager.deployWatches()), willCompleteSuccessfully());
+        assertThat(allOf(distributionZoneManager.start()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     protected void createZone(

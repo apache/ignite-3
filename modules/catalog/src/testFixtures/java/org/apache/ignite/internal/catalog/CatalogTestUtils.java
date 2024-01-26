@@ -66,7 +66,7 @@ public class CatalogTestUtils {
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
             public CompletableFuture<Void> start() {
-                return allOf(metastore.start(), clockWaiter.start(), super.start(), metastore.deployWatches());
+                return allOf(metastore.start(), clockWaiter.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
             }
 
             @Override
@@ -101,7 +101,7 @@ public class CatalogTestUtils {
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
             public CompletableFuture<Void> start() {
-                return allOf(metastore.start(), super.start(), metastore.deployWatches());
+                return allOf(metastore.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
             }
 
             @Override
