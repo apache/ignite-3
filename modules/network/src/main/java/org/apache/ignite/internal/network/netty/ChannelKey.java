@@ -34,6 +34,9 @@ public class ChannelKey {
      */
     private final short connectionId;
 
+    /**
+     * Constructor.
+     */
     public ChannelKey(String consistentId, UUID launchId, short connectionId) {
         this.consistentId = consistentId;
         this.launchId = launchId;
