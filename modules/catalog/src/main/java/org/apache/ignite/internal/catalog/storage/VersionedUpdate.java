@@ -51,7 +51,7 @@ public class VersionedUpdate implements UpdateLogEvent {
         );
     }
 
-    @Override
+    /** Returns version. */
     public int version() {
         return version;
     }

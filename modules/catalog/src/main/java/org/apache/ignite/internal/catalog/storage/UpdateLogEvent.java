@@ -20,9 +20,7 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.Serializable;
 
 /**
- * Update log entry base interface.
+ * Update log event.
  */
 public interface UpdateLogEvent extends Serializable {
-    /** Returns version this entry is related to. */
-    public int version();
 }

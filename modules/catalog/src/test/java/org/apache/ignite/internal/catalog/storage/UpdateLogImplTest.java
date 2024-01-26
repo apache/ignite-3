@@ -209,7 +209,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         List<Long> causalityTokens = new ArrayList<>();
 
         updateLog.registerUpdateHandler((update, ts, causalityToken) -> {
-            appliedVersions.add(update.version());
+            appliedVersions.add(((VersionedUpdate) update).version());
             causalityTokens.add(causalityToken);
 
             return nullCompletedFuture();
