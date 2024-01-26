@@ -37,7 +37,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -371,7 +370,7 @@ public class RebalanceUtil {
      * @param key Key.
      * @return Table id.
      */
-    public static UUID extractTableId(byte[] key) {
+    public static int extractTableId(byte[] key) {
         return extractTableId(key, "");
     }
 
@@ -382,10 +381,10 @@ public class RebalanceUtil {
      * @param prefix Key prefix.
      * @return Table id.
      */
-    public static UUID extractTableId(byte[] key, String prefix) {
+    public static int extractTableId(byte[] key, String prefix) {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
-        return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
 
     /**

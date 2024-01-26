@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.utils.RebalanceUtil.recoverable;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.recoverable;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.concurrent.CompletableFuture;
