@@ -163,7 +163,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public CompletableFuture<Boolean> saveSnapshot(SnapshotUpdate update) {
+    public CompletableFuture<Boolean> saveSnapshot(SnapshotEntry update) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteException(Common.NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -227,7 +227,7 @@ public class UpdateLogImpl implements UpdateLog {
                 break;
             }
 
-            VersionedUpdate update = fromBytes(Objects.requireNonNull(entry.value()));
+            UpdateLogEvent update = fromBytes(Objects.requireNonNull(entry.value()));
 
             long revision = entry.revision();
 
@@ -279,7 +279,7 @@ public class UpdateLogImpl implements UpdateLog {
 
                 assert payload != null : eventEntry;
 
-                VersionedUpdate update = fromBytes(payload);
+                UpdateLogEvent update = fromBytes(payload);
 
                 handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
             }

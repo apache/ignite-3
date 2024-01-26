@@ -37,7 +37,7 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.storage.SnapshotUpdate;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
@@ -314,7 +314,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Boolean> saveSnapshot(SnapshotUpdate snapshotEntry) {
+        public synchronized CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry) {
             snapshotVersion = snapshotEntry.version();
             return CompletableFutures.trueCompletedFuture();
         }

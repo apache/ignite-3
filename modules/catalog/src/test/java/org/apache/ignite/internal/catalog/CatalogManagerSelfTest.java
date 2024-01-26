@@ -141,6 +141,7 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -2279,7 +2280,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testCatalogCompaction() {
+    public void testCatalogCompaction() throws InterruptedException {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
 
@@ -2291,6 +2292,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willBe(nullValue()));
 
         assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
+
+        IgniteTestUtils.waitForCondition(() -> manager.earliestCatalogVersion() != 0, 2_000);
 
         assertEquals(catalog.version(), manager.earliestCatalogVersion());
 

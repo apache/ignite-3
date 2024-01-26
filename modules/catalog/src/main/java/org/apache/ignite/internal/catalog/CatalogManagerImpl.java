@@ -46,10 +46,10 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
-import org.apache.ignite.internal.catalog.storage.SnapshotUpdate;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
+import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -342,7 +342,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CompletableFuture<Void> compactCatalog(long timestamp) {
         Catalog catalog = catalogAt(timestamp);
 
-        return updateLog.saveSnapshot(new SnapshotUpdate(catalog.version(), new SnapshotEntry(catalog))).thenAccept(ignore -> {});
+        return updateLog.saveSnapshot(new SnapshotEntry(catalog))
+                .thenAccept(ignore -> {});
     }
 
     private void registerCatalog(Catalog newCatalog) {
@@ -437,18 +438,26 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
-            if (update instanceof SnapshotUpdate) {
-                Catalog catalog = ((SnapshotUpdate) update).snapshotEntry().applyUpdate(null, causalityToken);
-
-                // On recovery phase, we must register catalog from the snapshot.
-                // In other cases, it is ok to rewrite an existed version, because it's exactly the same.
-                registerCatalog(catalog);
-                truncateUpTo(catalog);
-
-                return nullCompletedFuture();
+        public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+            if (event instanceof SnapshotEntry) {
+                return handle((SnapshotEntry) event);
             }
 
+            return handle((VersionedUpdate) event, metaStorageUpdateTimestamp, causalityToken);
+        }
+
+        private CompletableFuture<Void> handle(SnapshotEntry event) {
+            Catalog catalog = event.snapshot();
+
+            // On recovery phase, we must register catalog from the snapshot.
+            // In other cases, it is ok to rewrite an existed version, because it's exactly the same.
+            registerCatalog(catalog);
+            truncateUpTo(catalog);
+
+            return nullCompletedFuture();
+        }
+
+        private CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             int version = update.version();
             Catalog catalog = catalogByVer.get(version - 1);
 

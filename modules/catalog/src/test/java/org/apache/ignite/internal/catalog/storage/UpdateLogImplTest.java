@@ -49,6 +49,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /** Tests to verify {@link UpdateLogImpl}. */
 class UpdateLogImplTest extends BaseIgniteAbstractTest {
@@ -90,7 +91,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         restartMetastore();
 
-        var actualUpdates = new ArrayList<VersionedUpdate>();
+        var actualUpdates = new ArrayList<UpdateLogEvent>();
 
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
@@ -123,7 +124,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         restartMetastore();
 
-        var actualUpdates = new ArrayList<VersionedUpdate>();
+        var actualUpdates = new ArrayList<UpdateLogEvent>();
 
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
@@ -131,7 +132,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        List<VersionedUpdate> expectedUpdates = List.of(
+        List<UpdateLogEvent> expectedUpdates = List.of(
                 snapshotEntryOfVersion(2),
                 singleEntryUpdateOfVersion(3)
         );
@@ -140,7 +141,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertThat(actualUpdates, equalTo(expectedUpdates));
     }
 
-    private void compactCatalog(UpdateLogImpl updateLogImpl, SnapshotUpdate update) throws InterruptedException {
+    private void compactCatalog(UpdateLogImpl updateLogImpl, SnapshotEntry update) throws InterruptedException {
         long revisionBeforeAppend = metastore.appliedRevision();
         assertThat(updateLogImpl.saveSnapshot(update), willCompleteSuccessfully());
         assertTrue(waitForCondition(
@@ -306,8 +307,13 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         return new VersionedUpdate(version, 1, List.of(new TestUpdateEntry("foo_" + version)));
     }
 
-    private static SnapshotUpdate snapshotEntryOfVersion(int version) {
-        return new SnapshotUpdate(version, new TestUpdateEntry("bar" + version));
+    private static SnapshotEntry snapshotEntryOfVersion(int version) {
+        return new SnapshotEntry(Mockito.mock(Catalog.class)) {
+            @Override
+            public int version() {
+                return version;
+            }
+        };
     }
 
     static class TestUpdateEntry implements UpdateEntry {

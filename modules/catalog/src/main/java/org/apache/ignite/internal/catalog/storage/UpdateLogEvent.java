@@ -17,32 +17,12 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.util.List;
-import org.apache.ignite.internal.tostring.S;
+import java.io.Serializable;
 
 /**
- * A catalog snapshot relates to specified version.
+ * Update log entry base interface.
  */
-public class SnapshotUpdate extends VersionedUpdate {
-    private static final long serialVersionUID = 3676869450184989214L;
-
-    /**
-     * Constructs the object.
-     *
-     * @param version A version the changes relate to.
-     * @param entry An snapshot entry.
-     */
-    public SnapshotUpdate(int version, UpdateEntry entry) {
-        super(version, 0L, List.of(entry));
-    }
-
-    public UpdateEntry snapshotEntry() {
-        return entries().get(0);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(this);
-    }
+public interface UpdateLogEvent extends Serializable {
+    /** Returns version this entry is related to. */
+    public int version();
 }
