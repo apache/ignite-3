@@ -17,35 +17,32 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.rel.IgnitePkLookup;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Regular query or DML.
+ * Plan representing single lookup by a primary key.
+ *
+ * <p>Note: since {@link IgnitePkLookup} is not supposed to be a part of distributed
+ * query plan, we need a new object to be able to handle it differently by {@link ExecutorService}.
  */
-public class MultiStepPlan implements ExplainablePlan {
-
+public class KeyValueGetPlan implements ExplainablePlan {
     private final PlanId id;
-
-    private final SqlQueryType type;
-
+    private final IgnitePkLookup lookupNode;
     private final ResultSetMetadata meta;
-
-    private final IgniteRel root;
-
     private final ParameterMetadata parameterMetadata;
 
-    /** Constructor. */
-    public MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta, ParameterMetadata parameterMetadata) {
+    KeyValueGetPlan(PlanId id, IgnitePkLookup lookupNode, ResultSetMetadata meta, ParameterMetadata parameterMetadata) {
         this.id = id;
-        this.type = type;
-        this.root = root;
+        this.lookupNode = lookupNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
     }
@@ -54,6 +51,12 @@ public class MultiStepPlan implements ExplainablePlan {
     @Override
     public PlanId id() {
         return id;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SqlQueryType type() {
+        return SqlQueryType.QUERY;
     }
 
     /** {@inheritDoc} */
@@ -68,22 +71,23 @@ public class MultiStepPlan implements ExplainablePlan {
         return parameterMetadata;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    @Nullable
-    public SqlQueryType type() {
-        return type;
+    /** Returns a table in question. */
+    public IgniteTable table() {
+        IgniteTable table = lookupNode.getTable().unwrap(IgniteTable.class);
+
+        assert table != null : lookupNode.getTable();
+
+        return table;
     }
 
     @Override
     public String explain() {
-        IgniteRel clonedRoot = Cloner.clone(root, Commons.cluster());
+        IgniteRel clonedRoot = Cloner.clone(lookupNode, Commons.cluster());
 
         return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
     }
 
-    /** Returns root of the query tree. */
-    public IgniteRel root() {
-        return root;
+    public IgnitePkLookup lookupNode() {
+        return lookupNode;
     }
 }

@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
@@ -168,11 +170,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         int numTables = schemaDescriptor.tables().length;
         List<IgniteDataSource> schemaDataSources = new ArrayList<>(numTables);
         Int2ObjectMap<TableDescriptor> tableDescriptorMap = new Int2ObjectOpenHashMap<>(numTables);
+        IntSet pkIndexes = new IntArraySet(numTables);
 
         // Assemble sql-engine.TableDescriptors as they are required by indexes.
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
             TableDescriptor descriptor = createTableDescriptorForTable(tableDescriptor);
             tableDescriptorMap.put(tableDescriptor.id(), descriptor);
+            pkIndexes.add(tableDescriptor.primaryKeyIndexId());
         }
 
         Int2ObjectMap<Map<String, IgniteIndex>> schemaTableIndexes = new Int2ObjectOpenHashMap<>(schemaDescriptor.indexes().length);
@@ -190,7 +194,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             String indexName = indexDescriptor.name();
             Map<String, IgniteIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
 
-            IgniteIndex schemaIndex = createSchemaIndex(indexDescriptor, tableDescriptor);
+            IgniteIndex schemaIndex = createSchemaIndex(indexDescriptor, tableDescriptor, pkIndexes.contains(indexDescriptor.id()));
             tableIndexes.put(indexName, schemaIndex);
 
             schemaTableIndexes.put(tableId, tableIndexes);
@@ -226,7 +230,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return new IgniteSchema(schemaName, catalogVersion, schemaDataSources);
     }
 
-    private static IgniteIndex createSchemaIndex(CatalogIndexDescriptor indexDescriptor, TableDescriptor tableDescriptor) {
+    private static IgniteIndex createSchemaIndex(
+            CatalogIndexDescriptor indexDescriptor,
+            TableDescriptor tableDescriptor,
+            boolean primaryKey
+    ) {
         Type type;
         if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
             type = Type.SORTED;
@@ -237,7 +245,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
 
         RelCollation outputCollation = IgniteIndex.createIndexCollation(indexDescriptor, tableDescriptor);
-        return new IgniteIndex(indexDescriptor.id(), indexDescriptor.name(), type, tableDescriptor.distribution(), outputCollation);
+        return new IgniteIndex(
+                indexDescriptor.id(), indexDescriptor.name(), type, tableDescriptor.distribution(), outputCollation, primaryKey
+        );
     }
 
     private static TableDescriptor createTableDescriptorForTable(CatalogTableDescriptor descriptor) {
