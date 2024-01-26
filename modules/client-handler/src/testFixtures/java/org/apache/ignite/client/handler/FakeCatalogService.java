@@ -168,4 +168,9 @@ public class FakeCatalogService implements CatalogService {
     public void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> listener) {
 
     }
+
+    @Override
+    public Collection<Catalog> catalogVersionsSnapshot() {
+        return null;
+    }
 }

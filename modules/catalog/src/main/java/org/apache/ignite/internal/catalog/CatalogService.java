@@ -102,4 +102,11 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @param version Catalog version to wait for.
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
+
+    /**
+     * Returns a local snapshot of all versions of the catalog that exist at the time the method is called.
+     *
+     * <p>NOTE: Collection is sorted by {@link Catalog#version() catalog version} in ascending order.</p>
+     */
+    Collection<Catalog> catalogVersionsSnapshot();
 }

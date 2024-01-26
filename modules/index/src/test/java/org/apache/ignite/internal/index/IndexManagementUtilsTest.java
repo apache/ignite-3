@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.index.IndexManagementUtils.catalogVersionOfIndexCreation;
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractIndexIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractPartitionIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
@@ -25,16 +27,27 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryRep
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKeyPrefix;
 import static org.apache.ignite.internal.index.IndexManagementUtils.toPartitionBuildIndexMetastoreKeyString;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createIndex;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexId;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.makeIndexAvailable;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.startBuildingIndex;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -119,5 +132,36 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
         assertFalse(isPrimaryReplica(replicaMeta0, LOCAL_NODE, clock.now()));
         assertFalse(isPrimaryReplica(replicaMeta1, LOCAL_NODE, clock.now()));
         assertFalse(isPrimaryReplica(replicaMeta2, LOCAL_NODE, now));
+    }
+
+    @Test
+    void testCatalogVersionOfIndexCreation() throws Exception {
+        CatalogManager catalogManager = createTestCatalogManager("test", clock);
+
+        try {
+            assertThat(catalogManager.start(), willCompleteSuccessfully());
+
+            createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
+            createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+
+            int indexId = indexId(catalogManager, INDEX_NAME, clock);
+
+            int expCatalogVersionOfIndexCreation = catalogManager.latestCatalogVersion();
+            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+
+            startBuildingIndex(catalogManager, indexId);
+            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+
+            makeIndexAvailable(catalogManager, indexId);
+            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+
+            createTable(catalogManager, TABLE_NAME + "0", COLUMN_NAME);
+            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+
+            createIndex(catalogManager, TABLE_NAME, INDEX_NAME + "0", COLUMN_NAME);
+            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+        } finally {
+            catalogManager.stop();
+        }
     }
 }

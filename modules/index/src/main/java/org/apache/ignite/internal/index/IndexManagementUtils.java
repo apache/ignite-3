@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
@@ -262,5 +264,32 @@ class IndexManagementUtils {
     static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
                 && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
+    }
+
+
+    /**
+     * Returns the catalog version in which the existing index created.
+     *
+     * <p>NOTE: Can be used outside of catalog/metastore events.</p>
+     *
+     * @param catalogService Catalog service.
+     * @param indexId Index ID of interest.
+     */
+    static int catalogVersionOfIndexCreation(CatalogService catalogService, int indexId) {
+        Integer catalogVersion = null;
+
+        for (Catalog catalog : catalogService.catalogVersionsSnapshot()) {
+            CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
+
+            if (indexDescriptor != null && indexDescriptor.status() == REGISTERED) {
+                catalogVersion = catalog.version();
+
+                break;
+            }
+        }
+
+        assert catalogVersion != null : "Catalog version in which the index created was not found: " + indexId;
+
+        return catalogVersion;
     }
 }
