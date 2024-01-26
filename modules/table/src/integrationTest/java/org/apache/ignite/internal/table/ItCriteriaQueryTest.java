@@ -406,7 +406,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testOptions() {
         RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
 
-        AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, builder().pageSize(2).build()));
+        AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());

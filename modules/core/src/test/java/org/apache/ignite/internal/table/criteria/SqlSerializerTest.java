@@ -199,10 +199,12 @@ class SqlSerializerTest {
         SqlSerializer ser = new SqlSerializer.Builder()
                 .tableName("Test")
                 .columns(Set.of("Aa"))
+                .indexName(quote("IDX_Aa"))
                 .where(columnValue(quote("Aa"), equalTo(1)))
                 .build();
 
-        assertThat(ser.toString(), endsWith(format("FROM {} WHERE {} = ?", quote("Test"), quote("Aa"))));
+        assertThat(ser.toString(), endsWith(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE {} = ?", quote("IDX_Aa"), quote("Test"),
+                quote("Aa"))));
         assertArrayEquals(new Object[]{1}, ser.getArguments());
     }
 }

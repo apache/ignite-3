@@ -168,6 +168,9 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private Collection<String> columnNames;
 
         @Nullable
+        private String indexName;
+
+        @Nullable
         private Criteria where;
 
         /**
@@ -197,6 +200,17 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         /**
          * Set the given criteria.
          *
+         * @param indexName The predicate to filter entries or {@code null} to return all entries from the underlying table.
+         */
+        public SqlSerializer.Builder indexName(@Nullable String indexName) {
+            this.indexName = indexName;
+
+            return this;
+        }
+
+        /**
+         * Set the given criteria.
+         *
          * @param where The predicate to filter entries or {@code null} to return all entries from the underlying table.
          */
         public SqlSerializer.Builder where(@Nullable Criteria where) {
@@ -216,8 +230,13 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             }
 
             SqlSerializer ser = new SqlSerializer()
-                    .append("SELECT * ")
-                    .append("FROM ").append(quoteIfNeeded(tableName));
+                    .append("SELECT");
+
+            if (!nullOrBlank(indexName)) {
+                ser.append(" /*+ FORCE_INDEX(").append(indexName).append(") */");
+            }
+
+            ser.append(" * FROM ").append(quoteIfNeeded(tableName));
 
             if (where != null) {
                 if (CollectionUtils.nullOrEmpty(columnNames)) {

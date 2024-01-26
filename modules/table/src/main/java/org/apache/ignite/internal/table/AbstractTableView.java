@@ -180,8 +180,8 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
+    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName, CriteriaQueryOptions opts) {
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, indexName, opts)));
     }
 
     /** {@inheritDoc} */
@@ -189,6 +189,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     public CompletableFuture<AsyncCursor<R>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
+            @Nullable String indexName,
             @Nullable CriteriaQueryOptions opts
     ) {
         CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
@@ -199,6 +200,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
             SqlSerializer ser = new SqlSerializer.Builder()
                     .tableName(tbl.name())
                     .columns(schema.columnNames())
+                    .indexName(indexName)
                     .where(criteria)
                     .build();
 
