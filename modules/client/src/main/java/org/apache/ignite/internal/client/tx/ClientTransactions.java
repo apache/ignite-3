@@ -90,7 +90,7 @@ public class ClientTransactions implements IgniteTransactions {
                 ClientOp.TX_BEGIN,
                 w -> {
                     w.out().packBoolean(readOnly);
-                    w.out().packBoolean(true);
+                    w.out().packBoolean(externalCommit != null);
                     w.out().packLong(ch.observableTimestamp());
                 },
                 r -> readTx(r, readOnly, externalCommit)).join();

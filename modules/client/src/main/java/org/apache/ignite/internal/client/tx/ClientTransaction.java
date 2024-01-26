@@ -66,17 +66,8 @@ public class ClientTransaction implements Transaction {
     /** External commit callback. */
     private final @Nullable Function<ClientTransaction, CompletableFuture<Void>> externalCommit;
 
+    /** Dirty cache. */
     private final Map<Object, Object> dirtyCache = new ConcurrentHashMap<>();
-
-    /**
-     * Constructor.
-     *
-     * @param ch Channel that the transaction belongs to.
-     * @param id Transaction id.
-     */
-    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly) {
-        this(ch, id, isReadOnly, null);
-    }
 
     /**
      * Constructor.

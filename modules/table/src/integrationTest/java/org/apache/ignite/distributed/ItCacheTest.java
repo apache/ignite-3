@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -48,7 +49,9 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.DefaultMessagingService;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -146,6 +149,31 @@ public class ItCacheTest extends IgniteAbstractTest {
             assertTrue(cache.remove(1));
 
             assertNull(cache.get(1));
+        }
+    }
+
+    @Test
+    public void testFaultyConverter() {
+        try (IgniteCache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null,
+                new TypeConverter<>() {
+                    @Override
+                    public byte[] toColumnType(Integer obj) throws Exception {
+                        throw new Exception("test");
+                    }
+
+                    @Override
+                    public Integer toObjectType(byte[] data) throws Exception {
+                        return null;
+                    }
+                }, null)) {
+
+            try {
+                cache.put(1, 1);
+
+                fail();
+            } catch (IgniteException e) {
+                assertEquals("test", e.getMessage());
+            }
         }
     }
 
@@ -269,7 +297,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                 assertTrue(cache.remove(1));
                 validate(testStore, loader, writer, 0, 1, 0, 0);
 
-                assertNull(cache.get(1));
+                assertNull(cache.get(1)); // Repeating get should fetch tombstone from dirty cacge.
                 validate(testStore, loader, writer, 0, 1, 0, 0);
             });
 

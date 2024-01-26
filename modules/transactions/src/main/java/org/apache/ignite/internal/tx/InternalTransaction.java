@@ -105,7 +105,7 @@ public interface InternalTransaction extends Transaction {
     }
 
     /**
-     * The map of entries required external synchronization in case of enabled cache write through.
+     * The map of entries requiring external synchronization in case of enabled cache write through.
      *
      * @return The map.
      */

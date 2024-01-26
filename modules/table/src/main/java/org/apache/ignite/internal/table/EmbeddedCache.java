@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
@@ -53,6 +56,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.TypeConverter;
 import org.apache.ignite.tx.Transaction;
@@ -62,7 +66,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Embedded cache implementation.
  */
-public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCache<K, V> {
+public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
     private static final byte[] TOMBSTONE = new byte[0];
     private static final long TOMBSTONE_TTL = 5 * 60 * 1000L;
     private static final String KEY_COL = "KEY";
@@ -72,16 +76,20 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
     private final TypeConverter<K, byte[]> keySerializer;
     private final TypeConverter<V, byte[]> valueSerializer;
 
-    private final CacheLoader<K, V> loader;
-    private final CacheWriter<K, V> writer;
+    private final @Nullable CacheLoader<K, V> loader;
+    private final @Nullable CacheWriter<K, V> writer;
 
     private final TxManager txManager;
 
     private final TupleMarshaller marshaller;
 
-    private ThreadLocal<InternalTransaction> txHolder = new ThreadLocal<>();
+    private final ThreadLocal<InternalTransaction> txHolder = new ThreadLocal<>();
 
-    private final ExpiryPolicy expiryPolicy;
+    private final @Nullable ExpiryPolicy expiryPolicy;
+
+    private final InternalTable tbl;
+
+    private final TableViewRowConverter rowConverter;
 
     EmbeddedCache(
             InternalTable tbl,
@@ -92,10 +100,10 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
             @Nullable CacheWriter<K, V> writer,
             @Nullable TypeConverter<K, byte[]> keyConverter,
             @Nullable TypeConverter<V, byte[]> valueConverter,
-            ExpiryPolicy expiryPolicy
+            @Nullable ExpiryPolicy expiryPolicy
     ) {
-        super(tbl, schemaVersions, schemaReg, null);
-
+        this.tbl = tbl;
+        this.rowConverter = new TableViewRowConverter(schemaReg);
         this.txManager = txManager; // TODO get from internal table.
         this.loader = loader;
         this.writer = writer;
@@ -109,14 +117,13 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
     public @Nullable V get(K key) {
         InternalTransaction tx = txHolder.get();
 
-        boolean implicit = false;
+        boolean implicit = tx == null;
 
-        if (tx == null) {
+        if (implicit) {
             tx = (InternalTransaction) beginTransaction();
-            implicit = true;
         } else {
             if (tx.state() != TxState.PENDING) {
-                throw new TransactionException("Transaction is not active");
+                throw new TransactionException(Transactions.TX_UNEXPECTED_STATE_ERR, "Transaction is not active");
             }
         }
 
@@ -128,14 +135,16 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
             }
 
             return v;
-        } catch (TransactionException e) {
+        } catch (Exception e) {
             try {
                 tx.rollback();
-            } catch (TransactionException ex) {
+            } catch (Exception ex) {
                 e.addSuppressed(ex);
             }
 
-            throw e;
+            unwrapAndRethrow(e);
+
+            return null;
         } finally {
             if (implicit) {
                 txHolder.remove();
@@ -143,7 +152,7 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
         }
     }
 
-    private @Nullable V get(Transaction tx, K key) {
+    private @Nullable V get(Transaction tx, K key) throws Exception {
         InternalTransaction tx0 = (InternalTransaction) tx;
 
         assert tx0.external() == (writer != null) : "Illegal tx state: " + tx;
@@ -156,62 +165,48 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
             }
         }
 
-        try {
-            Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
+        Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
 
-            Row keyRow = marshaller.marshal(keyTup, null);
+        Row keyRow = marshaller.marshal(keyTup, null);
 
-            Tuple valTup = tbl.get(keyRow, tx0).thenApply(row -> unmarshalValue(row, marshaller.schemaVersion())).join();
+        Tuple valTup = tbl.get(keyRow, tx0).thenApply(row -> unmarshalValue(row, marshaller.schemaVersion())).join();
 
-            if (valTup == null) {
-                V val = null;
+        if (valTup == null) {
+            V val = null;
 
-                if (loader != null) {
-                    val = loader.load(key);
-                    if (val == null) {
-                        valTup = Tuple.create().set(VAL_COL, TOMBSTONE).set(TTL_COL, TOMBSTONE_TTL);
-                    } else {
-                        // TODO set ttl defined by user
-                        valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(val)).set(TTL_COL, getExpiration());
-                    }
-
-                    Row row = marshaller.marshal(keyTup, valTup);
-                    tbl.insert(row, tx0).join();
+            if (loader != null) {
+                val = loader.load(key);
+                if (val == null) {
+                    valTup = Tuple.create().set(VAL_COL, TOMBSTONE).set(TTL_COL, TOMBSTONE_TTL);
+                } else {
+                    // TODO set ttl defined by user
+                    valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(val)).set(TTL_COL, getExpiration());
                 }
 
-                return val;
+                Row row = marshaller.marshal(keyTup, valTup);
+                tbl.insert(row, tx0).join();
             }
 
-            // TODO use readResolve for tombstone.
-            byte[] val = valTup.value(VAL_COL);
+            return val;
+        }
 
-            assert val != null;
+        // TODO use readResolve for tombstone.
+        byte[] val = valTup.value(VAL_COL);
 
-            // Tombstone.
-            if (val.length == 0) {
-                return null;
-            }
+        assert val != null;
 
-            return (V) keySerializer.toObjectType(val);
-        } catch (Exception e) {
-            handleException(e);
-
+        // Tombstone.
+        if (val.length == 0) {
             return null;
         }
+
+        return (V) keySerializer.toObjectType(val);
     }
 
-    private static void handleException(Exception e) {
-        Throwable t = e;
+    private static void unwrapAndRethrow(Exception e) {
+        Throwable t = mapToPublicException(unwrapCause(e));
 
-        if (e instanceof CompletionException) {
-            t = e.getCause();
-        }
-
-        if (t instanceof TransactionException) {
-            ExceptionUtils.sneakyThrow(t);
-        }
-
-        throw new TransactionException(t);
+        ExceptionUtils.sneakyThrow(t);
     }
 
     @Override
@@ -232,18 +227,15 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
     @Override
     public void put(K key, V value) {
         InternalTransaction tx = txHolder.get();
-        boolean implicit = false;
+        boolean implicit = tx == null;
 
-        if (tx == null) {
+        if (implicit) {
             tx = (InternalTransaction) beginTransaction();
-            implicit = true;
         } else {
             if (tx.state() != TxState.PENDING) {
-                throw new TransactionException("Transaction is not active");
+                throw new TransactionException(Transactions.TX_UNEXPECTED_STATE_ERR, "Transaction is not active");
             }
         }
-
-        assert tx.external() == (writer != null) : "Illegal tx state: " + tx;
 
         try {
             put(tx, key, value);
@@ -258,7 +250,7 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
                 e.addSuppressed(ex);
             }
 
-            handleException(e);
+            unwrapAndRethrow(e);
         } finally {
             if (implicit) {
                 txHolder.remove();
@@ -266,23 +258,19 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
         }
     }
 
-    private void put(Transaction tx, K key, V value) {
-        try {
-            Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
-            Tuple valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(value)).set(TTL_COL, getExpiration());
+    private void put(Transaction tx, K key, V value) throws Exception {
+        Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
+        Tuple valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(value)).set(TTL_COL, getExpiration());
 
-            InternalTransaction tx0 = (InternalTransaction) tx;
+        InternalTransaction tx0 = (InternalTransaction) tx;
 
-            assert tx0.external() == (writer != null) : "Illegal tx state: " + tx;
+        assert tx0.external() == (writer != null) : "Illegal tx state: " + tx;
 
-            Row row = marshaller.marshal(keyTup, valTup);
-            tbl.upsert(row, tx0).join();
+        Row row = marshaller.marshal(keyTup, valTup);
+        tbl.upsert(row, tx0).join();
 
-            if (writer != null) {
-                tx0.dirtyCache().put(key, value); // Safe for external commit.
-            }
-        } catch (Exception e) {
-            throw new TransactionException(e);
+        if (writer != null) {
+            tx0.dirtyCache().put(key, value); // Safe for external commit.
         }
     }
 
@@ -304,14 +292,13 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
     @Override
     public boolean remove(K key) {
         InternalTransaction tx = txHolder.get();
-        boolean implicit = false;
+        boolean implicit = tx == null;
 
-        if (tx == null) {
+        if (implicit) {
             tx = (InternalTransaction) beginTransaction();
-            implicit = true;
         } else {
             if (tx.state() != TxState.PENDING) {
-                throw new TransactionException("Transaction is not active");
+                throw new TransactionException(Transactions.TX_UNEXPECTED_STATE_ERR, "Transaction is not active");
             }
         }
 
@@ -330,7 +317,7 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
                 e.addSuppressed(ex);
             }
 
-            handleException(e);
+            unwrapAndRethrow(e);
 
             return false;
         } finally {
@@ -340,7 +327,7 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
         }
     }
 
-    private boolean remove(Transaction tx, K key) {
+    private boolean remove(Transaction tx, K key) throws Exception {
         InternalTransaction tx0 = (InternalTransaction) tx;
 
         assert tx0.external() == (writer != null) : "Illegal tx state: " + tx;
@@ -353,22 +340,18 @@ public class EmbeddedCache<K, V> extends AbstractTableView implements IgniteCach
             }
         }
 
-        try {
-            Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
+        Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
 
-            Row row = marshaller.marshalKey(keyTup);
+        Row row = marshaller.marshalKey(keyTup);
 
-            boolean removed = tbl.delete(row, tx0).join();
+        boolean removed = tbl.delete(row, tx0).join();
 
-            // Always call external delete.
-            if (writer != null) {
-                tx0.dirtyCache().put(key, TOMBSTONE);
-            }
-
-            return removed;
-        } catch (Exception e) {
-            throw new TransactionException(e);
+        // Always call external delete.
+        if (writer != null) {
+            tx0.dirtyCache().put(key, TOMBSTONE);
         }
+
+        return removed;
     }
 
     @Override

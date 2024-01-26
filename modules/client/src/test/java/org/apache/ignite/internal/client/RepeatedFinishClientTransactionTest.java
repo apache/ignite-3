@@ -48,7 +48,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         TestClientChannel clientChannel = new TestClientChannel(txFinishStartedLatch, secondFinishLatch);
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, null);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -86,7 +86,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         TestClientChannel clientChannel = new TestClientChannel(txFinishStartedLatch, secondFinishLatch);
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, null);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -123,7 +123,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, null);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -149,7 +149,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, null);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
