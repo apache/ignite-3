@@ -29,9 +29,9 @@ import org.apache.ignite.configuration.validation.Range;
 public class StorageUpdateConfigurationSchema {
 
     /**
-     * Maximum batch size of rows to update. Unit depends on filling predicate used.
+     * Maximum allowed length (in bytes) of a batch to write into physical storage.
      **/
     @Range(min = 1)
     @Value(hasDefault = true)
-    public int batchLength = 64;
+    public int batchByteLength = 8192;
 }

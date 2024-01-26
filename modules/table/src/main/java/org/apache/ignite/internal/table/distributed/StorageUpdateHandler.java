@@ -44,8 +44,6 @@ import org.jetbrains.annotations.Nullable;
  * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
  */
 public class StorageUpdateHandler {
-    /** Maximum bytes to write in one run. */
-    private static final int MAX_BATCH_LENGTH = 64;
     /** Partition id. */
     private final int partitionId;
 
@@ -57,7 +55,8 @@ public class StorageUpdateHandler {
 
     /** A container for rows that were inserted, updated or removed. */
     private final PendingRows pendingRows = new PendingRows();
-    // Discussing if batch limit should be configurable
+
+    /** Storage updater configuration. */
     private final StorageUpdateConfiguration storageUpdateConfiguration;
 
     /**
@@ -66,6 +65,7 @@ public class StorageUpdateHandler {
      * @param partitionId Partition id.
      * @param storage Partition data storage.
      * @param indexUpdateHandler Partition index update handler.
+     * @param storageUpdateConfiguration Configuration for the storage update handler.
      */
     public StorageUpdateHandler(
             int partitionId,
@@ -114,6 +114,7 @@ public class StorageUpdateHandler {
             int commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
             RowId rowId = new RowId(partitionId, rowUuid);
+
             tryProcessRow(
                     locker,
                     commitTblId,
@@ -156,7 +157,9 @@ public class StorageUpdateHandler {
         } else {
             locker.lock(rowId);
         }
+
         performStorageCleanupIfNeeded(txId, rowId, lastCommitTs);
+
         if (commitTs != null) {
             storage.addWriteCommitted(rowId, row, commitTs);
         } else {
@@ -168,7 +171,9 @@ public class StorageUpdateHandler {
                 tryRemovePreviousWritesIndex(rowId, oldRow);
             }
         }
+
         indexUpdateHandler.addToIndexes(row, rowId);
+
         return true;
     }
 
@@ -193,12 +198,15 @@ public class StorageUpdateHandler {
         if (nullOrEmpty(rowsToUpdate)) {
             return;
         }
+
         indexUpdateHandler.waitIndexes();
+
         int commitTblId = commitPartitionId.tableId();
         int commitPartId = commitPartitionId.partitionId();
+        boolean useTryLock = false;
+
         Iterator<Entry<UUID, TimedBinaryRow>> it = rowsToUpdate.entrySet().iterator();
         Entry<UUID, TimedBinaryRow> lastUnprocessedEntry = it.next();
-        boolean useTryLock = false;
 
         while (lastUnprocessedEntry != null) {
             lastUnprocessedEntry = processEntriesUntilBatchLimit(
@@ -209,9 +217,10 @@ public class StorageUpdateHandler {
                     commitTblId,
                     commitPartId,
                     it,
-                    storageUpdateConfiguration.batchLength().value(),
+                    storageUpdateConfiguration.batchByteLength().value(),
                     useTryLock
             );
+
             useTryLock = true;
         }
 
@@ -238,12 +247,15 @@ public class StorageUpdateHandler {
             while (entryToProcess != null) {
                 RowId rowId = new RowId(partitionId, entryToProcess.getKey());
                 BinaryRow row = entryToProcess.getValue() == null ? null : entryToProcess.getValue().binaryRow();
+
                 if (row != null) {
                     batchLength += row.tupleSliceLength();
                 }
+
                 if (!processedRowIds.isEmpty() && batchLength > maxBatchLength) {
                     break;
                 }
+
                 boolean rowProcessed = tryProcessRow(
                         locker,
                         commitTblId,
@@ -255,10 +267,13 @@ public class StorageUpdateHandler {
                         commitTs,
                         useTryLock
                 );
-                if (rowProcessed) {
-                    entryToProcess = it.hasNext() ? it.next() : null;
-                    processedRowIds.add(rowId);
+
+                if (!rowProcessed) {
+                    break;
                 }
+
+                entryToProcess = it.hasNext() ? it.next() : null;
+                processedRowIds.add(rowId);
             }
 
             if (trackWriteIntent) {
@@ -349,8 +364,8 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Switches write intents created by the transaction to regular values if the transaction is committed or removes them if the
-     * transaction is aborted.
+     * Switches write intents created by the transaction to regular values if the transaction is committed
+     * or removes them if the transaction is aborted.
      *
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
@@ -361,8 +376,8 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Switches write intents created by the transaction to regular values if the transaction is committed or removes them if the
-     * transaction is aborted.
+     * Switches write intents created by the transaction to regular values if the transaction is committed
+     * or removes them if the transaction is aborted.
      *
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.

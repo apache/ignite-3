@@ -1042,6 +1042,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
+
             tableManager = new TableManager(
                     name,
                     registry,

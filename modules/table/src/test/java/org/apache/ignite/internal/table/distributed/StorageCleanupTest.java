@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -62,13 +61,10 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Test write intent cleanups via {@link StorageUpdateHandler}.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class StorageCleanupTest extends BaseMvStoragesTest {
 
     private static final HybridClock CLOCK = new HybridClockImpl();
@@ -95,9 +91,10 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     private TestHashIndexStorage hashInnerStorage;
     private TestMvPartitionStorage storage;
     private StorageUpdateHandler storageUpdateHandler;
+    private IndexUpdateHandler indexUpdateHandler;
+
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
-    private IndexUpdateHandler indexUpdateHandler;
 
     @BeforeEach
     void setUp() {

@@ -50,6 +50,7 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
+
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
 

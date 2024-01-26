@@ -213,7 +213,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /** Tests for partition replica listener. */
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+@ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;

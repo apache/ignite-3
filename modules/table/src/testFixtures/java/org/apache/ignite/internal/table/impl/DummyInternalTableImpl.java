@@ -158,7 +158,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
-     * @param storageUpdateConfiguration storage update configuration
+     * @param storageUpdateConfiguration Configuration for the storage update handler.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -177,7 +177,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param storage Storage.
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
-     * @param storageUpdateConfiguration storage update configuration
+     * @param storageUpdateConfiguration Configuration for the storage update handler.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -196,7 +196,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param mvPartStorage Multi version partition storage.
      * @param schema Schema descriptor.
      * @param txConfiguration Transaction configuration.
-     * @param storageUpdateConfiguration storage update configuration
+     * @param storageUpdateConfiguration Configuration for the storage update handler.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -231,7 +231,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param schema Schema descriptor.
      * @param tracker Observable timestamp tracker.
      * @param placementDriver Placement driver.
-     * @param storageUpdateConfiguration storage update configuration
+     * @param storageUpdateConfiguration Configuration for the storage config handler.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,

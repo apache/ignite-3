@@ -201,7 +201,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
 
-
     @InjectConfiguration
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
 

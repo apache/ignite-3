@@ -100,6 +100,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
+
     @InjectConfiguration
     private static StorageUpdateConfiguration storageUpdateConfiguration;
 

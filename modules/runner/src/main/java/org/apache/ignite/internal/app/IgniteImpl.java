@@ -622,6 +622,7 @@ public class IgniteImpl implements Ignite {
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
