@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.INDEX_NAME;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NAME;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleIndex;
@@ -27,7 +28,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -115,7 +115,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     private void startComponentsAndDeployWatches() {
         assertThat(
-                CompletableFuture.allOf(metaStorageManager.start(), catalogManager.start(), metaStorageManager.deployWatches()),
+                allOf(metaStorageManager.start(), catalogManager.start(), metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
     }
