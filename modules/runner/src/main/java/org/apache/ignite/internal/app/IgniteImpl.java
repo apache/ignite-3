@@ -138,6 +138,8 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -165,6 +167,8 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
@@ -172,6 +176,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.network.NettyWorkersRegistrar;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeMetadata;
@@ -237,8 +242,12 @@ public class IgniteImpl implements Ignite {
 
     private final ComputeComponent computeComponent;
 
+    private final CriticalWorkerWatchdog criticalWorkerRegistry;
+
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
+
+    private final NettyWorkersRegistrar nettyWorkersRegistrar;
 
     /** Raft manager. */
     private final Loza raftMgr;
@@ -379,14 +388,28 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
+        CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
+
+        criticalWorkerRegistry = new CriticalWorkerWatchdog(
+                criticalWorkersConfiguration,
+                threadPoolsManager.commonScheduler()
+        );
+
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
+        nettyWorkersRegistrar = new NettyWorkersRegistrar(
+                criticalWorkerRegistry,
+                threadPoolsManager.commonScheduler(),
+                nettyBootstrapFactory,
+                criticalWorkersConfiguration
+        );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
                 serializationRegistry,
-                new VaultStaleIds(vaultMgr)
+                new VaultStaleIds(vaultMgr),
+                criticalWorkerRegistry
         );
 
         clock = new HybridClockImpl();
@@ -652,7 +675,9 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metricManager,
                 systemViewManager,
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
+                nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY)
         );
 
         sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
@@ -678,7 +703,14 @@ public class IgniteImpl implements Ignite {
                 computeCfg
         );
 
-        compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
+        compute = new IgniteComputeImpl(
+                placementDriverMgr.placementDriver(),
+                clusterSvc.topologyService(),
+                logicalTopologyService,
+                distributedTblMgr,
+                computeComponent,
+                clock
+        );
 
         authenticationManager = createAuthenticationManager();
 
@@ -813,7 +845,9 @@ public class IgniteImpl implements Ignite {
             lifecycleManager.startComponents(
                     threadPoolsManager,
                     clockWaiter,
+                    criticalWorkerRegistry,
                     nettyBootstrapFactory,
+                    nettyWorkersRegistrar,
                     clusterSvc,
                     restComponent,
                     raftMgr,
@@ -1046,6 +1080,7 @@ public class IgniteImpl implements Ignite {
      * @throws IgniteInternalException if the REST module is not started.
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
+    @Nullable
     public NetworkAddress restHttpsAddress() {
         String host = restComponent.hostName();
         int port = restComponent.httpsPort();
@@ -1244,6 +1279,14 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ConfigurationRegistry clusterConfigurationRegistry() {
         return clusterCfgMgr.configurationRegistry();
+    }
+
+    /**
+     * Returns {@link NettyBootstrapFactory}.
+     */
+    @TestOnly
+    public NettyBootstrapFactory nettyBootstrapFactory() {
+        return nettyBootstrapFactory;
     }
 
     /** Returns cluster service (cluster network manager). */

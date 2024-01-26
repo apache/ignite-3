@@ -64,6 +64,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -2266,7 +2267,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testCatalogs() {
+    void testCatalogVersionsSnapshot() {
         createSomeTable(TABLE_NAME);
         createSomeIndex(TABLE_NAME, INDEX_NAME);
 
@@ -2274,7 +2275,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .mapToObj(manager::catalog)
                 .collect(toList());
 
-        assertThat(manager.catalogs(), equalTo(expCatalogs));
+        assertThat(expCatalogs, hasSize(greaterThanOrEqualTo(2)));
+        assertThat(manager.catalogVersionsSnapshot(), equalTo(expCatalogs));
     }
 
     private CompletableFuture<Void> changeColumn(

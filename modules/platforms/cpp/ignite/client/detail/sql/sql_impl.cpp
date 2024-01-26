@@ -106,8 +106,8 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
         protocol::client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
 }
 
-void sql_impl::execute_script_async(const sql_statement &statement, std::vector<primitive> &&args,
-    ignite_callback<void> &&callback) {
+void sql_impl::execute_script_async(
+    const sql_statement &statement, std::vector<primitive> &&args, ignite_callback<void> &&callback) {
 
     auto writer_func = [this, &statement, args = std::move(args)](protocol::writer &writer) {
         write_statement(writer, statement);

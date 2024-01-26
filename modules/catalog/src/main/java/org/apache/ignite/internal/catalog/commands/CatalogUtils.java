@@ -215,7 +215,7 @@ public class CatalogUtils {
      * @param listener Listener to invoke on a validation failure.
      * @return {@code true} iff the proposed change is valid.
      */
-    static boolean validateColumnChange(
+    public static boolean validateColumnChange(
             CatalogTableColumnDescriptor origin,
             @Nullable ColumnType newType,
             @Nullable Integer newPrecision,
@@ -305,6 +305,37 @@ public class CatalogUtils {
     }
 
     /**
+     * Replaces the table descriptor that has the same ID as the {@code newTableDescriptor} in the given {@code schema}.
+     *
+     * @param schema Schema, which table descriptor needs to be replaced.
+     * @param newTableDescriptor Table descriptor which will replace the descriptor with the same ID in the schema.
+     * @return New schema descriptor with a replaced table descriptor.
+     * @throws CatalogValidationException If the table descriptor with the same ID is not present in the schema.
+     */
+    public static CatalogSchemaDescriptor replaceTable(CatalogSchemaDescriptor schema, CatalogTableDescriptor newTableDescriptor) {
+        CatalogTableDescriptor[] tableDescriptors = schema.tables().clone();
+
+        for (int i = 0; i < tableDescriptors.length; i++) {
+            if (tableDescriptors[i].id() == newTableDescriptor.id()) {
+                tableDescriptors[i] = newTableDescriptor;
+
+                return new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        tableDescriptors,
+                        schema.indexes(),
+                        schema.systemViews(),
+                        newTableDescriptor.updateToken()
+                );
+            }
+        }
+
+        throw new CatalogValidationException(String.format(
+                "Table with ID %d has not been found in schema with ID %d", newTableDescriptor.id(), newTableDescriptor.schemaId()
+        ));
+    }
+
+    /**
      * Return default length according to supplied type.
      *
      * @param columnType Column type.
@@ -330,7 +361,7 @@ public class CatalogUtils {
      * @return Schema with given name. Never null.
      * @throws CatalogValidationException If schema with given name is not exists.
      */
-    static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+    public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "schemaName");
 
         CatalogSchemaDescriptor schema = catalog.schema(name);
@@ -350,7 +381,7 @@ public class CatalogUtils {
      * @return Table with given name. Never null.
      * @throws TableNotFoundValidationException If table with given name is not exists.
      */
-    static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+    public static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
@@ -370,7 +401,7 @@ public class CatalogUtils {
      * @return Zone with given name. Never null.
      * @throws CatalogValidationException If zone with given name is not exists.
      */
-    static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
@@ -398,7 +429,7 @@ public class CatalogUtils {
      * @param name Name of the index of interest.
      * @throws IndexNotFoundValidationException If index does not exist.
      */
-    static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+    public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.index(name);
 
         if (index == null) {
@@ -415,7 +446,7 @@ public class CatalogUtils {
      * @param indexId ID of the index of interest.
      * @throws IndexNotFoundValidationException If index does not exist.
      */
-    static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
+    public static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = catalog.index(indexId);
 
         if (index == null) {

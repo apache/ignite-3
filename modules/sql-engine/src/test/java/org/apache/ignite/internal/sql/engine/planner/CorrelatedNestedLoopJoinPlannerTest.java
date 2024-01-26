@@ -35,12 +35,14 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * CorrelatedNestedLoopJoinPlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
 public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
     /**
      * Check equi-join. CorrelatedNestedLoopJoinTest is applicable for it.

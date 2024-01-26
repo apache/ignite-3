@@ -605,4 +605,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             this.id = id;
         }
     }
+
+    @Override
+    public List<Catalog> catalogVersionsSnapshot() {
+        return List.copyOf(catalogByVer.values());
+    }
 }

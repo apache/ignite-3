@@ -404,8 +404,8 @@ TEST_F(sql_test, uuid_literal) {
 
 TEST_F(sql_test, uuid_argument) {
     uuid req{0x123e4567e89b12d3, 0x7456426614174000};
-    auto result_set = m_client.get_sql().execute(
-        nullptr, {R"(select MAX("UUID") from TBL_ALL_COLUMNS_SQL WHERE "UUID" = ?)"}, {req});
+    auto result_set =
+        m_client.get_sql().execute(nullptr, {R"(select MAX("UUID") from TBL_ALL_COLUMNS_SQL WHERE "UUID" = ?)"}, {req});
 
     EXPECT_TRUE(result_set.has_rowset());
 
@@ -428,11 +428,11 @@ TEST_F(sql_test, null_column) {
 }
 
 TEST_F(sql_test, execute_script_success) {
-    m_client.get_sql().execute_script({
-        "CREATE TABLE execute_script_success (id INT PRIMARY KEY, step INTEGER); "
-        "INSERT INTO execute_script_success VALUES(1, 0); "
-        "UPDATE execute_script_success SET step = 1; "
-        "UPDATE execute_script_success SET step = 2; "}, {});
+    m_client.get_sql().execute_script({"CREATE TABLE execute_script_success (id INT PRIMARY KEY, step INTEGER); "
+                                       "INSERT INTO execute_script_success VALUES(1, 0); "
+                                       "UPDATE execute_script_success SET step = 1; "
+                                       "UPDATE execute_script_success SET step = 2; "},
+        {});
 
     auto result_set = m_client.get_sql().execute(nullptr, {"SELECT step FROM execute_script_success"}, {});
     EXPECT_TRUE(result_set.has_rowset());
@@ -452,12 +452,13 @@ TEST_F(sql_test, execute_script_fail) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_sql().execute_script({
-                    "CREATE TABLE execute_script_fail (id INT PRIMARY KEY, step INTEGER); "
-                    "INSERT INTO execute_script_fail VALUES(1, 0); "
-                    "UPDATE execute_script_fail SET step = 1; "
-                    "UPDATE execute_script_fail SET step = 3 WHERE step > 1/0; "
-                    "UPDATE execute_script_fail SET step = 2; "}, {});
+                m_client.get_sql().execute_script(
+                    {"CREATE TABLE execute_script_fail (id INT PRIMARY KEY, step INTEGER); "
+                     "INSERT INTO execute_script_fail VALUES(1, 0); "
+                     "UPDATE execute_script_fail SET step = 1; "
+                     "UPDATE execute_script_fail SET step = 3 WHERE step > 1/0; "
+                     "UPDATE execute_script_fail SET step = 2; "},
+                    {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Division by zero"));
                 throw;

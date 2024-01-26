@@ -40,6 +40,7 @@ import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -271,6 +272,27 @@ class IndexManagementUtils {
                 && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
     }
 
+
+    /**
+     * Returns the earliest catalog version in which the index of interest has status {@link CatalogIndexStatus#REGISTERED}, {@code -1} if
+     * not found.
+     *
+     * @param catalogService Catalog service.
+     * @param indexId Index ID of interest.
+     */
+    // TODO: IGNITE-21363 Deal with catalog compaction
+    static int earliestCatalogVersionOfIndexInRegisteredStatus(CatalogService catalogService, int indexId) {
+        for (Catalog catalog : catalogService.catalogVersionsSnapshot()) {
+            CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
+
+            if (indexDescriptor != null && indexDescriptor.status() == REGISTERED) {
+                return catalog.version();
+            }
+        }
+
+        return -1;
+    }
+
     /**
      * Returns the local node.
      *
@@ -321,31 +343,5 @@ class IndexManagementUtils {
     static void leaveBusy(IgniteSpinBusyLock busyLock0, IgniteSpinBusyLock busyLock1) {
         busyLock1.leaveBusy();
         busyLock0.leaveBusy();
-    }
-
-    /**
-     * Returns the catalog version in which the index appeared.
-     *
-     * <p>NOTE: Can be used outside of catalog/metastore events.</p>
-     *
-     * @param catalogService Catalog service.
-     * @param indexId Index ID of interest.
-     */
-    static int catalogVersionOfIndexCreation(CatalogService catalogService, int indexId) {
-        Integer catalogVersion = null;
-
-        for (Catalog catalog : catalogService.catalogs()) {
-            CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
-
-            if (indexDescriptor != null && indexDescriptor.status() == REGISTERED) {
-                catalogVersion = catalog.version();
-
-                break;
-            }
-        }
-
-        assert catalogVersion != null : "Catalog version in which the index appeared was not found: " + indexId;
-
-        return catalogVersion;
     }
 }

@@ -459,14 +459,12 @@ TEST_F(meta_queries_test, col_attributes_column_scale) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
 
-// TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-#ifdef MUTED
 TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_string();
 
-    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
+    SQLCHAR req[] = "select \"DECIMAL\" from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -478,7 +476,7 @@ TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 60);
+    EXPECT_EQ(int_val, 19);
 
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -488,7 +486,7 @@ TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 60);
+    EXPECT_EQ(int_val, 19);
 }
 
 TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
@@ -496,7 +494,7 @@ TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
 
     insert_test_string();
 
-    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
+    SQLCHAR req[] = "select \"DECIMAL\" from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -508,7 +506,7 @@ TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 60);
+    EXPECT_EQ(int_val, 19);
 
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -518,7 +516,7 @@ TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(int_val, 60);
+    EXPECT_EQ(int_val, 19);
 }
 
 TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
@@ -526,7 +524,7 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
 
     insert_test_string();
 
-    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
+    SQLCHAR req[] = "select \"DECIMAL\" from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -538,6 +536,8 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
+    EXPECT_EQ(int_val, 3);
+
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -545,8 +545,39 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(int_val, 3);
 }
-#endif // MUTED
+
+TEST_F(meta_queries_test, col_attributes_column_nullability_prepare) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_test_string();
+
+    SQLCHAR req[] = "select \"DECIMAL\" from TBL_ALL_COLUMNS_SQL";
+    SQLPrepare(m_statement, req, SQL_NTS);
+
+    SQLLEN int_val;
+    SQLCHAR str_buf[1024];
+    SQLSMALLINT str_len;
+
+    SQLRETURN ret = SQLColAttribute(m_statement, 1, SQL_DESC_NULLABLE, str_buf, sizeof(str_buf), &str_len, &int_val);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(int_val, SQL_NULLABLE);
+
+    ret = SQLExecute(m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = SQLColAttribute(m_statement, 1, SQL_DESC_NULLABLE, str_buf, sizeof(str_buf), &str_len, &int_val);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(int_val, SQL_NULLABLE);
+}
 
 TEST_F(meta_queries_test, get_data_with_get_type_info) {
     odbc_connect(get_basic_connection_string());
@@ -837,46 +868,35 @@ TEST_F(meta_queries_test, ddl_columns_meta_escaped) {
     ASSERT_EQ(ret, SQL_NO_DATA);
 }
 
-// TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-#ifdef MUTED
 TEST_F(meta_queries_test, sqlnum_result_cols_after_sqlprepare) {
     odbc_connect(get_basic_connection_string());
 
-    SQLRETURN ret =
-        exec_query("create table TestSqlPrepare(id int primary key, test1 varchar, test2 long, test3 varchar)");
+    SQLRETURN ret = prepare_query("select 1, TRUE, 'Lorem Ipsum', 42 * 2");
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    ret = SQLFreeStmt(m_statement, SQL_CLOSE);
+    SQLSMALLINT column_count = 0;
+
+    ret = SQLNumResultCols(m_statement, &column_count);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    ret = prepare_query("select * from PUBLIC.TestSqlPrepare");
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-    SQLSMALLINT columnCount = 0;
-
-    ret = SQLNumResultCols(m_statement, &columnCount);
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-    EXPECT_EQ(columnCount, 4);
+    EXPECT_EQ(column_count, 4);
 
     ret = SQLExecute(m_statement);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    columnCount = 0;
+    column_count = 0;
 
-    ret = SQLNumResultCols(m_statement, &columnCount);
+    ret = SQLNumResultCols(m_statement, &column_count);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    EXPECT_EQ(columnCount, 4);
+    EXPECT_EQ(column_count, 4);
 }
-#endif // MUTED
 
 /**
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Prepare.
  */
 TEST_F(meta_queries_test, sqldescribe_col_precision_and_scale_after_prepare) {
-    // TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-    //    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqldescribe_col);
+    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqldescribe_col);
 }
 
 /**
@@ -890,8 +910,7 @@ TEST_F(meta_queries_test, sqldescribe_col_precision_and_scale_after_exec) {
  * Check that SQLColAttribute return valid scale and precision for columns of different type after Prepare.
  */
 TEST_F(meta_queries_test, sqlcol_attribute_precision_and_scale_after_prepare) {
-    // TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-    //    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqlcol_attribute);
+    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqlcol_attribute);
 }
 
 /**

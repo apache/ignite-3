@@ -23,9 +23,13 @@ import org.jetbrains.annotations.Nullable;
  * Result of a schema compatibility validation.
  */
 public class CompatValidationResult {
-    private static final CompatValidationResult SUCCESS = new CompatValidationResult(true, -1, -1, -1);
+    private static final CompatValidationResult SUCCESSFUL_RESULT = new CompatValidationResult(ValidationStatus.SUCCESS, -1, -1, -1);
 
-    private final boolean successful;
+    private enum ValidationStatus {
+        SUCCESS, INCOMPATIBLE_CHANGE, TABLE_DROPPED
+    }
+
+    private final ValidationStatus status;
     private final int failedTableId;
     private final int fromSchemaVersion;
     private final @Nullable Integer toSchemaVersion;
@@ -36,7 +40,7 @@ public class CompatValidationResult {
      * @return A successful validation result.
      */
     public static CompatValidationResult success() {
-        return SUCCESS;
+        return SUCCESSFUL_RESULT;
     }
 
     /**
@@ -48,7 +52,7 @@ public class CompatValidationResult {
      * @return A validation result for a failure.
      */
     public static CompatValidationResult incompatibleChange(int failedTableId, int fromSchemaVersion, int toSchemaVersion) {
-        return new CompatValidationResult(false, failedTableId, fromSchemaVersion, toSchemaVersion);
+        return new CompatValidationResult(ValidationStatus.INCOMPATIBLE_CHANGE, failedTableId, fromSchemaVersion, toSchemaVersion);
     }
 
     /**
@@ -59,11 +63,16 @@ public class CompatValidationResult {
      * @return A validation result for a failure.
      */
     public static CompatValidationResult tableDropped(int failedTableId, int fromSchemaVersion) {
-        return new CompatValidationResult(false, failedTableId, fromSchemaVersion, null);
+        return new CompatValidationResult(ValidationStatus.TABLE_DROPPED, failedTableId, fromSchemaVersion, null);
     }
 
-    private CompatValidationResult(boolean successful, int failedTableId, int fromSchemaVersion, @Nullable Integer toSchemaVersion) {
-        this.successful = successful;
+    private CompatValidationResult(
+            ValidationStatus status,
+            int failedTableId,
+            int fromSchemaVersion,
+            @Nullable Integer toSchemaVersion
+    ) {
+        this.status = status;
         this.failedTableId = failedTableId;
         this.fromSchemaVersion = fromSchemaVersion;
         this.toSchemaVersion = toSchemaVersion;
@@ -75,24 +84,24 @@ public class CompatValidationResult {
      * @return Whether the validation was successful
      */
     public boolean isSuccessful() {
-        return successful;
+        return status == ValidationStatus.SUCCESS;
     }
 
     /**
      * Returns whether the validation has failed due to table was already dropped at the commit timestamp.
      */
     public boolean isTableDropped() {
-        return !successful && toSchemaVersion == null;
+        return status == ValidationStatus.TABLE_DROPPED;
     }
 
     /**
-     * Returns ID of the table for which the validation has failed. Should only be called for a failed validation result,
-     * otherwise an exception is thrown.
+     * Returns ID of the table for which the validation has failed. Should only be called for a failed validation result, otherwise an
+     * exception is thrown.
      *
      * @return Table ID.
      */
     public int failedTableId() {
-        assert !successful : "Should not be called on a successful result";
+        assert !isSuccessful() : "Should not be called on a successful result";
 
         return failedTableId;
     }
@@ -103,7 +112,7 @@ public class CompatValidationResult {
      * @return Version number of the schema from which an incompatible transition tried to be made.
      */
     public int fromSchemaVersion() {
-        assert !successful : "Should not be called on a successful result";
+        assert !isSuccessful() : "Should not be called on a successful result";
 
         return fromSchemaVersion;
     }
@@ -114,7 +123,7 @@ public class CompatValidationResult {
      * @return Version number of the schema to which an incompatible transition tried to be made.
      */
     public int toSchemaVersion() {
-        assert !successful : "Should not be called on a successful result";
+        assert !isSuccessful() : "Should not be called on a successful result";
         assert toSchemaVersion != null : "Should not be called when there is no toSchemaVersion";
 
         return toSchemaVersion;
