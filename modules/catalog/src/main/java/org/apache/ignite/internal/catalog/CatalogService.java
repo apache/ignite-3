@@ -106,7 +106,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     /**
      * Returns a local snapshot of all versions of the catalog that exist at the time the method is called.
      *
-     * <p>NOTE: Collection is sorted by {@link Catalog#version() catalog version} in ascending order.</p>
+     * <p>NOTE: List is sorted by {@link Catalog#version() catalog version} in ascending order.</p>
      */
-    Collection<Catalog> catalogVersionsSnapshot();
+    List<Catalog> catalogVersionsSnapshot();
 }

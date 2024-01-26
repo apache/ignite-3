@@ -19,7 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
-import static org.apache.ignite.internal.index.IndexManagementUtils.catalogVersionOfIndexCreation;
+import static org.apache.ignite.internal.index.IndexManagementUtils.earliestCatalogVersionOfIndexInRegisteredStatus;
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractIndexIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractPartitionIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
@@ -135,11 +135,13 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testCatalogVersionOfIndexCreation() throws Exception {
+    void testEarliestCatalogVersionOfIndexInRegisteredStatus() throws Exception {
         CatalogManager catalogManager = createTestCatalogManager("test", clock);
 
         try {
             assertThat(catalogManager.start(), willCompleteSuccessfully());
+
+            assertEquals(-1, earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, Integer.MAX_VALUE));
 
             createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
             createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
@@ -147,19 +149,19 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
             int indexId = indexId(catalogManager, INDEX_NAME, clock);
 
             int expCatalogVersionOfIndexCreation = catalogManager.latestCatalogVersion();
-            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+            assertEquals(expCatalogVersionOfIndexCreation, earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexId));
 
             startBuildingIndex(catalogManager, indexId);
-            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+            assertEquals(expCatalogVersionOfIndexCreation, earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexId));
 
             makeIndexAvailable(catalogManager, indexId);
-            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+            assertEquals(expCatalogVersionOfIndexCreation, earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexId));
 
             createTable(catalogManager, TABLE_NAME + "0", COLUMN_NAME);
-            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+            assertEquals(expCatalogVersionOfIndexCreation, earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexId));
 
             createIndex(catalogManager, TABLE_NAME, INDEX_NAME + "0", COLUMN_NAME);
-            assertEquals(expCatalogVersionOfIndexCreation, catalogVersionOfIndexCreation(catalogManager, indexId));
+            assertEquals(expCatalogVersionOfIndexCreation, earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexId));
         } finally {
             catalogManager.stop();
         }

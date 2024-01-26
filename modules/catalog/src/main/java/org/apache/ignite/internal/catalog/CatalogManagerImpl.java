@@ -605,7 +605,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public Collection<Catalog> catalogVersionsSnapshot() {
+    public List<Catalog> catalogVersionsSnapshot() {
         return List.copyOf(catalogByVer.values());
     }
 }

@@ -40,6 +40,7 @@ import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -268,28 +269,22 @@ class IndexManagementUtils {
 
 
     /**
-     * Returns the catalog version in which the existing index created.
-     *
-     * <p>NOTE: Can be used outside of catalog/metastore events.</p>
+     * Returns the earliest catalog version in which the index of interest has status {@link CatalogIndexStatus#REGISTERED}, {@code -1} if
+     * not found.
      *
      * @param catalogService Catalog service.
      * @param indexId Index ID of interest.
      */
-    static int catalogVersionOfIndexCreation(CatalogService catalogService, int indexId) {
-        Integer catalogVersion = null;
-
+    // TODO: IGNITE-21363 Deal with catalog compaction
+    static int earliestCatalogVersionOfIndexInRegisteredStatus(CatalogService catalogService, int indexId) {
         for (Catalog catalog : catalogService.catalogVersionsSnapshot()) {
             CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
 
             if (indexDescriptor != null && indexDescriptor.status() == REGISTERED) {
-                catalogVersion = catalog.version();
-
-                break;
+                return catalog.version();
             }
         }
 
-        assert catalogVersion != null : "Catalog version in which the index created was not found: " + indexId;
-
-        return catalogVersion;
+        return -1;
     }
 }

@@ -170,7 +170,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public Collection<Catalog> catalogVersionsSnapshot() {
+    public List<Catalog> catalogVersionsSnapshot() {
         return null;
     }
 }
