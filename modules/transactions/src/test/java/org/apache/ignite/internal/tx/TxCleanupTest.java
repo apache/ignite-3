@@ -35,7 +35,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -120,7 +120,10 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Set<TablePartitionId> partitions = Set.of(tablePartitionId1, tablePartitionId2, tablePartitionId3);
+        Map<TablePartitionId, String> partitions = Map.of(
+                tablePartitionId1, LOCAL_NODE.name(),
+                tablePartitionId2, LOCAL_NODE.name(),
+                tablePartitionId3, LOCAL_NODE.name());
 
         when(placementDriver.getPrimaryReplica(any(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
@@ -145,7 +148,10 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Set<TablePartitionId> partitions = Set.of(tablePartitionId1, tablePartitionId2, tablePartitionId3);
+        Map<TablePartitionId, String> partitions = Map.of(
+                tablePartitionId1, LOCAL_NODE.name(),
+                tablePartitionId2, LOCAL_NODE.name(),
+                tablePartitionId3, LOCAL_NODE.name());
 
         when(placementDriver.getPrimaryReplica(any(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
@@ -175,7 +181,10 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Set<TablePartitionId> partitions = Set.of(tablePartitionId1, tablePartitionId2, tablePartitionId3);
+        Map<TablePartitionId, String> partitions = Map.of(
+                tablePartitionId1, LOCAL_NODE.name(),
+                tablePartitionId2, LOCAL_NODE.name(),
+                tablePartitionId3, LOCAL_NODE.name());
 
         when(placementDriver.getPrimaryReplica(any(), any()))
                 .thenReturn(nullCompletedFuture());
@@ -193,6 +202,8 @@ public class TxCleanupTest extends IgniteAbstractTest {
         assertThat(cleanup, willCompleteSuccessfully());
 
         verify(txMessageSender, times(3)).switchWriteIntents(any(), any(), any(), anyBoolean(), any());
+        verify(txMessageSender, times(1)).cleanup(any(), any(), any(), anyBoolean(), any());
+
         verifyNoMoreInteractions(txMessageSender);
     }
 }

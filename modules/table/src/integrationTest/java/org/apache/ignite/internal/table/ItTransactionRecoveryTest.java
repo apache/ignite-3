@@ -42,6 +42,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
@@ -614,7 +615,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 new HybridTimestampTracker(),
                 ((InternalTransaction) rwTx1).commitPartition(),
                 false,
-                Map.of(((InternalTransaction) rwTx1).commitPartition(), 0L),
+                Map.of(((InternalTransaction) rwTx1).commitPartition(), new IgniteBiTuple<>(txCrdNode2.node(), 0L)),
                 rwTx1Id
         );
 

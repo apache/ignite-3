@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.message;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
-import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  *      <li>Send cleanup requests to all enlisted primary replicas.</li>
  *  </ol>
  */
-@Transferable(value = TxMessageGroup.TX_FINISH_REQUEST)
+@Transferable(TxMessageGroup.TX_FINISH_REQUEST)
 public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
@@ -72,5 +72,5 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
      * @return Enlisted partition groups aggregated by expected primary replica nodes.
      */
     @Marshallable
-    Collection<ReplicationGroupId> groups();
+    Map<ReplicationGroupId, String> groups();
 }
