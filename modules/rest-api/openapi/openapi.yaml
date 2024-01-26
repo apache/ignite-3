@@ -183,9 +183,7 @@ paths:
         "200":
           description: Successful cancellation of the job.
           content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OperationResult'
+            application/json: {}
         "404":
           description: Compute job not found.
           content:
@@ -209,19 +207,17 @@ paths:
           description: The unique identifier of the compute job.
           format: uuid
       requestBody:
+        description: The new priority data for the job.
         content:
-          text/plain:
+          application/json:
             schema:
-              type: integer
-              format: int32
+              $ref: '#/components/schemas/UpdateJobPriorityBody'
         required: true
       responses:
         "200":
           description: Successful update of the job priority.
           content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OperationResult'
+            application/json: {}
         "404":
           description: Compute job not found.
           content:
@@ -1063,15 +1059,6 @@ components:
           - $ref: '#/components/schemas/State'
           - description: Node status.
       description: Node state.
-    OperationResult:
-      required:
-      - success
-      type: object
-      properties:
-        success:
-          type: boolean
-          description: Operation result.
-      description: Operation result.
     Problem:
       type: object
       properties:
@@ -1142,6 +1129,16 @@ components:
           - $ref: '#/components/schemas/DeploymentStatus'
           - description: Unit status.
       description: Unit version and status.
+    UpdateJobPriorityBody:
+      required:
+      - priority
+      type: object
+      properties:
+        priority:
+          type: integer
+          description: Priority.
+          format: int32
+      description: DTO of update job priority request body.
     deployMode:
       type: string
       description: Initial set of nodes to deploy.

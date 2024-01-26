@@ -19,10 +19,8 @@ package org.apache.ignite.internal.rest.api.compute;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON;
-import static org.apache.ignite.internal.rest.constants.MediaType.TEXT_PLAIN;
 
 import io.micronaut.http.annotation.Body;
-import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
@@ -31,14 +29,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.constants.MediaType;
 
 /**
  * API for managing compute tasks.
@@ -100,11 +96,10 @@ public interface ComputeApi {
             description = "Compute job not found.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
     )
-    @Consumes(TEXT_PLAIN)
-    @Put(value = "jobs/{jobId}/priority")
+    @Put("jobs/{jobId}/priority")
     CompletableFuture<OperationResult> updatePriority(
             @Schema(name = "jobId", description = "The unique identifier of the compute job.", requiredMode = REQUIRED) UUID jobId,
-            @Body @RequestBody int priority
+            @Body UpdateJobPriorityBody updateJobPriorityBody
     );
 
     /**
