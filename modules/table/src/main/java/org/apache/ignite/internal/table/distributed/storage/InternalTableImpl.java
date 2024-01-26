@@ -1377,7 +1377,7 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (commit, fut) -> completeScan(txId, partGroupId, fut, recipientNode, commit)
+                (intentionallyClose, fut) -> completeScan(txId, partGroupId, fut, recipientNode, intentionallyClose)
         );
     }
 
@@ -1433,7 +1433,25 @@ public class InternalTableImpl implements InternalTable {
                         columnsToInclude,
                         implicit
                 ),
-                (commit, fut) -> postEnlist(fut.thenApply(cursorId -> null), commit, actualTx, implicit && !commit)
+                (intentionallyClose, fut) -> {
+                    CompletableFuture<Void> opFut;
+
+                    if (implicit) {
+                        opFut = fut.thenApply(cursorId -> null);
+                    } else {
+                        var replicationGrpId = new TablePartitionId(tableId, partId);
+
+                        opFut = tx.enlistedNodeAndTerm(replicationGrpId) != null ? completeScan(
+                                tx.id(),
+                                replicationGrpId,
+                                fut,
+                                tx.enlistedNodeAndTerm(replicationGrpId).get1(),
+                                intentionallyClose
+                        ) : fut.thenApply(cursorId -> null);
+                    }
+
+                    return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
+                }
         );
     }
 
@@ -1489,7 +1507,7 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipient.node(), request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (unused, fut) -> fut.thenApply(cursorId -> null));
+                (intentionallyClose, fut) -> completeScan(txId, partGroupId, fut, recipient.node(), intentionallyClose));
     }
 
     /**
@@ -1499,7 +1517,8 @@ public class InternalTableImpl implements InternalTable {
      * @param replicaGrpId Replication group id.
      * @param scanIdFut Future to scan id.
      * @param recipientNode Server node where the scan was started.
-     * @param manualClose The flag is true when the scan was closed manually and false when the scan cursor was finished.
+     * @param intentionallyClose The flag is true when the scan was intentionally closed on the initiator side and false when the
+     *         scan cursor has no more entries to read.
      * @return The future.
      */
     private CompletableFuture<Void> completeScan(
@@ -1507,10 +1526,10 @@ public class InternalTableImpl implements InternalTable {
             ReplicationGroupId replicaGrpId,
             CompletableFuture<Long> scanIdFut,
             ClusterNode recipientNode,
-            boolean manualClose
+            boolean intentionallyClose
     ) {
         return scanIdFut.thenCompose(scanId -> {
-            if (manualClose) {
+            if (intentionallyClose) {
                 ScanCloseReplicaRequest scanCloseReplicaRequest = tableMessagesFactory.scanCloseReplicaRequest()
                         .groupId(replicaGrpId)
                         .transactionId(txId)
@@ -1898,15 +1917,15 @@ public class InternalTableImpl implements InternalTable {
              * After the method is called, a subscriber won't be received updates from the publisher.
              *
              * @param t An exception which was thrown when entries were retrieving from the cursor.
-             * @param commit {@code True} to commit.
+             * @param intentionallyClose True if the subscription is closed for the client side.
              * @return Future to complete.
              */
-            private void cancel(Throwable t, boolean commit) {
+            private void cancel(Throwable t, boolean intentionallyClose) {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
 
-                onClose.apply(commit, t == null ? completedFuture(scanId) : failedFuture(t)).whenComplete((ignore, th) -> {
+                onClose.apply(intentionallyClose, t == null ? completedFuture(scanId) : failedFuture(t)).whenComplete((ignore, th) -> {
                     if (th != null) {
                         subscriber.onError(th);
                     } else {

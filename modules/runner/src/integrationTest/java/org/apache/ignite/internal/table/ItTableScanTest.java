@@ -118,12 +118,28 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
     @AfterEach
     public void afterTest() {
-        CLUSTER.runningNodes().forEach(this::checkResourcesAreCleared);
+        CLUSTER.runningNodes().forEach(this::checkResourcesAreReleased);
 
         clearData(table);
     }
 
-    private void checkResourcesAreCleared(IgniteImpl ignite) {
+    /**
+     * Checks all transaction resources are released (cursors and locks).
+     *
+     * @param ignite Ignite instance.
+     */
+    private void checkResourcesAreReleased(IgniteImpl ignite) {
+        checkCursorsAreClosed(ignite);
+
+        assertTrue(ignite.txManager().lockManager().isEmpty());
+    }
+
+    /**
+     * Checks all transaction cursors are closed.
+     *
+     * @param ignite Ignite instance.
+     */
+    private void checkCursorsAreClosed(IgniteImpl ignite) {
         int sortedIdxId = getIndexId(ignite, SORTED_IDX);
 
         var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
@@ -131,7 +147,6 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
-        assertTrue(ignite.txManager().lockManager().isEmpty());
         assertEquals(0, partitionStorage.pendingCursors());
         assertEquals(0, sortedIdxStorage.pendingCursors());
     }
@@ -638,15 +653,20 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      *
      * @param requestAmount1 Number of rows in the first request.
      * @param requestAmount2 Number of rows in the second request.
+     * @param readOnly If true, RO transaction is initiated, otherwise, RW transaction is initiated.
+     * @param implicit If false, an explicit transaction is initiated, otherwise, an implicit one.
      *
      * @throws Exception If failed.
      */
     @ParameterizedTest
-    @CsvSource({"3, 1, false", "1, 3, false", "3, 1, true", "1, 3, true"})
-    public void testCompositeScanRequest(int requestAmount1, int requestAmount2, boolean readOnly) throws Exception {
+    @CsvSource({"3, 1, false, false", "1, 3, false, false", "3, 1, true, false", "1, 3, true, false", "3, 1, false, true",
+            "1, 3, false, true"})
+    public void testCompositeScanRequest(int requestAmount1, int requestAmount2, boolean readOnly, boolean implicit) throws Exception {
         List<BinaryRow> scannedRows = new ArrayList<>();
 
         Publisher<BinaryRow> publisher;
+
+        InternalTransaction tx = null;
 
         if (readOnly) {
             IgniteImpl ignite = CLUSTER.aliveNode();
@@ -661,7 +681,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
             publisher = internalTable.scan(PART_ID, ignite.clock().now(), recipientNode);
         } else {
-            publisher = internalTable.scan(PART_ID, null, null, null, null, 0, null);
+            if (!implicit) {
+                tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin();
+            }
+
+            publisher = internalTable.scan(PART_ID, tx, null, null, null, 0, null);
         }
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
@@ -675,6 +699,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 "expected=" + total + ", actual=" + scannedRows.size());
 
         subscription.cancel();
+
+        CLUSTER.runningNodes().forEach(this::checkCursorsAreClosed);
+
+        if (tx != null) {
+            tx.rollback();
+        }
 
         assertThat(scanned, willCompleteSuccessfully());
     }
