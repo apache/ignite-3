@@ -278,6 +278,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             ClientRequestFuture<T> fut = send(opCode, id, payloadWriter, payloadReader, notificationFut);
 
+            // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map - otherwise
+            // we'll fail with "protocol breakdown" error when a late response arrives from the server.
             return operationTimeout <= 0
                     ? fut
                     : fut.orTimeout(operationTimeout, TimeUnit.MILLISECONDS);
