@@ -19,9 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -75,4 +77,27 @@ public interface ScannableTable {
     <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
             RowFactory<RowT> rowFactory, int indexId, List<String> columns,
             RowT key, @Nullable BitSet requiredColumns);
+
+    /**
+     * Performs a lookup by primary index.
+     *
+     * <p>Note: this scan may be performed on initiator node only since it requires an
+     * original transaction rather than attributes, and transaction is only available on
+     * initiator node.
+     *
+     * @param <RowT> A type of row.
+     * @param ctx Execution context.
+     * @param tx Transaction to use to perform lookup.
+     * @param rowFactory Row factory.
+     * @param key A key to lookup.
+     * @param requiredColumns Required columns.
+     * @return A future representing result of operation.
+     */
+    <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(
+            ExecutionContext<RowT> ctx,
+            InternalTransaction tx,
+            RowFactory<RowT> rowFactory,
+            RowT key,
+            @Nullable BitSet requiredColumns
+    );
 }

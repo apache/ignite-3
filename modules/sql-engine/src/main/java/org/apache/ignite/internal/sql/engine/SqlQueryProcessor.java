@@ -354,6 +354,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
+                executableTableRegistry,
                 dependencyResolver,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
@@ -514,7 +515,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<QueryMetadata> start = new CompletableFuture<>();
+        CompletableFuture<Void> start = new CompletableFuture<>();
 
         CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
@@ -551,7 +552,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> start = new CompletableFuture<>();
+        CompletableFuture<Void> start = new CompletableFuture<>();
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);

@@ -23,14 +23,17 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_O
 
 import java.util.BitSet;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
@@ -199,6 +202,28 @@ public class ScannableTableImpl implements ScannableTable {
         TableRowConverter rowConverter = converterFactory.create(requiredColumns);
 
         return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
+    }
+
+    @Override
+    public <RowT> CompletableFuture<RowT> primaryKeyLookup(
+            ExecutionContext<RowT> ctx,
+            InternalTransaction tx,
+            RowFactory<RowT> rowFactory,
+            RowT key,
+            @Nullable BitSet requiredColumns
+    ) {
+        TableRowConverter converter = converterFactory.create(requiredColumns);
+
+        BinaryRowEx keyRow = converter.toBinaryRow(ctx, key, true);
+
+        return internalTable.get(keyRow, tx)
+                .thenApply(tableRow -> {
+                    if (tableRow == null) {
+                        return null;
+                    }
+
+                    return converter.toRow(ctx, tableRow, rowFactory);
+                });
     }
 
     private static <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(

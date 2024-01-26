@@ -58,6 +58,8 @@ public class SchemaDescriptor {
     /** Whether schema contains time or timestamp columns. */
     private final boolean hasTemporalColumns;
 
+    private final boolean physicalOrderMatchesLogical;
+
     /** Column mapper. */
     private ColumnMapper colMapper = ColumnMapping.identityMapping();
 
@@ -101,6 +103,8 @@ public class SchemaDescriptor {
 
                     colMap.put(c.name(), c);
                 });
+
+        this.physicalOrderMatchesLogical = colMap.values().stream().allMatch(col -> col.columnOrder() == col.schemaIndex());
 
         this.hasTemporalColumns = hasTemporalColumns.get();
 
@@ -171,6 +175,11 @@ public class SchemaDescriptor {
      */
     public void validateColumnIndex(int colIdx) {
         Objects.checkIndex(colIdx, length());
+    }
+
+    /** Returns true if physical order matches the logical order, return false otherwise. */
+    public boolean physicalOrderMatchesLogical() {
+        return physicalOrderMatchesLogical;
     }
 
     /**
