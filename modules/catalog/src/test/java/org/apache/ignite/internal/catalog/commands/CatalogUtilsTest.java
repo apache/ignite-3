@@ -21,22 +21,26 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItems;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
@@ -264,6 +268,21 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                             index(catalogManager, catalogVersionBeforeDropIndex3, indexName3)
                     )
             );
+        });
+    }
+
+    @Test
+    void testClusterWideEnsuredActivationTimestamp() throws Exception {
+        withCatalogManager(catalogManager -> {
+            createTable(catalogManager, TABLE_NAME);
+
+            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+            HybridTimestamp expClusterWideActivationTs = HybridTimestamp.hybridTimestamp(catalog.time())
+                    .addPhysicalTime(HybridTimestamp.maxClockSkew())
+                    .roundUpToPhysicalTick();
+
+            assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog));
         });
     }
 
