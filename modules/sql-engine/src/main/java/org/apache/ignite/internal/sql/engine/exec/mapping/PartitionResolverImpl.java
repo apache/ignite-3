@@ -116,7 +116,7 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
         assert curColIdx == fields.length;
         if (!calculated) {
             fields = INT_EMPTY_ARRAY;
-            fieldTypes = (NativeType[]) OBJECT_EMPTY_ARRAY;
+            //fieldTypes = (NativeType[]) OBJECT_EMPTY_ARRAY;
         }
         calculated = true;
         return hashCalc.hash();
