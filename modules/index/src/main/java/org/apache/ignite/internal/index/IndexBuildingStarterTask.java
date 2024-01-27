@@ -42,7 +42,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -63,8 +63,26 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.RecipientLeftException;
 
-/** Пока нет документации. */
-// TODO: IGNITE-21115 код, тесты и документация
+/**
+ * Task of switching the index from {@link CatalogIndexStatus#REGISTERED} to state {@link CatalogIndexStatus#BUILDING}, it is expected that
+ * the task is executed on the node that is the primary replica for partition {@code 0} of the table for which the index is being created.
+ *
+ * <br><p>Approximate algorithm for the task:</p>
+ * <ul>
+ *     <li>Waiting for the activation of the catalog version in which the index was created.</li>
+ *     <li>Make sure that the local node is still the primary replica for partition {@code 0} of the table.</li>
+ *     <li>Get the logical topology from the CMG leader.</li>
+ *     <li>For each node in the logical topology, send {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} and process the following
+ *     results: <ul>
+ *         <li>{@link IsNodeFinishedRwTransactionsStartedBeforeResponse#finished()} was {@code true}, finishing sending request.</li>
+ *         <li>{@link IsNodeFinishedRwTransactionsStartedBeforeResponse#finished()} was {@code false}, after a short interval send the
+ *         request again.</li>
+ *         <li>Node has left the physical topology, after a short interval send the request again.</li>
+ *         <li>Node has left the logical topology, finishing sending request.</li>
+ *     </ul></li>
+ *     <li>Change the index status to {@link CatalogIndexStatus#BUILDING}.</li>
+ * </ul>
+ */
 class IndexBuildingStarterTask {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingStarterTask.class);
 
@@ -74,7 +92,9 @@ class IndexBuildingStarterTask {
 
     private static final int RETRY_SEND_MESSAGE_TIMEOUT_MILLS = 100;
 
-    private final CatalogIndexDescriptor indexDescriptor;
+    private final int indexId;
+
+    private final int tableId;
 
     private final CatalogManager catalogManager;
 
@@ -99,7 +119,8 @@ class IndexBuildingStarterTask {
     private final AtomicBoolean taskStopGuard = new AtomicBoolean();
 
     IndexBuildingStarterTask(
-            CatalogIndexDescriptor indexDescriptor,
+            int indexId,
+            int tableId,
             CatalogManager catalogManager,
             PlacementDriver placementDriver,
             ClusterService clusterService,
@@ -109,7 +130,8 @@ class IndexBuildingStarterTask {
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
-        this.indexDescriptor = indexDescriptor;
+        this.indexId = indexId;
+        this.tableId = tableId;
         this.catalogManager = catalogManager;
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
@@ -132,9 +154,9 @@ class IndexBuildingStarterTask {
 
         try {
             return supplyAsync(() -> {
-                int catalogVersionOfIndexCreation = earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexDescriptor.id());
+                int catalogVersionOfIndexCreation = earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexId);
 
-                assert catalogVersionOfIndexCreation >= 0 : indexDescriptor.id();
+                assert catalogVersionOfIndexCreation >= 0 : indexId;
 
                 this.catalogVersionOfIndexCreation = catalogVersionOfIndexCreation;
 
@@ -150,7 +172,7 @@ class IndexBuildingStarterTask {
                             Throwable cause = unwrapCause(throwable);
 
                             if (!(cause instanceof TakStoppingException) && !(cause instanceof NodeStoppingException)) {
-                                LOG.error("Error starting index building: ", cause, indexDescriptor.id());
+                                LOG.error("Error starting index building: ", cause, indexId);
                             }
                         }
 
@@ -175,7 +197,7 @@ class IndexBuildingStarterTask {
             Catalog catalog = catalogManager.catalog(catalogVersionOfIndexCreation);
 
             assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
-                    indexDescriptor.id(), catalogVersionOfIndexCreation);
+                    indexId, catalogVersionOfIndexCreation);
 
             return clockWaiter.waitFor(clusterWideEnsuredActivationTimestamp(catalog));
         });
@@ -200,7 +222,7 @@ class IndexBuildingStarterTask {
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica() {
         return inBusyLock(() -> {
-            TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+            TablePartitionId groupId = new TablePartitionId(tableId, 0);
 
             return placementDriver.awaitPrimaryReplica(groupId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {
@@ -270,7 +292,7 @@ class IndexBuildingStarterTask {
     }
 
     private CompletableFuture<Void> switchIndexToBuildingStatus() {
-        return inBusyLock(() -> catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexDescriptor.id()).build()));
+        return inBusyLock(() -> catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()));
     }
 
     private IsNodeFinishedRwTransactionsStartedBeforeRequest isNodeFinishedRwTransactionsStartedBeforeRequest() {

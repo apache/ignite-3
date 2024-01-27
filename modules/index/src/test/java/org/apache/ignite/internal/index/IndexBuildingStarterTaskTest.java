@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTa
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexDescriptor;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.startBuildingIndex;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.tableId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -112,9 +111,9 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
     @Mock(strictness = LENIENT)
     private LogicalTopologyService logicalTopologyService;
 
-    private CatalogIndexDescriptor indexDescriptor;
-
     private IndexBuildingStarterTask task;
+
+    private CatalogIndexDescriptor indexDescriptor;
 
     @BeforeEach
     void setUp() {
@@ -138,7 +137,8 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(logicalTopologySnapshotFuture);
 
         task = new IndexBuildingStarterTask(
-                indexDescriptor,
+                indexDescriptor.id(),
+                indexDescriptor.tableId(),
                 catalogManager,
                 placementDriver,
                 clusterService,
@@ -299,7 +299,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     @Test
     void testIndexAlreadyInBuildingStatus() {
-        startBuildingIndex(catalogManager, indexId());
+        startBuildingIndex(catalogManager, indexDescriptor.id());
 
         assertThat(task.start(), willCompleteSuccessfully());
         assertEquals(BUILDING, actualIndexStatus());
@@ -310,9 +310,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
     }
 
     private ReplicaMeta createLocalNodeReplicaMeta(HybridTimestamp startTime, HybridTimestamp expirationTime) {
-        int tableId = tableId(catalogManager, TABLE_NAME, clock);
-
-        return newPrimaryReplicaMeta(LOCAL_NODE, new TablePartitionId(tableId, 0), startTime, expirationTime);
+        return newPrimaryReplicaMeta(LOCAL_NODE, new TablePartitionId(indexDescriptor.tableId(), 0), startTime, expirationTime);
     }
 
     private static ClusterService createClusterService() {
@@ -335,9 +333,5 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     private static CompletableFuture<NetworkMessage> isNodeFinishedRwTransactionsStartedBeforeResponseFuture(boolean finished) {
         return completedFuture(FACTORY.isNodeFinishedRwTransactionsStartedBeforeResponse().finished(finished).build());
-    }
-
-    private int indexId() {
-        return TestIndexManagementUtils.indexId(catalogManager, INDEX_NAME, clock);
     }
 }
