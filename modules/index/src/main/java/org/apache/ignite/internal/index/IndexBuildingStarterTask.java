@@ -51,6 +51,7 @@ import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeResponse;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -133,7 +134,7 @@ class IndexBuildingStarterTask {
             return supplyAsync(() -> {
                 int catalogVersionOfIndexCreation = earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexDescriptor.id());
 
-                assert catalogVersionOfIndexCreation >= 0 : indexDescriptor;
+                assert catalogVersionOfIndexCreation >= 0 : indexDescriptor.id();
 
                 this.catalogVersionOfIndexCreation = catalogVersionOfIndexCreation;
 
@@ -144,16 +145,16 @@ class IndexBuildingStarterTask {
                         .thenComposeAsync(unused -> switchIndexToBuildingStatus(), executor);
             }, executor)
                     .thenCompose(Function.identity())
-                    .whenComplete((unused, throwable) -> {
-                        if (throwable == null) {
-                            return;
+                    .handle((unused, throwable) -> {
+                        if (throwable != null) {
+                            Throwable cause = unwrapCause(throwable);
+
+                            if (!(cause instanceof TakStoppingException) && !(cause instanceof NodeStoppingException)) {
+                                LOG.error("Error starting index building: ", cause, indexDescriptor.id());
+                            }
                         }
 
-                        Throwable cause = unwrapCause(throwable);
-
-                        if (!(cause instanceof TakStoppingException)) {
-                            LOG.error("Error starting index building: {}", cause, indexDescriptor);
-                        }
+                        return null;
                     });
         } finally {
             leaveBusy();
@@ -173,8 +174,8 @@ class IndexBuildingStarterTask {
         return inBusyLock(() -> {
             Catalog catalog = catalogManager.catalog(catalogVersionOfIndexCreation);
 
-            assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [index={}, catalogVersion={}]",
-                    indexDescriptor, catalogVersionOfIndexCreation);
+            assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
+                    indexDescriptor.id(), catalogVersionOfIndexCreation);
 
             return clockWaiter.waitFor(clusterWideEnsuredActivationTimestamp(catalog));
         });

@@ -35,8 +35,8 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.createIn
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexDescriptor;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.startBuildingIndex;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.tableId;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -168,7 +168,6 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         clearInvocations(clockWaiter);
 
         assertThat(task.start(), willCompleteSuccessfully());
-
         assertEquals(BUILDING, actualIndexStatus());
 
         verify(executor, atLeast(3)).execute(any());
@@ -194,7 +193,6 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         );
 
         assertThat(task.start(), willCompleteSuccessfully());
-
         assertEquals(BUILDING, actualIndexStatus());
 
         verify(placementDriver, times(2)).awaitPrimaryReplica(any(), any(), anyLong(), any());
@@ -213,8 +211,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
                 awaitPrimaryReplicaFuture1
         );
 
-        assertThat(task.start(), willThrow(TakStoppingException.class));
-
+        assertThat(task.start(), willCompleteSuccessfully());
         assertEquals(REGISTERED, actualIndexStatus());
 
         verify(placementDriver, times(2)).awaitPrimaryReplica(any(), any(), anyLong(), any());
@@ -231,8 +228,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
                 awaitPrimaryReplicaFuture1
         );
 
-        assertThat(task.start(), willThrow(PrimaryReplicaAwaitException.class));
-
+        assertThat(task.start(), willCompleteSuccessfully());
         assertEquals(REGISTERED, actualIndexStatus());
 
         verify(placementDriver, times(2)).awaitPrimaryReplica(any(), any(), anyLong(), any());
@@ -249,7 +245,6 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         }).when(logicalTopologyService).addEventListener(any());
 
         assertThat(task.start(), willCompleteSuccessfully());
-
         assertEquals(BUILDING, actualIndexStatus());
     }
 
@@ -265,7 +260,6 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         clearInvocations(clockWaiter);
 
         assertThat(task.start(), willCompleteSuccessfully());
-
         assertEquals(BUILDING, actualIndexStatus());
 
         verify(clusterService.messagingService(), times(3)).invoke(any(ClusterNode.class), any(), anyLong());
@@ -282,7 +276,6 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         clearInvocations(clockWaiter);
 
         assertThat(task.start(), willCompleteSuccessfully());
-
         assertEquals(BUILDING, actualIndexStatus());
 
         verify(clusterService.messagingService(), times(2)).invoke(any(ClusterNode.class), any(), anyLong());
@@ -297,12 +290,19 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
         clearInvocations(clockWaiter);
 
-        assertThat(task.start(), willThrow(Exception.class));
-
+        assertThat(task.start(), willCompleteSuccessfully());
         assertEquals(REGISTERED, actualIndexStatus());
 
         verify(clusterService.messagingService(), times(1)).invoke(any(ClusterNode.class), any(), anyLong());
         verify(clockWaiter).waitFor(any());
+    }
+
+    @Test
+    void testIndexAlreadyInBuildingStatus() {
+        startBuildingIndex(catalogManager, indexId());
+
+        assertThat(task.start(), willCompleteSuccessfully());
+        assertEquals(BUILDING, actualIndexStatus());
     }
 
     private CatalogIndexStatus actualIndexStatus() {
@@ -335,5 +335,9 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     private static CompletableFuture<NetworkMessage> isNodeFinishedRwTransactionsStartedBeforeResponseFuture(boolean finished) {
         return completedFuture(FACTORY.isNodeFinishedRwTransactionsStartedBeforeResponse().finished(finished).build());
+    }
+
+    private int indexId() {
+        return TestIndexManagementUtils.indexId(catalogManager, INDEX_NAME, clock);
     }
 }
