@@ -161,6 +161,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
+import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -967,7 +968,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 localNode(),
                 new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsStripe),
                 catalogService,
-                placementDriver,
+                new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsStripe),
                 clusterService.topologyService()
         );
     }
