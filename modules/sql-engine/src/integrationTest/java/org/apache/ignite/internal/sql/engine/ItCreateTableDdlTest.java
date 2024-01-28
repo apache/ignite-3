@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -31,6 +33,8 @@ import java.util.List;
 import java.util.Set;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -317,5 +321,77 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 "Functional defaults are not supported for non-primary key columns",
                 () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)")
         );
+    }
+
+    @Test
+    public void tableStorageProfileWithoutSettingItExplicitly() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        CatalogZoneDescriptor zone = node.catalogManager().zone(DEFAULT_ZONE_NAME, node.clock().nowLong());
+
+        assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
+    }
+
+
+    @Test
+    public void tableStorageProfileExceptionIfZoneDoesntContainProfile() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Zone with name '" + DEFAULT_ZONE_NAME + "' does not contain table's storage profile",
+                () -> sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='profile1'")
+        );
+    }
+
+    @Test
+    public void tableStorageProfile() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DUMMY_STORAGE_PROFILE, table.storageProfile());
+
+        CatalogZoneDescriptor zone = node.catalogManager().zone(DEFAULT_ZONE_NAME, node.clock().nowLong());
+
+        assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
+    }
+
+    @Test
+    public void tableStorageProfileWithCustomZoneDefaultProfile() {
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DUMMY_STORAGE_PROFILE, table.storageProfile());
+
+        sql("DROP TABLE TEST");
+
+        sql("DROP ZONE ZONE1");
+    }
+
+    @Test
+    public void tableStorageProfileWithCustomZoneExplicitProfile() {
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DUMMY_STORAGE_PROFILE, table.storageProfile());
+
+        sql("DROP TABLE TEST");
+
+        sql("DROP ZONE ZONE1");
     }
 }

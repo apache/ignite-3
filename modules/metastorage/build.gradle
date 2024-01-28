@@ -52,6 +52,7 @@ dependencies {
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(":ignite-raft-api")
+    integrationTestImplementation project(':ignite-storage-configuration')
     integrationTestImplementation project(":ignite-vault")
     integrationTestImplementation project(":ignite-security")
     integrationTestImplementation testFixtures(project(':ignite-core'))

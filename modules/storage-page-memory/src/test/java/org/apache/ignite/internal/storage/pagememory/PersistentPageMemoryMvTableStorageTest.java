@@ -28,9 +28,11 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -50,15 +52,17 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig
+            @InjectConfiguration PersistentPageMemoryProfileStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            StoragesConfiguration storagesConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, storagesConfiguration, ioRegistry, workDir, null);
 
-        engine.start();
+        engine.testStart();
 
         initialize();
     }

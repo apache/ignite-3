@@ -85,7 +85,8 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                 currentTableDescriptor.name(),
                 currentTableDescriptor.tableVersion() + 1,
                 CollectionUtils.concat(currentTableDescriptor.columns(), descriptors),
-                causalityToken
+                causalityToken,
+                currentTableDescriptor.storageProfile()
         );
 
         return new Catalog(

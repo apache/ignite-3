@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_BLOB_FRAGMENT_IO;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -35,11 +36,15 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,8 +60,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class BlobStorageTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
-    @InjectConfiguration
-    private VolatilePageMemoryDataRegionConfiguration dataRegionConfiguration;
+    @InjectConfiguration(polymorphicExtensions = { VolatilePageMemoryProfileConfigurationSchema.class }, value = "mock.engine = aimem")
+    private StorageProfileConfiguration dataRegionCfg;
 
     @Mock
     private ReuseList reuseList;
@@ -76,7 +81,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
             }
         };
 
-        pageMemory = spy(new VolatilePageMemory(dataRegionConfiguration, pageIoRegistry, PAGE_SIZE));
+        pageMemory = spy(new VolatilePageMemory((VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg), pageIoRegistry, PAGE_SIZE));
         pageMemory.start();
 
         blobStorage = new BlobStorage(reuseList, pageMemory, 1, 1, IoStatisticsHolderNoOp.INSTANCE);

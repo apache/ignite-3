@@ -17,14 +17,20 @@
 
 package org.apache.ignite.internal.pagememory.tree.inmemory;
 
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
+
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreeReusePageMemoryTest;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -32,20 +38,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItBplusTreeReuseListVolatilePageMemoryTest extends AbstractBplusTreeReusePageMemoryTest {
-    @InjectConfiguration
-    private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = { VolatilePageMemoryProfileConfigurationSchema.class }, value = "mock.engine = aimem")
+    private StorageProfileConfiguration dataRegionCfg;
 
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> ((VolatilePageMemoryProfileChange) c).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new VolatilePageMemory(
-                dataRegionCfg,
+                (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 PAGE_SIZE
         );

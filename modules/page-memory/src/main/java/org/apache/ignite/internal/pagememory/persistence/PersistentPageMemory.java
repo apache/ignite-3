@@ -84,6 +84,9 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -156,7 +159,7 @@ public class PersistentPageMemory implements PageMemory {
     public static final int TRY_AGAIN_TAG = -1;
 
     /** Data region configuration view. */
-    private final PersistentPageMemoryDataRegionView dataRegionConfigView;
+    private final PersistentPageMemoryProfileView dataRegionConfigView;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -231,7 +234,7 @@ public class PersistentPageMemory implements PageMemory {
      * @param pageSize Page size in bytes.
      */
     public PersistentPageMemory(
-            PersistentPageMemoryDataRegionConfiguration dataRegionConfig,
+            PersistentPageMemoryProfileConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             long[] segmentSizes,
             long checkpointBufferSize,
@@ -242,7 +245,8 @@ public class PersistentPageMemory implements PageMemory {
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        this.dataRegionConfigView = dataRegionConfig.value();
+        // TODO: KKK why is this cast needed?
+        this.dataRegionConfigView = (PersistentPageMemoryProfileView) dataRegionConfig.value();
         this.ioRegistry = ioRegistry;
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;

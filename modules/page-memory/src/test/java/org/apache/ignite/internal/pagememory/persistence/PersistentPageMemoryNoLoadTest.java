@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
@@ -59,12 +60,17 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.jetbrains.annotations.Nullable;
@@ -81,8 +87,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration
-    private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = { PersistentPageMemoryProfileConfigurationSchema.class }, value = "mock.engine = aipersist")
+    private StorageProfileConfiguration dataRegionCfg;
 
     @BeforeAll
     static void beforeAll() {
@@ -93,7 +99,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg.change(c -> c.changeSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
+        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
     }
 
     @AfterAll
@@ -202,7 +208,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
 
-        dataRegionCfg.change(c -> c.changeSize(128 * systemPageSize)).get(1, SECONDS);
+        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSize(128 * systemPageSize)).get(1, SECONDS);
 
         PersistentPageMemory pageMemory = createPageMemory(
                 new long[]{100 * systemPageSize},
@@ -441,7 +447,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             WriteDirtyPage flushDirtyPageForReplacement
     ) {
         return new PersistentPageMemory(
-                dataRegionCfg,
+                (PersistentPageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 segmentSizes,
                 checkpointBufferSize,

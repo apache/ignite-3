@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
@@ -114,11 +115,11 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
         );
 
         CatalogTableDescriptor descriptor = new CatalogTableDescriptor(
-                tableId, -1, -1, "test", 0, columns, List.of("k1"), null
+                tableId, -1, -1, "test", 0, columns, List.of("k1"), null, DUMMY_STORAGE_PROFILE
         );
 
         for (int ver = CatalogTableDescriptor.INITIAL_TABLE_VERSION + 1; ver <= tableVersion; ver++) {
-            descriptor = descriptor.newDescriptor("test", ver, columns, CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN);
+            descriptor = descriptor.newDescriptor("test", ver, columns, CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN, DUMMY_STORAGE_PROFILE);
         }
 
         return descriptor;

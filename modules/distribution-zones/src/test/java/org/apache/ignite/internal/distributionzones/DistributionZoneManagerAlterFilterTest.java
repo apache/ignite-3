@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -47,22 +49,30 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
     private static final LogicalNode A = new LogicalNode(
             new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
-            Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
+            Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
             new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
-            Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30")
+            Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
             new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
-            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
+            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
     );
 
     private static final LogicalNode D = new LogicalNode(
             new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
-            Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
+            Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20"),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
     );
 
     /**
@@ -252,7 +262,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         if (DEFAULT_ZONE_NAME.equals(zoneName)) {
             alterZone(DEFAULT_ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
         } else {
-            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
+            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER, DUMMY_STORAGE_PROFILE);
         }
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,

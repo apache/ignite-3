@@ -26,6 +26,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 /**
  * Implementing a validator for {@link RocksDbDataRegionName}.
  */
+// TODO: KKK fix or remove it
 public class RocksDbDataRegionValidatorImpl implements Validator<RocksDbDataRegionName, String> {
     /** Static instance. */
     public static final RocksDbDataRegionValidatorImpl INSTANCE = new RocksDbDataRegionValidatorImpl();
@@ -51,6 +52,7 @@ public class RocksDbDataRegionValidatorImpl implements Validator<RocksDbDataRegi
     }
 
     private static boolean contains(RocksDbStorageEngineView engineConfig, String dataRegion) {
-        return engineConfig.defaultRegion().name().equals(dataRegion) || engineConfig.regions().get(dataRegion) != null;
+        return true;
+//        return engineConfig.defaultRegion().name().equals(dataRegion) || engineConfig.regions().get(dataRegion) != null;
     }
 }

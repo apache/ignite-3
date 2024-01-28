@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,6 +53,7 @@ import static org.mockito.Mockito.doAnswer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -81,6 +83,7 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,14 +104,26 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private static final String ZONE_NAME_4 = "zone4";
 
-    private static final LogicalNode NODE_0 =
-            new LogicalNode("node_id_0", "node_name_0", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_0 = new LogicalNode(
+            new ClusterNodeImpl("node_id_0", "node_name_0", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
+    );
 
-    private static final LogicalNode NODE_1 =
-            new LogicalNode("node_id_1", "node_name_1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = new LogicalNode(
+            new ClusterNodeImpl("node_id_1", "node_name_1", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
+    );
 
-    private static final LogicalNode NODE_2 =
-            new LogicalNode("node_id_2", "node_name_2", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_2 = new LogicalNode(
+            new ClusterNodeImpl("node_id_2", "node_name_2", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
+    );
 
     private static final Set<LogicalNode> ONE_NODE = Set.of(NODE_0);
     private static final Set<String> ONE_NODE_NAME = Set.of(NODE_0.name());

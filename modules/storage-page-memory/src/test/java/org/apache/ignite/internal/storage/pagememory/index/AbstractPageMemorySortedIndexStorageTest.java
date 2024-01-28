@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
  * Base class for testing {@link SortedIndexStorage} based on {@link PageMemory}.
  */
 abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
-    protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
+    protected int pageSize;
 
     /**
      * Initializes the internal structures needed for tests.
@@ -47,9 +47,9 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
      */
     final void initialize(
             MvTableStorage tableStorage,
-            BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig
+            int pageSize
     ) {
-        this.baseEngineConfig = baseEngineConfig;
+        this.pageSize = pageSize;
 
         initialize(tableStorage);
     }
@@ -81,8 +81,6 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
         SortedIndexStorage index = createIndexStorage("TEST_INDEX", ColumnType.INT32, ColumnType.STRING);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
-
-        int pageSize = baseEngineConfig.pageSize().value();
 
         IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(random, pageSize * 2));
         IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(random, pageSize * 2));

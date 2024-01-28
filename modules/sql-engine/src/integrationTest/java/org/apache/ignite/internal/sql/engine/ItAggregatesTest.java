@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -61,7 +62,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     static void initTestData() {
         createAndPopulateTable();
 
-        sql("CREATE ZONE test_zone with replicas=2, partitions=10");
+        sql("CREATE ZONE test_zone with replicas=2, partitions=10, storage_profiles='" + DUMMY_STORAGE_PROFILE + "'");
         sql("CREATE TABLE test (id INT PRIMARY KEY, grp0 INT, grp1 INT, val0 INT, val1 INT) WITH PRIMARY_ZONE='TEST_ZONE'");
         sql("CREATE TABLE test_one_col_idx (pk INT PRIMARY KEY, col0 INT)");
 

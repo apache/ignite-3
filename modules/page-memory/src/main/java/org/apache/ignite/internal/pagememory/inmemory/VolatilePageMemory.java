@@ -35,6 +35,8 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -132,7 +134,7 @@ public class VolatilePageMemory implements PageMemory {
     private final DirectMemoryProvider directMemoryProvider;
 
     /** Data region configuration view. */
-    private final VolatilePageMemoryDataRegionView dataRegionConfigView;
+    private final VolatilePageMemoryProfileView dataRegionConfigView;
 
     /** Head of the singly linked list of free pages. */
     private final AtomicLong freePageListHead = new AtomicLong(INVALID_REL_PTR);
@@ -177,14 +179,15 @@ public class VolatilePageMemory implements PageMemory {
      * @param pageSize Page size in bytes.
      */
     public VolatilePageMemory(
-            VolatilePageMemoryDataRegionConfiguration dataRegionConfig,
+            VolatilePageMemoryProfileConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
-        this.dataRegionConfigView = dataRegionConfig.value();
+        // TODO: why this cast is needed?
+        this.dataRegionConfigView = (VolatilePageMemoryProfileView) dataRegionConfig.value();
 
         if (!(dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
             throw new IgniteInternalException("Unexpected memory allocator: " + dataRegionConfigView.memoryAllocator());

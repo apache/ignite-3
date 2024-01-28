@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_L
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -122,7 +123,8 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
                 zoneId,
                 List.of(tableColumn(columnName)),
                 List.of(columnName),
-                null
+                null,
+                DUMMY_STORAGE_PROFILE
         );
     }
 

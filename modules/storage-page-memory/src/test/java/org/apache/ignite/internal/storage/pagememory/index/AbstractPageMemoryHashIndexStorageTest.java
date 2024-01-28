@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
  * Base class for testing {@link HashIndexStorage} based on {@link PageMemory}.
  */
 abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
-    protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
+    protected int pageSize;
 
     private final Random random = new Random();
 
@@ -50,9 +50,9 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
      */
     final void initialize(
             MvTableStorage tableStorage,
-            BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig
+            int pageSize
     ) {
-        this.baseEngineConfig = baseEngineConfig;
+        this.pageSize = pageSize;
 
         initialize(tableStorage);
     }
@@ -79,8 +79,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
-        String longString0 = randomString(random, baseEngineConfig.pageSize().value() * 2);
-        String longString1 = randomString(random, baseEngineConfig.pageSize().value() * 2);
+        String longString0 = randomString(random, pageSize * 2);
+        String longString1 = randomString(random, pageSize * 2);
 
         IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString0);
         IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString1);

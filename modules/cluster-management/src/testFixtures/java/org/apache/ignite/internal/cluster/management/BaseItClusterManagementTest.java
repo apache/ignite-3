@@ -28,10 +28,10 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -56,7 +56,7 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
     private static NodeAttributesConfiguration userNodeAttributes;
 
     @InjectConfiguration
-    private static StorageProfilesConfiguration storageProfilesConfiguration;
+    private static StoragesConfiguration storagesConfiguration;
 
     protected static List<MockNode> createNodes(int numNodes, TestInfo testInfo, Path workDir) {
         StaticNodeFinder nodeFinder = createNodeFinder(numNodes);
@@ -70,7 +70,7 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
                         raftConfiguration,
                         cmgConfiguration,
                         userNodeAttributes,
-                        storageProfilesConfiguration
+                        storagesConfiguration
 
                 ))
                 .collect(toList());
@@ -85,7 +85,7 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
                 raftConfiguration,
                 cmgConfiguration,
                 userNodeAttributes,
-                storageProfilesConfiguration
+                storagesConfiguration
         );
 
         cluster.add(node);

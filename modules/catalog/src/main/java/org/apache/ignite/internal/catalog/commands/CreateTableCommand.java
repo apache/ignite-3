@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
@@ -62,6 +63,8 @@ public class CreateTableCommand extends AbstractTableCommand {
 
     private final String zoneName;
 
+    private String storageProfile;
+
     /**
      * Constructs the object.
      *
@@ -81,7 +84,8 @@ public class CreateTableCommand extends AbstractTableCommand {
             List<String> primaryKeyColumns,
             List<String> colocationColumns,
             List<ColumnParams> columns,
-            String zoneName
+            String zoneName,
+            String storageProfile
     ) throws CatalogValidationException {
         super(schemaName, tableName);
 
@@ -89,6 +93,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         this.colocationColumns = copyOrNull(colocationColumns);
         this.columns = copyOrNull(columns);
         this.zoneName = zoneName;
+        this.storageProfile = storageProfile;
 
         validate();
     }
@@ -100,6 +105,12 @@ public class CreateTableCommand extends AbstractTableCommand {
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+
+        if (storageProfile == null) {
+            storageProfile = zone.storageProfiles().defaultProfile().storageProfile();
+        }
+
+        ensureZoneContainsTablesStorageProfile(zone, storageProfile);
 
         int id = catalog.objectIdGenState();
         int tableId = id++;
@@ -113,7 +124,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                 zone.id(),
                 columns.stream().map(CatalogUtils::fromParams).collect(toList()),
                 primaryKeyColumns,
-                colocationColumns
+                colocationColumns,
+                storageProfile
         );
 
         String indexName = pkIndexName(tableName);
@@ -199,6 +211,8 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private String zoneName;
 
+        private String storageProfile;
+
         @Override
         public CreateTableCommandBuilder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -242,6 +256,13 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
 
         @Override
+        public CreateTableCommandBuilder storageProfile(String storageProfile) {
+            this.storageProfile = storageProfile;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             String zoneName = requireNonNullElse(this.zoneName, CatalogService.DEFAULT_ZONE_NAME);
 
@@ -255,7 +276,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                     primaryKeyColumns,
                     colocationColumns,
                     columns,
-                    zoneName
+                    zoneName,
+                    storageProfile
             );
         }
     }

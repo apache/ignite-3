@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_CLOCK_CACHE;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_LRU_CACHE;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema.ROCKSDB_CLOCK_CACHE;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema.ROCKSDB_LRU_CACHE;
 
 import java.util.Locale;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
 import org.rocksdb.ClockCache;
@@ -34,7 +34,7 @@ import org.rocksdb.WriteBufferManager;
  */
 public class RocksDbDataRegion {
     /** Region configuration. */
-    private final RocksDbDataRegionConfiguration cfg;
+    private final RocksDbProfileConfiguration cfg;
 
     /** RocksDB cache instance. */
     private Cache cache;
@@ -47,7 +47,7 @@ public class RocksDbDataRegion {
      *
      * @param cfg Data region configuration.
      */
-    public RocksDbDataRegion(RocksDbDataRegionConfiguration cfg) {
+    public RocksDbDataRegion(RocksDbProfileConfiguration cfg) {
         this.cfg = cfg;
     }
 
@@ -55,7 +55,8 @@ public class RocksDbDataRegion {
      * Start the rocksDb data region.
      */
     public void start() {
-        RocksDbDataRegionView dataRegionView = cfg.value();
+        // TODO: Why this cast is needed?
+        RocksDbProfileView dataRegionView = (RocksDbProfileView) cfg.value();
 
         long writeBufferSize = dataRegionView.writeBufferSize();
 

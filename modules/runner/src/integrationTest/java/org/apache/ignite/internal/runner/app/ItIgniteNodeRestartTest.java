@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -90,7 +91,6 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -147,6 +147,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -218,7 +219,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
-    private static StorageProfilesConfiguration storageProfilesConfiguration;
+    private static StoragesConfiguration storagesConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -283,7 +284,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
-                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator),
+                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
                 localConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
@@ -335,7 +336,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
+                new NodeAttributesCollector(nodeAttributes, storagesConfiguration)
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
@@ -1392,7 +1393,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         try (Session session = node.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, nodesCount, 1));
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s';", zoneName, nodesCount, 1, DUMMY_STORAGE_PROFILE));
 
             session.execute(null, "CREATE TABLE " + TABLE_NAME
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
@@ -1505,7 +1506,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Create table, all nodes are lagging.
         try (Session session = node0.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                    zoneName, 2, 1, DUMMY_STORAGE_PROFILE));
 
             nodeInhibitor0.startInhibit();
             nodeInhibitor1.startInhibit();
@@ -1573,7 +1575,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String zoneName = "ZONE_TEST";
 
         try (Session session = node0.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
+            session.execute(null,
+                    String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                    zoneName, 2, 1, DUMMY_STORAGE_PROFILE));
         }
 
         int catalogVersionBeforeTable = node0.catalogManager().latestCatalogVersion();
@@ -1764,8 +1768,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
         try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null,
-                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
+            session.execute(
+                    null,
+                    String.format(
+                            "CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                            name,
+                            replicas,
+                            partitions,
+                            DUMMY_STORAGE_PROFILE
+                    )
+            );
             session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
@@ -1813,8 +1825,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     private static Table createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
-            session.execute(null,
-                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
+            session.execute(
+                    null,
+                    String.format(
+                            "CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                            name,
+                            replicas,
+                            partitions,
+                            DUMMY_STORAGE_PROFILE
+                    )
+            );
             session.execute(null, "CREATE TABLE " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
         }

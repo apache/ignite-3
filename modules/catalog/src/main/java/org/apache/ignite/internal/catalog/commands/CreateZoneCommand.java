@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
@@ -66,6 +67,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
     private final @Nullable DataStorageParams dataStorageParams;
 
+    private final List<StorageProfileParams> storageProfileParams;
+
     /**
      * Constructor.
      *
@@ -77,6 +80,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
      * @param filter Nodes filter.
      * @param dataStorageParams Data storage params.
+     * @param storageProfileParams Storage profile params.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private CreateZoneCommand(
@@ -87,7 +91,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            @Nullable DataStorageParams dataStorageParams
+            @Nullable DataStorageParams dataStorageParams,
+            List<StorageProfileParams> storageProfileParams
     ) throws CatalogValidationException {
         super(zoneName);
 
@@ -98,6 +103,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.dataStorageParams = dataStorageParams;
+        this.storageProfileParams = storageProfileParams;
 
         validate();
     }
@@ -133,7 +139,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 ),
                 Objects.requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE),
                 Objects.requireNonNullElse(filter, DEFAULT_FILTER),
-                fromParams(dataStorageParams0)
+                fromParams(dataStorageParams0),
+                fromParams(storageProfileParams)
         );
 
         return zone;
@@ -153,6 +160,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         );
 
         validateZoneFilter(filter);
+
+        validateStorageProfiles(storageProfileParams);
     }
 
     /**
@@ -174,6 +183,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         private @Nullable String filter;
 
         private @Nullable DataStorageParams dataStorageParams;
+
+        private List<StorageProfileParams> storageProfileParams;
 
         @Override
         public CreateZoneCommandBuilder zoneName(String zoneName) {
@@ -232,6 +243,13 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
+        public CreateZoneCommandBuilder storageProfilesParams(List<StorageProfileParams> params) {
+            this.storageProfileParams = params;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new CreateZoneCommand(
                     zoneName,
@@ -241,7 +259,9 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
-                    dataStorageParams);
+                    dataStorageParams,
+                    storageProfileParams
+            );
         }
     }
 }

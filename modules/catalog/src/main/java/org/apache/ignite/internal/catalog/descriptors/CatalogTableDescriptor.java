@@ -57,6 +57,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     private long creationToken;
 
+    private String storageProfile;
+
     /**
      * Constructor for new table.
      *
@@ -66,6 +68,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param zoneId Distribution zone ID.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
+     * @param storageProfile Storage profile.
      */
     public CatalogTableDescriptor(
             int id,
@@ -75,10 +78,12 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             int zoneId,
             List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
-            @Nullable List<String> colocationCols
+            @Nullable List<String> colocationCols,
+            String storageProfile
     ) {
         this(id, schemaId, pkIndexId, name, zoneId, columns, pkCols, colocationCols,
-                new CatalogTableSchemaVersions(new TableVersion(columns)), INITIAL_CAUSALITY_TOKEN, INITIAL_CAUSALITY_TOKEN);
+                new CatalogTableSchemaVersions(new TableVersion(columns)),
+                INITIAL_CAUSALITY_TOKEN, INITIAL_CAUSALITY_TOKEN, storageProfile);
     }
 
     /**
@@ -92,6 +97,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param pkCols Primary key column names.
      * @param causalityToken Token of the update of the descriptor.
      * @param creationToken Token of the creation of the table descriptor.
+     * @param storageProfile Storage profile.
      */
     private CatalogTableDescriptor(
             int id,
@@ -104,7 +110,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             @Nullable List<String> colocationCols,
             CatalogTableSchemaVersions schemaVersions,
             long causalityToken,
-            long creationToken
+            long creationToken,
+            String storageProfile
     ) {
         super(id, Type.TABLE, name, causalityToken);
 
@@ -121,6 +128,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
         this.creationToken = creationToken;
 
+        this.storageProfile = storageProfile;
+
         // TODO: IGNITE-19082 Throw proper exceptions.
         assert !columnsMap.isEmpty() : "No columns.";
 
@@ -135,7 +144,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             String name,
             int tableVersion,
             List<CatalogTableColumnDescriptor> columns,
-            long causalityToken
+            long causalityToken,
+            String storageProfile
     ) {
         CatalogTableSchemaVersions newSchemaVersions = tableVersion == schemaVersions.latestVersion()
                 ? schemaVersions
@@ -144,7 +154,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return new CatalogTableDescriptor(
                 id(), schemaId, pkIndexId, name, zoneId, columns, primaryKeyColumns, colocationColumns,
                 newSchemaVersions,
-                causalityToken, creationToken
+                causalityToken, creationToken, storageProfile
         );
     }
 
@@ -211,6 +221,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     public long creationToken() {
         return creationToken;
+    }
+
+    public String storageProfile() {
+        return storageProfile;
     }
 
     @Override

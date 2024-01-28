@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 
 import java.util.List;
 import java.util.Objects;
@@ -72,6 +73,7 @@ class DdlToCatalogCommandConverter {
                 .colocationColumns(cmd.colocationColumns())
 
                 .zone(cmd.zone())
+                .storageProfile(cmd.storageProfile())
 
                 .build();
     }
@@ -88,6 +90,10 @@ class DdlToCatalogCommandConverter {
         String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
         String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
 
+        if (cmd.storageProfiles() == null) {
+            throw new IllegalArgumentException("Storage profile cannot be null");
+        }
+
         return org.apache.ignite.internal.catalog.commands.CreateZoneCommand.builder()
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())
@@ -97,6 +103,7 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
                 .dataStorageParams(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
+                .storageProfilesParams(parseStorageProfiles(cmd.storageProfiles()))
                 .build();
     }
 

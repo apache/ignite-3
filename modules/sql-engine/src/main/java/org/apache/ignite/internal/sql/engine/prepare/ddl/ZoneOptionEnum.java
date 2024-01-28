@@ -43,5 +43,8 @@ public enum ZoneOptionEnum {
     DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
 
     /** Data storage engine. */
-    DATA_STORAGE_ENGINE
+    DATA_STORAGE_ENGINE,
+
+    /** Storage profiles. */
+    STORAGE_PROFILES
 }

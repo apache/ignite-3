@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.topology;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
@@ -58,11 +59,12 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
-    private static final String STORAGE_PROFILES = "{lru_rocks:{engine:\"rocksDb\"},segmented_aipersist:{engine:\"aipersist\"}}";
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 Replace dummy with the real target storages.
+    private static final String STORAGE_PROFILES = "{lru_rocks:{engine:\"dummy\"},segmented_aipersist:{engine:\"dummy\"}}";
 
     private static final Map<String, String> NODE_ATTRIBUTES_MAP = Map.of("region", "US", "storage", "SSD");
 
-    private static final Map<String, String> STORAGE_PROFILES_MAP = Map.of("lru_rocks", "rocksDb", "segmented_aipersist", "aipersist");
+    private static final List<String> STORAGE_PROFILES_LIST = List.of("default", "lru_rocks", "segmented_aipersist");
 
     @Language("JSON")
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "{\n"
@@ -75,8 +77,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: " + NODE_ATTRIBUTES
             + "  },\n"
-            + "  storageProfiles: {\n"
-            + "    storageProfiles: " + STORAGE_PROFILES
+            + "  storages: {\n"
+            + "    profiles: " + STORAGE_PROFILES
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {}\n"
@@ -171,7 +173,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.eventType, is(EventType.VALIDATED));
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(event.node.storageProfiles(), is(STORAGE_PROFILES_MAP));
+        assertThat(event.node.storageProfiles(), is(STORAGE_PROFILES_LIST));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
@@ -180,7 +182,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(2L));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(event.node.storageProfiles(), is(STORAGE_PROFILES_MAP));
+        assertThat(event.node.storageProfiles(), is(STORAGE_PROFILES_LIST));
 
         assertThat(events, is(empty()));
 
@@ -194,7 +196,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(3L));
         assertThat(event.node.userAttributes(), is(Collections.emptyMap()));
-        assertThat(event.node.storageProfiles(), is(Collections.emptyMap()));
+        assertThat(event.node.storageProfiles(), is(List.of(DUMMY_STORAGE_PROFILE)));
 
         assertThat(events, is(empty()));
     }
@@ -218,7 +220,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertTrue(secondNode.isPresent());
 
         assertThat(secondNode.get().userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(secondNode.get().storageProfiles(), is(STORAGE_PROFILES_MAP));
+        assertThat(secondNode.get().storageProfiles(), is(STORAGE_PROFILES_LIST));
     }
 
     @Test

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
@@ -113,7 +115,9 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void tryToCreateZone(String zoneName, boolean failIfExists) {
-        sql(String.format("CREATE ZONE %s", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName));
+        sql(String.format(
+                "CREATE ZONE %s WITH STORAGE_PROFILES='%s'", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName, DUMMY_STORAGE_PROFILE
+        ));
     }
 
     private static void tryToDropZone(String zoneName, boolean failIfNotExists) {

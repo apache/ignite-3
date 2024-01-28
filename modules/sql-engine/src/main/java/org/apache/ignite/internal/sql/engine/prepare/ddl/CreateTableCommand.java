@@ -35,6 +35,8 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
 
     private String zone;
 
+    private String storageProfile;
+
     /**
      * Get primary key columns.
      */
@@ -99,5 +101,20 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
      */
     public void zone(String zoneName) {
         this.zone = zoneName;
+    }
+
+    /**
+     * Get storage profile.
+     */
+    @Nullable
+    public String storageProfile() {
+        return storageProfile;
+    }
+
+    /**
+     * Set storage profile.
+     */
+    public void storageProfile(String storageProfile) {
+        this.storageProfile = storageProfile;
     }
 }

@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 
 /**
- * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+ * Root configuration for {@link RocksDbStorageEngine}.
  */
-@ConfigurationRoot(rootName = "storageProfiles", type = ConfigurationType.LOCAL)
-public class StorageProfilesConfigurationSchema {
-    /**
-     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
-     */
-    @NamedConfigValue
-    public StorageProfileConfigurationSchema storageProfiles;
+@Config
+public class RocksDbProfileStorageEngineConfigurationSchema {
+    /** Delay before executing a flush triggered by RAFT. */
+    @Range(min = 0)
+    @Value(hasDefault = true)
+    public int flushDelayMillis = 100;
 }

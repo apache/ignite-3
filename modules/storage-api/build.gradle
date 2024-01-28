@@ -27,6 +27,7 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-schema')
     implementation project(':ignite-distribution-zones')
+    implementation project(':ignite-storage-configuration')
     implementation project(':ignite-configuration')
     implementation project(":ignite-core")
     implementation project(":ignite-catalog")
