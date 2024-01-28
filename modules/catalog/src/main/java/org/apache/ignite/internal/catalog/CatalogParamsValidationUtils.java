@@ -108,14 +108,12 @@ public class CatalogParamsValidationUtils {
     public static void validateStorageProfiles(List<StorageProfileParams> storageProfiles) {
         if (storageProfiles == null) {
             throw new CatalogValidationException(
-                    VALIDATION_ERR,
                     "Storage profile cannot be null"
             );
         }
 
         if (storageProfiles.isEmpty()) {
             throw new CatalogValidationException(
-                    VALIDATION_ERR,
                     "Storage profile cannot be empty"
             );
         }

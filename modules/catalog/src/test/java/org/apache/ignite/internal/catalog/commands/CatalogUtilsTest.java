@@ -300,7 +300,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 "baz",
                 fooTable.tableVersion(),
                 fooTable.columns(),
-                fooTable.updateToken()
+                fooTable.updateToken(),
+                fooTable.storageProfile()
         );
 
         CatalogSchemaDescriptor updatedSchema = replaceTable(schema, bazTable);
