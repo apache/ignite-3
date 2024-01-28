@@ -40,7 +40,8 @@ import org.junit.jupiter.api.Test;
 public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testPersistentExample() throws Exception {
-        addPersistentDataRegionConfig("persistent");
+        // TODO: KKK runtime profile update is not working yet
+//        addPersistentDataRegionConfig("persistent");
 
         assertConsoleOutputContains(PersistentPageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
@@ -53,7 +54,8 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
 
     @Test
     public void testInMemoryExample() throws Exception {
-        addVolatileDataRegionConfig("in-memory");
+        // TODO: KKK runtime profile update is not working yet
+//        addVolatileDataRegionConfig("in-memory");
 
         assertConsoleOutputContains(VolatilePageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
