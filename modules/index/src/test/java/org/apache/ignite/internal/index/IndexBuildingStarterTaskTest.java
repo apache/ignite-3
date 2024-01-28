@@ -181,7 +181,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     @Test
     void testTimeoutAndSuccessOnAwaitPrimaryReplica() {
-        CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture0 = failedFuture(mock(PrimaryReplicaAwaitTimeoutException.class));
+        CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture0 = failedFuture(primaryReplicaAwaitTimeoutException());
 
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture1 = completedFuture(
                 createLocalNodeReplicaMeta(HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE)
@@ -200,7 +200,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     @Test
     void testTimeoutAndExpireOnAwaitPrimaryReplica() {
-        CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture0 = failedFuture(mock(PrimaryReplicaAwaitTimeoutException.class));
+        CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture0 = failedFuture(primaryReplicaAwaitTimeoutException());
 
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture1 = completedFuture(
                 createLocalNodeReplicaMeta(HybridTimestamp.MIN_VALUE, HybridTimestamp.MIN_VALUE.addPhysicalTime(1))
@@ -219,9 +219,9 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     @Test
     void testTimeoutAndErrorOnAwaitPrimaryReplica() {
-        CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture0 = failedFuture(mock(PrimaryReplicaAwaitTimeoutException.class));
+        CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture0 = failedFuture(primaryReplicaAwaitTimeoutException());
 
-        CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture1 = failedFuture(mock(PrimaryReplicaAwaitException.class));
+        CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture1 = failedFuture(primaryReplicaAwaitException());
 
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(
                 awaitPrimaryReplicaFuture0,
@@ -333,5 +333,17 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     private static CompletableFuture<NetworkMessage> isNodeFinishedRwTransactionsStartedBeforeResponseFuture(boolean finished) {
         return completedFuture(FACTORY.isNodeFinishedRwTransactionsStartedBeforeResponse().finished(finished).build());
+    }
+
+    private PrimaryReplicaAwaitTimeoutException primaryReplicaAwaitTimeoutException() {
+        TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+
+        return new PrimaryReplicaAwaitTimeoutException(groupId, HybridTimestamp.MIN_VALUE, null, null);
+    }
+
+    private PrimaryReplicaAwaitException primaryReplicaAwaitException() {
+        TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+
+        return new PrimaryReplicaAwaitException(groupId, HybridTimestamp.MIN_VALUE, null);
     }
 }
