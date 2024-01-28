@@ -243,7 +243,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
     private static StoragesConfiguration storagesConfiguration;
 
     @InjectConfiguration
