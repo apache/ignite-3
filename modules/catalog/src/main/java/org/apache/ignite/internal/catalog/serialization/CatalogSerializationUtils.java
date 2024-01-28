@@ -24,9 +24,8 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.function.IntFunction;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -63,18 +62,17 @@ public class CatalogSerializationUtils {
         }
     }
 
-    /** Reads list of strings. */
-    public static List<String> readStringList(DataInput in) throws IOException {
-        int size = in.readInt();
+    /** Reads collection containing strings. */
+    public static <T extends Collection<String>> T readStringCollection(DataInput input, IntFunction<T> factory) throws IOException {
+        int size = input.readInt();
 
-        return readStringCollection(in, size, new ArrayList<>(size));
-    }
+        T collection = factory.apply(size);
 
-    /** Reads set of strings. */
-    public static Set<String> readStringSet(DataInput in) throws IOException {
-        int size = in.readInt();
+        for (int i = 0; i < size; i++) {
+            collection.add(input.readUTF());
+        }
 
-        return readStringCollection(in, size, new HashSet<>());
+        return collection;
     }
 
     /** Reads array of objects. */
@@ -145,13 +143,5 @@ public class CatalogSerializationUtils {
 
         output.writeInt(bytes.length);
         output.writeByteArray(bytes);
-    }
-
-    private static <T extends Collection<String>> T readStringCollection(DataInput input, int size, T collection) throws IOException {
-        for (int i = 0; i < size; i++) {
-            collection.add(input.readUTF());
-        }
-
-        return collection;
     }
 }

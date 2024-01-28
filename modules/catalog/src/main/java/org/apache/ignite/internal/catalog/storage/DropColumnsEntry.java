@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSc
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeStringCollection;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -121,19 +123,19 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
      */
     private static class DropColumnEntrySerializer implements CatalogObjectSerializer<DropColumnsEntry> {
         @Override
-        public DropColumnsEntry readFrom(int version, IgniteDataInput in) throws IOException {
-            String schemaName = in.readUTF();
-            int tableId = in.readInt();
-            Set<String> columns = CatalogSerializationUtils.readStringSet(in);
+        public DropColumnsEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            String schemaName = input.readUTF();
+            int tableId = input.readInt();
+            Set<String> columns = CatalogSerializationUtils.readStringCollection(input, size -> new HashSet<>(capacity(size)));
 
             return new DropColumnsEntry(tableId, columns, schemaName);
         }
 
         @Override
-        public void writeTo(DropColumnsEntry object, int version, IgniteDataOutput out) throws IOException {
-            out.writeUTF(object.schemaName);
-            out.writeInt(object.tableId());
-            writeStringCollection(object.columns(), out);
+        public void writeTo(DropColumnsEntry object, int version, IgniteDataOutput output) throws IOException {
+            output.writeUTF(object.schemaName);
+            output.writeInt(object.tableId());
+            writeStringCollection(object.columns(), output);
         }
     }
 }

@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readStringList;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readStringCollection;
 import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeList;
 import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeStringCollection;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
@@ -133,7 +134,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
             } else {
                 CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
                 IndexDescriptorHeader idxHeader = IndexDescriptorHeaderSerializer.INSTANCE.readFrom(version, input);
-                List<String> columns = readStringList(input);
+                List<String> columns = readStringCollection(input, ArrayList::new);
 
                 return new CatalogHashIndexDescriptor(
                         header.id(),

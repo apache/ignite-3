@@ -19,11 +19,12 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readStringList;
+import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readStringCollection;
 import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeList;
 import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeStringCollection;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -236,8 +237,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             int pkIndexId = input.readInt();
             int zoneId = input.readInt();
 
-            List<String> primaryKeyColumns = readStringList(input);
-            List<String> colocationColumns = readStringList(input);
+            List<String> primaryKeyColumns = readStringCollection(input, ArrayList::new);
+            List<String> colocationColumns = readStringCollection(input, ArrayList::new);
 
             long creationToken = input.readLong();
 
