@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.catalog.serialization.CatalogSerializat
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -158,18 +157,22 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
     private static class SystemViewDescriptorSerializer implements CatalogObjectSerializer<CatalogSystemViewDescriptor> {
         @Override
         public CatalogSystemViewDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
-            CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
+            int id = input.readInt();
+            String name = input.readUTF();
+            long updateToken = input.readLong();
             List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, input);
 
             byte sysViewTypeId = input.readByte();
             SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
 
-            return new CatalogSystemViewDescriptor(header.id(), header.name(), columns, sysViewType, header.updateToken());
+            return new CatalogSystemViewDescriptor(id, name, columns, sysViewType, updateToken);
         }
 
         @Override
         public void writeTo(CatalogSystemViewDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
-            CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(descriptor), version, output);
+            output.writeInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeLong(descriptor.updateToken());
             writeList(descriptor.columns(), version, CatalogTableColumnDescriptor.SERIALIZER, output);
             output.writeByte(descriptor.systemViewType().id());
         }

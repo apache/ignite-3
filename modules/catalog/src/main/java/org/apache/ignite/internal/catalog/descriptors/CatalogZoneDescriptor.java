@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.descriptors;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 
 import java.io.IOException;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -185,7 +184,10 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
         @Override
         public CatalogZoneDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
-            CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
+            int id = input.readInt();
+            String name = input.readUTF();
+            long updateToken = input.readLong();
+
             CatalogDataStorageDescriptor dataStorageDescriptor = CatalogDataStorageDescriptor.SERIALIZER.readFrom(version, input);
 
             int partitions = input.readInt();
@@ -196,8 +198,8 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             String filter = input.readUTF();
 
             return new CatalogZoneDescriptor(
-                    header.id(),
-                    header.name(),
+                    id,
+                    name,
                     partitions,
                     replicas,
                     dataNodesAutoAdjust,
@@ -205,21 +207,23 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
                     dataNodesAutoAdjustScaleDown,
                     filter,
                     dataStorageDescriptor,
-                    header.updateToken()
+                    updateToken
             );
         }
 
         @Override
-        public void writeTo(CatalogZoneDescriptor value, int version, IgniteDataOutput out) throws IOException {
-            CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(value), version, out);
-            CatalogDataStorageDescriptor.SERIALIZER.writeTo(value.dataStorage(), version, out);
+        public void writeTo(CatalogZoneDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeLong(descriptor.updateToken());
+            CatalogDataStorageDescriptor.SERIALIZER.writeTo(descriptor.dataStorage(), version, output);
 
-            out.writeInt(value.partitions());
-            out.writeInt(value.replicas());
-            out.writeInt(value.dataNodesAutoAdjust());
-            out.writeInt(value.dataNodesAutoAdjustScaleUp());
-            out.writeInt(value.dataNodesAutoAdjustScaleDown());
-            out.writeUTF(value.filter());
+            output.writeInt(descriptor.partitions());
+            output.writeInt(descriptor.replicas());
+            output.writeInt(descriptor.dataNodesAutoAdjust());
+            output.writeInt(descriptor.dataNodesAutoAdjustScaleUp());
+            output.writeInt(descriptor.dataNodesAutoAdjustScaleDown());
+            output.writeUTF(descriptor.filter());
         }
     }
 }

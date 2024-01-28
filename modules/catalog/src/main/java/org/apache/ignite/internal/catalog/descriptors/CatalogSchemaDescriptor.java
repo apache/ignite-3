@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -112,21 +111,25 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private static class SchemaDescriptorSerializer implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
         @Override
         public CatalogSchemaDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
-            CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
+            int id = input.readInt();
+            String name = input.readUTF();
+            long updateToken = input.readLong();
             CatalogTableDescriptor[] tables = readArray(version, CatalogTableDescriptor.SERIALIZER, input, CatalogTableDescriptor.class);
             CatalogIndexDescriptor[] indexes = readArray(version, CatalogIndexDescriptor.SERIALIZER, input, CatalogIndexDescriptor.class);
             CatalogSystemViewDescriptor[] systemViews =
                     readArray(version, CatalogSystemViewDescriptor.SERIALIZER, input, CatalogSystemViewDescriptor.class);
 
-            return new CatalogSchemaDescriptor(header.id(), header.name(), tables, indexes, systemViews, header.updateToken());
+            return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateToken);
         }
 
         @Override
-        public void writeTo(CatalogSchemaDescriptor value, int version, IgniteDataOutput output) throws IOException {
-            CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(value), version, output);
-            writeArray(value.tables(), version, CatalogTableDescriptor.SERIALIZER, output);
-            writeArray(value.indexes(), version, CatalogIndexDescriptor.SERIALIZER, output);
-            writeArray(value.systemViews(), version, CatalogSystemViewDescriptor.SERIALIZER, output);
+        public void writeTo(CatalogSchemaDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeLong(descriptor.updateToken());
+            writeArray(descriptor.tables(), version, CatalogTableDescriptor.SERIALIZER, output);
+            writeArray(descriptor.indexes(), version, CatalogIndexDescriptor.SERIALIZER, output);
+            writeArray(descriptor.systemViews(), version, CatalogSystemViewDescriptor.SERIALIZER, output);
         }
     }
 }

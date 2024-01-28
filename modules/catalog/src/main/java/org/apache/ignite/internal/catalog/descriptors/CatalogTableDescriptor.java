@@ -31,7 +31,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -229,7 +228,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private static class TableDescriptorSerializer implements CatalogObjectSerializer<CatalogTableDescriptor> {
         @Override
         public CatalogTableDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
-            CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
+            int id = input.readInt();
+            String name = input.readUTF();
+            long updateToken = input.readLong();
+
             CatalogTableSchemaVersions schemaVersions = CatalogTableSchemaVersions.SERIALIZER.readFrom(version, input);
             List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, input);
 
@@ -243,23 +245,25 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             long creationToken = input.readLong();
 
             return new CatalogTableDescriptor(
-                    header.id(),
+                    id,
                     schemaId,
                     pkIndexId,
-                    header.name(),
+                    name,
                     zoneId,
                     columns,
                     primaryKeyColumns,
                     colocationColumns,
                     schemaVersions,
-                    header.updateToken(),
+                    updateToken,
                     creationToken
             );
         }
 
         @Override
         public void writeTo(CatalogTableDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
-            CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(descriptor), version, output);
+            output.writeInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeLong(descriptor.updateToken());
             CatalogTableSchemaVersions.SERIALIZER.writeTo(descriptor.schemaVersions(), version, output);
             writeList(descriptor.columns(), version, CatalogTableColumnDescriptor.SERIALIZER, output);
 

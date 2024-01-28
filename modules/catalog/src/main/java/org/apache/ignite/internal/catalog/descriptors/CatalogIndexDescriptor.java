@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.CatalogDescriptorBaseSerializer.CatalogDescriptorBase;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -72,96 +71,47 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return S.toString(this);
     }
 
-    static class IndexDescriptorHeader {
-        private final int tableId;
-        private final boolean unique;
-        private final CatalogIndexStatus status;
-
-        IndexDescriptorHeader(int tableId, boolean unique, int statusId) {
-            this.tableId = tableId;
-            this.unique = unique;
-            this.status = CatalogIndexStatus.forId(statusId);
-        }
-
-        IndexDescriptorHeader(CatalogIndexDescriptor indexDescriptor) {
-            this.tableId = indexDescriptor.tableId();
-            this.unique = indexDescriptor.unique();
-            this.status = indexDescriptor.status();
-        }
-    }
-
-    static class IndexDescriptorHeaderSerializer implements CatalogObjectSerializer<IndexDescriptorHeader> {
-        static IndexDescriptorHeaderSerializer INSTANCE = new IndexDescriptorHeaderSerializer();
-
-        @Override
-        public IndexDescriptorHeader readFrom(int version, IgniteDataInput input) throws IOException {
-            int tableId = input.readInt();
-            boolean unique = input.readBoolean();
-            int status = input.readByte();
-
-            return new IndexDescriptorHeader(tableId, unique, status);
-        }
-
-        @Override
-        public void writeTo(IndexDescriptorHeader header, int version, IgniteDataOutput output) throws IOException {
-            output.writeInt(header.tableId);
-            output.writeBoolean(header.unique);
-            output.writeByte(header.status.id());
-        }
-    }
-
     private static class IndexDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexDescriptor> {
         @Override
         public CatalogIndexDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+            int id = input.readInt();
+            String name = input.readUTF();
+            long updateToken = input.readLong();
+            int tableId = input.readInt();
+            boolean unique = input.readBoolean();
+            CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
+
             byte idxType = input.readByte();
 
             assert idxType == 0 || idxType == 1 : "Unknown index type: " + idxType;
 
             if (idxType == 0) {
-                CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
-                IndexDescriptorHeader idxHeader = IndexDescriptorHeaderSerializer.INSTANCE.readFrom(version, input);
                 List<CatalogIndexColumnDescriptor> columns = readList(version, CatalogIndexColumnDescriptor.SERIALIZER, input);
 
-                return new CatalogSortedIndexDescriptor(
-                        header.id(),
-                        header.name(),
-                        idxHeader.tableId,
-                        idxHeader.unique,
-                        columns,
-                        idxHeader.status,
-                        header.updateToken()
-                );
+                return new CatalogSortedIndexDescriptor(id, name, tableId, unique, columns, status, updateToken);
             } else {
-                CatalogDescriptorBase header = CatalogObjectDescriptor.SERIALIZER.readFrom(version, input);
-                IndexDescriptorHeader idxHeader = IndexDescriptorHeaderSerializer.INSTANCE.readFrom(version, input);
                 List<String> columns = readStringCollection(input, ArrayList::new);
 
-                return new CatalogHashIndexDescriptor(
-                        header.id(),
-                        header.name(),
-                        idxHeader.tableId,
-                        idxHeader.unique,
-                        columns,
-                        idxHeader.status,
-                        header.updateToken()
-                );
+                return new CatalogHashIndexDescriptor(id, name, tableId, unique, columns, status, updateToken);
             }
         }
 
         @Override
         public void writeTo(CatalogIndexDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeLong(descriptor.updateToken());
+            output.writeInt(descriptor.tableId());
+            output.writeBoolean(descriptor.unique());
+            output.writeByte(descriptor.status().id());
+
             if (descriptor instanceof CatalogSortedIndexDescriptor) {
                 output.writeByte(0);
 
-                CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(descriptor), version, output);
-                IndexDescriptorHeaderSerializer.INSTANCE.writeTo(new IndexDescriptorHeader(descriptor), version, output);
                 writeList(((CatalogSortedIndexDescriptor) descriptor).columns(), version, CatalogIndexColumnDescriptor.SERIALIZER, output);
-
             } else if (descriptor instanceof CatalogHashIndexDescriptor) {
                 output.writeByte(1);
 
-                CatalogObjectDescriptor.SERIALIZER.writeTo(new CatalogDescriptorBase(descriptor), version, output);
-                IndexDescriptorHeaderSerializer.INSTANCE.writeTo(new IndexDescriptorHeader(descriptor), version, output);
                 writeStringCollection(((CatalogHashIndexDescriptor) descriptor).columns(), output);
             } else {
                 assert false : "Unknown index type: " + descriptor.getClass().getName();
