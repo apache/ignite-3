@@ -95,7 +95,8 @@ public class LogicalNode extends ClusterNodeImpl {
 
         this.userAttributes = userAttributes == null ? Collections.emptyMap() : userAttributes;
         this.systemAttributes = systemAttributes == null ? Collections.emptyMap() : systemAttributes;
-        this.storageProfiles = storageProfiles == null || storageProfiles.isEmpty() ? List.of("dummy") : storageProfiles;
+        // TODO: KKK why do we need default here?
+        this.storageProfiles = storageProfiles == null || storageProfiles.isEmpty() ? List.of("default") : storageProfiles;
     }
 
     /**
