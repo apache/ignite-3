@@ -80,39 +80,9 @@ TEST_F(connection_test, connection_success) {
     odbc_connect(get_basic_connection_string());
 }
 
-TEST_F(connection_test, auth_connection_success) {
-    set_authentication_enabled(true);
-    EXPECT_NO_THROW(odbc_connect_throw(get_auth_connection_string()));
-}
-
 TEST_F(connection_test, auth_connection_disabled_on_server) {
     set_authentication_enabled(false);
     EXPECT_NO_THROW(odbc_connect_throw(get_auth_connection_string()));
-}
-
-TEST_F(connection_test, auth_connection_disabled_on_client) {
-    set_authentication_enabled(true);
-    EXPECT_THROW(
-        try { odbc_connect_throw(get_basic_connection_string()); } catch (const ignite_error &e) {
-            EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
-            throw;
-        },
-        ignite_error);
-}
-
-TEST_F(connection_test, auth_connection_incorrect_creds) {
-    set_authentication_enabled(true);
-    auto test_conn_str = [this](const std::string &conn_str) {
-        EXPECT_THROW(
-            try { odbc_connect_throw(conn_str); } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
-                throw;
-            },
-            ignite_error);
-    };
-    test_conn_str(get_incorrect_identity_auth_connection_string());
-    test_conn_str(get_incorrect_secret_auth_connection_string());
-    test_conn_str(get_incorrect_auth_connection_string());
 }
 
 TEST_F(connection_test, odbc3_supported) {
@@ -145,6 +115,21 @@ TEST_F(connection_test, odbc3_supported) {
     }
 }
 
+TEST_F(connection_test, username_no_auth) {
+    set_authentication_enabled(false);
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()));
+
+    SQLCHAR buffer[ODBC_BUFFER_SIZE];
+    SQLSMALLINT resLen = 0;
+
+    SQLRETURN ret = SQLGetInfo(m_conn, SQL_USER_NAME, buffer, ODBC_BUFFER_SIZE, &resLen);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
+
+    EXPECT_EQ(std::string(""), std::string(reinterpret_cast<char *>(buffer)));
+}
+
 TEST_F(connection_test, username) {
     set_authentication_enabled(true);
     EXPECT_NO_THROW(odbc_connect_throw(get_auth_connection_string()));
@@ -160,17 +145,32 @@ TEST_F(connection_test, username) {
     EXPECT_EQ(CORRECT_USERNAME, std::string(reinterpret_cast<char *>(buffer)));
 }
 
-TEST_F(connection_test, username_no_auth) {
-    set_authentication_enabled(false);
-    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()));
+TEST_F(connection_test, auth_connection_success) {
+    set_authentication_enabled(true);
+    EXPECT_NO_THROW(odbc_connect_throw(get_auth_connection_string()));
+}
 
-    SQLCHAR buffer[ODBC_BUFFER_SIZE];
-    SQLSMALLINT resLen = 0;
+TEST_F(connection_test, auth_connection_disabled_on_client) {
+    set_authentication_enabled(true);
+    EXPECT_THROW(
+        try { odbc_connect_throw(get_basic_connection_string()); } catch (const ignite_error &e) {
+            EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
+            throw;
+        },
+        ignite_error);
+}
 
-    SQLRETURN ret = SQLGetInfo(m_conn, SQL_USER_NAME, buffer, ODBC_BUFFER_SIZE, &resLen);
-
-    if (!SQL_SUCCEEDED(ret))
-        FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
-
-    EXPECT_EQ(std::string(""), std::string(reinterpret_cast<char *>(buffer)));
+TEST_F(connection_test, auth_connection_incorrect_creds) {
+    set_authentication_enabled(true);
+    auto test_conn_str = [this](const std::string &conn_str) {
+        EXPECT_THROW(
+            try { odbc_connect_throw(conn_str); } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
+                throw;
+            },
+            ignite_error);
+    };
+    test_conn_str(get_incorrect_identity_auth_connection_string());
+    test_conn_str(get_incorrect_secret_auth_connection_string());
+    test_conn_str(get_incorrect_auth_connection_string());
 }

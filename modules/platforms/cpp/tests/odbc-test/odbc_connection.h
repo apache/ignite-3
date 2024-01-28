@@ -97,6 +97,17 @@ public:
     }
 
     /**
+     * Prepare query.
+     *
+     * @param qry Query.
+     * @return Result.
+     */
+    SQLRETURN prepare_query(const std::string &qry) { // NOLINT(readability-make-member-function-const)
+        auto sql = to_sqlchar(qry);
+        return SQLPrepare(m_statement, sql.data(), static_cast<SQLINTEGER>(sql.size()));
+    }
+
+    /**
      * Make a certain number of retry of operation while it fails
      *
      * @param func Function.

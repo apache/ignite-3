@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -43,7 +44,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.AdditionalMatchers.gt;
@@ -94,6 +94,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -159,7 +160,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -192,7 +193,6 @@ import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -344,6 +344,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             null,
             DUMMY_STORAGE_PROFILE
     );
+
+    /** Placement driver. */
+    private PlacementDriver placementDriver;
 
     /** Partition replication listener to test. */
     private PartitionReplicaListener partitionReplicaListener;
@@ -500,6 +503,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         transactionStateResolver.start();
 
+        placementDriver = new TestPlacementDriver(localNode);
+
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
@@ -524,7 +529,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                new TestPlacementDriver(localNode),
+                placementDriver,
                 new SingleClusterNodeResolver(localNode)
         );
 
@@ -615,18 +620,35 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20365")
-    public void testTxStateReplicaRequestMissLeaderMiss() throws Exception {
+    public void testEnsureReplicaIsPrimaryThrowsPrimaryReplicaMissIfEnlistmentConsistencyTokenDoesNotMatchTheOneInLease() {
         localLeader = false;
 
         CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(grpId)
                 .txId(newTxId())
+                .enlistmentConsistencyToken(10L)
                 .build(), localNode.id());
 
-        assertThrows(PrimaryReplicaMissException.class, () -> {
-            fut.get(1, TimeUnit.SECONDS).result();
-        });
+        assertThrowsWithCause(
+                () -> fut.get(1, TimeUnit.SECONDS).result(),
+                PrimaryReplicaMissException.class);
+    }
+
+    @Test
+    public void testEnsureReplicaIsPrimaryThrowsPrimaryReplicaMissIfNodeIdDoesNotMatchTheLeaseholder() {
+        localLeader = false;
+
+        ((TestPlacementDriver) placementDriver).setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl("node3", "node3"));
+
+        CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
+                .groupId(grpId)
+                .txId(newTxId())
+                .enlistmentConsistencyToken(1L)
+                .build(), localNode.id());
+
+        assertThrowsWithCause(
+                () -> fut.get(1, TimeUnit.SECONDS).result(),
+                PrimaryReplicaMissException.class);
     }
 
     @Test
@@ -1626,8 +1648,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = beginAndCommitTx();
 
-        TransactionAlreadyFinishedException ex = assertWillThrowFast(future,
-                TransactionAlreadyFinishedException.class);
+        MismatchingTransactionOutcomeException ex = assertWillThrowFast(future,
+                MismatchingTransactionOutcomeException.class);
 
         assertThat(ex.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
 
@@ -2325,7 +2347,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode.id()
         );
 
-        TransactionAlreadyFinishedException ex = assertWillThrowFast(future, TransactionAlreadyFinishedException.class);
+        MismatchingTransactionOutcomeException ex = assertWillThrowFast(future, MismatchingTransactionOutcomeException.class);
 
         assertThat(ex.getMessage(), is("Commit failed because a table was already dropped [tableId=" + tableToBeDroppedId + "]"));
 

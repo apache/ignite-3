@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -105,6 +106,7 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testJoinPushExpressionRule() throws Exception {
         IgniteSchema publicSchema = createSchemaFrom(
                 employerTable(IgniteDistributions.broadcast()),

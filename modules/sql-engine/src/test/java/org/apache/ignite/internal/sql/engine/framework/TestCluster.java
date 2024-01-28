@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -69,18 +72,15 @@ public class TestCluster implements LifecycleAware {
         return nodeByName.get(name);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         components.forEach(LifecycleAware::start);
 
         nodeByName.values().forEach(TestNode::start);
 
-
         initClosure.run();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         List<AutoCloseable> closeables = Stream.concat(
@@ -103,7 +103,7 @@ public class TestCluster implements LifecycleAware {
 
         @Override
         public void start() {
-            component.start();
+            assertThat(component.start(), willCompleteSuccessfully());
         }
 
         @Override

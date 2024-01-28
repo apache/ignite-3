@@ -19,32 +19,15 @@ package org.apache.ignite.internal.rest.cluster;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Factory;
-import io.micronaut.context.annotation.Replaces;
-import io.micronaut.http.HttpRequest;
-import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
-import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
-import jakarta.inject.Inject;
+import java.net.http.HttpResponse;
 import java.util.List;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.rest.RestManager;
-import org.apache.ignite.internal.rest.RestManagerFactory;
-import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
+import org.apache.ignite.internal.rest.AbstractRestTestBase;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
-import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
-import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
-import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -54,121 +37,78 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItClusterManagementControllerTest extends RestTestBase {
-    @Inject
-    @Client("/management/v1/cluster")
-    private HttpClient client;
-
-    @InjectConfiguration
-    private SecurityConfiguration securityConfiguration;
-
+public class ItClusterManagementControllerTest extends AbstractRestTestBase {
     @Test
-    void testControllerLoaded() {
-        assertNotNull(server.getApplicationContext().getBean(ClusterManagementApi.class));
-    }
-
-    @Test
-    void testInitNoSuchNode() {
+    void testInitNoSuchNode() throws Exception {
         // Given body with nodename that does not exist
         String givenInvalidBody = "{\"metaStorageNodes\": [\"nodename\"], \"cmgNodes\": [], \"clusterName\": \"cluster\"}";
 
         // When
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenInvalidBody))
-        );
+        HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", givenInvalidBody));
+        Problem initProblem = getProblem(initResponse);
 
         // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        // And
-        var problem = getProblem(thrown);
-        assertEquals(400, problem.status());
-        assertEquals("Node \"nodename\" is not present in the physical topology", problem.detail());
+        assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
+        assertThat(initProblem.status(), is(HttpStatus.BAD_REQUEST.getCode()));
+        assertThat(initProblem.title(), is("Bad Request"));
+        assertThat(initProblem.detail(), is("Node \"nodename\" is not present in the physical topology"));
     }
 
     @Test
-    void testInitAlreadyInitializedWithAnotherNodes() {
+    void testInitAlreadyInitializedWithAnotherNodes() throws Exception {
         // Given cluster is not initialized
-        HttpClientResponseException thrownBeforeInit = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().retrieve("state", ClusterState.class));
+        HttpResponse<String> stateResponseBeforeInit = send(get("/management/v1/cluster/state"));
+        Problem beforeInitProblem = getProblem(stateResponseBeforeInit);
 
-        // Then status is 409: cluster not initialized
-        assertThat(thrownBeforeInit.getStatus(), is(equalTo(HttpStatus.CONFLICT)));
+        // Then status is 409: Cluster is not initialized
+        assertThat(stateResponseBeforeInit.statusCode(), is(HttpStatus.CONFLICT.getCode()));
+        assertThat(beforeInitProblem.title(), is("Cluster is not initialized"));
         assertThat(
-                getProblem(thrownBeforeInit).detail(),
-                is(equalTo("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+                beforeInitProblem.detail(),
+                is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
         );
 
         // Given cluster initialized
         String givenFirstRequestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + cluster.get(0).clusterService().nodeName() + "\"\n"
+                + "        \"" + nodeNames.get(0) + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\"\n"
                 + "}";
 
         // When
-        HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.POST("init", givenFirstRequestBody));
+        HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", givenFirstRequestBody));
 
         // Then
-        assertThat(response.getStatus(), is(equalTo((HttpStatus.OK))));
+        assertThat(initResponse.statusCode(), is(HttpStatus.OK.getCode()));
         // And
-        assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
+        assertThat(startingNodes.get(0), willCompleteSuccessfully());
 
         // When get cluster state
-        ClusterState state =
-                client.toBlocking().retrieve("state", ClusterState.class);
+        HttpResponse<String> stateResponse = send(get("/management/v1/cluster/state"));
+        ClusterState state = objectMapper.readValue(stateResponse.body(), ClusterState.class);
 
         // Then cluster state is valid
-        assertThat(state.msNodes(), is(equalTo(List.of(cluster.get(0).clusterService().nodeName()))));
-        assertThat(state.cmgNodes(), is(equalTo(List.of(cluster.get(0).clusterService().nodeName()))));
-        assertThat(state.clusterTag().clusterName(), is(equalTo("cluster")));
+        assertThat(state.msNodes(), is(List.of(nodeNames.get(0))));
+        assertThat(state.cmgNodes(), is(List.of(nodeNames.get(0))));
+        assertThat(state.clusterTag().clusterName(), is("cluster"));
 
         // Given second request with different node name
         String givenSecondRequestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + cluster.get(1).clusterService().nodeName() + "\"\n"
+                + "        \"" + nodeNames.get(1) + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\"\n"
                 + "}";
 
         // When
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenSecondRequestBody))
-        );
+        HttpResponse<String> secondInitResponse = send(post("/management/v1/cluster/init", givenSecondRequestBody));
+        Problem secondInitProblem = getProblem(secondInitResponse);
 
         // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.INTERNAL_SERVER_ERROR))));
-        // And
-        var problem = getProblem(thrown);
-        assertEquals(500, problem.status());
-    }
-
-    @Factory
-    @Bean
-    @Replaces(ClusterManagementRestFactory.class)
-    public ClusterManagementRestFactory clusterManagementRestFactory() {
-        return new ClusterManagementRestFactory(clusterService, clusterInitializer, clusterManager);
-    }
-
-    @Factory
-    @Bean
-    @Replaces(AuthenticationProviderFactory.class)
-    public AuthenticationProviderFactory authProviderFactory() {
-        return new AuthenticationProviderFactory(authenticationManager());
-    }
-
-    @Factory
-    @Bean
-    @Replaces(RestManagerFactory.class)
-    public RestManagerFactory restManagerProvider() {
-        return new RestManagerFactory(new RestManager());
-    }
-
-    private AuthenticationManagerImpl authenticationManager() {
-        return new AuthenticationManagerImpl(securityConfiguration);
+        assertThat(secondInitResponse.statusCode(), is(HttpStatus.INTERNAL_SERVER_ERROR.getCode()));
+        assertThat(secondInitProblem.status(), is(HttpStatus.INTERNAL_SERVER_ERROR.getCode()));
     }
 }

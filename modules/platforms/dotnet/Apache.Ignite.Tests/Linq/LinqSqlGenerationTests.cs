@@ -432,6 +432,8 @@ public partial class LinqSqlGenerationTests
     {
         _client.Dispose();
         _server.Dispose();
+
+        TestUtils.CheckByteArrayPoolLeak();
     }
 
     private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query) =>

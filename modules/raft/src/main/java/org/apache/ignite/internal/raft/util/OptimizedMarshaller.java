@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.util;
 
+import static org.apache.ignite.internal.network.direct.DirectMessageWriter.EMPTY_BYTE_BUFFER;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -25,7 +27,6 @@ import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
 import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageReader;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -67,9 +68,6 @@ public class OptimizedMarshaller implements Marshaller {
 
     /** Byte buffer order. */
     public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
-
-    /** Empty array-based byte buffer. Not read-only. */
-    private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.wrap(ArrayUtils.BYTE_EMPTY_ARRAY);
 
     /** Pool of byte buffers. */
     private final ByteBuffersPool pool;
@@ -146,7 +144,7 @@ public class OptimizedMarshaller implements Marshaller {
         }
 
         // Prevent holding the reference for too long.
-        stream.setBuffer(EMPTY_BUFFER);
+        stream.setBuffer(EMPTY_BYTE_BUFFER);
 
         byte[] result = Arrays.copyOf(buffer.array(), buffer.position());
 

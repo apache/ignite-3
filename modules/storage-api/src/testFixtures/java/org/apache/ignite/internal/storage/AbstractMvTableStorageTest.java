@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -792,7 +793,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 false,
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
-                true
+                AVAILABLE
         );
 
         CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
@@ -801,7 +802,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 List.of("STRKEY"),
-                true
+                AVAILABLE
         );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);

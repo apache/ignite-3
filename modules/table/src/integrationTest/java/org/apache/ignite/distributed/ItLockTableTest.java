@@ -44,6 +44,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -139,7 +140,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         clock,
                         generator,
                         placementDriver,
-                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                        new TestLocalRwTxCounter()
                 );
             }
         };

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Catalog.VALIDATION_ERR;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
@@ -60,7 +59,6 @@ public class CatalogParamsValidationUtils {
 
         if (value < min || (max != null && value > max)) {
             throw new CatalogValidationException(
-                    VALIDATION_ERR,
                     "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]"),
                     errorPrefix, value, min, max
             );
@@ -77,7 +75,6 @@ public class CatalogParamsValidationUtils {
     ) {
         if (autoAdjust != null && (scaleUp != null || scaleDown != null)) {
             throw new CatalogValidationException(
-                    VALIDATION_ERR,
                     "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}]",
                     autoAdjust, scaleUp, scaleDown
             );
@@ -98,7 +95,6 @@ public class CatalogParamsValidationUtils {
             String error = e.getMessage() == null ? "Unknown JsonPath compilation error." : e.getMessage();
 
             throw new CatalogValidationException(
-                    VALIDATION_ERR,
                     "Invalid filter: [value={}, error={}]",
                     e,
                     filter, error

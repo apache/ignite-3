@@ -211,7 +211,7 @@ private:
     std::vector<std::byte> m_recv_packet;
 
     /** Closing error. */
-    std::optional<ignite_error> m_close_err {};
+    std::optional<ignite_error> m_close_err{};
 };
 
 } // namespace ignite::network::detail

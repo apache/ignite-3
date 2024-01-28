@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -137,7 +138,7 @@ public class CreateTableCommand extends AbstractTableCommand {
                 tableId,
                 true,
                 primaryKeyColumns,
-                true
+                AVAILABLE
         );
 
         return List.of(

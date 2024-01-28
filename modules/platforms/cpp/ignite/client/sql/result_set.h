@@ -106,7 +106,7 @@ public:
      *
      * @return Current page.
      */
-    [[nodiscard]] IGNITE_API const std::vector<ignite_tuple>& current_page() const&;
+    [[nodiscard]] IGNITE_API const std::vector<ignite_tuple> &current_page() const &;
 
     /**
      * Checks whether there are more pages of results.

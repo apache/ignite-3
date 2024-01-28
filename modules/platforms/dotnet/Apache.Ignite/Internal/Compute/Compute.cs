@@ -208,6 +208,11 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(node.Name);
                 WriteUnits(units, writer);
                 w.Write(jobClassName);
+
+                // TODO: IGNITE-21334
+                w.Write(0); // Priority.
+                w.Write(0); // Max retries.
+
                 w.WriteObjectCollectionAsBinaryTuple(args);
             }
 
@@ -306,6 +311,11 @@ namespace Apache.Ignite.Internal.Compute
 
                 WriteUnits(units0, bufferWriter);
                 w.Write(jobClassName);
+
+                // TODO: IGNITE-21334
+                w.Write(0); // Priority.
+                w.Write(0); // Max retries.
+
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
                 return colocationHash;

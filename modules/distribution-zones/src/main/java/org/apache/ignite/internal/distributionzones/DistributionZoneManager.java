@@ -95,6 +95,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -263,7 +264,7 @@ public class DistributionZoneManager implements IgniteComponent {
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision),
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
-            ).thenRun(rebalanceEngine::start);
+            ).thenCompose((notUsed) -> rebalanceEngine.start());
         });
     }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
@@ -32,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -99,8 +101,8 @@ public class DistributionZoneRebalanceEngine {
     /**
      * Starts the rebalance engine by registering corresponding meta storage and configuration listeners.
      */
-    public void start() {
-        IgniteUtils.inBusyLock(busyLock, () -> {
+    public CompletableFuture<Void> start() {
+        return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
                 protected CompletableFuture<Void> onReplicasUpdate(AlterZoneEventParameters parameters, int oldReplicas) {
@@ -110,7 +112,43 @@ public class DistributionZoneRebalanceEngine {
 
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
             metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
+
+            CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
+
+            // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
+            assert recoveryFinishFuture.isDone();
+
+            long recoveryRevision = recoveryFinishFuture.join();
+
+            return rebalanceTriggersRecovery(recoveryRevision);
         });
+    }
+
+    /**
+     * Run the update of rebalance metastore's state.
+     *
+     * @param recoveryRevision Recovery revision.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21058 At the moment this method produce many metastore multi-invokes
+    // TODO: which can be avoided by the local logic, which mirror the logic of metastore invokes.
+    // TODO: And then run the remote invoke, only if needed.
+    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
+        if (recoveryRevision > 0) {
+            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
+                    .stream()
+                    .map(zoneDesc ->
+                            recalculateAssignmentsAndScheduleRebalance(
+                                    zoneDesc,
+                                    recoveryRevision,
+                                    catalogService.latestCatalogVersion()
+                            )
+                    )
+                    .collect(Collectors.toUnmodifiableList());
+
+            return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
+        } else {
+            return completedFuture(null);
+        }
     }
 
     /**
@@ -177,27 +215,41 @@ public class DistributionZoneRebalanceEngine {
     }
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
-        return IgniteUtils.inBusyLockAsync(busyLock, () -> {
-            int zoneId = parameters.zoneDescriptor().id();
-            long causalityToken = parameters.causalityToken();
-            int catalogVersion = parameters.catalogVersion();
+        return recalculateAssignmentsAndScheduleRebalance(
+                parameters.zoneDescriptor(),
+                parameters.causalityToken(),
+                parameters.catalogVersion()
+        );
+    }
 
-            return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
-                    .thenCompose(dataNodes -> {
-                        if (dataNodes.isEmpty()) {
-                            return nullCompletedFuture();
-                        }
+    /**
+     * Recalculate assignments for table partitions of target zone and schedule rebalance (by update rebalance metastore keys).
+     *
+     * @param zoneDescriptor Zone descriptor.
+     * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
+     * @return The future, which completes when the all metastore updates done.
+     */
+    private CompletableFuture<Void> recalculateAssignmentsAndScheduleRebalance(
+            CatalogZoneDescriptor zoneDescriptor,
+            long causalityToken,
+            int catalogVersion) {
 
-                        List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, parameters.catalogVersion());
+        return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+                .thenCompose(dataNodes -> {
+                    if (dataNodes.isEmpty()) {
+                        return nullCompletedFuture();
+                    }
 
-                        return triggerPartitionsRebalanceForAllTables(
-                                causalityToken,
-                                parameters.zoneDescriptor(),
-                                dataNodes,
-                                tableDescriptors
-                        );
-                    });
-        });
+                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneDescriptor.id(), catalogVersion);
+
+                    return triggerPartitionsRebalanceForAllTables(
+                            causalityToken,
+                            zoneDescriptor,
+                            dataNodes,
+                            tableDescriptors
+                    );
+                });
     }
 
     private CompletableFuture<Void> triggerPartitionsRebalanceForAllTables(

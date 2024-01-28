@@ -17,13 +17,21 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.compute.JobState.CANCELED;
+import static org.apache.ignite.compute.JobState.COMPLETED;
+import static org.apache.ignite.compute.JobState.EXECUTING;
+import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.compute.JobState.QUEUED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -100,14 +108,87 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNodeAsync() {
-        assertThat(
-                client().compute().<String>executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).resultAsync(),
-                willBe("itcct_n_3344")
-        );
-        assertThat(
-                client().compute().<String>executeAsync(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).resultAsync(),
-                willBe("itcct_n_3345")
-        );
+        JobExecution<String> execution1 = client().compute().executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+        JobExecution<String> execution2 = client().compute().executeAsync(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+
+        assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
+        assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
+
+        assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+    }
+
+    @Test
+    void testCancellingCompletedJob() {
+        JobExecution<String> execution = client().compute().executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+
+        assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
+
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+
+        assertThat(execution.cancelAsync(), willBe(false));
+    }
+
+    @Test
+    void testChangingPriorityCompletedJob() {
+        JobExecution<String> execution = client().compute().executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+
+        assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
+
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+
+        assertThat(execution.changePriorityAsync(0), willBe(false));
+    }
+
+    @Test
+    void testCancelOnSpecificNodeAsync() {
+        int sleepMs = 1_000_000;
+        JobExecution<String> execution1 = client().compute().executeAsync(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
+        JobExecution<String> execution2 = client().compute().executeAsync(Set.of(node(1)), List.of(), SleepJob.class.getName(), sleepMs);
+
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        assertThat(execution1.cancelAsync(), willBe(true));
+        assertThat(execution2.cancelAsync(), willBe(true));
+
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(CANCELED)));
+    }
+
+    @Test
+    void changeJobPriority() {
+        int sleepMs = 1_000_000;
+        // Start 1 task in executor with 1 thread
+        JobExecution<String> execution1 = client().compute().executeAsync(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        // Start one more long lasting task
+        JobExecution<String> execution2 = client().compute().executeAsync(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(QUEUED)));
+
+        // Start third task
+        JobExecution<String> execution3 = client().compute().executeAsync(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
+        await().until(execution3::statusAsync, willBe(jobStatusWithState(QUEUED)));
+
+        // Task 2 and 3 are not completed, in queue state
+        assertThat(execution2.resultAsync().isDone(), is(false));
+        assertThat(execution3.resultAsync().isDone(), is(false));
+
+        // Change priority of task 3, so it should be executed before task 2
+        assertThat(execution3.changePriorityAsync(2), willBe(true));
+
+        // Cancel task 1, task 3 should start executing
+        assertThat(execution1.cancelAsync(), willBe(true));
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(execution3::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        // Task 2 is still queued
+        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(QUEUED)));
+
+        // Cleanup
+        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(execution3.cancelAsync(), willBe(true));
     }
 
     @Test
@@ -119,10 +200,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNodeAsync() {
+        JobExecution<String> execution = client().compute()
+                .executeAsync(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName());
+
         assertThat(
-                client().compute().<String>executeAsync(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).resultAsync(),
+                execution.resultAsync(),
                 will(oneOf("itcct_n_3344", "itcct_n_3345"))
         );
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @Test
@@ -136,7 +221,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals(1, futuresPerNode.size());
 
-        assertThat(futuresPerNode.get(node(1)).resultAsync(), willBe("itcct_n_3345__123"));
+        JobExecution<String> execution = futuresPerNode.get(node(1));
+
+        assertThat(execution.resultAsync(), willBe("itcct_n_3345__123"));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @Test
@@ -150,17 +238,48 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals(2, futuresPerNode.size());
 
-        assertThat(futuresPerNode.get(node(0)).resultAsync(), willBe("itcct_n_3344__123"));
-        assertThat(futuresPerNode.get(node(1)).resultAsync(), willBe("itcct_n_3345__123"));
+        JobExecution<String> execution1 = futuresPerNode.get(node(0));
+        JobExecution<String> execution2 = futuresPerNode.get(node(1));
+
+        assertThat(execution1.resultAsync(), willBe("itcct_n_3344__123"));
+        assertThat(execution2.resultAsync(), willBe("itcct_n_3345__123"));
+
+        assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+    }
+
+    @Test
+    void testCancelBroadcastAllNodes() {
+        int sleepMs = 1_000_000;
+        Map<ClusterNode, JobExecution<String>> futuresPerNode = client().compute().broadcastAsync(
+                new HashSet<>(sortedNodes()),
+                List.of(),
+                SleepJob.class.getName(),
+                sleepMs
+        );
+
+        assertEquals(2, futuresPerNode.size());
+
+        JobExecution<String> execution1 = futuresPerNode.get(node(0));
+        JobExecution<String> execution2 = futuresPerNode.get(node(1));
+
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        assertThat(execution1.cancelAsync(), willBe(true));
+        assertThat(execution2.cancelAsync(), willBe(true));
+
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(CANCELED)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(CANCELED)));
     }
 
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        assertThat(
-                client().compute().<String>executeAsync(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3).resultAsync(),
-                willBe("1_2_3.3")
-        );
+        JobExecution<String> execution = client().compute().executeAsync(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3);
+
+        assertThat(execution.resultAsync(), willBe("1_2_3.3"));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @ParameterizedTest
@@ -169,11 +288,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         IgniteException cause;
 
         if (async) {
+            JobExecution<String> execution = client().compute()
+                    .executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName());
+
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
-                            .resultAsync().join()
+                    () -> execution.resultAsync().join()
             );
+
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -197,11 +320,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         IgniteException cause;
 
         if (async) {
+            JobExecution<String> execution = client().compute().executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName());
+
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
-                            .resultAsync().join()
+                    () -> execution.resultAsync().join()
             );
+
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -225,11 +351,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         IgniteException cause;
 
         if (async) {
+            JobExecution<String> execution = client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName());
+
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
-                            .resultAsync().join()
+                    () -> execution.resultAsync().join()
             );
+
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -253,29 +382,82 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
-    void testExecuteColocatedRunsComputeJobOnKeyNode(int key, int port) {
-        var table = TABLE_NAME;
+    void testExecuteColocatedTupleRunsComputeJobOnKeyNode(int key, int port) {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
-        var keyPojo = new TestPojo(key);
 
-        CompletableFuture<String> tupleRes = client().compute().<String>executeColocatedAsync(
-                table,
+        JobExecution<String> tupleExecution = client().compute().executeColocatedAsync(
+                TABLE_NAME,
                 keyTuple,
                 List.of(),
                 NodeNameJob.class.getName()
-        ).resultAsync();
+        );
 
-        CompletableFuture<String> pojoRes = client().compute().<TestPojo, String>executeColocatedAsync(
-                table,
+        String expectedNode = "itcct_n_" + port;
+        assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
+
+        assertThat(tupleExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
+    void testExecuteColocatedPojoRunsComputeJobOnKeyNode(int key, int port) {
+        var keyPojo = new TestPojo(key);
+
+        JobExecution<String> pojoExecution = client().compute().executeColocatedAsync(
+                TABLE_NAME,
                 keyPojo,
                 Mapper.of(TestPojo.class),
                 List.of(),
                 NodeNameJob.class.getName()
-        ).resultAsync();
+        );
 
         String expectedNode = "itcct_n_" + port;
-        assertThat(tupleRes, willBe(expectedNode));
-        assertThat(pojoRes, willBe(expectedNode));
+        assertThat(pojoExecution.resultAsync(), willBe(expectedNode));
+
+        assertThat(pojoExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
+    void testCancelColocatedTuple(int key, int port) {
+        var keyTuple = Tuple.create().set(COLUMN_KEY, key);
+        int sleepMs = 1_000_000;
+
+        JobExecution<String> tupleExecution = client().compute().executeColocatedAsync(
+                TABLE_NAME,
+                keyTuple,
+                List.of(),
+                SleepJob.class.getName(),
+                sleepMs
+        );
+
+        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        assertThat(tupleExecution.cancelAsync(), willBe(true));
+
+        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
+    void testCancelColocatedPojo(int key, int port) {
+        var keyPojo = new TestPojo(key);
+        int sleepMs = 1_000_000;
+
+        JobExecution<String> pojoExecution = client().compute().executeColocatedAsync(
+                TABLE_NAME,
+                keyPojo,
+                Mapper.of(TestPojo.class),
+                List.of(),
+                SleepJob.class.getName(),
+                sleepMs
+        );
+
+        await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        assertThat(pojoExecution.cancelAsync(), willBe(true));
+
+        await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
     }
 
     @Test

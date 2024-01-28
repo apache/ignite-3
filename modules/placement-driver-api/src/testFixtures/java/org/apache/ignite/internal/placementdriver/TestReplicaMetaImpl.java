@@ -61,7 +61,7 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
      * @param leaseholder Lease holder consistent ID, {@code null} if nothing holds the lease.
      * @param leaseholderId Lease holder ID, {@code null} if nothing holds the lease.
      */
-    TestReplicaMetaImpl(@Nullable String leaseholder, @Nullable String leaseholderId) {
+    public TestReplicaMetaImpl(@Nullable String leaseholder, @Nullable String leaseholderId) {
         this(leaseholder, leaseholderId, MIN_VALUE, MAX_VALUE);
     }
 

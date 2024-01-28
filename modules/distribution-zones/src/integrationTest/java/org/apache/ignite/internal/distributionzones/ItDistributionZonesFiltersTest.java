@@ -22,12 +22,12 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
@@ -108,7 +108,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      */
     @Test
     void testFilteredDataNodesPropagatedToStable() throws Exception {
-        String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
+        String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
         String storageProfiles = "'lru_rocks, segmented_aipersist'";
 
         // This node do not pass the filter
@@ -181,7 +181,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      */
     @Test
     void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
-        String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
+        String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
         String storageProfiles = "'lru_rocks, segmented_aipersist'";
 
         IgniteImpl node0 = node(0);
@@ -239,7 +239,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      */
     @Test
     void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
-        String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
+        String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
         String storageProfiles = "'lru_rocks, segmented_aipersist'";
 
         IgniteImpl node0 = node(0);
@@ -279,7 +279,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
         // There is no node that match the filter
-        String newFilter = "'$[?(@.region == \"FOO\" && @.storage == \"BAR\")]'";
+        String newFilter = "$[?(@.region == \"FOO\" && @.storage == \"BAR\")]";
 
         session.execute(null, alterZoneSql(newFilter));
 
@@ -303,7 +303,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      */
     @Test
     void testFilteredEmptyDataNodesDoNotTriggerRebalance() throws Exception {
-        String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
+        String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
         String storageProfiles = "'lru_rocks, segmented_aipersist'";
 
         // This node do not pass the filter.
@@ -350,7 +350,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     @Test
     void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate() throws Exception {
-        String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
+        String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
         String storageProfiles = "'lru_rocks, segmented_aipersist'";
 
         // This node do not pass the filter.
@@ -457,7 +457,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         String sqlFormat = "CREATE ZONE \"%s\" WITH "
                 + "\"REPLICAS\" = %s, "
                 + "\"PARTITIONS\" = %s, "
-                + "\"DATA_NODES_FILTER\" = %s, "
+                + "\"DATA_NODES_FILTER\" = '%s', "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %s, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %s, "
                 + "\"STORAGE_PROFILES\" = %s";
@@ -466,7 +466,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = %s", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
     }
 
     private static String alterZoneSql(int replicas) {

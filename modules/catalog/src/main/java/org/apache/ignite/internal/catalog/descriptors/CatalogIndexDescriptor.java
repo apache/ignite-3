@@ -19,32 +19,30 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /** Index descriptor base class. */
 public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -8045949593661301287L;
 
-    /** Table id. */
+    /** Table ID. */
     private final int tableId;
 
     /** Unique constraint flag. */
     private final boolean unique;
 
-    /**
-     * Index availability flag, {@code true} means it is available (the index has been built), otherwise it is registered
-     * (the index has not yet been built).
-     */
-    private final boolean available;
+    /** Index status. */
+    private final CatalogIndexStatus status;
 
-    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, boolean available) {
+    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, CatalogIndexStatus status) {
         super(id, Type.INDEX, name, INITIAL_CAUSALITY_TOKEN);
         this.tableId = tableId;
         this.unique = unique;
-        this.available = available;
+        this.status = Objects.requireNonNull(status, "status");
     }
 
-    /** Gets table id. */
+    /** Gets table ID. */
     public int tableId() {
         return tableId;
     }
@@ -54,12 +52,9 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return unique;
     }
 
-    /**
-     * Returns index availability flag, {@code true} means it is available (the index has been built), otherwise it is
-     * registered (the index has not yet been built).
-     */
-    public boolean available() {
-        return available;
+    /** Returns index status. */
+    public CatalogIndexStatus status() {
+        return status;
     }
 
     @Override

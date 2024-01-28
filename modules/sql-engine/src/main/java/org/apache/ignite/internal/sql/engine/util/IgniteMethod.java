@@ -119,7 +119,9 @@ public enum IgniteMethod {
     /**
      * TRUNCATE function. See {@link IgniteSqlFunctions#struncate(double)}, {@link IgniteSqlFunctions#struncate(double, int)} and variants.
      */
-    TRUNCATE(IgniteSqlFunctions.class, "struncate", true);
+    TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
+
+    SUBSTRING(IgniteSqlFunctions.class, "substring", true);
 
     private final Method method;
 
