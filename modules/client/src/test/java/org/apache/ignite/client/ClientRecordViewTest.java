@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -276,6 +277,22 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("a", res[0]);
         assertNull(res[1]);
         assertEquals("c", res[2]);
+    }
+
+    @Test
+    public void testContains() {
+        Tuple recordTuple = Tuple.create()
+                .set("id", DEFAULT_ID)
+                .set("name", DEFAULT_NAME);
+        Tuple keyTuple = Tuple.create()
+                .set("id", DEFAULT_ID);
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        recordView.insert(null, recordTuple);
+
+        assertTrue(recordView.contains(null, recordTuple));
+        assertTrue(recordView.contains(null, keyTuple));
+        assertFalse(recordView.contains(null, Tuple.create(Map.of("id",-1L))));
     }
 
     @Test

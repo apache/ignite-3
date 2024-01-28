@@ -106,6 +106,24 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     /** {@inheritDoc} */
     @Override
+    public boolean contains(@Nullable Transaction tx, R key) {
+        return sync(containsAsync(tx, key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R key) {
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_KEY,
+                (s, w) -> ser.writeRec(tx, key, s, w, TuplePart.KEY),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void upsert(@Nullable Transaction tx, R rec) {
         sync(upsertAsync(tx, rec));
     }

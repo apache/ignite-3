@@ -97,6 +97,24 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
     /** {@inheritDoc} */
     @Override
+    public boolean contains(@Nullable Transaction tx, Tuple key) {
+        return sync(containsAsync(tx, key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, Tuple key) {
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_KEY,
+                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void upsert(@Nullable Transaction tx, Tuple rec) {
         sync(upsertAsync(tx, rec));
     }
