@@ -36,7 +36,21 @@ import org.junit.jupiter.api.Test;
  * Tests to verify catalog storage entries serialization compatibility.
  */
 public class CatalogEntrySerializationCompatibilityTest {
-    private final CatalogEntrySerializerProvider serializerProvider = (ignore) -> TestUpdateEntrySerializer.INSTANCE;
+    private final CatalogEntrySerializerProvider serializerProvider = (typeId) -> {
+        switch (typeId) {
+            case 0:
+                return TestUpdateEntrySerializerV1.INSTANCE;
+
+            case 1:
+                return TestUpdateEntrySerializerV2.INSTANCE;
+
+            case 2:
+                return TestUpdateEntrySerializerV3.INSTANCE;
+
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + typeId);
+        }
+    };
 
     /**
      * Checks whether the old version of an entity can be read by the new version's serializer.
@@ -281,6 +295,11 @@ public class CatalogEntrySerializationCompatibilityTest {
         }
 
         @Override
+        public int typeId() {
+            return 1;
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) {
                 return true;
@@ -309,6 +328,11 @@ public class CatalogEntrySerializationCompatibilityTest {
         }
 
         @Override
+        public int typeId() {
+            return 2;
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) {
                 return true;
@@ -328,38 +352,72 @@ public class CatalogEntrySerializationCompatibilityTest {
         }
     }
 
-    private static class TestUpdateEntrySerializer<T extends TestUpdateEntry> implements CatalogObjectSerializer<T> {
+    private static class TestUpdateEntrySerializerV1<T extends TestUpdateEntry> implements CatalogObjectSerializer<T> {
         @SuppressWarnings({"unchecked", "rawtypes"})
-        private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializer();
+        private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializerV1();
 
         @Override
         public T readFrom(int version, IgniteDataInput input) throws IOException {
             TestDescriptor1 descriptor1 = TestDescriptor1.serializer().readFrom(version, input);
             int value = input.readInt();
 
-            if (version < 2) {
-                return (T) new TestUpdateEntry(descriptor1, value);
-            }
-
-            List<TestDescriptor2> descList = CatalogSerializationUtils.readList(version, TestDescriptor2.serializer(), input);
-
-            if (version < 3) {
-                return (T) new TestUpdateEntryV2(descriptor1, value, descList);
-            }
-
-            return (T) new TestUpdateEntryV3(descriptor1, value, descList, input.readUTF());
+            return (T) new TestUpdateEntry(descriptor1, value);
         }
 
         @Override
         public void writeTo(T entry, int version, IgniteDataOutput output) throws IOException {
             TestDescriptor1.serializer().writeTo(entry.descriptor1, version, output);
             output.writeInt(entry.value);
+        }
+    }
+
+    private static class TestUpdateEntrySerializerV2<T extends TestUpdateEntry> extends TestUpdateEntrySerializerV1<T> {
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializerV2();
+
+        @Override
+        public T readFrom(int version, IgniteDataInput input) throws IOException {
+            TestUpdateEntry entryV1 = super.readFrom(version, input);
+
+            if (version < 2) {
+                return (T) entryV1;
+            }
+
+            List<TestDescriptor2> descList = CatalogSerializationUtils.readList(version, TestDescriptor2.serializer(), input);
+
+            return (T) new TestUpdateEntryV2(entryV1.descriptor1, entryV1.value, descList);
+        }
+
+        @Override
+        public void writeTo(T entry, int version, IgniteDataOutput output) throws IOException {
+            super.writeTo(entry, version, output);
 
             if (version > 1) {
                 assert entry instanceof TestUpdateEntryV2;
 
                 CatalogSerializationUtils.writeList(((TestUpdateEntryV2) entry).descList, version, TestDescriptor2.serializer(), output);
             }
+        }
+    }
+
+    private static class TestUpdateEntrySerializerV3<T extends TestUpdateEntry> extends TestUpdateEntrySerializerV2<T> {
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializerV3();
+
+        @Override
+        public T readFrom(int version, IgniteDataInput input) throws IOException {
+            TestUpdateEntry entry = super.readFrom(version, input);
+
+            if (version < 3) {
+                return (T) entry;
+            }
+
+            return (T) new TestUpdateEntryV3(entry.descriptor1, entry.value, ((TestUpdateEntryV2) entry).descList, input.readUTF());
+        }
+
+        @Override
+        public void writeTo(T entry, int version, IgniteDataOutput output) throws IOException {
+            super.writeTo(entry, version, output);
 
             if (version > 2) {
                 assert entry instanceof TestUpdateEntryV3;
