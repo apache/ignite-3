@@ -1393,7 +1393,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         try (Session session = node.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, nodesCount, 1));
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s';", zoneName, nodesCount, 1, DUMMY_STORAGE_PROFILE));
 
             session.execute(null, "CREATE TABLE " + TABLE_NAME
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
@@ -1506,7 +1506,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Create table, all nodes are lagging.
         try (Session session = node0.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                    zoneName, 2, 1, DUMMY_STORAGE_PROFILE));
 
             nodeInhibitor0.startInhibit();
             nodeInhibitor1.startInhibit();
@@ -1574,7 +1575,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String zoneName = "ZONE_TEST";
 
         try (Session session = node0.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
+            session.execute(null,
+                    String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                    zoneName, 2, 1, DUMMY_STORAGE_PROFILE));
         }
 
         int catalogVersionBeforeTable = node0.catalogManager().latestCatalogVersion();

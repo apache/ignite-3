@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -155,9 +156,10 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 + "\"REPLICAS\" = %d, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %d, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %d,"
-                + "\"DATA_NODES_FILTER\" = '%s'";
+                + "\"DATA_NODES_FILTER\" = '%s',"
+                + "\"STORAGE_PROFILES\" = '%s'";
 
-        return String.format(sqlFormat, zoneName, partitions, replicas, scaleUp, scaleDown, filter);
+        return String.format(sqlFormat, zoneName, partitions, replicas, scaleUp, scaleDown, filter, DUMMY_STORAGE_PROFILE);
     }
 
     private static String selectFromZonesSystemView(String zoneName) {
