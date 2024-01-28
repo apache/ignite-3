@@ -32,7 +32,7 @@ public final class Constants {
 
     /** Dummy storage profile. */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 Replace dummy with the real target storages.
-    public static final String DUMMY_STORAGE_PROFILE = "dummy";
+    public static final String DUMMY_STORAGE_PROFILE = "default";
 
     /** Stub. */
     private Constants() {
