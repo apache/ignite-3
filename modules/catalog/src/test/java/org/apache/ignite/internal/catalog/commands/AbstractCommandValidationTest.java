@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
@@ -51,6 +52,10 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> nullAndBlankStrings() {
         return Stream.of(null, "", " ", "  ").map(Arguments::of);
+    }
+
+    static Stream<Arguments> reservedSchemaNames() {
+        return SYSTEM_SCHEMAS.stream().map(Arguments::of);
     }
 
     static Stream<Arguments> nullAndEmptyLists() {
