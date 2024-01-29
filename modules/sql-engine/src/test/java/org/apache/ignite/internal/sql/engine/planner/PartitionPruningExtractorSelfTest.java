@@ -325,7 +325,7 @@ public class PartitionPruningExtractorSelfTest extends BaseIgniteAbstractTest {
             actual = Collections.emptyList();
         } else {
             // [1 = RexExpr1, 2 = RexExpr2] => [1 = "expr1-as-string", 2 = "expr2-as-string" ]
-            actual = actualMetadata.canonicalForm().stream()
+            actual = PartitionPruningColumns.canonicalForm(actualMetadata).stream()
                     .map(String::valueOf)
                     .collect(Collectors.toList());
         }

@@ -61,8 +61,8 @@ public class PartitionPruningColumns {
 
     /** Returns column values in canonical form. E.g. {@code [1=2, 0=3]} becomes {@code [0=3, 1=2]} */
     @TestOnly
-    public List<List<Map.Entry<Integer, RexNode>>> canonicalForm() {
-        return columns.stream()
+    public static List<List<Map.Entry<Integer, RexNode>>> canonicalForm(PartitionPruningColumns columns) {
+        return columns.columns.stream()
                 .map(cols -> cols.int2ObjectEntrySet().stream().map(e -> Map.entry(e.getIntKey(), e.getValue()))
                         .sorted(Entry.comparingByKey())
                         .collect(Collectors.toList()))

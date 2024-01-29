@@ -56,7 +56,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         PartitionPruningColumns cols = actual.get(1);
         assertNotNull(cols, "No metadata for source=1");
-        assertEquals("[[0=42]]", cols.canonicalForm().toString());
+        assertEquals("[[0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
     }
 
     @Test
@@ -78,7 +78,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         PartitionPruningColumns cols = actual.get(1);
         assertNotNull(cols, "No metadata for source=1");
-        assertEquals("[[0=42]]", cols.canonicalForm().toString());
+        assertEquals("[[0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
     }
 
     @Test
@@ -104,11 +104,11 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         PartitionPruningColumns cols1 = actual.get(1);
         assertNotNull(cols1, "No metadata for source=1");
-        assertEquals("[[0=42]]", cols1.canonicalForm().toString());
+        assertEquals("[[0=42]]", PartitionPruningColumns.canonicalForm(cols1).toString());
 
         PartitionPruningColumns cols2 = actual.get(2);
         assertNotNull(cols2, "No metadata for source=2");
-        assertEquals("[[0=99]]", cols2.canonicalForm().toString());
+        assertEquals("[[0=99]]", PartitionPruningColumns.canonicalForm(cols2).toString());
     }
 
     private PartitionPruningMetadata extractMetadata(String query, IgniteTable... table) throws Exception {

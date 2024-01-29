@@ -460,7 +460,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             PartitionPruningColumns columns = actual.data().long2ObjectEntrySet().iterator().next().getValue();
 
             // replace column indices with column names in lower case
-            actualMetadata = columns.canonicalForm().stream().map(cols -> cols.stream().map(col -> {
+            actualMetadata = PartitionPruningColumns.canonicalForm(columns).stream().map(cols -> cols.stream().map(col -> {
                 String columnName = columnNames.get(col.getKey()).toLowerCase(Locale.US);
                 return Map.entry(columnName, col.getValue());
             }).collect(Collectors.toList()).toString()).collect(Collectors.toList());
