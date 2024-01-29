@@ -310,29 +310,29 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     enum TestCaseBool {
 
-        CASE_1a("c1 IS TRUE", TABLE_BOOL_C1, "[c1=true]"),
-        CASE_1b("c1 IS FALSE", TABLE_BOOL_C1, "[c1=false]"),
-        CASE_1c("NOT c1", TABLE_BOOL_C1, "[c1=false]"),
-        CASE_1d("NOT NOT c1", TABLE_BOOL_C1, "[c1=true]"),
+        BOOL_1a("c1 IS TRUE", TABLE_BOOL_C1, "[c1=true]"),
+        BOOL_1b("c1 IS FALSE", TABLE_BOOL_C1, "[c1=false]"),
+        BOOL_1c("NOT c1", TABLE_BOOL_C1, "[c1=false]"),
+        BOOL_1d("NOT NOT c1", TABLE_BOOL_C1, "[c1=true]"),
 
         // converted to filters=[true]
-        CASE_1e("c1 OR true", TABLE_BOOL_C1),
-        CASE_1f("c1 OR false", TABLE_BOOL_C1, "[c1=true]"),
+        BOOL_1e("c1 OR true", TABLE_BOOL_C1),
+        BOOL_1f("c1 OR false", TABLE_BOOL_C1, "[c1=true]"),
 
-        CASE_2a("c1 AND c2", TABLE_BOOL_C1_C3, "[c1=true, c2=true]"),
-        CASE_2b("c1 AND c2 IS FALSE", TABLE_BOOL_C1_C3, "[c1=true, c2=false]"),
-        CASE_2c("NOT c1 AND c2", TABLE_BOOL_C1_C3, "[c1=false, c2=true]"),
-        CASE_2d("NOT c1 AND NOT c2", TABLE_BOOL_C1_C3, "[c1=false, c2=false]"),
+        BOOL_2a("c1 AND c2", TABLE_BOOL_C1_C3, "[c1=true, c2=true]"),
+        BOOL_2b("c1 AND c2 IS FALSE", TABLE_BOOL_C1_C3, "[c1=true, c2=false]"),
+        BOOL_2c("NOT c1 AND c2", TABLE_BOOL_C1_C3, "[c1=false, c2=true]"),
+        BOOL_2d("NOT c1 AND NOT c2", TABLE_BOOL_C1_C3, "[c1=false, c2=false]"),
 
-        CASE_3a("c1 OR c2", TABLE_BOOL_C1_C3),
-        CASE_3b("c1 IS TRUE OR c2", TABLE_BOOL_C1_C3),
-        CASE_3c("c1 OR c2 IS TRUE", TABLE_BOOL_C1_C3),
+        BOOL_3a("c1 OR c2", TABLE_BOOL_C1_C3),
+        BOOL_3b("c1 IS TRUE OR c2", TABLE_BOOL_C1_C3),
+        BOOL_3c("c1 OR c2 IS TRUE", TABLE_BOOL_C1_C3),
 
-        CASE_3d("c1 AND c2 IS TRUE", TABLE_ALL_BOOLS_C1, "[c1=true]"),
-        CASE_3e("c1 AND c2 IS FALSE", TABLE_ALL_BOOLS_C1, "[c1=true]"),
+        BOOL_3d("c1 AND c2 IS TRUE", TABLE_ALL_BOOLS_C1, "[c1=true]"),
+        BOOL_3e("c1 AND c2 IS FALSE", TABLE_ALL_BOOLS_C1, "[c1=true]"),
 
         // filters=[IS NOT NULL($t0)]
-        CASE_4e("c1 = c1", TABLE_BOOL_C1),
+        BOOL_4e("c1 = c1", TABLE_BOOL_C1),
         ;
 
         private final TestCase data;
@@ -372,6 +372,9 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         CASE_2c("CASE c1 WHEN 42 THEN true WHEN c2 THEN false ELSE false END", TABLE_C1, "[c1=42]"),
         // filters=[OR(=($t0, 42), IS NOT TRUE(=($t0, $t1)))]
         CASE_2d("CASE c1 WHEN 42 THEN true WHEN c2 THEN false ELSE true END", TABLE_C1),
+
+        // [OR(=($t0, 10), =($t0, 42))]
+        CASE_3a("CASE c1 WHEN 42 THEN true WHEN 10 THEN true ELSE false END", TABLE_C1, "[c1=10]", "[c1=42]"),
         ;
         final TestCase data;
 
