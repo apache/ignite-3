@@ -22,10 +22,12 @@ import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.INDEX_NA
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NAME;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleIndex;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleTable;
+import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.startBuildingIndexCommand;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
@@ -97,6 +99,27 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         // Let's check that the versions for the points in time at which they were created are in place.
         assertThat(catalogManager.activeCatalogVersion(time0), equalTo(catalogVersion0));
         assertThat(catalogManager.activeCatalogVersion(time1), equalTo(catalogVersion1));
+    }
+
+    @Test
+    void testRecoveryIndexCreationCatalogVersion() throws Exception {
+        createAndStartComponents();
+
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
+
+        int expCreationCatalogVersion = catalogManager.latestCatalogVersion();
+
+        int indexId = catalogManager.index(INDEX_NAME, clock.now().longValue()).id();
+
+        assertThat(catalogManager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME + 1)), willCompleteSuccessfully());
+
+        stopComponents();
+
+        createAndStartComponents();
+
+        assertEquals(expCreationCatalogVersion, catalogManager.index(INDEX_NAME, clock.now().longValue()).creationVersion());
     }
 
     private void createAndStartComponents() {

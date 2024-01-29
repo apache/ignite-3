@@ -126,7 +126,7 @@ public class CreateTableCommand extends AbstractTableCommand {
                 tableId,
                 true,
                 AVAILABLE,
-                catalog.version(),
+                catalog.version() + 1,
                 primaryKeyColumns
         );
 
