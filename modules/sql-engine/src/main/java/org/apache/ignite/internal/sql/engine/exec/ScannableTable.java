@@ -33,13 +33,13 @@ public interface ScannableTable {
      * Performs a scan over table.
      *
      * @param ctx  Execution context.
-     * @param partWithTerm  Partition.
+     * @param partWithToken  Partition.
      * @param rowFactory  Row factory.
      * @param requiredColumns  Required columns.
      * @return  A publisher that produces rows.
      * @param <RowT>  A type of row.
      */
-    <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+    <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
             RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns);
 
     /**
@@ -47,7 +47,7 @@ public interface ScannableTable {
      *
      * @param <RowT> A type of row.
      * @param ctx Execution context.
-     * @param partWithTerm Partition.
+     * @param partWithToken Partition.
      * @param rowFactory Row factory.
      * @param indexId Index id.
      * @param columns Index columns.
@@ -55,7 +55,7 @@ public interface ScannableTable {
      * @param requiredColumns Required columns.
      * @return A publisher that produces rows.
      */
-    <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+    <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
             RowFactory<RowT> rowFactory, int indexId, List<String> columns,
             @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns);
 
@@ -64,7 +64,7 @@ public interface ScannableTable {
      *
      * @param <RowT> A type of row.
      * @param ctx Execution context.
-     * @param partWithTerm Partition.
+     * @param partWithToken Partition.
      * @param rowFactory Row factory.
      * @param indexId Index id.
      * @param columns Index columns.
@@ -72,7 +72,7 @@ public interface ScannableTable {
      * @param requiredColumns Required columns.
      * @return A publisher that produces rows.
      */
-    <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+    <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
             RowFactory<RowT> rowFactory, int indexId, List<String> columns,
             RowT key, @Nullable BitSet requiredColumns);
 }

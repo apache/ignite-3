@@ -22,27 +22,27 @@ import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Tuple representing primary replica node name with current term.
+ * Tuple representing primary replica node name with node enlistment consistency token.
  */
-public class NodeWithTerm implements Serializable {
+public class NodeWithEnlistmentToken implements Serializable {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
     /** Primary replica node name. */
     private final String name;
 
-    /** Primary replica term. */
-    private final long term;
+    /** Enlistment consistency token. */
+    private final long enlistmentConsistencyToken;
 
     /**
      * Constructor.
      *
      * @param name Primary replica node name.
-     * @param term Primary replica term.
+     * @param enlistmentConsistencyToken Enlistment consistency token.
      */
-    public NodeWithTerm(String name, long term) {
+    public NodeWithEnlistmentToken(String name, long enlistmentConsistencyToken) {
         this.name = name;
-        this.term = term;
+        this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }
 
     /**
@@ -55,12 +55,12 @@ public class NodeWithTerm implements Serializable {
     }
 
     /**
-     * Gets primary replica term.
+     * Gets enlistment consistency token.
      *
-     * @return Primary replica term.
+     * @return Enlistment consistency token.
      */
-    public long term() {
-        return term;
+    public long enlistmentConsistencyToken() {
+        return enlistmentConsistencyToken;
     }
 
     /** {@inheritDoc} */
@@ -72,19 +72,19 @@ public class NodeWithTerm implements Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        NodeWithTerm that = (NodeWithTerm) o;
-        return term == that.term && Objects.equals(name, that.name);
+        NodeWithEnlistmentToken that = (NodeWithEnlistmentToken) o;
+        return enlistmentConsistencyToken == that.enlistmentConsistencyToken && Objects.equals(name, that.name);
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(name, term);
+        return Objects.hash(name, enlistmentConsistencyToken);
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(NodeWithTerm.class, this);
+        return S.toString(NodeWithEnlistmentToken.class, this);
     }
 }

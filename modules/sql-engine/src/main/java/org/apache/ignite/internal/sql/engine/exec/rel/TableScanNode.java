@@ -24,7 +24,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithEnlistmentToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -40,8 +40,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** Table that provides access to underlying data. */
     private final ScannableTable table;
 
-    /** List of pairs containing the partition number to scan with the corresponding primary replica term. */
-    private final Collection<PartitionWithTerm> partsWithTerms;
+    /** List of pairs containing the partition number to scan with the corresponding enlistment consistency token. */
+    private final Collection<PartitionWithEnlistmentToken> partsWithTokens;
 
     private final RowFactory<RowT> rowFactory;
 
@@ -53,7 +53,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param table Internal table.
-     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
+     * @param partsWithTokens List of pairs containing the partition number to scan with the corresponding enlistment consistency token.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -62,17 +62,17 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             ScannableTable table,
-            Collection<PartitionWithTerm> partsWithTerms,
+            Collection<PartitionWithEnlistmentToken> partsWithTokens,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
         super(ctx, filters, rowTransformer);
 
-        assert partsWithTerms != null && !partsWithTerms.isEmpty();
+        assert partsWithTokens != null && !partsWithTokens.isEmpty();
 
         this.table = table;
-        this.partsWithTerms = partsWithTerms;
+        this.partsWithTokens = partsWithTokens;
         this.rowFactory = rowFactory;
         this.requiredColumns = requiredColumns;
     }
@@ -81,8 +81,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     @Override
     protected Publisher<RowT> scan() {
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                partsWithTerms.iterator(), partWithTerm -> {
-            return table.scan(context(), partWithTerm, rowFactory, requiredColumns);
+                partsWithTokens.iterator(), partWithToken -> {
+            return table.scan(context(), partWithToken, rowFactory, requiredColumns);
         });
 
         return SubscriptionUtils.concat(it);

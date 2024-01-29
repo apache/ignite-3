@@ -18,24 +18,24 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 /**
- * Tuple representing the number of the partition with its current primary replica term.
+ * Tuple representing the number of the partition with node enlistment consistency token.
  */
-public class PartitionWithTerm {
+public class PartitionWithEnlistmentToken {
     /** Partition number. */
     private final int partId;
 
-    /** Primary replica term. */
-    private final long term;
+    /** Enlistment consistency token. */
+    private final long enlistmentConsistencyToken;
 
     /**
      * Constructor.
      *
      * @param partId partition number
-     * @param term Primary replica term.
+     * @param enlistmentConsistencyToken Enlistment consistency token.
      */
-    public PartitionWithTerm(int partId, Long term) {
+    public PartitionWithEnlistmentToken(int partId, Long enlistmentConsistencyToken) {
         this.partId = partId;
-        this.term = term;
+        this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }
 
     /**
@@ -48,11 +48,11 @@ public class PartitionWithTerm {
     }
 
     /**
-     * Gets primary replica term.
+     * Gets enlistment consistency token.
      *
-     * @return Primary replica term.
+     * @return Enlistment consistency token.
      */
-    public long term() {
-        return term;
+    public long enlistmentConsistencyToken() {
+        return enlistmentConsistencyToken;
     }
 }

@@ -52,7 +52,7 @@ public class ScannableTableImpl implements ScannableTable {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+    public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
             RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns) {
 
         Publisher<BinaryRow> pub;
@@ -63,12 +63,12 @@ public class ScannableTableImpl implements ScannableTable {
 
             assert readTime != null;
 
-            pub = internalTable.scan(partWithTerm.partId(), readTime, ctx.localNode());
+            pub = internalTable.scan(partWithToken.partId(), readTime, ctx.localNode());
         } else {
-            PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithTerm.term());
+            PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithToken.enlistmentConsistencyToken());
 
             pub = internalTable.scan(
-                    partWithTerm.partId(),
+                    partWithToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
                     recipient,
@@ -89,7 +89,7 @@ public class ScannableTableImpl implements ScannableTable {
     @Override
     public <RowT> Publisher<RowT> indexRangeScan(
             ExecutionContext<RowT> ctx,
-            PartitionWithTerm partWithTerm,
+            PartitionWithEnlistmentToken partWithToken,
             RowFactory<RowT> rowFactory,
             int indexId,
             List<String> columns,
@@ -123,7 +123,7 @@ public class ScannableTableImpl implements ScannableTable {
             assert readTime != null;
 
             pub = internalTable.scan(
-                    partWithTerm.partId(),
+                    partWithToken.partId(),
                     readTime,
                     ctx.localNode(),
                     indexId,
@@ -134,10 +134,10 @@ public class ScannableTableImpl implements ScannableTable {
             );
         } else {
             pub = internalTable.scan(
-                    partWithTerm.partId(),
+                    partWithToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
-                    new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
+                    new PrimaryReplica(ctx.localNode(), partWithToken.enlistmentConsistencyToken()),
                     indexId,
                     lower,
                     upper,
@@ -155,7 +155,7 @@ public class ScannableTableImpl implements ScannableTable {
     @Override
     public <RowT> Publisher<RowT> indexLookup(
             ExecutionContext<RowT> ctx,
-            PartitionWithTerm partWithTerm,
+            PartitionWithEnlistmentToken partWithToken,
             RowFactory<RowT> rowFactory,
             int indexId,
             List<String> columns,
@@ -177,7 +177,7 @@ public class ScannableTableImpl implements ScannableTable {
             assert readTime != null;
 
             pub = internalTable.lookup(
-                    partWithTerm.partId(),
+                    partWithToken.partId(),
                     readTime,
                     ctx.localNode(),
                     indexId,
@@ -186,10 +186,10 @@ public class ScannableTableImpl implements ScannableTable {
             );
         } else {
             pub = internalTable.lookup(
-                    partWithTerm.partId(),
+                    partWithToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
-                    new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
+                    new PrimaryReplica(ctx.localNode(), partWithToken.enlistmentConsistencyToken()),
                     indexId,
                     keyTuple,
                     null

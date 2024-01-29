@@ -127,7 +127,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             assert group != null;
 
-            NodeWithTerm nodeWithTerm = group.assignments().get(partToRows.getIntKey());
+            NodeWithEnlistmentToken nodeWithEnlistmentToken = group.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -135,13 +135,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithEnlistmentToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_UPSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+            futures[batchNum++] = replicaService.invoke(nodeWithEnlistmentToken.name(), request);
         }
 
         return CompletableFuture.allOf(futures);
@@ -201,7 +201,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             assert group != null;
 
-            NodeWithTerm nodeWithTerm = group.assignments().get(partitionId);
+            NodeWithEnlistmentToken nodeWithEnlistmentToken = group.assignments().get(partitionId);
 
             ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -209,13 +209,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithEnlistmentToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_INSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
                     .build();
 
-            rowBatch.resultFuture = replicaService.invoke(nodeWithTerm.name(), request);
+            rowBatch.resultFuture = replicaService.invoke(nodeWithEnlistmentToken.name(), request);
         }
 
         return handleInsertResults(ectx, rowBatchByPartitionId.values());
@@ -270,7 +270,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             assert group != null;
 
-            NodeWithTerm nodeWithTerm = group.assignments().get(partToRows.getIntKey());
+            NodeWithEnlistmentToken nodeWithEnlistmentToken = group.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
@@ -278,13 +278,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithEnlistmentToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_DELETE_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+            futures[batchNum++] = replicaService.invoke(nodeWithEnlistmentToken.name(), request);
         }
 
         return CompletableFuture.allOf(futures);
