@@ -83,6 +83,7 @@ namespace Apache.Ignite
 
             LoggerFactory = other.LoggerFactory;
             SocketTimeout = other.SocketTimeout;
+            OperationTimeout = other.OperationTimeout;
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
             HeartbeatInterval = other.HeartbeatInterval;
