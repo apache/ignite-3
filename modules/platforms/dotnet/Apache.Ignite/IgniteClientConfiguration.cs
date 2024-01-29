@@ -109,6 +109,14 @@ namespace Apache.Ignite
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
 
         /// <summary>
+        /// Gets or sets the operation timeout.
+        ///
+        /// TODO: 0 or -1 for infinite.
+        /// </summary>
+        [DefaultValue(typeof(TimeSpan), "00:00:00")]
+        public TimeSpan OperationTimeout { get; set; } = TimeSpan.Zero;
+
+        /// <summary>
         /// Gets endpoints to connect to.
         /// <para />
         /// Providing addresses of multiple nodes in the cluster will improve performance:
