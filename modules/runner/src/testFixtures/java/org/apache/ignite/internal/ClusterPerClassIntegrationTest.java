@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -75,7 +75,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "    }\n"
             + "  },\n"
             + "  storages: {\n"
-            + "    profiles: {default_aipersist: { engine: \"aipersist\"}, default_aimem: { engine: \"aimem\"}, default_rocksdb: { engine: \"rocksDb\"}}\n"
+            + "    profiles: {default_aipersist: { engine: \"aipersist\"}, "
+            +                "default_aimem: { engine: \"aimem\"}, default_rocksdb: { engine: \"rocksDb\"}}\n"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {}\n"

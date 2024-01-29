@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fi
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
@@ -42,7 +41,11 @@ public class VolatilePageMemoryNoLoadSelfTest extends AbstractPageMemoryNoLoadSe
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg.change(c -> ((VolatilePageMemoryProfileChange) c).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
+        dataRegionCfg
+                .change(c -> ((VolatilePageMemoryProfileChange) c)
+                        .changeInitSize(MAX_MEMORY_SIZE)
+                        .changeMaxSize(MAX_MEMORY_SIZE))
+                .get(1, SECONDS);
     }
 
     /** {@inheritDoc} */

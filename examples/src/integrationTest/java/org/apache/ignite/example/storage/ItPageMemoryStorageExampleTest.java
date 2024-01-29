@@ -35,7 +35,7 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testPersistentExample() throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21386 uncomment it when runtime profile loading will be fixed
-//        addPersistentDataRegionConfig("persistent");
+        // addPersistentDataRegionConfig("persistent");
 
         assertConsoleOutputContains(PersistentPageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
@@ -49,7 +49,7 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testInMemoryExample() throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21386 uncomment it when runtime profile loading will be fixed
-//        addVolatileDataRegionConfig("in-memory");
+        // addVolatileDataRegionConfig("in-memory");
 
         assertConsoleOutputContains(VolatilePageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"

@@ -21,7 +21,6 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileChange;
 import org.junit.jupiter.api.Test;
@@ -33,7 +32,7 @@ public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testExample() throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21386 uncomment it when runtime profile loading will be fixed
-//        addDataRegionConfig("rocksdb-example");
+        // addDataRegionConfig("rocksdb-example");
 
         assertConsoleOutputContains(RocksDbStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"

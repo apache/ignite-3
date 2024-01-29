@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration;
 
-import static org.apache.ignite.internal.util.Constants.MiB;
-import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
-
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
@@ -33,7 +30,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistPageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;

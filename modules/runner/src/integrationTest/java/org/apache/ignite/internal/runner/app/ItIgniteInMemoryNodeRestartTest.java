@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -336,7 +336,8 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         try (Session session = ignite.sql().createSession()) {
             session.execute(null,
                     String.format(
-                            "CREATE ZONE IF NOT EXISTS ZONE_%s ENGINE aimem WITH REPLICAS=%d, PARTITIONS=%d, DATAREGION='default_aimem', STORAGE_PROFILES='%s'",
+                            "CREATE ZONE IF NOT EXISTS ZONE_%s ENGINE aimem WITH REPLICAS=%d, PARTITIONS=%d, "
+                                    + "DATAREGION='default_aimem', STORAGE_PROFILES='%s'",
                             name,
                             replicas,
                             partitions,

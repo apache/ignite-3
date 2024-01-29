@@ -162,11 +162,12 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb WITH DATAREGION = 'default_rocksdb', STORAGE_PROFILES = 'default_rocksdb'");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME
+                + " ENGINE rocksdb WITH DATAREGION = 'default_rocksdb', STORAGE_PROFILES = 'default_rocksdb'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
-                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH STORAGE_PROFILE='default_rocksdb', PRIMARY_ZONE='ZONE_"
-                + TABLE_NAME.toUpperCase() + "'");
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH STORAGE_PROFILE='default_rocksdb',"
+                + "PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
     }
 
     @Test
@@ -241,9 +242,11 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         cluster.doInSession(0, session -> {
             session.execute(
                     null,
-                    "create zone zone1 engine aimem with partitions=1, replicas=1, dataregion='default_aimem', storage_profiles = 'default_aimem'"
+                    "create zone zone1 engine aimem with partitions=1, replicas=1, "
+                            + "dataregion='default_aimem', storage_profiles = 'default_aimem'"
             );
-            session.execute(null, "create table " + tableName + " (id int primary key, name varchar) with storage_profile='default_aimem', primary_zone='ZONE1'");
+            session.execute(null, "create table " + tableName
+                    + " (id int primary key, name varchar) with storage_profile='default_aimem', primary_zone='ZONE1'");
         });
     }
 }

@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigException.Parse;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
@@ -89,6 +88,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Configuration tree generator. */
     private final ConfigurationTreeGenerator generator;
 
+    /** Configuration module, which provide configuration patches. **/
     private final ConfigurationModule module;
 
     /** Configuration changes listener. */
@@ -110,6 +110,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      *
      * @param configPath Path to node bootstrap configuration file.
      * @param generator Configuration tree generator.
+     * @param module Configuration module, which provides configuration patches.
      */
     public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator, ConfigurationModule module) {
         this.configPath = configPath;
@@ -123,8 +124,8 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /**
      * Constructor.
      *
-     * @param configPath
-     * @param generator
+     * @param configPath Path to node bootstrap configuration file.
+     * @param generator Configuration tree generator.
      */
     public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator) {
         this.configPath = configPath;

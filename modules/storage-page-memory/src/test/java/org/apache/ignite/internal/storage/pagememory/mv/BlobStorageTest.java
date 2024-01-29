@@ -35,8 +35,6 @@ import java.util.List;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
@@ -81,7 +79,9 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
             }
         };
 
-        pageMemory = spy(new VolatilePageMemory((VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg), pageIoRegistry, PAGE_SIZE));
+        pageMemory = spy(new VolatilePageMemory(
+                (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg), pageIoRegistry, PAGE_SIZE));
+
         pageMemory.start();
 
         blobStorage = new BlobStorage(reuseList, pageMemory, 1, 1, IoStatisticsHolderNoOp.INSTANCE);
