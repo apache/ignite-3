@@ -156,7 +156,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(count);
                 foreach (var item in items)
                 {
-                    writerFunc(item, w);
+                    writerFunc(item, buf);
                 }
 
                 return;
@@ -170,7 +170,7 @@ namespace Apache.Ignite.Internal.Compute
             foreach (var item in items)
             {
                 count++;
-                writerFunc(item, w);
+                writerFunc(item, buf);
             }
 
             countSpan[0] = MsgPackCode.Array32;
@@ -179,7 +179,8 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
         {
-            WriteEnumerable(units, buf, writerFunc: (unit, buf) => {
+            WriteEnumerable(units, buf, writerFunc: (unit, buf) =>
+            {
                 IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
                 IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
 
@@ -191,7 +192,8 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf)
         {
-            WriteEnumerable(nodes, buf, writerFunc: (node, buf) => {
+            WriteEnumerable(nodes, buf, writerFunc: (node, buf) =>
+            {
                 var w = buf.MessageWriter;
                 w.Write(node.Name);
             });
