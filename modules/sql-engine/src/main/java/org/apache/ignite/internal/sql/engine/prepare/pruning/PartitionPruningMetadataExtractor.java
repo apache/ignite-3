@@ -546,7 +546,8 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                             }
                         }
 
-                        Int2ObjectMap<RexNode> newValue = new Int2ObjectArrayMap<>(val.columns);
+                        Int2ObjectMap<RexNode> newValue = new Int2ObjectArrayMap<>(val.columns.size() + candidate.columns.size());
+                        newValue.putAll(val.columns);
                         newValue.putAll(candidate.columns);
 
                         PruningColumnSet newColSet = new PruningColumnSet(newValue);
