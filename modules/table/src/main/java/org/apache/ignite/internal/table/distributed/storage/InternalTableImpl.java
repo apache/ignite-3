@@ -1518,10 +1518,6 @@ public class InternalTableImpl implements InternalTable {
             throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
         }
 
-        if (raftGroupService.leader() == null) {
-            raftGroupService.refreshLeader().join();
-        }
-
         return raftGroupService;
     }
 

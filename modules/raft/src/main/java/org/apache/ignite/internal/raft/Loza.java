@@ -259,6 +259,15 @@ public class Loza implements RaftManager {
         }
     }
 
+    /**
+     * Starts a Raft group on the current node without starting raft service.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param groupOptions Options to apply to the group.
+     */
     public void startRaftGroupNodeWithoutService(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
