@@ -83,7 +83,10 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
 
         String columnName = "c";
 
+        int version = 1;
+
         Catalog catalog = catalog(
+                version,
                 new CatalogTableDescriptor[]{
                         table(tableId, id++, id++, id++, columnName)
                 },
@@ -93,8 +96,9 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
                                 "TEST_INDEX",
                                 tableId,
                                 false,
-                                List.of(columnName),
-                                invalidPreviousIndexStatus
+                                invalidPreviousIndexStatus,
+                                version,
+                                List.of(columnName)
                         )
                 },
                 new CatalogSystemViewDescriptor[]{}
