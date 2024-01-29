@@ -21,6 +21,8 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
@@ -61,14 +63,18 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     private void addVolatileDataRegionConfig(String name) throws Exception {
         ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
                 .profiles()
-                .change(regionsChange -> regionsChange.create(name, c -> {}))
+                .change(profileChange -> profileChange.create(name, c -> {
+                    c.convert(VolatilePageMemoryProfileChange.class);
+                }))
                 .get(1, TimeUnit.SECONDS);
     }
 
     private void addPersistentDataRegionConfig(String name) throws Exception {
         ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
                 .profiles()
-                .change(regionsChange -> regionsChange.create(name, c -> {}))
+                .change(profileChange -> profileChange.create(name, c -> {
+                    c.convert(PersistentPageMemoryProfileChange.class);
+                }))
                 .get(1, TimeUnit.SECONDS);
     }
 }

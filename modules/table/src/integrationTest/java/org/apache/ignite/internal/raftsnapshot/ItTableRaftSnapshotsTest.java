@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -275,7 +275,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     private void createTestTableWith3Replicas(String storageEngine) {
         String storageProfile =
-                DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? DUMMY_STORAGE_PROFILE : "default_" + storageEngine.toLowerCase();
+                DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? DEFAULT_STORAGE_PROFILE : "default_" + storageEngine.toLowerCase();
         String zoneSql = "create zone test_zone"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3, storage_profiles='" + storageProfile+ "', dataregion='" + storageProfile + "';";

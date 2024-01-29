@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAM
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -348,13 +348,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void tableStorageProfile() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
         IgniteImpl node = CLUSTER.aliveNode();
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
-        assertEquals(DUMMY_STORAGE_PROFILE, table.storageProfile());
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
 
         CatalogZoneDescriptor zone = node.catalogManager().zone(DEFAULT_ZONE_NAME, node.clock().nowLong());
 
@@ -363,7 +363,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void tableStorageProfileWithCustomZoneDefaultProfile() {
-        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1'");
 
@@ -371,7 +371,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
-        assertEquals(DUMMY_STORAGE_PROFILE, table.storageProfile());
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
 
         sql("DROP TABLE TEST");
 
@@ -380,15 +380,15 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void tableStorageProfileWithCustomZoneExplicitProfile() {
-        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
 
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
         IgniteImpl node = CLUSTER.aliveNode();
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
-        assertEquals(DUMMY_STORAGE_PROFILE, table.storageProfile());
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
 
         sql("DROP TABLE TEST");
 

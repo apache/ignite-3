@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -257,7 +257,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
 
         CatalogCommand command = builder
                 .zoneName("some_zone")
-                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
         assertThrows(

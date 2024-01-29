@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_R
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -606,7 +606,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         try (Session session = node.sql().createSession()) {
             session.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d, storage_profiles='%s'", zoneName,
-                    DEFAULT_REPLICA_COUNT, DUMMY_STORAGE_PROFILE));
+                    DEFAULT_REPLICA_COUNT, DEFAULT_STORAGE_PROFILE));
 
             session.execute(null,
                     String.format(

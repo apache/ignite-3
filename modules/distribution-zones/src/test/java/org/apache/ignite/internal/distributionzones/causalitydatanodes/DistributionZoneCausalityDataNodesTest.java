@@ -41,7 +41,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,21 +108,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             new ClusterNodeImpl("node_id_0", "node_name_0", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
-            List.of(DUMMY_STORAGE_PROFILE)
+            List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_1 = new LogicalNode(
             new ClusterNodeImpl("node_id_1", "node_name_1", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
-            List.of(DUMMY_STORAGE_PROFILE)
+            List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_2 = new LogicalNode(
             new ClusterNodeImpl("node_id_2", "node_name_2", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
-            List.of(DUMMY_STORAGE_PROFILE)
+            List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final Set<LogicalNode> ONE_NODE = Set.of(NODE_0);

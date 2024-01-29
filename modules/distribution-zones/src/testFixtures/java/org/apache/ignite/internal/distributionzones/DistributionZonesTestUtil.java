@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -79,7 +79,7 @@ public class DistributionZonesTestUtil {
             int replicas,
             @Nullable String dataStorage
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, dataStorage, DUMMY_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, dataStorage, DEFAULT_STORAGE_PROFILE);
     }
 
     /**
@@ -91,7 +91,7 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, DUMMY_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, DEFAULT_STORAGE_PROFILE);
     }
 
     /**
@@ -121,7 +121,7 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleDown,
                 filter,
                 null,
-                DUMMY_STORAGE_PROFILE
+                DEFAULT_STORAGE_PROFILE
         );
     }
 

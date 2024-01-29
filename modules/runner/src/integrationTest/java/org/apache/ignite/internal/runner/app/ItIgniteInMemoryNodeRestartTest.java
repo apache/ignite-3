@@ -20,7 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -340,7 +340,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
                             name,
                             replicas,
                             partitions,
-                            DUMMY_STORAGE_PROFILE
+                            DEFAULT_STORAGE_PROFILE
                     )
             );
             session.execute(null, "CREATE TABLE " + name

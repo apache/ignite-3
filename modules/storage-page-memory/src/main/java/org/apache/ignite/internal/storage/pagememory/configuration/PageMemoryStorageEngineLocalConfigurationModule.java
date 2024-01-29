@@ -84,8 +84,7 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
         rootChange.changeRoot(StoragesConfiguration.KEY).changeProfiles(ch -> ch.createOrUpdate("default", p -> {
-            p.convert(PersistentPageMemoryProfileChange.class).changeSize(
-                    Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable())));
+            p.convert(PersistentPageMemoryProfileChange.class);
         }));
     }
 }

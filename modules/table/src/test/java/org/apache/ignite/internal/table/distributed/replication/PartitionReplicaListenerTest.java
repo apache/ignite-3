@@ -33,7 +33,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
@@ -342,7 +342,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             ),
             List.of("intKey", "strKey"),
             null,
-            DUMMY_STORAGE_PROFILE
+            DEFAULT_STORAGE_PROFILE
     );
 
     /** Placement driver. */

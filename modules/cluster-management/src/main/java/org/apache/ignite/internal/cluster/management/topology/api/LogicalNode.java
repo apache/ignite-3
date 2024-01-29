@@ -95,7 +95,7 @@ public class LogicalNode extends ClusterNodeImpl {
 
         this.userAttributes = userAttributes == null ? Collections.emptyMap() : userAttributes;
         this.systemAttributes = systemAttributes == null ? Collections.emptyMap() : systemAttributes;
-        // TODO: KKK why do we need default here?
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21388 remove default
         this.storageProfiles = storageProfiles == null || storageProfiles.isEmpty() ? List.of("default") : storageProfiles;
     }
 

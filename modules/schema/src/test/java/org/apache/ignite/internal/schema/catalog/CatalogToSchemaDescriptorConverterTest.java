@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema.catalog;
 
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -142,7 +142,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                 ),
                 List.of("K1", "K2"),
                 List.of("K2"),
-                DUMMY_STORAGE_PROFILE
+                DEFAULT_STORAGE_PROFILE
         );
 
         SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.tableVersion());

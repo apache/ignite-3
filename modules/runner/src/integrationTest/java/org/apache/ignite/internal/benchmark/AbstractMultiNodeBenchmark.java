@@ -21,7 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
@@ -82,7 +82,7 @@ public class AbstractMultiNodeBenchmark {
             var queryEngine = clusterNode.queryEngine();
 
             var createZoneStatement = "CREATE ZONE " + ZONE_NAME + " WITH partitions=" + partitionCount()
-                    + ", storage_profiles ='" + DUMMY_STORAGE_PROFILE + "'";
+                    + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
 
             getAllFromCursor(
                     await(queryEngine.querySingleAsync(

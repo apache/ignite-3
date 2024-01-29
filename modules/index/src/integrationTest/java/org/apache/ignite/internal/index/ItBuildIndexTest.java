@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -188,7 +188,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
     private static void createAndPopulateTable(int replicas, int partitions) {
         sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
-                ZONE_NAME, replicas, partitions, DUMMY_STORAGE_PROFILE
+                ZONE_NAME, replicas, partitions, DEFAULT_STORAGE_PROFILE
         ));
 
         sql(IgniteStringFormatter.format(

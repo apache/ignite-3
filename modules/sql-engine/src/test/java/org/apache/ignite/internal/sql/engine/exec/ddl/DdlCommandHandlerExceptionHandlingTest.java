@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCata
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.CompletableFuture;
@@ -89,7 +89,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         CreateZoneCommand cmd = new CreateZoneCommand();
         cmd.zoneName(ZONE_NAME);
-        cmd.storageProfiles(DUMMY_STORAGE_PROFILE);
+        cmd.storageProfiles(DEFAULT_STORAGE_PROFILE);
         cmd.ifNotExists(ifNotExists);
 
         return commandHandler.handle(cmd);

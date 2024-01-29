@@ -21,7 +21,9 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileChange;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -45,7 +47,9 @@ public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
     private void addDataRegionConfig(String name) throws Exception {
         ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
                 .profiles()
-                .change(regionsChange -> regionsChange.create(name, regionChange -> {}))
+                .change(profileChange -> profileChange.create(name, c -> {
+                    c.convert(RocksDbProfileChange.class);
+                }))
                 .get(1, TimeUnit.SECONDS);
     }
 }
