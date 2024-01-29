@@ -41,6 +41,7 @@ public interface UpdatableTable {
      * @param ectx An execution context.
      * @param rows Rows to insert.
      * @param <RowT> A type of the row sql runtime working with.
+     * @param colocationGroup Colocation group with assignments for this operations.
      * @return A future representing the completion of the operation.
      */
     <RowT> CompletableFuture<?> insertAll(
@@ -58,6 +59,7 @@ public interface UpdatableTable {
      * @param ectx An execution context.
      * @param rows Rows to upsert.
      * @param <RowT> A type of the row sql runtime working with.
+     * @param colocationGroup Colocation group with assignments for this operations.
      * @return A future representing the completion of the operation.
      */
     <RowT> CompletableFuture<?> upsertAll(
@@ -76,6 +78,7 @@ public interface UpdatableTable {
      * @param ectx An execution context.
      * @param rows Rows to delete.
      * @param <RowT> A type of the row sql runtime working with.
+     * @param colocationGroup Colocation group with assignments for this operations.
      * @return A future representing the completion of the operation.
      */
     <RowT> CompletableFuture<?> deleteAll(
