@@ -58,7 +58,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
     // NOTE: This can accumulate empty buffers for stopped/failed nodes. Cleaning up is not trivial in concurrent scenario.
     // We don't expect thousands of node failures, so it should be fine.
-    private final ConcurrentHashMap<P, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<P, StreamerBuffer<DataStreamerItem<T>>> buffers = new ConcurrentHashMap<>();
 
     private final ConcurrentMap<P, CompletableFuture<Void>> pendingRequests = new ConcurrentHashMap<>();
 
@@ -126,12 +126,11 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
         P partition = partitionAwarenessProvider.partition(item.get());
 
-        StreamerBuffer<T> buf = buffers.computeIfAbsent(
+        StreamerBuffer<DataStreamerItem<T>> buf = buffers.computeIfAbsent(
                 partition,
                 p -> new StreamerBuffer<>(options.pageSize(), items -> enlistBatch(p, items)));
 
-        // TODO: Handle removal.
-        buf.add(item.get());
+        buf.add(item);
         this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();
@@ -158,7 +157,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         return completionFut;
     }
 
-    private void enlistBatch(P partition, Collection<T> batch) {
+    private void enlistBatch(P partition, Collection<DataStreamerItem<T>> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
         assert partition != null : "Partition must not be null.";
@@ -173,7 +172,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         );
     }
 
-    private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch) {
+    private CompletableFuture<Void> sendBatch(P partition, Collection<DataStreamerItem<T>> batch) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
             return batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
