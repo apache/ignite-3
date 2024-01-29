@@ -20,7 +20,6 @@ package org.apache.ignite.internal.lang;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.util.NoSuchElementException;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.NoMorePagesException;

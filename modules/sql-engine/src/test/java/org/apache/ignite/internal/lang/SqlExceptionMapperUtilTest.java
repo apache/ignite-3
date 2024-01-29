@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.util.NoSuchElementException;
 import java.util.stream.Stream;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.NoMorePagesException;

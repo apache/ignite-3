@@ -52,7 +52,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -66,6 +65,7 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -436,7 +436,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, builder().pageSize(3).build()));
 
         assertNotNull(ars);
-        assertThrows(NoSuchElementException.class, () -> await(ars.fetchNextPage()), "There are no more pages");
+        assertThrows(NoMorePagesException.class, () -> await(ars.fetchNextPage()), "There are no more pages");
     }
 
     @ParameterizedTest
