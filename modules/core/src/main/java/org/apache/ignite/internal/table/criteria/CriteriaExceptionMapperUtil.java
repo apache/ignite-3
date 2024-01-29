@@ -36,6 +36,8 @@ public class CriteriaExceptionMapperUtil {
      * <ul>
      *     <li>any instance of {@link Error} is returned as is, except {@link AssertionError}
      *     that will always be mapped to {@link CriteriaException} with the {@link Common#INTERNAL_ERR} error code.</li>
+     *     <li>any instance of {@link SqlException} is wrapped into {@link CriteriaException} with the {@link Common#INTERNAL_ERR}
+     *         error code.</li>
      *     <li>any instance of {@link TraceableException} is wrapped into {@link CriteriaException}
      *         with the original {@link TraceableException#traceId() traceUd} and {@link TraceableException#code() code}.</li>
      *     <li>if there are no any mappers that can do a mapping from the given error to a public exception,
