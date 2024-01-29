@@ -147,7 +147,7 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private static void WriteIEnumerable(IEnumerable<T> enumerable, PooledArrayBuffer buf, Func<T, MsgPackWriter> writerFunc)
+        private static void WriteIEnumerable<T>(IEnumerable<T> enumerable, PooledArrayBuffer buf, Func<T, PooledArrayBuffer> writerFunc)
         {
             var w = buf.MessageWriter;
 
@@ -182,7 +182,8 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
         {
-            WriteIEnumerable(units, buf, writerFunc: (unit, w) => {
+            WriteIEnumerable(units, buf, writerFunc: (unit, buf) => {
+                var w = buf.MessageWriter;
                 w.Write(unit.Name);
                 w.Write(unit.Version);
             });
@@ -190,7 +191,8 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf)
         {
-            WriteIEnumerable(nodes, buf, writerFunc: (node, w) => {
+            WriteIEnumerable(nodes, buf, writerFunc: (node, buf) => {
+                var w = buf.MessageWriter;
                 w.Write(node.Name);
             });
         }

@@ -147,6 +147,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLUSTER_ID_MISMATCH:
         case error::code::CLIENT_SSL_CONFIGURATION:
         case error::code::HANDSHAKE_HEADER:
+        case error::code::NODE_NOT_FOUND:
             return sql_state::S08004_CONNECTION_REJECTED;
 
         // Sql group. Group code: 4

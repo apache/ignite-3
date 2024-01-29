@@ -88,7 +88,8 @@ void compute_impl::execute_on_nodes(const std::vector<cluster_node> &nodes, cons
     ignite_callback<std::optional<primitive>> callback) {
 
     auto writer_func = [&nodes, job_class_name, &units, args](protocol::writer &writer) {
-        writer.write(nodes.size());
+        auto nodes_num = std::int32_t(nodes.size());
+        writer.write(nodes_num);
         for (const auto &node : nodes) {
             writer.write(node.get_name());
         }
