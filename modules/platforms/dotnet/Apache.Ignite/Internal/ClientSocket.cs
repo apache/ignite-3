@@ -271,7 +271,7 @@ namespace Apache.Ignite.Internal
             PooledArrayBuffer? request = null,
             bool expectNotifications = false) =>
             DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
-                .WaitAsync(_operationTimeout, _disposeTokenSource.Token);
+                .WaitAsync(_operationTimeout);
 
         /// <inheritdoc/>
         public void Dispose()
