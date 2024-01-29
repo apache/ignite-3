@@ -34,6 +34,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
@@ -283,24 +284,26 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private @Nullable String selectPreferredNodeName(Set<ClusterNode> nodes) {
-        HashSet<ClusterNode> preferredNodes = new HashSet<>(nodes);
+        Set<String> preferredNodeNames = nodes.stream().map(ClusterNode::name).collect(Collectors.toCollection(HashSet::new));
+        Set<String> connections = ch.connections().stream().map(ClusterNode::name).collect(Collectors.toSet());
 
         // Select the preferred node from the intersection of the candidate nodes and existing connections
-        preferredNodes.retainAll(ch.connections());
-        if (preferredNodes.isEmpty()) {
+        preferredNodeNames.retainAll(connections);
+
+        if (preferredNodeNames.isEmpty()) {
             return null;
         }
-        return randomNode(preferredNodes).name();
+        return randomNode(preferredNodeNames);
     }
 
-    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
+    private static String randomNode(Set<String> nodes) {
         if (nodes.size() == 1) {
             return nodes.iterator().next();
         }
 
         int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
 
-        Iterator<ClusterNode> iterator = nodes.iterator();
+        Iterator<String> iterator = nodes.iterator();
         for (int i = 0; i < nodesToSkip; i++) {
             iterator.next();
         }
