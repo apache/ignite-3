@@ -147,7 +147,7 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
+        private static void WriteIEnumerable(IEnumerable<T> enumerable, PooledArrayBuffer buf, Func<T, MsgPackWriter> writerFunc)
         {
             var w = buf.MessageWriter;
 
@@ -159,8 +159,7 @@ namespace Apache.Ignite.Internal.Compute
                     IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
                     IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
 
-                    w.Write(unit.Name);
-                    w.Write(unit.Version);
+                    writerFunc(unit, w);
                 }
 
                 return;
@@ -174,28 +173,42 @@ namespace Apache.Ignite.Internal.Compute
             foreach (var unit in units)
             {
                 count++;
-                w.Write(unit.Name);
-                w.Write(unit.Version);
+                writerFunc(unit, w);
             }
 
             countSpan[0] = MsgPackCode.Array32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
         }
 
+        private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
+        {
+            WriteIEnumerable(units, buf, writerFunc: (unit, w) => {
+                w.Write(unit.Name);
+                w.Write(unit.Version);
+            });
+        }
+
+        private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf)
+        {
+            WriteIEnumerable(nodes, buf, writerFunc: (node, w) => {
+                w.Write(node.Name);
+            });
+        }
+
         private async Task<T> ExecuteOnNodes<T>(
-            IClusterNode coordinatorNode,
+            IClusterNode node,
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
             object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(coordinatorNode);
+            IgniteArgumentCheck.NotNull(node);
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
             using PooledBuffer res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(coordinatorNode.Name), expectNotifications: true)
+                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
             var notificationHandler = (NotificationHandler)res.Metadata!;
@@ -206,9 +219,7 @@ namespace Apache.Ignite.Internal.Compute
             {
                 var w = writer.MessageWriter;
 
-                IEnumerable<string> nodeNames = nodes.Select(node => node.Name);
-                ICollection<object?> objs = (ICollection<object?>)nodeNames.ToList();
-                w.WriteObjectCollectionAsBinaryTuple(objs);
+                WriteNodeNames(nodes, writer);
                 WriteUnits(units, writer);
                 w.Write(jobClassName);
 

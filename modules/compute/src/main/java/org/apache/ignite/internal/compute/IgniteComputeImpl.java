@@ -90,11 +90,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeAsync(Set<ClusterNode> nodes,
+    public <R> JobExecution<R> executeAsync(
+            Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args) {
+            Object... args
+    ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -104,21 +106,21 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        Set<ClusterNode> candidates = new HashSet<>(nodes);
-        ClusterNode targetNode = randomNode(candidates);
-        candidates.remove(targetNode);
-        return executeAsyncWithFailover(targetNode, candidates, units, jobClassName, options, args);
+        return executeAsyncWithFailover(nodes, units, jobClassName, options, args);
     }
 
     @Override
     public <R> JobExecution<R> executeAsyncWithFailover(
-            ClusterNode targetNode,
-            Set<ClusterNode> candidates,
+            Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
             Object... args
     ) {
+        Set<ClusterNode> candidates = new HashSet<>(nodes);
+        ClusterNode targetNode = selectTargetNode(candidates, topologyService.localMember());
+        candidates.remove(targetNode);
+
         NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
 
         return new JobExecutionWrapper<>(
@@ -130,6 +132,38 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                         options,
                         args
                 ));
+    }
+
+    /**
+     * Selects a random node from the set of candidates, preferably not a local node.
+     *
+     * @param candidates Set of candidate nodes.
+     * @param localNode Local node.
+     *
+     * @return Target node to run a job on.
+     */
+    private ClusterNode selectTargetNode(Set<ClusterNode> candidates, ClusterNode localNode) {
+        if (candidates.size() == 1) {
+            return candidates.iterator().next();
+        }
+
+        // Since there are more than one candidate, we can safely exclude local node here.
+        // It will still be used as a failover candidate, if present.
+        Set<ClusterNode> nodes = new HashSet<>(candidates);
+        nodes.remove(localNode);
+
+        if (nodes.size() == 1) {
+            return nodes.iterator().next();
+        }
+
+        int nodesToSkip = random.nextInt(nodes.size());
+
+        Iterator<ClusterNode> iterator = nodes.iterator();
+        for (int i = 0; i < nodesToSkip; i++) {
+            iterator.next();
+        }
+
+        return iterator.next();
     }
 
     /** {@inheritDoc} */
@@ -146,17 +180,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
-    }
-
-    private ClusterNode randomNode(Set<ClusterNode> nodes) {
-        int nodesToSkip = random.nextInt(nodes.size());
-
-        Iterator<ClusterNode> iterator = nodes.iterator();
-        for (int i = 0; i < nodesToSkip; i++) {
-            iterator.next();
-        }
-
-        return iterator.next();
     }
 
     private <R> JobExecution<R> executeOnOneNodeWithFailover(

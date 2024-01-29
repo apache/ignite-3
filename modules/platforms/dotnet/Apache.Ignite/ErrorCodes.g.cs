@@ -148,6 +148,9 @@ namespace Apache.Ignite
 
             /// <summary> HandshakeHeader error. </summary>
             public const int HandshakeHeader = (GroupCode << 16) | (10 & 0xFFFF);
+
+            /// <summary> NodeNotFound error. </summary>
+            public const int NodeNotFound = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>

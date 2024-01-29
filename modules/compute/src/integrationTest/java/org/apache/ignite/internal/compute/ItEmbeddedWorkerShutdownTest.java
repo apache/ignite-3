@@ -21,7 +21,6 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.app.IgniteImpl;
 
 class ItEmbeddedWorkerShutdownTest extends ItWorkerShutdownTest {
-
     @Override
     IgniteCompute compute(IgniteImpl entryNode) {
         return entryNode.compute();

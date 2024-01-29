@@ -17,24 +17,29 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.AfterEach;
 
 class ItThinClientWorkerShutdownTest extends ItWorkerShutdownTest {
-
-    private IgniteClient client;
+    private final Map<String, IgniteClient> clients = new HashMap<>();
 
     @AfterEach
     void cleanup() throws Exception {
-        client.close();
+        for (IgniteClient igniteClient : clients.values()) {
+            igniteClient.close();
+        }
+        clients.clear();
     }
 
     @Override
     IgniteCompute compute(IgniteImpl entryNode) {
         String address = "127.0.0.1:" + entryNode.clientAddress().port();
-        client = IgniteClient.builder().addresses(address).build();
+        IgniteClient client = IgniteClient.builder().addresses(address).build();
+        clients.put(address, client);
         return client.compute();
     }
 }

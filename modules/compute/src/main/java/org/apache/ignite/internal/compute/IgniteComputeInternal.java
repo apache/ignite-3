@@ -39,8 +39,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * candidate nodes.
      *
      * @param <R> Job result type.
-     * @param targetNode Node to execute the job on.
-     * @param candidates Candidate nodes; In case target node left the cluster, the job will be restarted on one of them.
+     * @param nodes Candidate nodes; In case target node left the cluster, the job will be restarted on one of them.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
@@ -48,8 +47,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @return CompletableFuture Job result.
      */
     <R> JobExecution<R> executeAsyncWithFailover(
-            ClusterNode targetNode,
-            Set<ClusterNode> candidates,
+            Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,

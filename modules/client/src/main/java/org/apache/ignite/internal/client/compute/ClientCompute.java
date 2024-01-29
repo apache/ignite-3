@@ -274,8 +274,7 @@ public class ClientCompute implements IgniteCompute {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
-                    String[] nodeNames = nodes.stream().map(ClusterNode::name).toArray(String[]::new);
-                    w.out().packObjectArrayAsBinaryTuple(nodeNames);
+                    packNodeNames(w.out(), nodes);
                     packJob(w.out(), units, jobClassName, options, args);
                 },
                 ch -> ch,
@@ -405,6 +404,13 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return completedFuture(res);
+    }
+
+    private static void packNodeNames(ClientMessagePacker w, Set<ClusterNode> nodes) {
+        w.packInt(nodes.size());
+        for (ClusterNode node : nodes) {
+            w.packString(node.name());
+        }
     }
 
     private static void packJob(ClientMessagePacker w,

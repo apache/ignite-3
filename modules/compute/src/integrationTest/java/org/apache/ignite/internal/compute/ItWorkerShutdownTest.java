@@ -79,7 +79,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
                 .collect(Collectors.toSet());
     }
 
-    Set<ClusterNode> clusterNodesByNames(Set<String> nodes) {
+    private Set<ClusterNode> clusterNodesByNames(Set<String> nodes) {
         return nodes.stream()
                 .map(NODES_NAMES_TO_INDEXES::get)
                 .map(this::node)

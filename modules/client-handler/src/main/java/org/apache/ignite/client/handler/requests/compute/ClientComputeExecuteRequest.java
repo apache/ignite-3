@@ -18,16 +18,13 @@
 package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
+import static org.apache.ignite.lang.ErrorGroups.Client.NODE_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -67,69 +64,26 @@ public class ClientComputeExecuteRequest {
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
         Object[] args = unpackArgs(in);
 
-        ClusterNode localNode = cluster.topologyService().localMember();
-        ClusterNode targetNode = selectTargetNode(candidates, localNode);
-        candidates.remove(targetNode);
-
-        JobExecution<Object> execution = compute.executeAsyncWithFailover(targetNode, candidates,
-                deploymentUnits, jobClassName, options, args);
+        JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
         sendResultAndStatus(execution, notificationSender);
         return execution.idAsync().thenAccept(out::packUuid);
     }
 
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
-        Set<String> candidateIds = Arrays.stream(in.unpackObjectArrayFromBinaryTuple())
-                .map(String.class::cast)
-                .collect(Collectors.toSet());
+        int size = in.unpackInt();
+        Set<ClusterNode> nodes = new HashSet<>();
+        for (int i = 0; i < size; i++) {
+            String nodeName = in.unpackString();
+            ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
 
-        Set<ClusterNode> candidates = new HashSet<>();
-        List<String> notFoundNodes = new ArrayList<>();
-        candidateIds.forEach(id -> {
-            ClusterNode node = cluster.topologyService().getByConsistentId(id);
             if (node == null) {
-                notFoundNodes.add(id);
-            } else {
-                candidates.add(node);
+                throw new IgniteException(NODE_NOT_FOUND_ERR, "Specified nodes is not present in the cluster: " + nodeName);
             }
-        });
 
-        if (!notFoundNodes.isEmpty()) {
-            throw new IgniteException("Specified nodes are not present in the cluster: " + notFoundNodes);
-        }
-        return candidates;
-    }
-
-    /**
-     * Selects a random node from the set of candidates, preferably not a local node.
-     *
-     * @param candidates Set of candidate nodes.
-     * @param localNode Local node.
-     *
-     * @return Target node to run a job on.
-     */
-    private static ClusterNode selectTargetNode(Set<ClusterNode> candidates, ClusterNode localNode) {
-        if (candidates.size() == 1) {
-            return candidates.iterator().next();
+            nodes.add(node);
         }
 
-        // Since there are more than one candidate, we can safely exclude local node here.
-        // It will still be used as a failover candidate, if present.
-        Set<ClusterNode> nodes = new HashSet<>(candidates);
-        nodes.remove(localNode);
-
-        if (nodes.size() == 1) {
-            return nodes.iterator().next();
-        }
-
-        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
-
-        Iterator<ClusterNode> iterator = nodes.iterator();
-        for (int i = 0; i < nodesToSkip; i++) {
-            iterator.next();
-        }
-
-        return iterator.next();
-
+        return nodes;
     }
 
     static void sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
