@@ -207,6 +207,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         ClusterNode localNode = mock(ClusterNode.class);
 
+        when(localNode.name()).thenReturn("localNode");
+        when(localNode.id()).thenReturn("localNode");
+
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
