@@ -62,7 +62,6 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     @Language("JSON")
     private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 Replace dummy with the real target storages.
     @Language("JSON")
     private static final String STORAGE_PROFILES = "{default_rocksdb:{engine:\"rocksDb\"},default_aipersist:{engine:\"aipersist\"}}";
 

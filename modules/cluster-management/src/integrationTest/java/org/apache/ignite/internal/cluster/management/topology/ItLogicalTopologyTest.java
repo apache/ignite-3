@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -59,8 +60,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 Replace dummy with the real target storages.
-    private static final String STORAGE_PROFILES = "{lru_rocks:{engine:\"dummy\"},segmented_aipersist:{engine:\"dummy\"}}";
+    private static final String STORAGE_PROFILES = "{lru_rocks:{engine:\"rocksDb\"},segmented_aipersist:{engine:\"aipersist\"}}";
 
     private static final Map<String, String> NODE_ATTRIBUTES_MAP = Map.of("region", "US", "storage", "SSD");
 
@@ -173,7 +173,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.eventType, is(EventType.VALIDATED));
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(event.node.storageProfiles(), is(STORAGE_PROFILES_LIST));
+        assertThat(Set.copyOf(event.node.storageProfiles()), is(Set.copyOf(STORAGE_PROFILES_LIST)));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
@@ -182,7 +182,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(2L));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(event.node.storageProfiles(), is(STORAGE_PROFILES_LIST));
+        assertThat(Set.copyOf(event.node.storageProfiles()), is(Set.copyOf(STORAGE_PROFILES_LIST)));
 
         assertThat(events, is(empty()));
 
@@ -220,7 +220,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertTrue(secondNode.isPresent());
 
         assertThat(secondNode.get().userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(secondNode.get().storageProfiles(), is(STORAGE_PROFILES_LIST));
+        assertThat(Set.copyOf(secondNode.get().storageProfiles()), is(Set.copyOf(STORAGE_PROFILES_LIST)));
     }
 
     @Test
