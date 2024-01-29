@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -314,7 +316,8 @@ public class PartitionPruningExtractorSelfTest extends BaseIgniteAbstractTest {
         log.info("Keys: {}", keys);
         log.info("Expected metadata: {}", expectedMetadata);
 
-        PartitionPruningColumns actualMetadata = PartitionPruningMetadataExtractor.extractMetadata(keys, condition, rexBuilder);
+        IntList keyList = IntImmutableList.toList(keys.stream().mapToInt(Integer::intValue));
+        PartitionPruningColumns actualMetadata = PartitionPruningMetadataExtractor.extractMetadata(keyList, condition, rexBuilder);
 
         List<String> actual;
 

@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.util.ArrayList;
@@ -128,8 +130,12 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         if (!distribution.function().affinity()) {
             return;
         }
+        IntArrayList keysList = new IntArrayList(distribution.getKeys().size());
+        for (Integer key : distribution.getKeys()) {
+            keysList.add(key.intValue());
+        }
 
-        PartitionPruningColumns metadata = extractMetadata(distribution.getKeys(), condition, rexBuilder);
+        PartitionPruningColumns metadata = extractMetadata(keysList, condition, rexBuilder);
 
         if (metadata != null) {
             result.put(sourceId, metadata);
@@ -139,7 +145,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     /** Extracts values of colocated columns from the given condition. */
     @VisibleForTesting
     @Nullable
-    public static PartitionPruningColumns extractMetadata(List<Integer> keys, RexNode condition, RexBuilder rexBuilder) {
+    public static PartitionPruningColumns extractMetadata(IntList keys, RexNode condition, RexBuilder rexBuilder) {
         Result res = extractMetadata(condition, keys, rexBuilder, false);
 
         // Both unknown condition and additional condition can not be used to extract metadata.
@@ -158,6 +164,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
 
         for (PruningColumnSet columnSet : columnSets.candidates) {
+
             if (!columnSet.columns.keySet().containsAll(keys)) {
                 return null;
             }
@@ -172,7 +179,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         return new PartitionPruningColumns(result);
     }
 
-    private static Result extractMetadata(RexNode node, List<Integer> keys, RexBuilder rexBuilder, boolean negate) {
+    private static Result extractMetadata(RexNode node, IntList keys, RexBuilder rexBuilder, boolean negate) {
 
         if (isColocationKey(node, keys)) {
             // a standalone <bool_col> ref.
@@ -392,7 +399,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
     }
 
-    private static boolean isColocationKey(RexNode node, List<Integer> keys) {
+    private static boolean isColocationKey(RexNode node, IntList keys) {
         if (node instanceof RexLocalRef) {
             RexLocalRef localRef = (RexLocalRef) node;
             return keys.contains(localRef.getIndex());
