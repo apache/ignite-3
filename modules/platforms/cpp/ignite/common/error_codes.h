@@ -63,7 +63,8 @@ enum class code : underlying_t {
     ILLEGAL_ARGUMENT = 0x10003,
     SSL_CONFIGURATION = 0x10004,
     NODE_LEFT = 0x10005,
-    CURSOR_CLOSED = 0x10006,
+    CURSOR_NO_MORE_PAGES = 0x10006,
+    CURSOR_CLOSED = 0x10007,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2

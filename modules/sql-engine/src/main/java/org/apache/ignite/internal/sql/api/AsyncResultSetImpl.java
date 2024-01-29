@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -31,6 +30,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     private static final CompletableFuture<? extends AsyncResultSet<?>> HAS_NO_MORE_PAGE_FUTURE =
-            CompletableFuture.failedFuture(new NoSuchElementException("There are no more pages."));
+            CompletableFuture.failedFuture(new NoMorePagesException());
 
     private final IdleExpirationTracker expirationTracker;
 

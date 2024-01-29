@@ -133,8 +133,11 @@ public class ErrorGroups {
         /** Operation failed because a node has left the cluster. */
         public static final int NODE_LEFT_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 5);
 
+        /** No more pages in the cursor error. */
+        public static final int CURSOR_NO_MORE_PAGES_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 6);
+
         /** Cursor is already closed error. */
-        public static final int CURSOR_CLOSED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 6);
+        public static final int CURSOR_CLOSED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.

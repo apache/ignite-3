@@ -17,7 +17,6 @@
 
 package org.apache.ignite.lang;
 
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -51,7 +50,7 @@ public interface AsyncCursor<T> {
      * @return A future which will be completed when next page will be fetched and set as the current page.
      *     The future will return {@code this} for chaining.
      * @throws CursorClosedException If cursor is closed.
-     * @throws NoSuchElementException If there are no more pages.
+     * @throws NoMorePagesException If there are no more pages.
      */
     CompletableFuture<? extends AsyncCursor<T>> fetchNextPage();
 

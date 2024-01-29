@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
@@ -37,6 +36,7 @@ import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -162,7 +162,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         }
 
         if (!hasMorePages()) {
-            return CompletableFuture.failedFuture(new NoSuchElementException("There are no more pages."));
+            return CompletableFuture.failedFuture(new NoMorePagesException());
         }
 
         return ch.serviceAsync(
