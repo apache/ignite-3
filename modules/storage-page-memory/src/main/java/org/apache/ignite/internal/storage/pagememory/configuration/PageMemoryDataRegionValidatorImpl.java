@@ -32,6 +32,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 /**
  * Implementing a validator for {@link PageMemoryDataRegionName}.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-21385 remove it
 public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDataRegionName, String> {
     /** Static instance. */
     public static final PageMemoryDataRegionValidatorImpl INSTANCE = new PageMemoryDataRegionValidatorImpl();

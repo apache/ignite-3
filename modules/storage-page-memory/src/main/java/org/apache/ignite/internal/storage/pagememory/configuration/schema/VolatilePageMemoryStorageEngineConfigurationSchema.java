@@ -31,6 +31,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEn
 /**
  * Root configuration for {@link VolatilePageMemoryStorageEngine}.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-21385 remove it
 @ConfigurationRoot(rootName = ENGINE_NAME, type = LOCAL)
 public class VolatilePageMemoryStorageEngineConfigurationSchema extends BasePageMemoryStorageEngineConfigurationSchema {
     /** Default data region. */

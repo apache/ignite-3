@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 /**
  * Basic configuration schema for {@link PageMemory} based storage engines.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-21385 remove it
 @AbstractConfiguration
 public class BasePageMemoryStorageEngineConfigurationSchema {
     /** Name of the default data region. */

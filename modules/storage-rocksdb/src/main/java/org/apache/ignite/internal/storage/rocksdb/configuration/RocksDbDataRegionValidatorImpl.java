@@ -26,7 +26,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 /**
  * Implementing a validator for {@link RocksDbDataRegionName}.
  */
-// TODO: KKK fix or remove it
+// TODO: https://issues.apache.org/jira/browse/IGNITE-21385 remove it
 public class RocksDbDataRegionValidatorImpl implements Validator<RocksDbDataRegionName, String> {
     /** Static instance. */
     public static final RocksDbDataRegionValidatorImpl INSTANCE = new RocksDbDataRegionValidatorImpl();
