@@ -57,10 +57,8 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         requested = rowsCnt;
 
         if (!inLoop) {
-//            context().execute(this::push, this::onError);
-            this.push();
+            context().execute(this::push, this::onError);
         }
-//        this.push();
     }
 
     /** {@inheritDoc} */
