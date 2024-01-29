@@ -35,12 +35,12 @@ import org.jetbrains.annotations.Nullable;
 /** Partition assignments resolver. */
 public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<RowT>, AssignmentsResolver<RowT> {
     private final RowHandler<RowT> rowHandler;
+    private final int partitions;
+    protected final int[] fields;
+    private final NativeType[] fieldTypes;
+
     private HashCalculator hashCalc;
     private int curColIdx;
-    protected final int partitions;
-
-    protected int[] fields;
-    protected NativeType[] fieldTypes;
 
     private boolean calculated;
 
@@ -52,9 +52,9 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
 
         ImmutableIntList colocationColumns = tableDescriptor.distribution().getKeys();
         int fieldCnt = fields.length;
-        fieldTypes = new NativeType[fieldCnt];
-
         assert colocationColumns.size() == fieldCnt : "fieldsCount=" + fieldCnt + ", colocationColumns=" + colocationColumns;
+
+        fieldTypes = new NativeType[fieldCnt];
 
         for (int i = 0; i < fieldCnt; i++) {
             ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(colocationColumns.getInt(i));
@@ -112,7 +112,8 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
     }
 
     private int calculate() {
-        assert curColIdx == fields.length;
+        assert curColIdx == fields.length :
+                format("partially initialized: keys supplied={}, keys avoid={}", curColIdx, fields.length);
         calculated = true;
         return hashCalc.hash();
     }

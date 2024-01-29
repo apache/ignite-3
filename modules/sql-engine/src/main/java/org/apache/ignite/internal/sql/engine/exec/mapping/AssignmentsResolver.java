@@ -24,7 +24,7 @@ interface AssignmentsResolver<RowT> {
     /**
      * Append object assignments to be calculated for.
      *
-     * @param value Object assignments to be calculated for.
+     * @param value The object  for which assignments will be calculated.
      */
     void append(@Nullable Object value);
 
