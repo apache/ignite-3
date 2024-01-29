@@ -70,6 +70,14 @@ class HandshakeManagerUtils {
         });
     }
 
+    /**
+     * Moves a channel from its current event loop to the event loop corresponding to the channel key. This is needed
+     * because all channels in the same logical connection must be served by the same thread.
+     *
+     * @param channel Channel to move.
+     * @param channelKey Key of the logical connection.
+     * @param afterSwitching Action to execute after switching (it will be executed on the new event loop).
+     */
     static void switchEventLoopIfNeeded(Channel channel, ChannelKey channelKey, Runnable afterSwitching) {
         EventLoop targetEventLoop = eventLoopForKey(channelKey, channel);
 
