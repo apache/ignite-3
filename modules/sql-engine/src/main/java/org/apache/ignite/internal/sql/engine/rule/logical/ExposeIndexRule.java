@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
+import static org.apache.calcite.util.Util.last;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.FORCE_INDEX;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.NO_INDEX;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.Collection;
 import java.util.EnumSet;
@@ -47,8 +49,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.SqlException;
 import org.immutables.value.Value;
 
 /**
@@ -87,6 +89,10 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
                 .filter(idx -> filter(igniteTable, idx.indexName(), idx.searchBounds()))
                 .collect(Collectors.toList());
 
+        if (indexes.isEmpty()) {
+            return;
+        }
+
         indexes = applyHints(scan, indexes);
 
         if (indexes.isEmpty()) {
@@ -119,23 +125,37 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
             if (hintIdxNames.isEmpty()) {
                 if (noIndex) {
-                    idxToSkip.addAll(CollectionUtils.difference(tblIdxNames, idxToUse));
+                    if (!idxToUse.isEmpty()) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                "Indexes " + idxToUse + " of table '" + last(scan.getTable().getQualifiedName())
+                                        + "' has already been forced to use by other hints before.");
+                    }
 
-                    break;
+                    idxToSkip.addAll(tblIdxNames);
                 }
 
                 continue;
             }
 
             for (String hintIdxName : hintIdxNames) {
-                if (!tblIdxNames.contains(hintIdxName) || idxToSkip.contains(hintIdxName) || idxToUse.contains(hintIdxName)) {
+                if (!tblIdxNames.contains(hintIdxName)) {
                     continue;
                 }
 
                 if (noIndex) {
-                    idxToSkip.addAll(hintIdxNames);
+                    if (idxToUse.contains(hintIdxName)) {
+                        throw new SqlException(STMT_VALIDATION_ERR, "Index '" + hintIdxName + " of table '"
+                                + last(scan.getTable().getQualifiedName()) + "' has already been forced in other hints.");
+                    }
+
+                    idxToSkip.add(hintIdxName);
                 } else {
-                    idxToUse.addAll(hintIdxNames);
+                    if (idxToSkip.contains(hintIdxName)) {
+                        throw new SqlException(STMT_VALIDATION_ERR, "Index '" + hintIdxName + "' of table '"
+                                + last(scan.getTable().getQualifiedName()) + "' has already been disabled in other hints.");
+                    }
+
+                    idxToUse.add(hintIdxName);
                 }
             }
         }
