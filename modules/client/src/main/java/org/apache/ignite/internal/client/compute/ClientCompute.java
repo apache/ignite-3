@@ -284,19 +284,26 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private @Nullable String selectPreferredNodeName(Set<ClusterNode> nodes) {
-        Set<String> preferredNodeNames = nodes.stream().map(ClusterNode::name).collect(Collectors.toCollection(HashSet::new));
-        Set<String> connections = ch.connections().stream().map(ClusterNode::name).collect(Collectors.toSet());
+        List<String> candidateNodeNames = new ArrayList<>(nodes.size());
+        Set<String> connectedNodeNames = ch.connectedNodeNames();
 
-        // Select the preferred node from the intersection of the candidate nodes and existing connections
-        preferredNodeNames.retainAll(connections);
+        for (ClusterNode node : nodes) {
+            if (connectedNodeNames.contains(node.name())) {
+                candidateNodeNames.add(node.name());
+            }
+        }
 
-        if (preferredNodeNames.isEmpty()) {
+        if (candidateNodeNames.isEmpty()) {
             return null;
         }
-        return randomNode(preferredNodeNames);
-    }
 
-    private static String randomNode(Set<String> nodes) {
+        if (candidateNodeNames.size() == 1) {
+            return candidateNodeNames.get(0);
+        }
+
+        int randomIdx = ThreadLocalRandom.current().nextInt(candidateNodeNames.size());
+        return candidateNodeNames.get(randomIdx);
+    }
         if (nodes.size() == 1) {
             return nodes.iterator().next();
         }
