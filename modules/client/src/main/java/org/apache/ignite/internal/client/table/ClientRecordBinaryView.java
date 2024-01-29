@@ -30,6 +30,7 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -358,7 +359,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new TupleStreamerPartitionAwarenessProvider(tbl);

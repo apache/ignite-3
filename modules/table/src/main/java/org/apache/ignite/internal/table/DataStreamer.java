@@ -25,6 +25,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,7 +33,7 @@ class DataStreamer {
     private static final IgniteLogger LOG = Loggers.forClass(DataStreamer.class);
 
     static <R> CompletableFuture<Void> streamData(
-            Publisher<R> publisher,
+            Publisher<DataStreamerItem<R>> publisher,
             @Nullable DataStreamerOptions options,
             StreamerBatchSender<R, Integer> batchSender,
             StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider) {
