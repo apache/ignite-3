@@ -98,12 +98,12 @@ class DestinationFactory<RowT> {
 
                     TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
 
-                    var resolver = new PartitionResolverImpl<>(group.assignments().size(), keys.toIntArray(), tableDescriptor, rowHandler);
+                    var resolver = new PartitionResolverImpl<>(assignments.size(), keys.toIntArray(), tableDescriptor, rowHandler);
 
                     return new Partitioned<>(assignments, resolver);
                 }
 
-                var resolver = new RowAwareAssignmentResolverImpl<>(group.assignments().size(), keys.toIntArray(), rowHandler);
+                var resolver = new RowAwareAssignmentResolverImpl<>(assignments.size(), keys.toIntArray(), rowHandler);
 
                 return new Partitioned<>(assignments, resolver);
             }
