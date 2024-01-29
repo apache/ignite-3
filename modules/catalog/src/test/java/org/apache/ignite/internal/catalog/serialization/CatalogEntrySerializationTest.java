@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -190,11 +191,16 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         List<CatalogTableColumnDescriptor> columns = List.of(col1, col2);
 
-        NewTableEntry entry = new NewTableEntry(newTableDescriptor("Table1", columns), "PUBLIC");
+        NewTableEntry entry1 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null), "PUBLIC");
+        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")), "PUBLIC");
 
-        VersionedUpdate update = newVersionedUpdate(entry, entry);
+        VersionedUpdate update = newVersionedUpdate(entry1, entry2);
+        VersionedUpdate deserialized = serialize(update);
 
-        assertVersionedUpdate(update, serialize(update));
+        assertVersionedUpdate(update, deserialized);
+
+        NewTableEntry deserializedEntry = (NewTableEntry) deserialized.entries().get(0);
+        assertSame(deserializedEntry.descriptor().primaryKeyColumns(), deserializedEntry.descriptor().colocationColumns());
     }
 
     @Test
@@ -334,6 +340,15 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     }
 
     private static CatalogTableDescriptor newTableDescriptor(String name, List<CatalogTableColumnDescriptor> columns) {
+        return newTableDescriptor(name, columns, List.of(columns.get(0).name()), null);
+    }
+
+    private static CatalogTableDescriptor newTableDescriptor(
+            String name,
+            List<CatalogTableColumnDescriptor> columns,
+            List<String> pkCols,
+            @Nullable List<String> colCols
+    ) {
         return new CatalogTableDescriptor(
                 1,
                 3,
@@ -341,8 +356,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 name,
                 17,
                 columns,
-                List.of(columns.get(0).name()),
-                List.of(columns.get(0).name())
+                pkCols,
+                colCols
         );
     }
 

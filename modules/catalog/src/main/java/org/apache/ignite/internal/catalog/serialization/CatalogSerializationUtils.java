@@ -54,7 +54,13 @@ public class CatalogSerializationUtils {
     }
 
     /** Writes collection containing strings. */
-    public static void writeStringCollection(Collection<String> list, DataOutput out) throws IOException {
+    public static void writeStringCollection(@Nullable Collection<String> list, DataOutput out) throws IOException {
+        if (list == null) {
+            out.writeInt(-1);
+
+            return;
+        }
+
         out.writeInt(list.size());
 
         for (String item : list) {
@@ -63,13 +69,17 @@ public class CatalogSerializationUtils {
     }
 
     /** Reads collection containing strings. */
-    public static <T extends Collection<String>> T readStringCollection(DataInput input, IntFunction<T> factory) throws IOException {
-        int size = input.readInt();
+    public static <T extends Collection<String>> @Nullable T readStringCollection(DataInput in, IntFunction<T> factory) throws IOException {
+        int size = in.readInt();
+
+        if (size == -1) {
+            return null;
+        }
 
         T collection = factory.apply(size);
 
         for (int i = 0; i < size; i++) {
-            collection.add(input.readUTF());
+            collection.add(in.readUTF());
         }
 
         return collection;

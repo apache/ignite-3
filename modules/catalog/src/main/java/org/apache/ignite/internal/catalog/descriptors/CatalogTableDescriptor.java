@@ -242,6 +242,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             List<String> primaryKeyColumns = readStringCollection(input, ArrayList::new);
             List<String> colocationColumns = readStringCollection(input, ArrayList::new);
 
+            if (colocationColumns == null) {
+                colocationColumns = primaryKeyColumns;
+            }
+
             long creationToken = input.readLong();
 
             return new CatalogTableDescriptor(
@@ -271,7 +275,11 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             output.writeInt(descriptor.primaryKeyIndexId());
             output.writeInt(descriptor.zoneId());
             writeStringCollection(descriptor.primaryKeyColumns(), output);
-            writeStringCollection(descriptor.colocationColumns(), output);
+            writeStringCollection(
+                    descriptor.colocationColumns() == descriptor.primaryKeyColumns() ? null : descriptor.colocationColumns(),
+                    output
+            );
+
             output.writeLong(descriptor.creationToken());
         }
     }
