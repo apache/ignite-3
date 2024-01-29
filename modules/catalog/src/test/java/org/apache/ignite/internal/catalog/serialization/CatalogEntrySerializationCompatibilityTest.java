@@ -44,9 +44,6 @@ public class CatalogEntrySerializationCompatibilityTest {
             case 1:
                 return TestUpdateEntrySerializerV2.INSTANCE;
 
-            case 2:
-                return TestUpdateEntrySerializerV3.INSTANCE;
-
             default:
                 throw new IllegalArgumentException("Unexpected type: " + typeId);
         }
@@ -56,61 +53,37 @@ public class CatalogEntrySerializationCompatibilityTest {
      * Checks whether the old version of an entity can be read by the new version's serializer.
      */
     @Test
-    public void readPreviousVersionEntry() {
-        // Writes a version 1 entry, reads it using the version 2 and 3 serializer.
-        {
-            TestUpdateEntry entryV1 = TestEntryFactory.create(1);
-
-            UpdateLogMarshaller marshallerV1 = new UpdateLogMarshallerImpl(1, serializerProvider);
-
-            List<UpdateEntry> entries = List.of(entryV1, entryV1);
-
-            VersionedUpdate update = new VersionedUpdate(1, 2, entries);
-
-            byte[] bytesV1 = marshallerV1.marshall(update);
-
-            VersionedUpdate deserialized = marshallerV1.unmarshall(bytesV1);
-            assertThat(deserialized.entries(), equalTo(entries));
-
-            UpdateLogMarshaller marshallerV2 = new UpdateLogMarshallerImpl(2, serializerProvider);
-            deserialized = marshallerV2.unmarshall(bytesV1);
-            assertThat(deserialized.entries(), equalTo(entries));
-
-            UpdateLogMarshaller marshallerV3 = new UpdateLogMarshallerImpl(3, serializerProvider);
-            deserialized = marshallerV3.unmarshall(bytesV1);
-            assertThat(deserialized.entries(), equalTo(entries));
-        }
-
-        // Writes a version 2 entry, reads it using the version 3 serializer.
-        {
-            TestUpdateEntryV2 entryV2 = TestEntryFactory.create(2);
-
-            UpdateLogMarshaller marshallerV2 = new UpdateLogMarshallerImpl(2, serializerProvider);
-
-            List<UpdateEntry> entries = List.of(entryV2, entryV2);
-            VersionedUpdate update = new VersionedUpdate(1, 2, entries);
-
-            byte[] bytesV2 = marshallerV2.marshall(update);
-
-            VersionedUpdate deserialized = marshallerV2.unmarshall(bytesV2);
-            assertThat(deserialized.entries(), equalTo(entries));
-
-            UpdateLogMarshaller marshallerV3 = new UpdateLogMarshallerImpl(3, serializerProvider);
-            deserialized = marshallerV3.unmarshall(bytesV2);
-            assertThat(deserialized.entries(), equalTo(entries));
-        }
-    }
-
-    /**
-     * Checks whether the entry can be written in the previous format.
-     */
-    @Test
-    public void writePreviousVersionEntry() {
-        TestUpdateEntryV3 entryV3 = TestEntryFactory.create(3);
+    public void readEntryInPreviousFormat() {
+        TestUpdateEntry entryV1 = TestEntryFactory.create(1);
 
         UpdateLogMarshaller marshallerV1 = new UpdateLogMarshallerImpl(1, serializerProvider);
 
-        List<UpdateEntry> entries = List.of(entryV3, entryV3);
+        List<UpdateEntry> entries = List.of(entryV1, entryV1);
+
+        VersionedUpdate update = new VersionedUpdate(1, 2, entries);
+
+        byte[] bytesV1 = marshallerV1.marshall(update);
+
+        // Ensures that marshaller version 1 can unmarshal a version 1 entry.
+        VersionedUpdate deserialized = marshallerV1.unmarshall(bytesV1);
+        assertThat(deserialized.entries(), equalTo(entries));
+
+        // Ensures that marshaller version 2 can unmarshal a version 1 entry.
+        UpdateLogMarshaller marshallerV2 = new UpdateLogMarshallerImpl(2, serializerProvider);
+        deserialized = marshallerV2.unmarshall(bytesV1);
+        assertThat(deserialized.entries(), equalTo(entries));
+    }
+
+    /**
+     * Checks whether the serializer can write a entry in the previous format.
+     */
+    @Test
+    public void writeEntryInPreviousFormat() {
+        TestUpdateEntryV2 entryV2 = TestEntryFactory.create(2);
+
+        UpdateLogMarshaller marshallerV1 = new UpdateLogMarshallerImpl(1, serializerProvider);
+
+        List<UpdateEntry> entries = List.of(entryV2, entryV2);
         VersionedUpdate update = new VersionedUpdate(1, 2, entries);
 
         byte[] bytesV1 = marshallerV1.marshall(update);
@@ -126,24 +99,27 @@ public class CatalogEntrySerializationCompatibilityTest {
      */
     @Test
     public void forwardCompatibilityIsNotSupported() {
-        TestUpdateEntryV3 entryV3 = TestEntryFactory.create(3);
+        TestUpdateEntryV2 entryV2 = TestEntryFactory.create(2);
 
-        List<UpdateEntry> entries = List.of(entryV3, entryV3);
+        List<UpdateEntry> entries = List.of(entryV2, entryV2);
         VersionedUpdate update = new VersionedUpdate(1, 2, entries);
 
-        UpdateLogMarshaller marshallerV3 = new UpdateLogMarshallerImpl(3, serializerProvider);
-
-        byte[] bytesV3 = marshallerV3.marshall(update);
-
         UpdateLogMarshaller marshallerV2 = new UpdateLogMarshallerImpl(2, serializerProvider);
+
+        byte[] bytesV2 = marshallerV2.marshall(update);
+
+        UpdateLogMarshaller marshallerV1 = new UpdateLogMarshallerImpl(1, serializerProvider);
 
         //noinspection ThrowableNotThrown
         assertThrows(
                 MarshallerException.class,
-                () -> marshallerV2.unmarshall(bytesV3),
+                () -> marshallerV1.unmarshall(bytesV2),
                 "An object could not be deserialized because it was using a newer version of the "
-                        + "serialization protocol [objectVersion=3, supported=2]"
+                        + "serialization protocol [objectVersion=2, supported=1]"
         );
+
+        // Ensures that marshaller version 2 can unmarshal a version 2 entry.
+        assertThat(entries, equalTo(marshallerV2.unmarshall(bytesV2).entries()));
     }
 
     static class TestEntryFactory {
@@ -154,10 +130,6 @@ public class CatalogEntrySerializationCompatibilityTest {
 
             if (version > 1) {
                 entry = new TestUpdateEntryV2(entry.descriptor1, entry.value, List.of(new TestDescriptor2("strField", 43)));
-            }
-
-            if (version > 2) {
-                entry = new TestUpdateEntryV3(entry.descriptor1, entry.value, ((TestUpdateEntryV2) entry).descList, "name2");
             }
 
             return (T) entry;
@@ -318,40 +290,6 @@ public class CatalogEntrySerializationCompatibilityTest {
         }
     }
 
-    static class TestUpdateEntryV3 extends TestUpdateEntryV2 {
-        final String name2;
-
-        TestUpdateEntryV3(TestDescriptor1 descriptor1, int value, List<TestDescriptor2> descriptor2, String name2) {
-            super(descriptor1, value, descriptor2);
-
-            this.name2 = name2;
-        }
-
-        @Override
-        public int typeId() {
-            return 2;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            TestUpdateEntryV3 that = (TestUpdateEntryV3) o;
-            return Objects.equals(name2, that.name2) && Objects.equals(descList, that.descList) && value == that.value
-                    && Objects.equals(descriptor1, that.descriptor1);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(super.hashCode(), name2);
-        }
-    }
-
     private static class TestUpdateEntrySerializerV1<T extends TestUpdateEntry> implements CatalogObjectSerializer<T> {
         @SuppressWarnings({"unchecked", "rawtypes"})
         private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializerV1();
@@ -396,33 +334,6 @@ public class CatalogEntrySerializationCompatibilityTest {
                 assert entry instanceof TestUpdateEntryV2;
 
                 CatalogSerializationUtils.writeList(((TestUpdateEntryV2) entry).descList, version, TestDescriptor2.serializer(), output);
-            }
-        }
-    }
-
-    private static class TestUpdateEntrySerializerV3<T extends TestUpdateEntry> extends TestUpdateEntrySerializerV2<T> {
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializerV3();
-
-        @Override
-        public T readFrom(int version, IgniteDataInput input) throws IOException {
-            TestUpdateEntry entry = super.readFrom(version, input);
-
-            if (version < 3) {
-                return (T) entry;
-            }
-
-            return (T) new TestUpdateEntryV3(entry.descriptor1, entry.value, ((TestUpdateEntryV2) entry).descList, input.readUTF());
-        }
-
-        @Override
-        public void writeTo(T entry, int version, IgniteDataOutput output) throws IOException {
-            super.writeTo(entry, version, output);
-
-            if (version > 2) {
-                assert entry instanceof TestUpdateEntryV3;
-
-                output.writeUTF(((TestUpdateEntryV3) entry).name2);
             }
         }
     }
