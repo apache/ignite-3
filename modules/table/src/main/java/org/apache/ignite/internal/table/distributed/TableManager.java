@@ -1296,6 +1296,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + dataStorage.engine();
 
+        // TODO: KKK we must take not zone data region here, but table storage profile
         MvTableStorage tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
                 new StorageIndexDescriptorSupplier(catalogService)

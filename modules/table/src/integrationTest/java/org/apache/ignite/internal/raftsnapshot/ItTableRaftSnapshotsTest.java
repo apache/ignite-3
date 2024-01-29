@@ -124,6 +124,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             + "    }\n"
             + "  },\n"
             + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
+            + "  storages: {\n"
+            + "    profiles: {default_aipersist: { engine: \"aipersist\"}, default_aimem: { engine: \"aimem\"}, default_rocksdb: { engine: \"rocksDb\"}}\n"
+            + "  },\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
             + "}";
@@ -271,11 +274,13 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private void createTestTableWith3Replicas(String storageEngine) {
+        String storageProfile =
+                DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? DUMMY_STORAGE_PROFILE : "default_" + storageEngine.toLowerCase();
         String zoneSql = "create zone test_zone"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
-                + " with partitions=1, replicas=3, storage_profiles='" + DUMMY_STORAGE_PROFILE + "';";
+                + " with partitions=1, replicas=3, storage_profiles='" + storageProfile+ "', dataregion='" + storageProfile + "';";
         String sql = "create table test (key int primary key, val varchar(20))"
-                + " with primary_zone='TEST_ZONE'";
+                + " with primary_zone='TEST_ZONE', storage_profile='" + storageProfile + "';";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
