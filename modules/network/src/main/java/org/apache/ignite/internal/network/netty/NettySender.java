@@ -147,7 +147,7 @@ public class NettySender {
 
             if (obj.shouldBeSavedForRecovery()) {
                 // It was not saved yet (as normally OutboundRecoveryHandler adds it to the unacknowledged messages queue, but
-                // the channel has been closed and its pipeline destroyed, so the handler did not get called.
+                // the channel has been closed and its pipeline destroyed, so the handler did not get called).
                 // Let's add it manually.
                 recoveryDescriptor.add(obj);
             }
