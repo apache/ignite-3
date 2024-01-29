@@ -71,7 +71,8 @@ public class ClientComputeExecuteRequest {
 
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
         int size = in.unpackInt();
-        Set<ClusterNode> nodes = new HashSet<>();
+        Set<ClusterNode> nodes = new HashSet<>(size);
+        
         for (int i = 0; i < size; i++) {
             String nodeName = in.unpackString();
             ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
