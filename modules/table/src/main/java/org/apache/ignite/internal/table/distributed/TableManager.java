@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -204,6 +205,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Transaction storage flush delay. */
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
+
+    private static final int MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG = 1;
 
     private final ClusterService clusterService;
 
@@ -639,8 +642,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .invoke(condition, partitionAssignments, Collections.emptyList())
                     .thenCompose(invokeResult -> {
                         if (invokeResult) {
-                            LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully "
-                                            + "written to meta storage [tableId={}, assignments={}]", tableId, newAssignments));
+                            LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully written"
+                                    + " to meta storage [tableId={}, assignments={}]", tableId, assignmentListToString(newAssignments)));
 
                             return completedFuture(newAssignments);
                         } else {
@@ -651,7 +654,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             CompletableFuture<Map<ByteArray, Entry>> resFuture = metaStorageMgr.getAll(partKeys);
 
                             return resFuture.thenApply(metaStorageAssignments -> {
-                                List<Set<Assignment>> realAssignments = new ArrayList<>();
+                                Set<Assignment>[] realAssignments = new Set[newAssignments.size()];
 
                                 for (int p = 0; p < newAssignments.size(); p++) {
                                     var partId = new TablePartitionId(tableId, p);
@@ -662,13 +665,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                     Set<Assignment> real = ByteUtils.fromBytes(assignmentsEntry.value());
 
-                                    realAssignments.add(real);
+                                    realAssignments[p] = real;
                                 }
 
-                                LOG.info(IgniteStringFormatter.format("Assignments picked up from meta storage [tableId={}, "
-                                        + "assignments={}]", tableId, realAssignments));
+                                var realAssignmentsList = asList(realAssignments);
 
-                                return realAssignments;
+                                LOG.info(IgniteStringFormatter.format("Assignments picked up from meta storage [tableId={}, "
+                                        + "assignments={}]", tableId, assignmentListToString(realAssignmentsList)));
+
+                                return realAssignmentsList;
                             });
                         }
                     })
@@ -1154,7 +1159,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assignmentsFuture.thenAccept(assignmentsList -> {
                     LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
-                                    + "revision={}]", tableDescriptor.name(), tableId, assignmentsList, causalityToken));
+                            + "revision={}]", tableDescriptor.name(), tableId, assignmentListToString(assignmentsList), causalityToken));
                 });
             }
 
@@ -1280,6 +1285,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenApply(ignore -> null);
+    }
+
+    private static String assignmentListToString(List<Set<Assignment>> assignments) {
+        StringBuilder sb = new StringBuilder("[");
+
+        int partsToLog = Math.min(assignments.size(), MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG);
+
+        for (int p = 0; p < partsToLog; p++) {
+            if (p > 0) {
+                sb.append(',');
+            }
+
+            sb.append(p);
+            sb.append("=" + assignments.get(p));
+        }
+
+        if (assignments.size() > MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG) {
+            sb.append(",...and " + (assignments.size() - MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG) + " more partition(s)");
+        }
+
+        sb.append(']');
+
+        return sb.toString();
     }
 
     /**
