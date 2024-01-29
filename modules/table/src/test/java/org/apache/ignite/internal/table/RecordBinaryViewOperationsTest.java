@@ -40,6 +40,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -340,6 +341,24 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
                 ));
 
         assertThat(res, contains(rec1, null, rec3));
+    }
+
+    @Test
+    public void testContains() {
+        SchemaDescriptor schema = schemaDescriptor();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
+
+        final long keyID = 1L;
+        Tuple rec = Tuple.create()
+                .set("id", keyID)
+                .set("val", 11L);
+        Tuple keyRec = Tuple.create()
+                .set("id", keyID);
+
+        tbl.insert(null, rec);
+
+        assertTrue(tbl.contains(null, keyRec));
+        assertFalse(tbl.contains(null, Tuple.create().set("id",-1L)));
     }
 
     @Test

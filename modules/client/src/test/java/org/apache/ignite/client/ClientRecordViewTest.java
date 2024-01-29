@@ -281,18 +281,14 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     @Test
     public void testContains() {
-        Tuple recordTuple = Tuple.create()
-                .set("id", DEFAULT_ID)
-                .set("name", DEFAULT_NAME);
-        Tuple keyTuple = Tuple.create()
-                .set("id", DEFAULT_ID);
-        RecordView<Tuple> recordView = defaultTable().recordView();
+        RecordView<PersonPojo> recordView = defaultTable().recordView(PersonPojo.class);
+        PersonPojo pojo = new PersonPojo(DEFAULT_ID, DEFAULT_NAME);
 
-        recordView.insert(null, recordTuple);
+        recordView.insert(null, pojo);
 
-        assertTrue(recordView.contains(null, recordTuple));
-        assertTrue(recordView.contains(null, keyTuple));
-        assertFalse(recordView.contains(null, Tuple.create(Map.of("id",-1L))));
+        assertTrue(recordView.contains(null, pojo));
+        assertTrue(recordView.contains(null, new PersonPojo(DEFAULT_ID, "")));
+        assertFalse(recordView.contains(null, new PersonPojo(DEFAULT_ID - 1, DEFAULT_NAME)));
     }
 
     @Test

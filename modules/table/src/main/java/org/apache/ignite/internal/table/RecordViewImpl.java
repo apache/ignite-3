@@ -127,12 +127,13 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return sync(containsAsync(tx, keyRec));
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(keyRec, schemaVersion);
+            BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
 
             return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
         });
