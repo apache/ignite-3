@@ -45,21 +45,22 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
     private boolean calculated;
 
     /** Constructor. */
-    public PartitionResolverImpl(int partitions, TableDescriptor tableDescriptor, RowHandler<RowT> rowHandler) {
+    public PartitionResolverImpl(int partitions, int[] fields, TableDescriptor tableDescriptor, RowHandler<RowT> rowHandler) {
         this.rowHandler = Objects.requireNonNull(rowHandler, "rowHandler");
         this.partitions = partitions;
+        this.fields = fields;
 
         ImmutableIntList colocationColumns = tableDescriptor.distribution().getKeys();
-        int fieldCnt = colocationColumns.size();
+        int fieldCnt = fields.length;
         fieldTypes = new NativeType[fieldCnt];
+
+        assert colocationColumns.size() == fieldCnt : "fieldsCount=" + fieldCnt + ", colocationColumns=" + colocationColumns;
 
         for (int i = 0; i < fieldCnt; i++) {
             ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(colocationColumns.getInt(i));
 
             fieldTypes[i] = colDesc.physicalType();
         }
-
-        fields = colocationColumns.toIntArray();
     }
 
     /** {@inheritDoc} */

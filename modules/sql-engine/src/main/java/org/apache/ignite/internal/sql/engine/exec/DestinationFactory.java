@@ -98,12 +98,7 @@ class DestinationFactory<RowT> {
 
                     TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
 
-                    ImmutableIntList tableDistrKeys = tableDescriptor.distribution().getKeys();
-
-                    assert keys.size() == tableDistrKeys.size() : "distribution keys=" + keys + ", "
-                            + "table distribution keys=" + tableDistrKeys;
-
-                    var resolver = new PartitionResolverImpl<>(group.assignments().size(), tableDescriptor, rowHandler);
+                    var resolver = new PartitionResolverImpl<>(group.assignments().size(), keys.toIntArray(), tableDescriptor, rowHandler);
 
                     return new Partitioned<>(assignments, resolver);
                 }

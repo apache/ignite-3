@@ -80,8 +80,9 @@ class AssignmentsResolutionTest extends BaseIgniteAbstractTest {
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
         RowFactory<RowWrapper> factory = rowHandler.factory(rowSchema);
         RowWrapper row = factory.create("1", 1, 2);
+        int[] colocationKeys = {0, 2};
 
-        PartitionResolverImpl<RowWrapper> partResolver = new PartitionResolverImpl<>(100, desc, rowHandler);
+        PartitionResolverImpl<RowWrapper> partResolver = new PartitionResolverImpl<>(100, colocationKeys, desc, rowHandler);
 
         int part1 = partResolver.getPartition(row);
         partResolver.append("1");
@@ -107,8 +108,9 @@ class AssignmentsResolutionTest extends BaseIgniteAbstractTest {
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
         RowFactory<RowWrapper> factory = rowHandler.factory(rowSchema);
         RowWrapper row = factory.create("1", 1, 2);
+        int[] colocationKeys = {0, 2};
 
-        PartitionResolverImpl<RowWrapper> partResolver = new PartitionResolverImpl<>(100, desc, rowHandler);
+        PartitionResolverImpl<RowWrapper> partResolver = new PartitionResolverImpl<>(100, colocationKeys, desc, rowHandler);
         PartitionResolverImpl<RowWrapper> partResolverMock = spy(partResolver);
 
         partResolverMock.getPartition(row);
