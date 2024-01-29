@@ -20,6 +20,7 @@ package org.apache.ignite.table;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
