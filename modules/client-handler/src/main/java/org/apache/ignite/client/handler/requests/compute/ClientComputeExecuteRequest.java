@@ -77,7 +77,7 @@ public class ClientComputeExecuteRequest {
             ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
 
             if (node == null) {
-                throw new IgniteException(NODE_NOT_FOUND_ERR, "Specified nodes is not present in the cluster: " + nodeName);
+                throw new IgniteException(NODE_NOT_FOUND_ERR, "Specified node is not present in the cluster: " + nodeName);
             }
 
             nodes.add(node);

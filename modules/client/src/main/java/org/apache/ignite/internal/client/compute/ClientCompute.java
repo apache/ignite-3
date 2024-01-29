@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.HashMap;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -56,6 +55,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client compute implementation.
@@ -100,9 +100,7 @@ public class ClientCompute implements IgniteCompute {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        ClusterNode node = randomNode(nodes);
-
-        return new ClientJobExecution<>(ch, executeOnNodesAsync(node, nodes, units, jobClassName, options, args));
+        return new ClientJobExecution<>(ch, executeOnNodesAsync(nodes, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
@@ -253,7 +251,7 @@ public class ClientCompute implements IgniteCompute {
 
         for (ClusterNode node : nodes) {
             JobExecution<R> execution = new ClientJobExecution<>(ch, executeOnNodesAsync(
-                    node, Set.of(node), units, jobClassName, options, args
+                    Set.of(node), units, jobClassName, options, args
             ));
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
@@ -264,7 +262,6 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private CompletableFuture<PayloadInputChannel> executeOnNodesAsync(
-            ClusterNode coordinatorNode,
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -278,24 +275,17 @@ public class ClientCompute implements IgniteCompute {
                     packJob(w.out(), units, jobClassName, options, args);
                 },
                 ch -> ch,
-                coordinatorNode.name(),
+                selectPreferredNodeName(nodes),
                 null,
                 true);
     }
 
-    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
-        if (nodes.size() == 1) {
-            return nodes.iterator().next();
-        }
+    private @Nullable String selectPreferredNodeName(Set<ClusterNode> nodes) {
+        HashSet<ClusterNode> preferredNodes = new HashSet<>(nodes);
 
-        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
-
-        Iterator<ClusterNode> iterator = nodes.iterator();
-        for (int i = 0; i < nodesToSkip; i++) {
-            iterator.next();
-        }
-
-        return iterator.next();
+        // Select the preferred node from the intersection of the candidate nodes and existing connections
+        preferredNodes.retainAll(ch.connections());
+        return preferredNodes.isEmpty() ? null : preferredNodes.iterator().next().name();
     }
 
     private static <K> CompletableFuture<PayloadInputChannel> executeColocatedObjectKey(

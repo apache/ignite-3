@@ -147,19 +147,16 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private static void WriteIEnumerable<T>(IEnumerable<T> enumerable, PooledArrayBuffer buf, Func<T, PooledArrayBuffer> writerFunc)
+        private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T, PooledArrayBuffer> writerFunc)
         {
             var w = buf.MessageWriter;
 
-            if (units.TryGetNonEnumeratedCount(out var count))
+            if (items.TryGetNonEnumeratedCount(out var count))
             {
                 w.Write(count);
-                foreach (var unit in units)
+                foreach (var item in items)
                 {
-                    IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
-                    IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
-
-                    writerFunc(unit, w);
+                    writerFunc(item, w);
                 }
 
                 return;
@@ -170,10 +167,10 @@ namespace Apache.Ignite.Internal.Compute
             var countSpan = buf.GetSpan(5);
             buf.Advance(5);
 
-            foreach (var unit in units)
+            foreach (var item in items)
             {
                 count++;
-                writerFunc(unit, w);
+                writerFunc(item, w);
             }
 
             countSpan[0] = MsgPackCode.Array32;
@@ -182,7 +179,10 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
         {
-            WriteIEnumerable(units, buf, writerFunc: (unit, buf) => {
+            WriteEnumerable(units, buf, writerFunc: (unit, buf) => {
+                IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
+                IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
+
                 var w = buf.MessageWriter;
                 w.Write(unit.Name);
                 w.Write(unit.Version);
@@ -191,7 +191,7 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf)
         {
-            WriteIEnumerable(nodes, buf, writerFunc: (node, buf) => {
+            WriteEnumerable(nodes, buf, writerFunc: (node, buf) => {
                 var w = buf.MessageWriter;
                 w.Write(node.Name);
             });
