@@ -57,7 +57,7 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
         engine = new VolatilePageMemoryStorageEngine("test", engineConfig,
                 storagesConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
-        engine.testStart();
+        engine.start();
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),

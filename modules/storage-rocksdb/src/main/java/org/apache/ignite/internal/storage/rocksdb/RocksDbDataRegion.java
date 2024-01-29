@@ -55,7 +55,6 @@ public class RocksDbDataRegion {
      * Start the rocksDb data region.
      */
     public void start() {
-        // TODO: Why this cast is needed?
         RocksDbProfileView dataRegionView = (RocksDbProfileView) cfg.value();
 
         long writeBufferSize = dataRegionView.writeBufferSize();

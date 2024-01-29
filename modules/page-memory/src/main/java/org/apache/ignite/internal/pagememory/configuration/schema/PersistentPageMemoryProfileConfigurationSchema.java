@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
-import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
@@ -28,12 +27,12 @@ import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
 
 /**
- * Persistent data region configuration schema.
+ * Persistent storage profile configuration schema.
  */
 @PolymorphicConfigInstance("aipersist")
 public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     /**
-     * Default size, maximum between 256 MiB and 20% of the total physical memory.
+     * Default size of page memory data region, maximum between 256 MiB and 20% of the total physical memory.
      * 256 MiB, if system was unable to retrieve physical memory size.
      */
     @SuppressWarnings("NumericCastThatLosesPrecision")

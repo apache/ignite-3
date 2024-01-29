@@ -61,7 +61,7 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
 
         engine = new PersistentPageMemoryStorageEngine("test", engineConfig, storagesConfiguration, ioRegistry, workDir, null);
 
-        engine.testStart();
+        engine.start();
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),

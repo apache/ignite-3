@@ -186,7 +186,6 @@ public class VolatilePageMemory implements PageMemory {
     ) {
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
-        // TODO: why this cast is needed?
         this.dataRegionConfigView = (VolatilePageMemoryProfileView) dataRegionConfig.value();
 
         if (!(dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {

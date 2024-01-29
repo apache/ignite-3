@@ -128,7 +128,6 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
@@ -151,7 +150,6 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.DummyStorageProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
@@ -885,8 +883,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
                             VolatilePageMemoryProfileConfigurationSchema.class,
-                            UnsafeMemoryAllocatorConfigurationSchema.class,
-                            DummyStorageProfileConfigurationSchema.class
+                            UnsafeMemoryAllocatorConfigurationSchema.class
                     )
             );
 

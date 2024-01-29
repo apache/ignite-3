@@ -58,7 +58,7 @@ public class RocksDbMvPartitionStorageGcTest extends AbstractMvPartitionStorageG
     ) {
         engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
 
-        engine.testStart();
+        engine.start();
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),

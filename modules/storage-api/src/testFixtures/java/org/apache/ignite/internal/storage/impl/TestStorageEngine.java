@@ -38,11 +38,6 @@ public class TestStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void testStart() throws StorageException {
-        // No-op.
-    }
-
-    @Override
     public void start() throws StorageException {
         // No-op.
     }

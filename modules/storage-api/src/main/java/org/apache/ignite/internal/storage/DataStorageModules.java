@@ -93,10 +93,9 @@ public class DataStorageModules {
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) {
-        return modules.entrySet().stream()
-                .collect(toUnmodifiableMap(
-                        Entry::getKey,
-                        e -> e.getValue().createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector)
+        return modules.entrySet().stream().collect(toUnmodifiableMap(
+                Entry::getKey,
+                e -> e.getValue().createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector)
         ));
     }
 

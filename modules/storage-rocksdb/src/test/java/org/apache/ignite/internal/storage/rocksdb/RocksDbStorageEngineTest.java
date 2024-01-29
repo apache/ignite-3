@@ -64,7 +64,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
     void setUp(@WorkDirectory Path workDir) {
         engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
 
-        engine.testStart();
+        engine.start();
     }
 
     @AfterEach
@@ -75,20 +75,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @Disabled("TODO: KKK no default region any more")
-    void testCreateTableWithDefaultDataRegion() {
-        table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
-        );
-
-        table.start();
-
-        getOrCreateMvPartition(table, 1);
-    }
-
-    // TODO: KKK runtime changing is not working at the moment
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21386")
     void testCreateTableWithDynamicCustomDataRegion() {
         String customRegionName = "foobar";
 

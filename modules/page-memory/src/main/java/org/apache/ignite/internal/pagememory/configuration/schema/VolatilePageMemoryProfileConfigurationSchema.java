@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
-import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
@@ -28,12 +27,12 @@ import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
 
 /**
- * In-memory data region configuration schema.
+ * In-memory storage profile configuration schema.
  */
 @PolymorphicConfigInstance("aimem")
 public class VolatilePageMemoryProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     /**
-     * Default initial size, maximum between 256 MiB and 20% of the total physical memory.
+     * Default initial volatile page memory data region size, maximum between 256 MiB and 20% of the total physical memory.
      * 256 MiB, if system was unable to retrieve physical memory size.
      */
     @SuppressWarnings("NumericCastThatLosesPrecision")

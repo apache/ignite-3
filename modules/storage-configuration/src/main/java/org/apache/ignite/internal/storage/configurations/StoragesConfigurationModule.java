@@ -40,12 +40,4 @@ public class StoragesConfigurationModule implements ConfigurationModule {
     public Collection<RootKey<?, ?>> rootKeys() {
         return List.of(StoragesConfiguration.KEY);
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(
-                DummyStorageProfileConfigurationSchema.class
-        );
-    }
 }

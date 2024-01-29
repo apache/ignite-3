@@ -74,8 +74,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private volatile GradualTaskExecutor destructionExecutor;
 
-    private boolean testStart = false;
-
     /**
      * Constructor.
      *
@@ -99,12 +97,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     @Override
     public String name() {
         return ENGINE_NAME;
-    }
-
-    @Override
-    public void testStart() throws StorageException {
-        testStart = true;
-        start();
     }
 
     @Override
@@ -160,7 +152,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      * @param name Data region name.
      */
     private void addDataRegion(String name) {
-        // TODO: why this cast is needed?
         VolatilePageMemoryProfileConfiguration storageProfileConfiguration =
                 (VolatilePageMemoryProfileConfiguration) storagesConfiguration.profiles().get(name);
 

@@ -173,7 +173,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     /**
      * Calculates the size of segments in bytes.
      *
-     * @param dataRegionConfigView Data region configuration.
+     * @param size Data region size.
      * @param concurrencyLevel Number of concurrent segments in Ignite internal page mapping tables, must be greater than 0.
      */
     // TODO: IGNITE-16350 Add more and more detailed description
@@ -194,7 +194,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     /**
      * Calculates the size of the checkpoint buffer in bytes.
      *
-     * @param dataRegionConfigView Data region configuration.
+     * @param size Data region size.
      */
     // TODO: IGNITE-16350 Add more and more detailed description
     static long calculateCheckpointBufferSize(long size) {

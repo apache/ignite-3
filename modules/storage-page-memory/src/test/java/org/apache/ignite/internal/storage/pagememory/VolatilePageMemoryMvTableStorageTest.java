@@ -80,7 +80,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storagesConfiguration, ioRegistry, pageEvictionTracker);
 
-        engine.testStart();
+        engine.start();
 
         initialize();
     }

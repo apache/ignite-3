@@ -245,7 +245,6 @@ public class PersistentPageMemory implements PageMemory {
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        // TODO: KKK why is this cast needed?
         this.dataRegionConfigView = (PersistentPageMemoryProfileView) dataRegionConfig.value();
         this.ioRegistry = ioRegistry;
         this.sizes = concat(segmentSizes, checkpointBufferSize);

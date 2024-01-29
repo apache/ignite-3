@@ -53,6 +53,5 @@ public class RocksDbDataRegionValidatorImpl implements Validator<RocksDbDataRegi
 
     private static boolean contains(RocksDbStorageEngineView engineConfig, String dataRegion) {
         return true;
-//        return engineConfig.defaultRegion().name().equals(dataRegion) || engineConfig.regions().get(dataRegion) != null;
     }
 }

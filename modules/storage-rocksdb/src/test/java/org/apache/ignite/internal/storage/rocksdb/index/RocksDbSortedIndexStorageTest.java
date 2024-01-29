@@ -55,7 +55,7 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
     ) {
         engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
 
-        engine.testStart();
+        engine.start();
 
         tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),

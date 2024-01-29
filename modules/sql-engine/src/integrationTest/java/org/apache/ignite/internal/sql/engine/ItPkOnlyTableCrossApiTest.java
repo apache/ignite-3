@@ -76,7 +76,6 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
         for (String engine : ENGINES) {
             String testZoneName = ("test_zone_" + engine).toUpperCase();
 
-            // TODO: KKK only storage profile should be used
             String regionName = "default_" + engine;
             sql(String.format("create zone %s engine %s with dataregion='%s', partitions=1, replicas=3, storage_profiles = '%s';",
                     testZoneName, engine, regionName, regionName));

@@ -17,17 +17,12 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
@@ -36,20 +31,16 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
-import org.apache.ignite.internal.tx.Lock;
-import org.apache.ignite.lang.ErrorGroups.Storage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,8 +59,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     private final PageIoRegistry ioRegistry;
 
     private final Path storagePath;
-
-    private boolean testStart = false;
 
     @Nullable
     private final LongJvmPauseDetector longJvmPauseDetector;
@@ -123,12 +112,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void testStart() throws StorageException {
-        testStart = true;
-        start();
-    }
-
-    @Override
     public void start() throws StorageException {
         int pageSize = engineConfig.pageSize().value();
 
@@ -169,6 +152,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting checkpoint manager", e);
         }
 
+        // TODO: IGNITE-21386 Fix runtime loading for storage profiles
+        // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         storagesConfiguration.profiles().value().stream().forEach(p -> {
             if (p instanceof PersistentPageMemoryProfileView) {
                 addDataRegion(p.name());
@@ -225,11 +210,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      * @param name Data region name.
      */
     private void addDataRegion(String name) {
-//        PersistentPageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
-//                ? engineConfig.defaultRegion()
-//                : engineConfig.regions().get(name);
-        System.out.println(String.format("KKK Add data region %s to storage engine %s", name, this));
-        // TODO: why this cast is needed?
         PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
                 (PersistentPageMemoryProfileConfiguration) storagesConfiguration.profiles().get(name);
 

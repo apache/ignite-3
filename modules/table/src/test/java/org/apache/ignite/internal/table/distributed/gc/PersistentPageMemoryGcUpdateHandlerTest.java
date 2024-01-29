@@ -72,7 +72,7 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
                 new LongJvmPauseDetector(nodeName)
         );
 
-        engine.testStart();
+        engine.start();
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),

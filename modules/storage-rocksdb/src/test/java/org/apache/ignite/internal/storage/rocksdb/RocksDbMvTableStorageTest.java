@@ -66,7 +66,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     ) {
         engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
 
-        engine.testStart();
+        engine.start();
 
         initialize();
     }
