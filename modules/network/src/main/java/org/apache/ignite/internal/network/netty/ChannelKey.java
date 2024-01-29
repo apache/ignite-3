@@ -47,7 +47,6 @@ public class ChannelKey {
         return launchId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -68,7 +67,6 @@ public class ChannelKey {
         return launchId.equals(that.launchId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int result = consistentId.hashCode();
@@ -77,7 +75,6 @@ public class ChannelKey {
         return result;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(ChannelKey.class, this);
