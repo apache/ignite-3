@@ -206,16 +206,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
         PersistentPageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
-        if (dataRegion == null) {
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        dataRegion = regions.get(tableDescriptor.getDataRegion());
 
-        System.out.println(String.format("KKK Create table in the region %s in engine %s", tableDescriptor.getDataRegion(), this));
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getDataRegion();
 
         return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion);

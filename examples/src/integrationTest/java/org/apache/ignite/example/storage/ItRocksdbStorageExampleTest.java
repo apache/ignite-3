@@ -22,9 +22,6 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileChange;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,7 +30,7 @@ import org.junit.jupiter.api.Test;
 public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testExample() throws Exception {
-        // TODO: KKK runtime profile update is not working yet
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21386 uncomment it when runtime profile loading will be fixed
 //        addDataRegionConfig("rocksdb-example");
 
         assertConsoleOutputContains(RocksDbStorageExample::main, EMPTY_ARGS,
@@ -48,11 +45,7 @@ public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
     private void addDataRegionConfig(String name) throws Exception {
         ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
                 .profiles()
-                // TODO: KKK fix this hack with change
-                .change(regionsChange -> regionsChange.create(name, regionChange -> {
-                    regionChange.convert(RocksDbProfileChange.class)
-                            .changeCache(RocksDbProfileConfigurationSchema.ROCKSDB_LRU_CACHE);
-                }))
+                .change(regionsChange -> regionsChange.create(name, regionChange -> {}))
                 .get(1, TimeUnit.SECONDS);
     }
 }
