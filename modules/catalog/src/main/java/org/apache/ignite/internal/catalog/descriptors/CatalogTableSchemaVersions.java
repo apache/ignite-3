@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -50,11 +49,6 @@ public class CatalogTableSchemaVersions {
 
         public List<CatalogTableColumnDescriptor> columns() {
             return Collections.unmodifiableList(columns);
-        }
-
-        @Override
-        public String toString() {
-            return S.toString(this);
         }
     }
 
