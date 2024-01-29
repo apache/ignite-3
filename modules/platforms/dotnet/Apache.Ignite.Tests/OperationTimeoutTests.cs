@@ -17,10 +17,30 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
+using System.Threading.Tasks;
+using NUnit.Framework;
+
 /// <summary>
 /// Tests <see cref="IgniteClientConfiguration.OperationTimeout"/> behavior.
 /// </summary>
 public class OperationTimeoutTests
 {
+    [Test]
+    public async Task TestOperationTimeoutThrowsException()
+    {
+        using var server = new FakeServer
+        {
+            OperationDelay = TimeSpan.FromMilliseconds(100)
+        };
 
+        var cfg = new IgniteClientConfiguration
+        {
+            OperationTimeout = TimeSpan.FromMilliseconds(30)
+        };
+
+        using var client = await server.ConnectClientAsync(cfg);
+
+        Assert.ThrowsAsync<TimeoutException>(async () => await client.Tables.GetTablesAsync());
+    }
 }
