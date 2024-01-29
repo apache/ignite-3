@@ -20,9 +20,8 @@ package org.apache.ignite.internal.client.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,7 +33,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
@@ -303,19 +301,6 @@ public class ClientCompute implements IgniteCompute {
 
         int randomIdx = ThreadLocalRandom.current().nextInt(candidateNodeNames.size());
         return candidateNodeNames.get(randomIdx);
-    }
-        if (nodes.size() == 1) {
-            return nodes.iterator().next();
-        }
-
-        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
-
-        Iterator<String> iterator = nodes.iterator();
-        for (int i = 0; i < nodesToSkip; i++) {
-            iterator.next();
-        }
-
-        return iterator.next();
     }
 
     private static <K> CompletableFuture<PayloadInputChannel> executeColocatedObjectKey(

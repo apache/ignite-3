@@ -180,6 +180,29 @@ public final class ReliableChannel implements AutoCloseable {
         return res;
     }
 
+    /**
+     * Gets connected node names.
+     *
+     * @return Set of connected node names.
+     */
+    public Set<String> connectedNodeNames() {
+        Set<String> res = new HashSet<>(channels.size());
+
+        for (var holder : nodeChannelsByName.values()) {
+            var chFut = holder.chFut;
+
+            if (chFut != null) {
+                var ch = ClientFutureUtils.getNowSafe(chFut);
+
+                if (ch != null && !ch.closed()) {
+                    res.add(ch.protocolContext().clusterNode().name());
+                }
+            }
+        }
+
+        return res;
+    }
+
     public IgniteClientConfiguration configuration() {
         return clientCfg;
     }
