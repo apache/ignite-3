@@ -42,6 +42,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -244,11 +245,11 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         Table table = oneColumnTable();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), 1)) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>(ForkJoinPool.commonPool(), 1)) {
             streamerFut = table.recordView().streamData(publisher, null);
 
-            publisher.submit(Tuple.create().set("ID", "1"));
-            publisher.submit(Tuple.create().set("ID", "2"));
+            publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", "1")));
+            publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", "2")));
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> metrics().streamerItemsQueued() == 2, 1000));
             assertEquals(0, metrics().streamerItemsSent());
