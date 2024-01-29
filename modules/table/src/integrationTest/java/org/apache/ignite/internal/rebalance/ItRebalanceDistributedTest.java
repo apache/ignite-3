@@ -604,6 +604,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21317")
     void testRaftClientsUpdatesAfterRebalance() throws Exception {
         Node node = getNode(0);
 
