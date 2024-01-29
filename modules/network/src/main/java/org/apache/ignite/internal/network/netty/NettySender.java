@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 
 import io.netty.channel.Channel;
 import io.netty.handler.stream.ChunkedInput;
@@ -118,7 +119,7 @@ public class NettySender {
             Channel currentChannel,
             Runnable triggerChannelRecreation
     ) {
-        if (!completedSuccessfully(writeFuture)) {
+        if (!isCompletedSuccessfully(writeFuture)) {
             writeFuture.whenComplete((res, ex) -> {
                 if (ex instanceof ClosedChannelException) {
                     try {
@@ -129,10 +130,6 @@ public class NettySender {
                 }
             });
         }
-    }
-
-    private static boolean completedSuccessfully(CompletableFuture<Void> writeFuture) {
-        return writeFuture.isDone() && !writeFuture.isCompletedExceptionally() && !writeFuture.isCancelled();
     }
 
     private void recoverSendAfterChannelClosure(OutNetworkObject obj, Channel currentChannel, Runnable triggerChannelRecreation) {
