@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
 import java.util.Objects;
 import org.apache.calcite.util.ImmutableIntList;
@@ -114,10 +112,6 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
 
     private int calculate() {
         assert curColIdx == fields.length;
-        if (!calculated) {
-            fields = INT_EMPTY_ARRAY;
-            //fieldTypes = (NativeType[]) OBJECT_EMPTY_ARRAY;
-        }
         calculated = true;
         return hashCalc.hash();
     }
