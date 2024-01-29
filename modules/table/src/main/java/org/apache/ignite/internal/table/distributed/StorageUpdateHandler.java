@@ -216,12 +216,9 @@ public class StorageUpdateHandler {
                     commitTblId,
                     commitPartId,
                     it,
+                    onApplication,
                     storageUpdateConfiguration.batchByteLength().value()
             );
-        }
-
-        if (onApplication != null) {
-            onApplication.run();
         }
     }
 
@@ -233,7 +230,7 @@ public class StorageUpdateHandler {
             int commitTblId,
             int commitPartId,
             Iterator<Entry<UUID, TimedBinaryRow>> it,
-            int maxBatchLength
+            @Nullable Runnable onApplication, int maxBatchLength
     ) {
         return storage.runConsistently(locker -> {
             List<RowId> processedRowIds = new ArrayList<>();
@@ -275,6 +272,9 @@ public class StorageUpdateHandler {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
             }
 
+            if (onApplication != null) {
+                onApplication.run();
+            }
             return entryToProcess;
         });
     }
