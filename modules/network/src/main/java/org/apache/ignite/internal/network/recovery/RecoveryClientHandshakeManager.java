@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -107,8 +106,6 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
-
-    private final AtomicBoolean eventLoopSwitchPropagator = new AtomicBoolean();
 
     private final FailureHandler failureHandler = new FailureHandler();
 
@@ -233,16 +230,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.remoteLaunchId = handshakeStartMessage.launchId();
         this.remoteConsistentId = handshakeStartMessage.consistentId();
 
-        eventLoopSwitchPropagator.set(false);
-
         ChannelKey channelKey = new ChannelKey(remoteConsistentId, remoteLaunchId, connectionId);
-        switchEventLoopIfNeeded(channel, channelKey, () -> {
-            // Doing this to make sure we have a heppens-before between all writes in old event loop and all reads in the new one.
-            boolean changed = eventLoopSwitchPropagator.compareAndSet(false, true);
-            assert changed;
-
-            proceedAfterSavingIds(handshakeStartMessage);
-        });
+        switchEventLoopIfNeeded(channel, channelKey, () -> proceedAfterSavingIds(handshakeStartMessage));
     }
 
     private void proceedAfterSavingIds(HandshakeStartMessage handshakeStartMessage) {
