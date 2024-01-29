@@ -181,8 +181,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         assert recoveryDescriptor != null : "Wrong client handshake flow";
-        assert recoveryDescriptor.holderChannel() != null;
-        assert recoveryDescriptor.holderChannel() == channel;
+        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel();
 
         if (message instanceof HandshakeFinishMessage) {
             HandshakeFinishMessage msg = (HandshakeFinishMessage) message;
