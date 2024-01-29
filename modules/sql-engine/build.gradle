@@ -65,6 +65,7 @@ dependencies {
     implementation libs.guava
 
     annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.value.annotation.processor
     annotationProcessor libs.auto.service
 

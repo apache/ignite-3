@@ -862,13 +862,11 @@ namespace Apache.Ignite.Internal
                 {
                     _logger.LogConnectionClosedWithErrorWarn(ex, ConnectionContext.ClusterNode.Address, ex.Message);
 
+                    Metrics.ConnectionsLost.Add(1);
+
                     if (ex.GetBaseException() is TimeoutException)
                     {
                         Metrics.ConnectionsLostTimeout.Add(1);
-                    }
-                    else
-                    {
-                        Metrics.ConnectionsLost.Add(1);
                     }
                 }
                 else

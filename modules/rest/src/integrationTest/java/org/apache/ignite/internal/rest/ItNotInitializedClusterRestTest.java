@@ -27,18 +27,14 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.io.IOException;
 import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -50,23 +46,11 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
     private static final String IGNITE_SEMVER_REGEX =
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+))?";
 
-    private ObjectMapper objectMapper;
-
-    @BeforeEach
-    @Override
-    void setUp(TestInfo testInfo) throws IOException, InterruptedException {
-        super.setUp(testInfo);
-        objectMapper = new ObjectMapper();
-    }
-
     @Test
     @DisplayName("Node configuration is available when the cluster in not initialized")
-    void nodeConfiguration() throws IOException, InterruptedException {
+    void nodeConfiguration() throws Exception {
         // When GET /management/v1/configuration/node.
-        HttpResponse<String> response = client.send(
-                get("/management/v1/configuration/node"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> response = send(get("/management/v1/configuration/node"));
 
         // Expect node configuration can be parsed to hocon format.
         Config config = ConfigFactory.parseString(response.body());
@@ -76,20 +60,14 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node configuration can be changed when the cluster in not initialized")
-    void nodeConfigurationUpdate() throws IOException, InterruptedException {
+    void nodeConfigurationUpdate() throws Exception {
         // When PATCH /management/v1/configuration/node rest.port=10333.
-        HttpResponse<String> pathResponce = client.send(
-                patch("/management/v1/configuration/node", "rest.port=10333"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> patchResponse = send(patch("/management/v1/configuration/node", "rest.port=10333"));
         // Then
-        assertThat(pathResponce.statusCode(), is(200));
+        assertThat(patchResponse.statusCode(), is(200));
 
         // And GET /management/v1/configuration/node.
-        HttpResponse<String> getResponse = client.send(
-                get("/management/v1/configuration/node"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> getResponse = send(get("/management/v1/configuration/node"));
 
         // Then node configuration can be parsed to hocon format.
         Config config = ConfigFactory.parseString(getResponse.body());
@@ -99,60 +77,39 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster configuration is not available on not initialized cluster")
-    void clusterConfiguration() throws IOException, InterruptedException {
+    void clusterConfiguration() throws Exception {
         // When GET /management/v1/configuration/cluster.
-        HttpResponse<String> response = client.send(get("/management/v1/configuration/cluster"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/configuration/cluster"));
 
         // Expect cluster configuration is not available.
-        Problem problem = objectMapper.readValue(response.body(), Problem.class);
-        assertAll(
-                () -> assertThat(problem.status(), is(409)),
-                () -> assertThat(problem.title(), is("Conflict")),
-                () -> assertThat(problem.detail(),
-                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
-        );
+        assertRespondsWithConflictNotInitializedCluster(response);
     }
 
     @Test
     @DisplayName("Cluster configuration could not be updated on not initialized cluster")
-    void clusterConfigurationUpdate() throws IOException, InterruptedException {
+    void clusterConfigurationUpdate() throws Exception {
         // When PATCH /management/v1/configuration/cluster.
-        HttpResponse<String> response = client.send(
-                patch("/management/v1/configuration/cluster", "any.key=any-value"),
-                BodyHandlers.ofString()
-        );
+        HttpResponse<String> response = send(patch("/management/v1/configuration/cluster", "any.key=any-value"));
 
         // Expect cluster configuration could not be updated.
-        Problem problem = objectMapper.readValue(response.body(), Problem.class);
-        assertAll(
-                () -> assertThat(problem.status(), is(409)),
-                () -> assertThat(problem.title(), is("Conflict")),
-                () -> assertThat(problem.detail(),
-                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
-        );
+        assertRespondsWithConflictNotInitializedCluster(response);
     }
 
     @Test
     @DisplayName("Logical topology is not available on not initialized cluster")
-    void logicalTopology() throws IOException, InterruptedException {
+    void logicalTopology() throws Exception {
         // When GET /management/v1/cluster/topology/logical.
-        HttpResponse<String> response = client.send(get("/management/v1/cluster/topology/logical"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/cluster/topology/logical"));
 
         // Then.
-        Problem problem = objectMapper.readValue(response.body(), Problem.class);
-        assertAll(
-                () -> assertThat(problem.status(), is(409)),
-                () -> assertThat(problem.title(), is("Conflict")),
-                () -> assertThat(problem.detail(),
-                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
-        );
+        assertRespondsWithConflictNotInitializedCluster(response);
     }
 
     @Test
     @DisplayName("Physical topology is available on not initialized cluster")
-    void physicalTopology() throws IOException, InterruptedException {
+    void physicalTopology() throws Exception {
         // When GET /management/v1/cluster/topology/physical.
-        HttpResponse<String> response = client.send(get("/management/v1/cluster/topology/physical"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/cluster/topology/physical"));
 
         // Then
         assertThat(response.statusCode(), is(200));
@@ -169,9 +126,9 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node state is available on not initialized cluster and it is STARTING")
-    void nodeState() throws IOException, InterruptedException {
+    void nodeState() throws Exception {
         // When GET /management/v1/node/state.
-        HttpResponse<String> response = client.send(get("/management/v1/node/state"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/node/state"));
 
         // Then
         assertThat(response.statusCode(), is(200));
@@ -183,25 +140,19 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster state is not available on not initialized cluster")
-    void clusterState() throws IOException, InterruptedException {
+    void clusterState() throws Exception {
         // When GET /management/v1/cluster/state.
-        HttpResponse<String> response = client.send(get("/management/v1/cluster/state"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/cluster/state"));
 
         // Then
-        Problem problem = objectMapper.readValue(response.body(), Problem.class);
-        assertAll(
-                () -> assertThat(problem.status(), is(409)),
-                () -> assertThat(problem.title(), is("Conflict")),
-                () -> assertThat(problem.detail(),
-                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
-        );
+        assertRespondsWithConflictNotInitializedCluster(response);
     }
 
     @Test
     @DisplayName("Node version is available on not initialized cluster")
-    void nodeVersion() throws IOException, InterruptedException {
+    void nodeVersion() throws Exception {
         // When GET /management/v1/node/version/.
-        HttpResponse<String> response = client.send(get("/management/v1/node/version/"), BodyHandlers.ofString());
+        HttpResponse<String> response = send(get("/management/v1/node/version/"));
 
         // Then.
         assertThat(response.statusCode(), is(200));
@@ -211,7 +162,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster is not initialized, if config has a syntax error")
-    void initClusterWithInvalidHoconConfig() throws IOException, InterruptedException {
+    void initClusterWithInvalidHoconConfig() throws Exception {
         // When POST /management/v1/cluster/init with invalid config.
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
@@ -225,8 +176,8 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 + "  }";
 
         // Then.
-        HttpResponse<String> initResponse = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
-        Problem initProblem = objectMapper.readValue(initResponse.body(), Problem.class);
+        HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", requestBody));
+        Problem initProblem = getProblem(initResponse);
 
         assertThat(initResponse.statusCode(), is(400));
         assertAll(
@@ -244,7 +195,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster is not initialized, if config has logic error")
-    void initClusterWithInvalidConfig() throws IOException, InterruptedException {
+    void initClusterWithInvalidConfig() throws Exception {
         // When POST /management/v1/cluster/init with invalid config.
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
@@ -258,8 +209,8 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 + "  }";
 
         // Then.
-        HttpResponse<String> initResponse = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
-        Problem initProblem = objectMapper.readValue(initResponse.body(), Problem.class);
+        HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", requestBody));
+        Problem initProblem = getProblem(initResponse);
 
         assertThat(initResponse.statusCode(), is(400));
         assertAll(
@@ -273,5 +224,15 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
         // And cluster is not initialized.
         startingNodes.forEach(it -> assertThat(it, willTimeoutFast()));
+    }
+
+    private void assertRespondsWithConflictNotInitializedCluster(HttpResponse<String> response) throws JsonProcessingException {
+        Problem problem = getProblem(response);
+        assertAll(
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Cluster is not initialized")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
+        );
     }
 }

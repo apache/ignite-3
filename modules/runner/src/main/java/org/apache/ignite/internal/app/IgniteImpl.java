@@ -138,6 +138,8 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -166,6 +168,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
@@ -385,13 +388,19 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
-        criticalWorkerRegistry = new CriticalWorkerWatchdog(threadPoolsManager.commonScheduler());
+        CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
+
+        criticalWorkerRegistry = new CriticalWorkerWatchdog(
+                criticalWorkersConfiguration,
+                threadPoolsManager.commonScheduler()
+        );
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         nettyWorkersRegistrar = new NettyWorkersRegistrar(
                 criticalWorkerRegistry,
                 threadPoolsManager.commonScheduler(),
-                nettyBootstrapFactory
+                nettyBootstrapFactory,
+                criticalWorkersConfiguration
         );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
@@ -666,7 +675,9 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metricManager,
                 systemViewManager,
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
+                nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY)
         );
 
         sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
@@ -692,7 +703,14 @@ public class IgniteImpl implements Ignite {
                 computeCfg
         );
 
-        compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
+        compute = new IgniteComputeImpl(
+                placementDriverMgr.placementDriver(),
+                clusterSvc.topologyService(),
+                logicalTopologyService,
+                distributedTblMgr,
+                computeComponent,
+                clock
+        );
 
         authenticationManager = createAuthenticationManager();
 

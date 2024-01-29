@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.runner.app.worker;
+package org.apache.ignite.internal.worker;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +28,6 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;

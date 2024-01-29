@@ -48,6 +48,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -85,12 +87,7 @@ public class PrepareServiceImpl implements PrepareService {
     private static final ParameterMetadata EMPTY_PARAMETER_METADATA =
             new ParameterMetadata(Collections.emptyList());
 
-    /** Default planner timeout, in ms. */
-    public static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
-
     private static final long THREAD_TIMEOUT_MS = 60_000;
-
-    private static final int THREAD_COUNT = 4;
 
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
@@ -105,6 +102,8 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final long plannerTimeout;
 
+    private final int plannerThreadCount;
+
     private final MetricManager metricManager;
 
     private final SqlPlanCacheMetricSource sqlPlanCacheMetricSource;
@@ -113,26 +112,29 @@ public class PrepareServiceImpl implements PrepareService {
      * Factory method.
      *
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
-     * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param cacheFactory A factory to create cache of query plans.
      * @param dataStorageManager Data storage manager.
      * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
      * @param metricManager Metric manager.
+     * @param clusterCfg  Cluster SQL configuration.
+     * @param nodeCfg Node SQL configuration.
      */
     public static PrepareServiceImpl create(
             String nodeName,
-            int cacheSize,
             CacheFactory cacheFactory,
             DataStorageManager dataStorageManager,
             Map<String, Map<String, Class<?>>> dataStorageFields,
-            MetricManager metricManager
+            MetricManager metricManager,
+            SqlDistributedConfiguration clusterCfg,
+            SqlLocalConfiguration nodeCfg
     ) {
         return new PrepareServiceImpl(
                 nodeName,
-                cacheSize,
+                clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
                 new DdlSqlToCommandConverter(dataStorageFields, () -> CatalogUtils.DEFAULT_STORAGE_ENGINE),
-                DEFAULT_PLANNER_TIMEOUT,
+                clusterCfg.planner().maxPlanningTime().value(),
+                nodeCfg.planner().threadCount().value(),
                 metricManager
         );
     }
@@ -153,12 +155,14 @@ public class PrepareServiceImpl implements PrepareService {
             CacheFactory cacheFactory,
             DdlSqlToCommandConverter ddlConverter,
             long plannerTimeout,
+            int plannerThreadCount,
             MetricManager metricManager
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
         this.plannerTimeout = plannerTimeout;
         this.metricManager = metricManager;
+        this.plannerThreadCount = plannerThreadCount;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource);
@@ -169,8 +173,8 @@ public class PrepareServiceImpl implements PrepareService {
     @Override
     public void start() {
         planningPool = new ThreadPoolExecutor(
-                THREAD_COUNT,
-                THREAD_COUNT,
+                plannerThreadCount,
+                plannerThreadCount,
                 THREAD_TIMEOUT_MS,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),

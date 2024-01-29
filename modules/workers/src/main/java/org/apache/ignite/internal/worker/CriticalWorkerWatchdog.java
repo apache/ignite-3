@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
+import java.lang.management.MonitorInfo;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Set;
@@ -33,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 // TODO: IGNITE-16899 - update the javadoc to mention that the failure handler is invoked.
@@ -50,9 +53,7 @@ import org.jetbrains.annotations.Nullable;
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
     private final IgniteLogger log = Loggers.forClass(CriticalWorkerWatchdog.class);
 
-    // TODO: IGNITE-21227 - make this configurable.
-    private static final long LIVENESS_CHECK_INTERVAL_MS = 200;
-    private static final long MAX_ALLOWED_LAG_MS = 500;
+    private final CriticalWorkersConfiguration configuration;
 
     private final ScheduledExecutorService scheduler;
 
@@ -63,7 +64,8 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     private final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
-    public CriticalWorkerWatchdog(ScheduledExecutorService scheduler) {
+    public CriticalWorkerWatchdog(CriticalWorkersConfiguration configuration, ScheduledExecutorService scheduler) {
+        this.configuration = configuration;
         this.scheduler = scheduler;
     }
 
@@ -79,10 +81,12 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     @Override
     public CompletableFuture<Void> start() {
+        long livenessCheckIntervalMs = configuration.livenessCheckInterval().value();
+
         livenessProbeTaskFuture = scheduler.scheduleAtFixedRate(
                 this::probeLiveness,
-                LIVENESS_CHECK_INTERVAL_MS,
-                LIVENESS_CHECK_INTERVAL_MS,
+                livenessCheckIntervalMs,
+                livenessCheckIntervalMs,
                 TimeUnit.MILLISECONDS
         );
 
@@ -90,7 +94,9 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     private void probeLiveness() {
-        Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays();
+        long maxAllowedLag = configuration.maxAllowedLag().value();
+
+        Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays(maxAllowedLag);
 
         if (delayedThreadIdsToDelays == null) {
             return;
@@ -100,7 +106,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
                 log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
-                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()), MAX_ALLOWED_LAG_MS, threadInfo);
+                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()), maxAllowedLag, toString(threadInfo));
 
                 // TODO: IGNITE-16899 - invoke failure handler.
             }
@@ -108,7 +114,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     @Nullable
-    private Long2LongMap getDelayedThreadIdsAndDelays() {
+    private Long2LongMap getDelayedThreadIdsAndDelays(long maxAllowedLag) {
         long nowNanos = System.nanoTime();
 
         Long2LongMap delayedThreadIdsToDelays = null;
@@ -121,7 +127,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
             }
 
             long delayMillis = TimeUnit.NANOSECONDS.toMillis(nowNanos - heartbeatNanos);
-            if (delayMillis > MAX_ALLOWED_LAG_MS) {
+            if (delayMillis > maxAllowedLag) {
                 if (delayedThreadIdsToDelays == null) {
                     delayedThreadIdsToDelays = new Long2LongOpenHashMap();
                 }
@@ -131,6 +137,76 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         }
 
         return delayedThreadIdsToDelays;
+    }
+
+    @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
+    private static String toString(ThreadInfo threadInfo) {
+        // This method is based on code taken from ThreadInfo#toString(). The original method limits the depth of the
+        // stacktrace it includes in the string representation to just 8 frames, which is too few. Here, we
+        // removed this limitation and include the stack trace in its entirety.
+
+        StringBuilder sb = new StringBuilder("\"" + threadInfo.getThreadName() + "\""
+                + (threadInfo.isDaemon() ? " daemon" : "")
+                + " prio=" + threadInfo.getPriority()
+                + " Id=" + threadInfo.getThreadId() + " "
+                + threadInfo.getThreadState());
+        if (threadInfo.getLockName() != null) {
+            sb.append(" on " + threadInfo.getLockName());
+        }
+        if (threadInfo.getLockOwnerName() != null) {
+            sb.append(" owned by \"" + threadInfo.getLockOwnerName()
+                    + "\" Id=" + threadInfo.getLockOwnerId());
+        }
+        if (threadInfo.isSuspended()) {
+            sb.append(" (suspended)");
+        }
+        if (threadInfo.isInNative()) {
+            sb.append(" (in native)");
+        }
+        sb.append('\n');
+        int i = 0;
+        for (; i < threadInfo.getStackTrace().length; i++) {
+            StackTraceElement ste = threadInfo.getStackTrace()[i];
+            sb.append("\tat " + ste.toString());
+            sb.append('\n');
+            if (i == 0 && threadInfo.getLockInfo() != null) {
+                Thread.State ts = threadInfo.getThreadState();
+                switch (ts) {
+                    case BLOCKED:
+                        sb.append("\t-  blocked on " + threadInfo.getLockInfo());
+                        sb.append('\n');
+                        break;
+                    case WAITING:
+                        sb.append("\t-  waiting on " + threadInfo.getLockInfo());
+                        sb.append('\n');
+                        break;
+                    case TIMED_WAITING:
+                        sb.append("\t-  waiting on " + threadInfo.getLockInfo());
+                        sb.append('\n');
+                        break;
+                    default:
+                }
+            }
+
+            for (MonitorInfo mi : threadInfo.getLockedMonitors()) {
+                if (mi.getLockedStackDepth() == i) {
+                    sb.append("\t-  locked " + mi);
+                    sb.append('\n');
+                }
+            }
+        }
+
+        LockInfo[] locks = threadInfo.getLockedSynchronizers();
+        if (locks.length > 0) {
+            sb.append("\n\tNumber of locked synchronizers = " + locks.length);
+            sb.append('\n');
+            for (LockInfo li : locks) {
+                sb.append("\t- " + li);
+                sb.append('\n');
+            }
+        }
+        sb.append('\n');
+        return sb.toString();
     }
 
     @Override

@@ -22,9 +22,6 @@ import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.read
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -37,8 +34,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -159,58 +154,6 @@ public class ClientSqlExecuteRequest {
             return;
         }
 
-        List<ColumnMetadata> cols = meta.columns();
-        out.packInt(cols.size());
-
-        // In many cases there are multiple columns from the same table.
-        // Schema is the same for all columns in most cases.
-        // When table or schema name was packed before, pack index instead of string.
-        Map<String, Integer> schemas = new HashMap<>();
-        Map<String, Integer> tables = new HashMap<>();
-
-        for (int i = 0; i < cols.size(); i++) {
-            ColumnMetadata col = cols.get(i);
-            ColumnOrigin origin = col.origin();
-
-            int fieldsNum = origin == null ? 6 : 9;
-            out.packInt(fieldsNum);
-
-            out.packString(col.name());
-            out.packBoolean(col.nullable());
-            out.packInt(col.type().id());
-            out.packInt(col.scale());
-            out.packInt(col.precision());
-
-            if (origin == null) {
-                out.packBoolean(false);
-                continue;
-            }
-
-            out.packBoolean(true);
-
-            if (col.name().equals(origin.columnName())) {
-                out.packNil();
-            } else {
-                out.packString(origin.columnName());
-            }
-
-            Integer schemaIdx = schemas.get(origin.schemaName());
-
-            if (schemaIdx == null) {
-                schemas.put(origin.schemaName(), i);
-                out.packString(origin.schemaName());
-            } else {
-                out.packInt(schemaIdx);
-            }
-
-            Integer tableIdx = tables.get(origin.tableName());
-
-            if (tableIdx == null) {
-                tables.put(origin.tableName(), i);
-                out.packString(origin.tableName());
-            } else {
-                out.packInt(tableIdx);
-            }
-        }
+        ClientSqlCommon.packColumns(out, meta.columns());
     }
 }

@@ -65,7 +65,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteScriptRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlParameterMetadataRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlQueryMetadataRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
@@ -758,8 +758,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(in, sql, igniteTransactions);
 
-            case ClientOp.SQL_PARAM_META:
-                return ClientSqlParameterMetadataRequest.process(in, out, queryProcessor, resources);
+            case ClientOp.SQL_QUERY_META:
+                return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
