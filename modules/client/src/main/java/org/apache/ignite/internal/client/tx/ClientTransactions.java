@@ -77,7 +77,7 @@ public class ClientTransactions implements IgniteTransactions {
      * @param externalCommit External commit.
      * @return The future.
      */
-    public Transaction beginForCache(@Nullable TransactionOptions options,
+    public ClientTransaction beginForCache(@Nullable TransactionOptions options,
             @Nullable Function<ClientTransaction, CompletableFuture<Void>> externalCommit) {
         if (options != null && options.timeoutMillis() != 0) {
             // TODO: IGNITE-16193

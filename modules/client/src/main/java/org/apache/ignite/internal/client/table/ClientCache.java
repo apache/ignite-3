@@ -17,21 +17,15 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import javax.cache.CacheManager;
 import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.configuration.Configuration;
-import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
@@ -39,15 +33,13 @@ import javax.cache.integration.CompletionListener;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
-import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
+import org.apache.ignite.internal.table.AbstractCache;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.TypeConverter;
-import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,33 +47,12 @@ import org.jetbrains.annotations.Nullable;
  * Client cache implementation.
  * TODO reduce copy&paste comparing to EmbeddedCache.
  */
-public class ClientCache<K, V> implements IgniteCache<K, V> {
-    private static final byte[] TOMBSTONE = new byte[0];
-    private static final long TOMBSTONE_TTL = 5 * 60 * 1000L;
-    private static final String KEY_COL = "KEY";
-    private static final String VAL_COL = "VALUE";
-    private static final String TTL_COL = "TTL";
-
+public class ClientCache<K, V> extends AbstractCache<K, V, ClientTransaction> {
     /** Underlying table. */
     private final ClientTable tbl;
 
     /** Tuple serializer. */
     private final ClientTupleSerializer ser;
-
-    /** Loader. */
-    private final CacheLoader<K, V> loader;
-
-    /** Writer. */
-    private final CacheWriter<K, V> writer;
-
-    /** Expiry policy. */
-    private final ExpiryPolicy expiryPolicy;
-
-    /** Key serializer. */
-    private final TypeConverter<K, byte[]> keySerializer;
-
-    /** Value serializer. */
-    private final TypeConverter<V, byte[]> valueSerializer;
 
     /** Transactions factory. */
     private final ClientTransactions transactions;
@@ -99,141 +70,111 @@ public class ClientCache<K, V> implements IgniteCache<K, V> {
             TypeConverter<V, byte[]> valueSerializer,
             ExpiryPolicy expiryPolicy
     ) {
-        assert tbl != null;
-
+        super(keySerializer, valueSerializer, loader, writer, expiryPolicy);
         this.tbl = tbl;
-        this.loader = loader;
-        this.writer = writer;
-        this.expiryPolicy = expiryPolicy;
-        this.keySerializer = keySerializer == null ? new SerializingConverter<>() : keySerializer;
-        this.valueSerializer = valueSerializer == null ? new SerializingConverter<>() : valueSerializer;
         ser = new ClientTupleSerializer(tbl.tableId());
         transactions = new ClientTransactions(tbl.channel());
     }
 
-    private @Nullable V get(Transaction tx, K key) {
-        ClientTransaction tx0 = (ClientTransaction) tx;
-
+    @Override
+    protected @Nullable V get(ClientTransaction tx, K key) throws Exception {
         if (writer != null) {
-            Object val0 = tx0.dirtyCache().get(key);
+            Object val0 = tx.dirtyCache().get(key);
 
             if (val0 != null) {
                 return val0 == TOMBSTONE ? null : (V) val0;
             }
         }
 
-        try {
-            Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
+        Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
 
-            Tuple valTup = tbl.doSchemaOutInOpAsync(
-                    ClientOp.TUPLE_GET,
-                    (s, w) -> ser.writeTuple(tx, keyTup, s, w, true),
-                    (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
-                    null,
-                    ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyTup)).join();
+        Tuple valTup = tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET,
+                (s, w) -> ser.writeTuple(tx, keyTup, s, w, true),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
+                null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyTup)).join();
 
-            if (valTup == null) {
-                V val = null;
+        if (valTup == null) {
+            V val = null;
 
-                if (loader != null) {
-                    val = loader.load(key);
-                    if (val == null) {
-                        valTup = Tuple.create().set(VAL_COL, TOMBSTONE).set(TTL_COL, TOMBSTONE_TTL);
-                    } else {
-                        // TODO set ttl defined by user
-                        valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(val)).set(TTL_COL, getExpiration());
-                    }
-
-                    Tuple finalValTup = valTup;
-                    tbl.doSchemaOutOpAsync(
-                            ClientOp.TUPLE_UPSERT,
-                            (s, w) -> ser.writeKvTuple(tx, keyTup, finalValTup, s, w, false),
-                            r -> null,
-                            ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyTup)).join();
+            if (loader != null) {
+                val = loader.load(key);
+                if (val == null) {
+                    valTup = Tuple.create().set(VAL_COL, TOMBSTONE).set(TTL_COL, TOMBSTONE_TTL);
+                } else {
+                    // TODO set ttl defined by user
+                    valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(val)).set(TTL_COL, getExpiration());
                 }
 
-                return val;
+                Tuple finalValTup = valTup;
+                tbl.doSchemaOutOpAsync(
+                        ClientOp.TUPLE_UPSERT,
+                        (s, w) -> ser.writeKvTuple(tx, keyTup, finalValTup, s, w, false),
+                        r -> null,
+                        ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyTup)).join();
             }
 
-            // TODO use readResolve for tombstone.
-            byte[] val = valTup.value(VAL_COL);
-
-            assert val != null;
-
-            // Tombstone.
-            if (val.length == 0) {
-                return null;
-            }
-
-            return (V) keySerializer.toObjectType(val);
-        } catch (Exception e) {
-            throw new TransactionException(e);
-        }
-    }
-
-    private long getExpiration() {
-        if (expiryPolicy != null && expiryPolicy.getExpiryForCreation() != null) {
-            Duration dur = expiryPolicy.getExpiryForCreation();
-            // TODO use caching clocks.
-            return System.currentTimeMillis() + dur.getTimeUnit().toMillis(dur.getDurationAmount());
+            return val;
         }
 
-        return 0;
-    }
+        // TODO use readResolve for tombstone.
+        byte[] val = valTup.value(VAL_COL);
 
-    private void put(Transaction tx, K key, V value) {
-        try {
-            Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
-            Tuple valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(value)).set(TTL_COL, getExpiration());
+        assert val != null;
 
-            ClientTransaction tx0 = (ClientTransaction) tx;
-
-            tbl.doSchemaOutOpAsync(
-                    ClientOp.TUPLE_UPSERT,
-                    (s, w) -> ser.writeKvTuple(tx, keyTup, valTup, s, w, false),
-                    r -> null,
-                    ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyTup)).join();
-
-            if (writer != null) {
-                tx0.dirtyCache().put(key, value); // Safe for external commit.
-            }
-        } catch (Exception e) {
-            throw new TransactionException(e);
+        // Tombstone.
+        if (val.length == 0) {
+            return null;
         }
+
+        return (V) keySerializer.toObjectType(val);
     }
 
-    private boolean remove(Transaction tx, K key) {
-        ClientTransaction tx0 = (ClientTransaction) tx;
+    @Override
+    protected void put(ClientTransaction tx, K key, V value) throws Exception {
+        Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
+        Tuple valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(value)).set(TTL_COL, getExpiration());
+
+        tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT,
+                (s, w) -> ser.writeKvTuple(tx, keyTup, valTup, s, w, false),
+                r -> null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyTup)).join();
 
         if (writer != null) {
-            Object val = tx0.dirtyCache().get(key);
+            tx.dirtyCache().put(key, value); // Safe for external commit.
+        }
+    }
+
+    @Override
+    protected boolean remove(ClientTransaction tx, K key) throws Exception {
+        if (writer != null) {
+            Object val = tx.dirtyCache().get(key);
 
             if (val == TOMBSTONE) {
                 return false; // Already removed.
             }
         }
 
-        try {
-            Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
+        Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
 
-            boolean removed = tbl.doSchemaOutOpAsync(
-                    ClientOp.TUPLE_DELETE,
-                    (s, w) -> ser.writeTuple(tx, keyTup, s, w, true),
-                    r -> r.in().unpackBoolean(),
-                    ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyTup)).join();
+        boolean removed = tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_DELETE,
+                (s, w) -> ser.writeTuple(tx, keyTup, s, w, true),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyTup)).join();
 
-            // Always call external delete.
-            if (writer != null) {
-                tx0.dirtyCache().put(key, TOMBSTONE);
-            }
-
-            return removed;
-        } catch (Exception e) {
-            throw new TransactionException(e);
+        // Always call external delete.
+        if (writer != null) {
+            tx.dirtyCache().put(key, TOMBSTONE);
         }
+
+        return removed;
     }
 
-    private Transaction beginTransaction() {
+    @Override
+    protected ClientTransaction beginTransaction0() {
         return transactions.beginForCache(new TransactionOptions(), (writer == null) ? null : txn -> {
             if (txn.dirtyCache().isEmpty()) {
                 return CompletableFutures.nullCompletedFuture();
@@ -260,25 +201,6 @@ public class ClientCache<K, V> implements IgniteCache<K, V> {
     }
 
     @Override
-    public V get(K key) {
-        Transaction tx = beginTransaction();
-
-        try {
-            return get(tx, key);
-        } catch (TransactionException e) {
-            try {
-                tx.rollback();
-            } catch (TransactionException ex) {
-                e.addSuppressed(ex);
-            }
-
-            throw e;
-        } finally {
-            tx.commit();
-        }
-    }
-
-    @Override
     public Map<K, V> getAll(Set<? extends K> keys) {
         return null;
     }
@@ -294,25 +216,6 @@ public class ClientCache<K, V> implements IgniteCache<K, V> {
     }
 
     @Override
-    public void put(K key, V value) {
-        Transaction tx = beginTransaction();
-
-        try {
-            put(tx, key, value);
-        } catch (TransactionException e) {
-            try {
-                tx.rollback();
-            } catch (TransactionException ex) {
-                e.addSuppressed(ex);
-            }
-
-            throw e;
-        } finally {
-            tx.commit();
-        }
-    }
-
-    @Override
     public V getAndPut(K key, V value) {
         return null;
     }
@@ -325,25 +228,6 @@ public class ClientCache<K, V> implements IgniteCache<K, V> {
     @Override
     public boolean putIfAbsent(K key, V value) {
         return false;
-    }
-
-    @Override
-    public boolean remove(K key) {
-        Transaction tx = beginTransaction();
-
-        try {
-            return remove(tx, key);
-        } catch (TransactionException e) {
-            try {
-                tx.rollback();
-            } catch (TransactionException ex) {
-                e.addSuppressed(ex);
-            }
-
-            throw e;
-        } finally {
-            tx.commit();
-        }
     }
 
     @Override
@@ -443,34 +327,7 @@ public class ClientCache<K, V> implements IgniteCache<K, V> {
     }
 
     @Override
-    public void runAtomically(Runnable clo) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public <R> R runAtomically(Supplier<R> clo) {
-        throw new UnsupportedOperationException();
-    }
-
-    private static class SerializingConverter<T> implements TypeConverter<T, byte[]> {
-        /** {@inheritDoc} */
-        @Override
-        public byte[] toColumnType(T obj) throws Exception {
-            ByteArrayOutputStream out = new ByteArrayOutputStream(512);
-
-            try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
-                oos.writeObject(obj);
-            }
-
-            return out.toByteArray();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public T toObjectType(byte[] data) throws Exception {
-            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data))) {
-                return (T) ois.readObject();
-            }
-        }
+    protected boolean isValidState(ClientTransaction tx) {
+        return tx.isOpen();
     }
 }

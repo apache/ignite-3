@@ -17,25 +17,15 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.function.Supplier;
 import javax.cache.CacheManager;
 import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.configuration.Configuration;
-import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
@@ -43,7 +33,6 @@ import javax.cache.integration.CompletionListener;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
-import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -55,40 +44,17 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.TypeConverter;
-import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Embedded cache implementation.
  */
-public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
-    private static final byte[] TOMBSTONE = new byte[0];
-    private static final long TOMBSTONE_TTL = 5 * 60 * 1000L;
-    private static final String KEY_COL = "KEY";
-    private static final String VAL_COL = "VALUE";
-    private static final String TTL_COL = "TTL";
-
-    private final TypeConverter<K, byte[]> keySerializer;
-    private final TypeConverter<V, byte[]> valueSerializer;
-
-    private final @Nullable CacheLoader<K, V> loader;
-    private final @Nullable CacheWriter<K, V> writer;
-
+public class EmbeddedCache<K, V> extends AbstractCache<K, V, InternalTransaction> {
     private final TxManager txManager;
-
     private final TupleMarshaller marshaller;
-
-    private final ThreadLocal<InternalTransaction> txHolder = new ThreadLocal<>();
-
-    private final @Nullable ExpiryPolicy expiryPolicy;
-
     private final InternalTable tbl;
-
     private final TableViewRowConverter rowConverter;
 
     EmbeddedCache(
@@ -102,63 +68,19 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
             @Nullable TypeConverter<V, byte[]> valueConverter,
             @Nullable ExpiryPolicy expiryPolicy
     ) {
+        super(keyConverter, valueConverter, loader, writer, expiryPolicy);
         this.tbl = tbl;
         this.rowConverter = new TableViewRowConverter(schemaReg);
         this.txManager = txManager; // TODO get from internal table.
-        this.loader = loader;
-        this.writer = writer;
-        this.keySerializer = keyConverter == null ? new SerializingConverter<>() : keyConverter;
-        this.valueSerializer = valueConverter == null ? new SerializingConverter<>() : valueConverter;
         this.marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
-        this.expiryPolicy = expiryPolicy;
     }
 
     @Override
-    public @Nullable V get(K key) {
-        InternalTransaction tx = txHolder.get();
-
-        boolean implicit = tx == null;
-
-        if (implicit) {
-            tx = (InternalTransaction) beginTransaction();
-        } else {
-            if (tx.state() != TxState.PENDING) {
-                throw new TransactionException(Transactions.TX_UNEXPECTED_STATE_ERR, "Transaction is not active");
-            }
-        }
-
-        try {
-            V v = get(tx, key);
-
-            if (implicit) {
-                tx.commit();
-            }
-
-            return v;
-        } catch (Exception e) {
-            try {
-                tx.rollback();
-            } catch (Exception ex) {
-                e.addSuppressed(ex);
-            }
-
-            unwrapAndRethrow(e);
-
-            return null;
-        } finally {
-            if (implicit) {
-                txHolder.remove();
-            }
-        }
-    }
-
-    private @Nullable V get(Transaction tx, K key) throws Exception {
-        InternalTransaction tx0 = (InternalTransaction) tx;
-
-        assert tx0.external() == (writer != null) : "Illegal tx state: " + tx;
+    protected @Nullable V get(InternalTransaction tx, K key) throws Exception {
+        assert tx.external() == (writer != null) : "Illegal tx state: " + tx;
 
         if (writer != null) {
-            Object val0 = tx0.dirtyCache().get(key);
+            Object val0 = tx.dirtyCache().get(key);
 
             if (val0 != null) {
                 return val0 == TOMBSTONE ? null : (V) val0;
@@ -169,7 +91,7 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
 
         Row keyRow = marshaller.marshal(keyTup, null);
 
-        Tuple valTup = tbl.get(keyRow, tx0).thenApply(row -> unmarshalValue(row, marshaller.schemaVersion())).join();
+        Tuple valTup = tbl.get(keyRow, tx).thenApply(row -> unmarshalValue(row, marshaller.schemaVersion())).join();
 
         if (valTup == null) {
             V val = null;
@@ -184,7 +106,7 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
                 }
 
                 Row row = marshaller.marshal(keyTup, valTup);
-                tbl.insert(row, tx0).join();
+                tbl.insert(row, tx).join();
             }
 
             return val;
@@ -203,12 +125,6 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
         return (V) keySerializer.toObjectType(val);
     }
 
-    private static void unwrapAndRethrow(Exception e) {
-        Throwable t = mapToPublicException(unwrapCause(e));
-
-        ExceptionUtils.sneakyThrow(t);
-    }
-
     @Override
     public Map<K, V> getAll(Set<? extends K> keys) {
         return null;
@@ -225,52 +141,17 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
     }
 
     @Override
-    public void put(K key, V value) {
-        InternalTransaction tx = txHolder.get();
-        boolean implicit = tx == null;
-
-        if (implicit) {
-            tx = (InternalTransaction) beginTransaction();
-        } else {
-            if (tx.state() != TxState.PENDING) {
-                throw new TransactionException(Transactions.TX_UNEXPECTED_STATE_ERR, "Transaction is not active");
-            }
-        }
-
-        try {
-            put(tx, key, value);
-
-            if (implicit) {
-                tx.commit();
-            }
-        } catch (Exception e) {
-            try {
-                tx.rollback();
-            } catch (Exception ex) {
-                e.addSuppressed(ex);
-            }
-
-            unwrapAndRethrow(e);
-        } finally {
-            if (implicit) {
-                txHolder.remove();
-            }
-        }
-    }
-
-    private void put(Transaction tx, K key, V value) throws Exception {
+    protected void put(InternalTransaction tx, K key, V value) throws Exception {
         Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
         Tuple valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(value)).set(TTL_COL, getExpiration());
 
-        InternalTransaction tx0 = (InternalTransaction) tx;
-
-        assert tx0.external() == (writer != null) : "Illegal tx state: " + tx;
+        assert tx.external() == (writer != null) : "Illegal tx state: " + tx;
 
         Row row = marshaller.marshal(keyTup, valTup);
-        tbl.upsert(row, tx0).join();
+        tbl.upsert(row, tx).join();
 
         if (writer != null) {
-            tx0.dirtyCache().put(key, value); // Safe for external commit.
+            tx.dirtyCache().put(key, value); // Safe for external commit.
         }
     }
 
@@ -290,50 +171,11 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
     }
 
     @Override
-    public boolean remove(K key) {
-        InternalTransaction tx = txHolder.get();
-        boolean implicit = tx == null;
-
-        if (implicit) {
-            tx = (InternalTransaction) beginTransaction();
-        } else {
-            if (tx.state() != TxState.PENDING) {
-                throw new TransactionException(Transactions.TX_UNEXPECTED_STATE_ERR, "Transaction is not active");
-            }
-        }
-
-        try {
-            boolean removed = remove(tx, key);
-
-            if (implicit) {
-                tx.commit();
-            }
-
-            return removed;
-        } catch (Exception e) {
-            try {
-                tx.rollback();
-            } catch (Exception ex) {
-                e.addSuppressed(ex);
-            }
-
-            unwrapAndRethrow(e);
-
-            return false;
-        } finally {
-            if (implicit) {
-                txHolder.remove();
-            }
-        }
-    }
-
-    private boolean remove(Transaction tx, K key) throws Exception {
-        InternalTransaction tx0 = (InternalTransaction) tx;
-
-        assert tx0.external() == (writer != null) : "Illegal tx state: " + tx;
+    protected boolean remove(InternalTransaction tx, K key) throws Exception {
+        assert tx.external() == (writer != null) : "Illegal tx state: " + tx;
 
         if (writer != null) {
-            Object val = tx0.dirtyCache().get(key);
+            Object val = tx.dirtyCache().get(key);
 
             if (val == TOMBSTONE) {
                 return false; // Already removed.
@@ -344,14 +186,19 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
 
         Row row = marshaller.marshalKey(keyTup);
 
-        boolean removed = tbl.delete(row, tx0).join();
+        boolean removed = tbl.delete(row, tx).join();
 
         // Always call external delete.
         if (writer != null) {
-            tx0.dirtyCache().put(key, TOMBSTONE);
+            tx.dirtyCache().put(key, TOMBSTONE);
         }
 
         return removed;
+    }
+
+    @Override
+    protected boolean isValidState(InternalTransaction tx) {
+        return tx.state() != TxState.PENDING;
     }
 
     @Override
@@ -450,8 +297,9 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
         return null;
     }
 
-    private Transaction beginTransaction() {
-        InternalTransaction tx = txManager.beginExternal(new HybridTimestampTracker(), (writer == null) ? null : txn -> {
+    @Override
+    protected InternalTransaction beginTransaction0() {
+        return txManager.beginExternal(new HybridTimestampTracker(), (writer == null) ? null : txn -> {
             if (txn.dirtyCache().isEmpty()) {
                 return CompletableFutures.nullCompletedFuture();
             }
@@ -474,67 +322,6 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
 
             return CompletableFuture.allOf(futs.toArray(new CompletableFuture[0]));
         });
-
-        // TODO use correct observable tracker.
-        txHolder.set(tx);
-
-        return tx;
-    }
-
-    @Override
-    public void runAtomically(Runnable clo) {
-        Transaction tx = txHolder.get();
-
-        if (tx != null) {
-            throw new TransactionException("Transaction is already bound to the thread"); // TODO err code
-        }
-
-        tx = beginTransaction();
-
-        try {
-            clo.run();
-
-            tx.commit();
-        } catch (Throwable t) {
-            try {
-                tx.rollback(); // Try rolling back on user exception.
-            } catch (Exception e) {
-                t.addSuppressed(e);
-            }
-
-            throw t;
-        } finally {
-            txHolder.remove();
-        }
-    }
-
-    @Override
-    public <R> R runAtomically(Supplier<R> clo) {
-        Transaction tx = txHolder.get();
-
-        if (tx != null) {
-            throw new TransactionException("Transaction is already bound to the thread"); // TODO err code
-        }
-
-        tx = beginTransaction();
-
-        try {
-            R r = clo.get();
-
-            tx.commit();
-
-            return r;
-        } catch (Throwable t) {
-            try {
-                tx.rollback(); // Try rolling back on user exception.
-            } catch (Exception e) {
-                t.addSuppressed(e);
-            }
-
-            throw t;
-        } finally {
-            txHolder.remove();
-        }
     }
 
     /**
@@ -552,35 +339,5 @@ public class EmbeddedCache<K, V> implements IgniteCache<K, V> {
         return TableRow.valueTuple(rowConverter.resolveRow(row, schemaVersion));
     }
 
-    private static class SerializingConverter<T> implements TypeConverter<T, byte[]> {
-        /** {@inheritDoc} */
-        @Override
-        public byte[] toColumnType(T obj) throws Exception {
-            ByteArrayOutputStream out = new ByteArrayOutputStream(512);
 
-            try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
-                oos.writeObject(obj);
-            }
-
-            return out.toByteArray();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public T toObjectType(byte[] data) throws Exception {
-            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data))) {
-                return (T) ois.readObject();
-            }
-        }
-    }
-
-    private long getExpiration() {
-        if (expiryPolicy != null && expiryPolicy.getExpiryForCreation() != null) {
-            Duration dur = expiryPolicy.getExpiryForCreation();
-            // TODO use caching clocks.
-            return System.currentTimeMillis() + dur.getTimeUnit().toMillis(dur.getDurationAmount());
-        }
-
-        return 0;
-    }
 }

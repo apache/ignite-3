@@ -174,7 +174,7 @@ public class ClientTransaction implements Transaction {
      * @return Internal transaction.
      */
     public static ClientTransaction get(Transaction tx) {
-        if (!(tx instanceof ClientTransaction)) {
+        if (!(tx instanceof ClientTransaction)) { // TODO FIXME make type safe
             throw new IgniteException(INTERNAL_ERR, "Unsupported transaction implementation: '"
                     + tx.getClass()
                     + "'. Use IgniteClient.transactions() to start transactions.");
@@ -206,5 +206,11 @@ public class ClientTransaction implements Transaction {
 
     public boolean external() {
         return externalCommit != null;
+    }
+
+    public boolean isOpen() {
+        int state0 = state.get();
+
+        return state0 == STATE_OPEN;
     }
 }
