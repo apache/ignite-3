@@ -162,7 +162,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         }
 
         if (!hasMorePages()) {
-            return CompletableFuture.failedFuture(new NoSuchElementException("There are no more pages"));
+            return CompletableFuture.failedFuture(new NoSuchElementException("There are no more pages."));
         }
 
         return ch.serviceAsync(

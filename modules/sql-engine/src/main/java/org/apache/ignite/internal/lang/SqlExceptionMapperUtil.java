@@ -52,7 +52,7 @@ public class SqlExceptionMapperUtil {
         if (e instanceof Error) {
             return e;
         }
-        if (e instanceof SqlException || e instanceof CursorClosedException || e instanceof NoSuchElementException) {
+        if (e instanceof SqlException) {
             return e;
         }
 

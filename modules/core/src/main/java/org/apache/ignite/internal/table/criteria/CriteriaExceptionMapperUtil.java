@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.criteria.CriteriaException;
 
 /**
@@ -50,9 +51,12 @@ public class CriteriaExceptionMapperUtil {
         if (e instanceof Error) {
             return e;
         }
-
         if (e instanceof CriteriaException) {
             return e;
+        }
+
+        if (e instanceof SqlException) {
+            return new CriteriaException(INTERNAL_ERR, e);
         }
 
         if (e instanceof TraceableException) {

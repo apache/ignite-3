@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     private static final CompletableFuture<? extends AsyncResultSet<?>> HAS_NO_MORE_PAGE_FUTURE =
-            CompletableFuture.failedFuture(new NoSuchElementException("There are no more pages"));
+            CompletableFuture.failedFuture(new NoSuchElementException("There are no more pages."));
 
     private final IdleExpirationTracker expirationTracker;
 
