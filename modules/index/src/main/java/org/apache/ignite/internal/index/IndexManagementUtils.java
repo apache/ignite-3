@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -33,14 +32,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -265,26 +262,5 @@ class IndexManagementUtils {
     static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
                 && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
-    }
-
-
-    /**
-     * Returns the earliest catalog version in which the index of interest has status {@link CatalogIndexStatus#REGISTERED}, {@code -1} if
-     * not found.
-     *
-     * @param catalogService Catalog service.
-     * @param indexId Index ID of interest.
-     */
-    // TODO: IGNITE-21363 Deal with catalog compaction
-    static int earliestCatalogVersionOfIndexInRegisteredStatus(CatalogService catalogService, int indexId) {
-        for (Catalog catalog : catalogService.catalogVersionsSnapshot()) {
-            CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
-
-            if (indexDescriptor != null && indexDescriptor.status() == REGISTERED) {
-                return catalog.version();
-            }
-        }
-
-        return -1;
     }
 }
