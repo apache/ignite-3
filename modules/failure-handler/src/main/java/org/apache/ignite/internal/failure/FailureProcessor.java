@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.failure;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
@@ -43,8 +46,8 @@ public class FailureProcessor implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
-
+    public CompletableFuture<Void> start() {
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
