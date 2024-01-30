@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -361,11 +362,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .thenCompose(newVersion -> {
                     Catalog catalog = catalogByVer.get(newVersion);
 
-                    HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
-                    HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(HybridTimestamp.maxClockSkew())
-                            // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
-                            // logical parts on different nodes of the cluster (see IGNITE-21084).
-                            .roundUpToPhysicalTick();
+                    HybridTimestamp clusterWideEnsuredActivationTs = clusterWideEnsuredActivationTimestamp(catalog);
                     // TODO: this addition has to be removed when IGNITE-20378 is implemented.
                     HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTs.addPhysicalTime(
                             partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.maxClockSkew()
@@ -642,10 +639,5 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             this.descriptor = descriptor;
             this.id = id;
         }
-    }
-
-    @Override
-    public List<Catalog> catalogVersionsSnapshot() {
-        return List.copyOf(catalogByVer.values());
     }
 }

@@ -1,0 +1,568 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.sql.engine.prepare.pruning;
+
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexLiteral;
+import org.apache.calcite.rex.RexLocalRef;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
+
+/**
+ * Extracts partition pruning metadata from a physical plan. Examples:
+ * <pre>
+ *    SELECT * FROM t WHERE pk = 10
+ *    =>
+ *    t = [ [pk=10] ]
+ *
+ *    SELECT * FROM t WHERE pk = ?
+ *    =>
+ *    t = [ [pk = ?0] ]
+ *
+ *    SELECT * FROM t WHERE pk = 10 AND col = 42
+ *    t = [ [pk=10] ]
+ *
+ *    SELECT * FROM t WHERE pk = 10 OR pk = 42
+ *    =>
+ *    t = [ [pk=10], [pk=42] ]
+ *
+ *    SELECT * FROM t WHERE pk = 10 OR col = 42
+ *    =>
+ *    []
+ *
+ *    SELECT * FROM t WHERE colo_key1 = 10 AND colo_key2 = 20
+ *    =>
+ *    t = [ [colo_key1=10], [colo_key2=20] ]
+ *
+ *    SELECT * FROM t WHERE colo_key1 = 10 AND colo_key2 = 20 OR colo_key1 = 40 AND colo_key2 = 30
+ *    =>
+ *    t = [ [colo_key1=10, colo_key2=20], [colo_key1=20, colo_key2=30] ]
+ * </pre>
+ */
+public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
+
+    private final Long2ObjectMap<PartitionPruningColumns> result = new Long2ObjectArrayMap<>();
+
+    /**
+     * Extracts partition pruning metadata from the given physical plan.
+     * This method traverses a physical plan and attempts to extract metadata from operators that support it
+     * and includes such metadata is that complete (e.g. values of all colocation keys present in a scan predicate).
+     *
+     * @param rel Physical plan.
+     * @return Partition pruning metadata.
+     */
+    public PartitionPruningMetadata go(IgniteRel rel) {
+        rel.accept(this);
+
+        return new PartitionPruningMetadata(result);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteIndexScan rel) {
+        RexNode condition = rel.condition();
+
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null : "No table";
+
+        extractFromTable(rel.sourceId(), table, condition, rel.getCluster().getRexBuilder());
+
+        return super.visit(rel);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteTableScan rel) {
+        RexNode condition = rel.condition();
+
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null : "No table";
+
+        extractFromTable(rel.sourceId(), table, condition, rel.getCluster().getRexBuilder());
+
+        return rel;
+    }
+
+    private void extractFromTable(long sourceId, IgniteTable table, @Nullable RexNode condition, RexBuilder rexBuilder) {
+        if (condition == null) {
+            return;
+        }
+
+        IgniteDistribution distribution = table.distribution();
+        if (!distribution.function().affinity()) {
+            return;
+        }
+        IntArrayList keysList = new IntArrayList(distribution.getKeys().size());
+        for (Integer key : distribution.getKeys()) {
+            keysList.add(key.intValue());
+        }
+
+        PartitionPruningColumns metadata = extractMetadata(keysList, condition, rexBuilder);
+
+        if (metadata != null) {
+            result.put(sourceId, metadata);
+        }
+    }
+
+    /** Extracts values of colocated columns from the given condition. */
+    @VisibleForTesting
+    @Nullable
+    public static PartitionPruningColumns extractMetadata(IntList keys, RexNode condition, RexBuilder rexBuilder) {
+        Result res = extractMetadata(condition, keys, rexBuilder, false);
+
+        // Both unknown condition and additional condition can not be used to extract metadata.
+        if (res == Result.UNKNOWN || res == Result.RESTRICT) {
+            return null;
+        }
+
+        PruningColumnSets columnSets;
+
+        if (res instanceof PruningColumnSet) {
+            PruningColumnSet columnSet = (PruningColumnSet) res;
+            columnSets = new PruningColumnSets();
+            columnSets.candidates.add(columnSet);
+        } else {
+            columnSets = (PruningColumnSets) res;
+        }
+
+        for (PruningColumnSet columnSet : columnSets.candidates) {
+
+            if (!columnSet.columns.keySet().containsAll(keys)) {
+                return null;
+            }
+        }
+
+        List<Int2ObjectMap<RexNode>> result = new ArrayList<>(columnSets.candidates.size());
+
+        for (PruningColumnSet columnSet : columnSets.candidates) {
+            result.add(columnSet.columns);
+        }
+
+        return new PartitionPruningColumns(result);
+    }
+
+    private static Result extractMetadata(RexNode node, IntList keys, RexBuilder rexBuilder, boolean negate) {
+
+        if (isColocationKey(node, keys)) {
+            // a standalone <bool_col> ref.
+            if (node.getType().getSqlTypeName() == SqlTypeName.BOOLEAN) {
+                RexLocalRef ref = (RexLocalRef) node;
+                return new PruningColumnSet(ref.getIndex(), rexBuilder.makeLiteral(!negate));
+            }
+        } else if (node.isA(SqlKind.LOCAL_REF)) {
+            return Result.RESTRICT;
+        }
+
+        List<RexNode> operands;
+        if (node instanceof RexCall) {
+            operands = ((RexCall) node).getOperands();
+        } else {
+            return Result.UNKNOWN;
+        }
+
+        switch (node.getKind()) {
+            case IS_NOT_DISTINCT_FROM:
+            case EQUALS: {
+                // NOT (c1 = <val>) -> c1 != <val> and we can not use a value.
+                // But NOT (c1 != <val>) -> c1 = <val>, and it can be used.
+                RexNode lhs;
+                RexNode rhs;
+
+                if (operands.get(0).isA(SqlKind.LOCAL_REF)) {
+                    lhs = operands.get(0);
+                    rhs = operands.get(1);
+                } else {
+                    lhs = operands.get(1);
+                    rhs = operands.get(0);
+                }
+
+                if (isColocationKey(lhs, keys) && isValueExpr(rhs)) {
+                    if (negate) {
+                        return Result.UNKNOWN;
+                    } else {
+                        RexLocalRef column = (RexLocalRef) lhs;
+                        return new PruningColumnSet(column.getIndex(), rhs);
+                    }
+                } else if (lhs.isA(SqlKind.LOCAL_REF) && isValueExpr(rhs)) {
+                    // some column = <val> - preserve, in case of AND it can be ignored.
+                    return Result.RESTRICT;
+                } else {
+                    // Not a simple expression.
+                    return Result.UNKNOWN;
+                }
+            }
+            case NOT_EQUALS:
+            case IS_DISTINCT_FROM: {
+                RexNode lhs;
+                RexNode rhs;
+
+                if (operands.get(0).isA(SqlKind.LOCAL_REF)) {
+                    lhs = operands.get(0);
+                    rhs = operands.get(1);
+                } else {
+                    lhs = operands.get(1);
+                    rhs = operands.get(0);
+                }
+
+                if (isColocationKey(lhs, keys) && isValueExpr(rhs)) {
+                    // NOT(colo_key != <val>) => colo_key = <val>
+                    if (negate) {
+                        RexLocalRef column = (RexLocalRef) lhs;
+                        return new PruningColumnSet(column.getIndex(), rhs);
+                    } else {
+                        return Result.UNKNOWN;
+                    }
+                } else if (lhs.isA(SqlKind.LOCAL_REF) && isValueExpr(rhs)) {
+                    // some column != <val> - preserve, in case of AND it can be ignored.
+                    return Result.RESTRICT;
+
+                } else {
+                    // Not a simple expression.
+                    return Result.UNKNOWN;
+                }
+            }
+            case OR: {
+                PruningColumnSets res = new PruningColumnSets();
+
+                for (RexNode operand : operands) {
+                    Result child = extractMetadata(operand, keys, rexBuilder, negate);
+
+                    // In case of OR: we can not ignore additional condition,
+                    // because OR increases the search space.
+                    if (child == Result.UNKNOWN || child == Result.RESTRICT) {
+                        return Result.UNKNOWN;
+                    }
+
+                    res.add(child);
+                }
+
+                return res;
+            }
+            case AND: {
+                PruningColumnSets res = new PruningColumnSets();
+
+                for (RexNode operand : operands) {
+                    Result child = extractMetadata(operand, keys, rexBuilder, negate);
+
+                    if (child == Result.UNKNOWN) {
+                        return Result.UNKNOWN;
+                    }
+
+                    // In case of AND: we can ignore additional condition, because
+                    // such condition only narrows the search space.
+                    if (child == Result.RESTRICT) {
+                        continue;
+                    }
+
+                    res.combine(child);
+
+                    if (res.conflict) {
+                        return Result.UNKNOWN;
+                    }
+                }
+
+                return res;
+            }
+            case SEARCH: {
+                RexNode expandedSearch = RexUtil.expandSearch(rexBuilder, null, node);
+                assert !expandedSearch.isA(SqlKind.SEARCH) : "Search operation is not expanded: " + node;
+
+                return extractMetadata(expandedSearch, keys, rexBuilder, false);
+            }
+            case NOT: {
+                if (isColocationKey(operands.get(0), keys)) {
+                    RexLocalRef column = (RexLocalRef) operands.get(0);
+
+                    return new PruningColumnSet(column.getIndex(), rexBuilder.makeLiteral(negate));
+                } else {
+                    return extractMetadata(operands.get(0), keys, rexBuilder, !negate);
+                }
+            }
+            case IS_NULL:
+            case IS_NOT_NULL: {
+                RexNode operand = operands.get(0);
+
+                if (operand.isA(SqlKind.LOCAL_REF)) {
+                    return Result.RESTRICT;
+                } else {
+                    // If we reach this branch with a colocated key which is never null,
+                    // then IS_NOT_NULL is always true / IS_NULL is always false so there is something wrong here.
+                    return Result.UNKNOWN;
+                }
+            }
+            case IS_FALSE:
+            case IS_TRUE: {
+                RexNode operand = operands.get(0);
+
+                if (isColocationKey(operand, keys)) {
+                    RexLocalRef ref = (RexLocalRef) operand;
+
+                    boolean value;
+                    if (negate) {
+                        // NOT (col IS FALSE) => col IS TRUE => col = true
+                        value = node.getKind() == SqlKind.IS_FALSE;
+                    } else {
+                        // NOT (col IS TRUE) => col IS FALSE => col = false
+                        value = node.getKind() == SqlKind.IS_TRUE;
+                    }
+
+                    return new PruningColumnSet(ref.getIndex(), rexBuilder.makeLiteral(value));
+                } else if (operand.isA(SqlKind.LOCAL_REF)) {
+                    return Result.RESTRICT;
+                } else {
+                    return Result.UNKNOWN;
+                }
+            }
+            case IS_NOT_FALSE:
+            case IS_NOT_TRUE: {
+                // IS_NOT_TRUE is used by case/when expression rewriter.
+                // IS_NOT_FALSE is added for symmetry.
+
+                boolean value;
+                if (negate) {
+                    value = node.getKind() != SqlKind.IS_NOT_FALSE;
+                } else {
+                    value = node.getKind() != SqlKind.IS_NOT_TRUE;
+                }
+
+                if (isColocationKey(operands.get(0), keys)) {
+                    RexLocalRef column = (RexLocalRef) operands.get(0);
+                    return new PruningColumnSet(column.getIndex(), rexBuilder.makeLiteral(value));
+                } else {
+                    return extractMetadata(operands.get(0), keys, rexBuilder, !negate);
+                }
+            }
+            default: {
+                if (node.isA(SqlKind.BINARY_COMPARISON)) {
+                    // Convert binary comparision operations to Result::RESTRICT
+                    RexNode lhs;
+                    RexNode rhs;
+
+                    if (operands.get(0).isA(SqlKind.LOCAL_REF)) {
+                        lhs = operands.get(0);
+                        rhs = operands.get(1);
+                    } else {
+                        lhs = operands.get(1);
+                        rhs = operands.get(0);
+                    }
+                    if (isColocationKey(lhs, keys) && isValueExpr(rhs)) {
+                        // We can not extract values from expressions such as colo_key > 10
+                        return Result.UNKNOWN;
+                    } else if (lhs.isA(SqlKind.LOCAL_REF) && isValueExpr(rhs)) {
+                        // We can use non_colo_key > 10 to narrow the search space.
+                        return Result.RESTRICT;
+                    } else {
+                        return Result.UNKNOWN;
+                    }
+                } else {
+                    return Result.UNKNOWN;
+                }
+            }
+        }
+    }
+
+    private static boolean isColocationKey(RexNode node, IntList keys) {
+        if (node instanceof RexLocalRef) {
+            RexLocalRef localRef = (RexLocalRef) node;
+            return keys.contains(localRef.getIndex());
+        } else {
+            return false;
+        }
+    }
+
+    private static boolean isValueExpr(RexNode node) {
+        return node instanceof RexLiteral || node instanceof RexDynamicParam;
+    }
+
+    /** Intermediate result of extracting partition pruning metadata. */
+    private abstract static class Result {
+
+        /** Represents an unknown result, information can not used. */
+        private static final Result UNKNOWN = new Result() {
+            @Override
+            public String toString() {
+                return "<unknown>";
+            }
+        };
+
+        /** Represents additional condition, such condition can be ignored by AND operator, since they narrow the search space. */
+        private static final Result RESTRICT = new Result() {
+            @Override
+            public String toString() {
+                return "<restrict>";
+            }
+        };
+    }
+
+    /** A set of colocation key columns with their values. */
+    private static class PruningColumnSet extends Result {
+
+        private final Int2ObjectMap<RexNode> columns;
+
+        PruningColumnSet(Int2ObjectMap<RexNode> columns) {
+            this.columns = columns;
+        }
+
+        PruningColumnSet(int column, RexNode value) {
+            columns = new Int2ObjectArrayMap<>();
+            columns.put(column, value);
+        }
+
+        @Override
+        public String toString() {
+            return columns.toString();
+        }
+    }
+
+    /** A collection of colocation key column sets. */
+    private static class PruningColumnSets extends Result {
+
+        private final List<PruningColumnSet> candidates = new ArrayList<>();
+
+        private boolean conflict;
+
+        /** Adds the given result to this collection of sets. Argument can be either PruningColumnSet or PruningColumnSets.  */
+        void add(Result res) {
+            // Add (OR) simply adds another candidate
+            //
+            // lhs   :  [c1 = 1, c2 = 2]
+            // rhs  :  [c3 = 3]
+            // result :  [c1 = 1, c2 = 2], [c3 = 3]
+            //
+            // lhs   :  [c1 = 1, c2 = 2]
+            // rhs  :  [a = 2]
+            // result :  [c1 = 1, c2 = 2], [a = 2]
+            //
+            // lhs   :  [c1 = 1, c2 = 2]
+            // rhs  :  [c1 = 2, c2 = 3]
+            // result :  [c1 = 1, c2 = 2], [c1 = 2, c2 = 3]
+
+
+            if (res instanceof PruningColumnSet) {
+                PruningColumnSet columnSet = (PruningColumnSet) res;
+                candidates.add(columnSet);
+            } else {
+                PruningColumnSets columnSets = (PruningColumnSets) res;
+                candidates.addAll(columnSets.candidates);
+            }
+        }
+
+        /** Combines this column sets with the given result. Argument can be either PruningColumnSet or PruningColumnSets. */
+        void combine(Result res) {
+            // Combine (AND) merges each existing column sets with each candidate column set an for each of those
+            // produces new result
+
+            // lhs    :  [c1 = 1, c2 = 2]
+            // rhs    :  [c3 = 3]
+            // result :  [c1 = 1, c2 = 2, c3 = 3]
+
+            // lhs    :  [c1 = 1, c2 = 2]
+            // rhs    :  [c3 = 3], [c4 = 4]
+            // result :  [c1 = 1, c2 = 2, c3 = 3], [c1 = 1, c2 = 2, c4 = 4]
+
+            // ADD also does not allow to have the same columns with different values:
+
+            // lhs    :  [c1 = 1, c2 = 2]
+            // rhs    :  [c1 = 2]
+            // result :  conflict -> c1 # c1 can't be equal to both 1 and 2
+
+            // lhs    :  [c1 = 1, c2 = 2]
+            // rhs    :  [c1 = 2, c2 = 3]
+            // result :  conflict -> c1, c2
+
+            if (candidates.isEmpty()) {
+                if (res instanceof PruningColumnSet) {
+                    PruningColumnSet columnSet = (PruningColumnSet) res;
+                    candidates.add(columnSet);
+                } else {
+                    PruningColumnSets other = (PruningColumnSets) res;
+                    candidates.addAll(other.candidates);
+                }
+            } else {
+
+                if (conflict) {
+                    return;
+                }
+
+                PruningColumnSets other;
+                if (res instanceof PruningColumnSet) {
+                    other = new PruningColumnSets();
+                    other.candidates.add((PruningColumnSet) res);
+                } else {
+                    other = (PruningColumnSets) res;
+                }
+
+                List<PruningColumnSet> newOutput = new ArrayList<>();
+
+                for (PruningColumnSet candidate : other.candidates) {
+                    for (PruningColumnSet val : candidates) {
+                        for (Entry<RexNode> ckv : candidate.columns.int2ObjectEntrySet()) {
+                            if (!val.columns.containsKey(ckv.getIntKey())) {
+                                continue;
+                            }
+
+                            Object existing = val.columns.get(ckv.getIntKey());
+                            if (!Objects.equals(existing, ckv.getValue())) {
+                                conflict = true;
+                                return;
+                            }
+                        }
+
+                        Int2ObjectMap<RexNode> newValue = new Int2ObjectArrayMap<>(val.columns.size() + candidate.columns.size());
+                        newValue.putAll(val.columns);
+                        newValue.putAll(candidate.columns);
+
+                        PruningColumnSet newColSet = new PruningColumnSet(newValue);
+                        newOutput.add(newColSet);
+                    }
+                }
+
+                candidates.clear();
+                candidates.addAll(newOutput);
+            }
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
+    }
+}

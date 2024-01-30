@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
@@ -43,7 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests for {@link PersistentPageMemoryTableStorage} class.
  */
-@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
+@ExtendWith(WorkDirectoryExtension.class)
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private PersistentPageMemoryStorageEngine engine;
 

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -37,6 +39,7 @@ import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsExceptio
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
+import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -178,6 +181,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         assert recoveryDescriptor != null : "Wrong client handshake flow";
+        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel();
 
         if (message instanceof HandshakeFinishMessage) {
             HandshakeFinishMessage msg = (HandshakeFinishMessage) message;
@@ -192,6 +196,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             }
 
             List<OutNetworkObject> networkMessages = recoveryDescriptor.unacknowledgedMessages();
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Resending on handshake: {}", networkMessages.stream().map(OutNetworkObject::networkMessage).collect(toList()));
+            }
 
             for (OutNetworkObject networkMessage : networkMessages) {
                 channel.write(networkMessage);
@@ -222,6 +229,11 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.remoteLaunchId = handshakeStartMessage.launchId();
         this.remoteConsistentId = handshakeStartMessage.consistentId();
 
+        ChannelKey channelKey = new ChannelKey(remoteConsistentId, remoteLaunchId, connectionId);
+        switchEventLoopIfNeeded(channel, channelKey, () -> proceedAfterSavingIds(handshakeStartMessage));
+    }
+
+    private void proceedAfterSavingIds(HandshakeStartMessage handshakeStartMessage) {
         RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
                 remoteConsistentId,
                 remoteLaunchId,
@@ -412,6 +424,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         // Complete the master future with the local future of the current handshake as there was no competitor (or we won the competition).
         masterHandshakeCompleteFuture.complete(localHandshakeCompleteFuture);
-        localHandshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId));
+        localHandshakeCompleteFuture.complete(
+                new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId, recoveryDescriptor)
+        );
     }
 }

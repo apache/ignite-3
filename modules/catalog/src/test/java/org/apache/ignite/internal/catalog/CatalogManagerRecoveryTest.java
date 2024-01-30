@@ -24,10 +24,12 @@ import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NA
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NAME_2;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleIndex;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleTable;
+import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.startBuildingIndexCommand;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
@@ -138,6 +140,27 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(time0 - 1));
         assertThat(catalogManager.activeCatalogVersion(time0), equalTo(catalogVersion0));
         assertThat(catalogManager.activeCatalogVersion(time1), equalTo(catalogVersion1));
+    }
+
+    @Test
+    void testRecoveryIndexCreationCatalogVersion() throws Exception {
+        createAndStartComponents();
+
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
+
+        int expCreationCatalogVersion = catalogManager.latestCatalogVersion();
+
+        int indexId = catalogManager.index(INDEX_NAME, clock.nowLong()).id();
+
+        assertThat(catalogManager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME + 1)), willCompleteSuccessfully());
+
+        stopComponents();
+
+        createAndStartComponents();
+
+        assertEquals(expCreationCatalogVersion, catalogManager.index(INDEX_NAME, clock.nowLong()).creationCatalogVersion());
     }
 
     private void createAndStartComponents() {

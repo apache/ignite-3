@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.storage.pagememory.configuration.schema
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -35,9 +34,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(ConfigurationExtension.class)
 class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
     private VolatilePageMemoryStorageEngine engine;
 
