@@ -70,7 +70,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
