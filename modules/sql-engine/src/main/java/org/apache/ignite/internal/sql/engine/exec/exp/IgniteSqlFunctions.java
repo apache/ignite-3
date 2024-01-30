@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
@@ -61,8 +62,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteSqlFunctions {
     private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
-    private static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
     private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
+
+    private static final BigDecimal MAX_INT = new BigDecimal(Integer.MAX_VALUE);
+    private static final BigDecimal MIN_INT = new BigDecimal(Integer.MIN_VALUE);
 
     static {
         ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
@@ -220,7 +223,6 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code ROUND} operator applied to BigDecimal values. */
     public static BigDecimal sround(BigDecimal b0, int b1) {
-        // b0.movePointRight(b1).setScale(0, RoundingMode.DOWN).movePointLeft(b1);
         int originalScale = b0.scale();
 
         if (b1 >= originalScale) {
@@ -228,6 +230,163 @@ public class IgniteSqlFunctions {
         }
 
         BigDecimal roundedValue = b0.setScale(b1, RoundingMode.HALF_UP);
+        // Pad with zeros to match the original scale
+        return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
+    }
+
+    /** Returns {@link Integer} bounded value. */
+    private static int normalizeRegardingInt(BigDecimal num) {
+        int res;
+
+        if (num.compareTo(MAX_INT) >= 0) {
+            res = Integer.MAX_VALUE;
+        } else if (num.compareTo(MIN_INT) <= 0) {
+            res = Integer.MIN_VALUE;
+        } else {
+            res = num.intValue();
+        }
+
+        return res;
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s) {
+        if (s <= 1) {
+            return c;
+        }
+
+        return SqlFunctions.substring(c, s);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, BigDecimal s) {
+        if (s.compareTo(BigDecimal.ONE) <= 0) {
+            return c;
+        }
+
+        int s0 = normalizeRegardingInt(s);
+        return SqlFunctions.substring(c, s0);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s, int l) {
+        return SqlFunctions.substring(c, s, l);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s, BigDecimal l) {
+        if (s < 0) {
+            if (l.signum() > 0) {
+                l = l.add(BigDecimal.valueOf(s));
+                return substring(c, 0, l);
+            }
+        }
+        int l0 = normalizeRegardingInt(l);
+        return SqlFunctions.substring(c, s, l0);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, BigDecimal s, BigDecimal l) {
+        if (s.signum() < 0) {
+            if (l.signum() > 0) {
+                l = l.add(s);
+                return substring(c, 0, l);
+            }
+        }
+        int s0 = normalizeRegardingInt(s);
+        int l0 = normalizeRegardingInt(l);
+        return SqlFunctions.substring(c, s0, l0);
+    }
+
+    // TRUNCATE function
+
+    /** SQL {@code TRUNCATE} operator applied to byte values. */
+    public static byte struncate(byte b0) {
+        return (byte) struncate(b0, 0);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to byte values. */
+    public static byte struncate(byte b0, int b1) {
+        return (byte) struncate((int) b0, b1);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to short values. */
+    public static byte struncate(short b0) {
+        return (byte) struncate(b0, 0);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to short values. */
+    public static short struncate(short b0, int b1) {
+        return (short) struncate((int) b0, b1);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to int values. */
+    public static int struncate(int b0) {
+        return sround(b0, 0);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to int values. */
+    public static int struncate(int b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            return (int) struncate((long) b0, b1);
+        }
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to long values. */
+    public static long struncate(long b0) {
+        return sround(b0, 0);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to long values. */
+    public static long struncate(long b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            long abs = (long) Math.pow(10, Math.abs(b1));
+            return divide(b0, abs, RoundingMode.DOWN) * abs;
+        }
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to double values. */
+    public static double struncate(double b0) {
+        return struncate(BigDecimal.valueOf(b0)).doubleValue();
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to double values. */
+    public static double struncate(double b0, int b1) {
+        return struncate(BigDecimal.valueOf(b0), b1).doubleValue();
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to float values. */
+    public static float struncate(float b0) {
+        return struncate(BigDecimal.valueOf(b0)).floatValue();
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to float values. */
+    public static float struncate(float b0, int b1) {
+        return struncate(BigDecimal.valueOf(b0), b1).floatValue();
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to BigDecimal values. */
+    public static BigDecimal struncate(BigDecimal b0) {
+        return b0.setScale(0, RoundingMode.DOWN);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to BigDecimal values. */
+    public static BigDecimal struncate(BigDecimal b0, int b1) {
+        int originalScale = b0.scale();
+
+        if (b1 >= originalScale) {
+            return b0;
+        }
+
+        BigDecimal roundedValue = b0.setScale(b1, RoundingMode.DOWN);
         // Pad with zeros to match the original scale
         return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
     }
@@ -553,6 +712,9 @@ public class IgniteSqlFunctions {
                 } else {
                     increment = cmpRemToHalfDivisor > 0; // closer to the UP value
                 }
+                break;
+            case DOWN:
+                increment = false;
                 break;
             default:
                 throw new AssertionError();

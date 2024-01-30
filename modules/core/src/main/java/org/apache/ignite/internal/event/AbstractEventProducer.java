@@ -19,7 +19,7 @@ package org.apache.ignite.internal.event;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,23 +78,35 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
         List<EventListener<P>> listeners = listenersByEvent.get(evt);
 
         if (listeners == null) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
-        CompletableFuture<?>[] futures = new CompletableFuture[listeners.size()];
+        // Lazy init.
+        List<CompletableFuture<?>> futures = null;
 
         for (int i = 0; i < listeners.size(); i++) {
             EventListener<P> listener = listeners.get(i);
 
-            futures[i] = listener.notify(params, err)
-                    .thenAccept(remove -> {
-                        if (remove) {
-                            removeListener(evt, listener);
-                        }
-                    });
+            CompletableFuture<Boolean> future = listener.notify(params, err);
+
+            if (future.isDone() && !future.isCompletedExceptionally()) {
+                if (future.join()) {
+                    removeListener(evt, listener);
+                }
+            } else {
+                if (futures == null) {
+                    futures = new ArrayList<>();
+                }
+
+                futures.add(future.thenAccept(remove -> {
+                    if (remove) {
+                        removeListener(evt, listener);
+                    }
+                }));
+            }
         }
 
-        return allOf(futures);
+        return futures == null ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**

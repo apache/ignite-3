@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.future;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
@@ -38,11 +38,11 @@ class OrderingFutureCallbackOrderingTest {
 
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
         future.thenComposeToCompletable(x -> {
             order.add(2);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         assertThat(order, contains(1, 2));
@@ -55,11 +55,47 @@ class OrderingFutureCallbackOrderingTest {
 
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
         future.thenComposeToCompletable(x -> {
             order.add(2);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
+        });
+
+        future.complete(42);
+
+        assertThat(order, contains(1, 2));
+    }
+
+    @Test
+    void composeMaintainsCallbacksOrderOnCompletedFuture() {
+        OrderingFuture<Integer> future = OrderingFuture.completedFuture(42);
+        List<Integer> order = new CopyOnWriteArrayList<>();
+
+        future.thenCompose(x -> {
+            order.add(1);
+            return OrderingFuture.completedFuture(null);
+        });
+        future.thenCompose(x -> {
+            order.add(2);
+            return OrderingFuture.completedFuture(null);
+        });
+
+        assertThat(order, contains(1, 2));
+    }
+
+    @Test
+    void composeMaintainsCallbacksOrderOnCompletion() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        List<Integer> order = new CopyOnWriteArrayList<>();
+
+        future.thenCompose(x -> {
+            order.add(1);
+            return OrderingFuture.completedFuture(null);
+        });
+        future.thenCompose(x -> {
+            order.add(2);
+            return OrderingFuture.completedFuture(null);
         });
 
         future.complete(42);
@@ -109,11 +145,15 @@ class OrderingFutureCallbackOrderingTest {
 
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
-        future.whenComplete((res, ex) -> order.add(2));
+        future.thenCompose(x -> {
+            order.add(2);
+            return OrderingFuture.completedFuture(null);
+        });
+        future.whenComplete((res, ex) -> order.add(3));
 
-        assertThat(order, contains(1, 2));
+        assertThat(order, contains(1, 2, 3));
     }
 
     @Test
@@ -123,12 +163,16 @@ class OrderingFutureCallbackOrderingTest {
 
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
-        future.whenComplete((res, ex) -> order.add(2));
+        future.thenCompose(x -> {
+            order.add(2);
+            return OrderingFuture.completedFuture(null);
+        });
+        future.whenComplete((res, ex) -> order.add(3));
 
         future.complete(42);
 
-        assertThat(order, contains(1, 2));
+        assertThat(order, contains(1, 2, 3));
     }
 }

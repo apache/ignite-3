@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -74,8 +75,11 @@ public class TestNode implements LifecycleAware {
     private final PrepareService prepareService;
     private final ExecutionService executionService;
     private final ParserService parserService;
+    private final MessageService messageService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
+    volatile boolean exceptionRaised;
+    private final IgniteSpinBusyLock holdLock;
 
     /**
      * Constructs the object.
@@ -105,10 +109,15 @@ public class TestNode implements LifecycleAware {
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
-        QueryTaskExecutor taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4);
+        queryExec.exceptionHandler((t, e) -> exceptionRaised = true);
 
-        MessageService messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, new IgniteSpinBusyLock()
+        QueryTaskExecutor taskExecutor = registerService(queryExec);
+
+        holdLock = new IgniteSpinBusyLock();
+
+        messageService = registerService(new MessageServiceImpl(
+                nodeName, messagingService, taskExecutor, holdLock
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry, messageService
@@ -127,7 +136,8 @@ public class TestNode implements LifecycleAware {
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
-                dependencyResolver
+                dependencyResolver,
+                0
         ));
 
         registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));
@@ -142,6 +152,8 @@ public class TestNode implements LifecycleAware {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        holdLock.block();
+
         List<AutoCloseable> closeables = services.stream()
                 .map(service -> ((AutoCloseable) service::stop))
                 .collect(Collectors.toList());
@@ -155,6 +167,14 @@ public class TestNode implements LifecycleAware {
         return nodeName;
     }
 
+    MessageService messageService() {
+        return messageService;
+    }
+
+    IgniteSpinBusyLock holdLock() {
+        return holdLock;
+    }
+
     /**
      * Executes given plan on a cluster this node belongs to
      * and returns an async cursor representing the result.
@@ -162,7 +182,7 @@ public class TestNode implements LifecycleAware {
      * @param plan A plan to execute.
      * @return A cursor representing the result.
      */
-    public AsyncCursor<List<Object>> executePlan(QueryPlan plan) {
+    public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan) {
         return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
     }
 

@@ -125,6 +125,13 @@ public class Replica {
     }
 
     /**
+     * Returns an instance of replica listener, associated with current replica.
+     */
+    ReplicaListener replicaListener() {
+        return listener;
+    }
+
+    /**
      * Processes a replication request on the replica.
      *
      * @param request Request to replication.
@@ -232,8 +239,7 @@ public class Replica {
             HybridTimestamp leaseStartTime,
             HybridTimestamp leaseExpirationTime
     ) {
-        LOG.info("Lease accepted, group=" + groupId() + ", leaseStartTime=" + leaseStartTime + ", leaseExpirationTime="
-                + leaseExpirationTime);
+        LOG.info("Lease accepted [group=" + groupId() + ", leaseStartTime=" + leaseStartTime + "].");
 
         this.leaseExpirationTime = leaseExpirationTime;
 

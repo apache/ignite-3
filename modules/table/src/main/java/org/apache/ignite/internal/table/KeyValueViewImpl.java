@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
+import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.ArrayList;
@@ -29,21 +31,29 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -53,7 +63,13 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Key-value view implementation.
  */
-public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValueView<K, V> {
+public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> implements KeyValueView<K, V> {
+    /** Key class mapper. */
+    private final Mapper<K> keyMapper;
+
+    /** Value class mapper. */
+    private final Mapper<V> valueMapper;
+
     /** Marshaller factory. */
     private final Function<SchemaDescriptor, KvMarshaller<K, V>> marshallerFactory;
 
@@ -66,6 +82,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param tbl Table storage.
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
@@ -73,10 +90,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
+            IgniteSql sql,
             Mapper<K> keyMapper,
             Mapper<V> valueMapper
     ) {
-        super(tbl, schemaVersions, schemaRegistry);
+        super(tbl, schemaVersions, schemaRegistry, sql);
+
+        this.keyMapper = keyMapper;
+        this.valueMapper = valueMapper;
 
         marshallerFactory = (schema) -> new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
@@ -715,5 +736,26 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
             return DataStreamer.streamData(publisher, options, batchSender, partitioner);
         });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+        Column[] keyCols = schema.keyColumns().columns();
+        Column[] valCols = schema.valueColumns().columns();
+
+        Marshaller keyMarsh = createMarshaller(toMarshallerColumns(keyCols), keyMapper, false, true);
+        Marshaller valMarsh = createMarshaller(toMarshallerColumns(valCols), valueMapper, false, true);
+
+        return (row) -> {
+            try {
+                return new IgniteBiTuple<>(
+                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(keyCols))), null),
+                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(valCols))), null)
+                );
+            } catch (MarshallerException e) {
+                throw new org.apache.ignite.lang.MarshallerException(e);
+            }
+        };
     }
 }

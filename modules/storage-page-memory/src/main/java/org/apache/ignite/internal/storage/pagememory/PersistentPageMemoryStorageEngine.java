@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Path;
@@ -160,7 +160,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PersistentPageMemoryDataRegionView> ctx) {
                 addDataRegion(ctx.newName(PersistentPageMemoryDataRegionView.class));
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
     }

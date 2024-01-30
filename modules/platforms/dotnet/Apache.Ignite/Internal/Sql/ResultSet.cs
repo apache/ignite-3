@@ -77,7 +77,8 @@ namespace Apache.Ignite.Internal.Sql
 
             if (HasRowSet)
             {
-                _buffer = buf.Slice(reader.Consumed);
+                buf.Position += reader.Consumed;
+                _buffer = buf;
                 HasRows = reader.ReadInt32() > 0;
             }
             else
@@ -154,7 +155,7 @@ namespace Apache.Ignite.Internal.Sql
             var hasMore = _hasMorePages;
             TResult? res = default;
 
-            ReadPage(_buffer!.Value);
+            ReadPage(_buffer!);
             ReleaseBuffer();
 
             while (hasMore)
@@ -208,7 +209,7 @@ namespace Apache.Ignite.Internal.Sql
                     using var writer = ProtoCommon.GetMessageWriter();
                     WriteId(writer.MessageWriter);
 
-                    await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                    using var buffer = await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
@@ -247,7 +248,7 @@ namespace Apache.Ignite.Internal.Sql
         {
             ValidateAndSetIteratorState();
 
-            yield return _buffer!.Value;
+            yield return _buffer!;
 
             ReleaseBuffer();
 
@@ -324,7 +325,7 @@ namespace Apache.Ignite.Internal.Sql
             var offset = 0;
 
             // First page.
-            foreach (var row in EnumeratePage(_buffer!.Value))
+            foreach (var row in EnumeratePage(_buffer!))
             {
                 yield return row;
             }

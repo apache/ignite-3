@@ -17,12 +17,17 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteException;
@@ -35,17 +40,19 @@ public class ClientComputeExecuteRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param compute   Compute.
-     * @param cluster   Cluster.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param compute Compute.
+     * @param cluster Cluster.
+     * @param notificationSender Notification sender.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteCompute compute,
-            ClusterService cluster) {
+            ClusterService cluster,
+            NotificationSender notificationSender) {
         var nodeName = in.tryUnpackNil() ? null : in.unpackString();
 
         var node = nodeName == null
@@ -58,10 +65,21 @@ public class ClientComputeExecuteRequest {
 
         List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
         String jobClassName = in.unpackString();
-
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
         Object[] args = unpackArgs(in);
 
-        return compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
+        JobExecution<Object> execution = compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, options, args);
+        sendResultAndStatus(execution, notificationSender);
+        return execution.idAsync().thenAccept(out::packUuid);
+    }
+
+    static void sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
+        execution.resultAsync().whenComplete((val, err) ->
+                execution.statusAsync().whenComplete((status, errStatus) ->
+                        notificationSender.sendNotification(w -> {
+                            w.packObjectAsBinaryTuple(val);
+                            packJobStatus(w, status);
+                        }, err)));
     }
 
     /**

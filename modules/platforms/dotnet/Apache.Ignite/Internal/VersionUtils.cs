@@ -28,7 +28,7 @@ internal static class VersionUtils
     /// Gets the informational version.
     /// </summary>
     /// <returns>Version string.</returns>
-    public static string GetInformationalVersion() =>
+    public static readonly string InformationalVersion =
         typeof(VersionUtils).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion!;

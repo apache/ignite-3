@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -34,23 +36,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -63,7 +65,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -139,7 +140,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx1,
-                internalTable.scan(PART_ID, tx1.id(), recipient, sortedIndexId, null, null, 0, null)
+                internalTable.scan(PART_ID, tx1.id(), tx1.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
         );
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
@@ -415,7 +416,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx,
-                internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+                internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
         );
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
@@ -443,7 +444,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                 tx,
-                internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+                internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
         );
 
         assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
@@ -474,6 +475,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 internalTable.scan(
                         PART_ID,
                         tx.id(),
+                        tx.commitPartition(),
                         recipient,
                         soredIndexId,
                         lowBound,
@@ -500,6 +502,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 internalTable.scan(
                         PART_ID,
                         tx.id(),
+                        tx.commitPartition(),
                         recipient,
                         soredIndexId,
                         lowBound,
@@ -554,7 +557,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
                 Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
-                        internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+                        internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
                 );
 
                 // Non-thread-safe collection is fine, HB is guaranteed by "Thread#join" inside of "runRace".
@@ -580,7 +583,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
                 Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                         tx,
-                        internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+                        internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
                 );
 
                 assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
@@ -643,12 +646,16 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             Publisher<BinaryRow> publisher;
 
             if (readOnly) {
-                List<String> assignments = internalTable.assignments();
-
                 // Any node from assignments will do it.
-                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(clusterNode -> {
-                    return assignments.contains(clusterNode.name());
-                }).findFirst().orElseThrow();
+                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().clusterNodes().stream().map(
+                        ClusterNode::name).collect(Collectors.toList()), 0, 1);
+
+                assertFalse(assignments.isEmpty());
+
+                String consId = assignments.iterator().next().consistentId();
+
+                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(n -> n.name().equals(consId)).findAny()
+                        .orElseThrow();
 
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
@@ -657,7 +664,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
                 publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
-                        internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+                        internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
                 );
             }
 
@@ -754,45 +761,6 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Subscribes to a cursor publisher.
-     *
-     * @param scannedRows List of rows, that were scanned.
-     * @param publisher Publisher.
-     * @param scanned A future that will be completed when the scan is finished.
-     * @return Subscription, that can request rows from cluster.
-     */
-    private static Subscription subscribeToPublisher(
-            List<BinaryRow> scannedRows,
-            Publisher<BinaryRow> publisher,
-            CompletableFuture<Void> scanned
-    ) {
-        AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
-
-        publisher.subscribe(new Subscriber<>() {
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscriptionRef.set(subscription);
-            }
-
-            @Override
-            public void onNext(BinaryRow item) {
-                scannedRows.add(item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-            }
-
-            @Override
-            public void onComplete() {
-                scanned.complete(null);
-            }
-        });
-
-        return subscriptionRef.get();
-    }
-
-    /**
      * Creates or gets, if the table already exists, a table with the sorted index.
      *
      * @return Ignite table.
@@ -872,21 +840,22 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Transaction.
      */
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
-        Ignite ignite = CLUSTER.aliveNode();
+        IgniteImpl ignite = CLUSTER.aliveNode();
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
         InternalTable table = ((TableViewInternal) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
-        PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
+        PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now(), 30, TimeUnit.SECONDS));
+                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
         tx.enlist(
                 tblPartId,
                 new IgniteBiTuple<>(
-                        table.getClusterNodeResolver().apply(primaryReplica.getLeaseholder()),
+                        ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
+                                .findFirst().orElseThrow(),
                         primaryReplica.getStartTime().longValue()
                 )
         );

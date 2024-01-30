@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.utils.RebalanceUtil.recoverable;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.recoverable;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +29,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -84,7 +85,7 @@ public class PartitionMover {
                                 return movePartition(peersAndLearners, term);
                             }
 
-                            return CompletableFuture.<Void>completedFuture(null);
+                            return CompletableFutures.<Void>nullCompletedFuture();
                         } finally {
                             busyLock.leaveBusy();
                         }

@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -33,9 +36,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Data storage manager. */
 public class DataStorageManager implements IgniteComponent {
-    // TODO: IGNITE-20237 Make it configurable
-    private static final String DEFAULT_DATA_STORAGE = "aipersist";
-
     /** Mapping: {@link DataStorageModule#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
@@ -51,8 +51,10 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     @Override
-    public void start() throws StorageException {
+    public CompletableFuture<Void> start() throws StorageException {
         engines.values().forEach(StorageEngine::start);
+
+        return nullCompletedFuture();
     }
 
     @Override
@@ -67,11 +69,6 @@ public class DataStorageManager implements IgniteComponent {
      */
     public @Nullable StorageEngine engine(String name) {
         return engines.get(name);
-    }
-
-    /** Returns the default data storage. */
-    public static String defaultDataStorage() {
-        return DEFAULT_DATA_STORAGE;
     }
 
     /**

@@ -38,7 +38,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteQuadFunction;
@@ -348,16 +347,6 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Unwraps exception cause from wrappers like CompletionException and ExecutionException and converts it to public exception.
-     *
-     * @param err Exception.
-     * @return Public exception.
-     */
-    public static Throwable unwrapToPublicException(Throwable err) {
-        return IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(err));
-    }
-
-    /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
      * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
      * the original trace identifier and full error code are preserved.
@@ -611,6 +600,17 @@ public final class ExceptionUtils {
         }
 
         return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
+    }
+
+    /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy <b>including</b> that throwable itself.
+     *
+     * @param exceptionClass Cause class to check.
+     * @param ex Throwable to check (if {@code null}, {@code false} is returned).
+     * @return {@code True} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
+     */
+    public static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
+        return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
     }
 
     /**

@@ -20,6 +20,8 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.fromBytes;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
 import java.io.Serializable;
@@ -77,7 +79,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
      *
      * <p>Multi-threaded access is guarded by {@code writeSerializationLock}.
      */
-    private CompletableFuture<Void> writeSerializationFuture = CompletableFuture.completedFuture(null);
+    private CompletableFuture<Void> writeSerializationFuture = nullCompletedFuture();
 
     /** Lock for updating the reference to the {@code writeSerializationFuture}. */
     private final Object writeSerializationLock = new Object();
@@ -161,7 +163,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                     .thenCompose(v -> lastRevision())
                     .thenComposeAsync(version -> {
                         if (version != sentVersion) {
-                            return CompletableFuture.completedFuture(false);
+                            return falseCompletedFuture();
                         }
 
                         ConfigurationStorageListener lsnr = lsnrRef.get();
@@ -222,6 +224,11 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Long> lastRevision() {
         return vaultMgr.get(VERSION_KEY)
                 .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
+    }
+
+    @Override
+    public CompletableFuture<Long> localRevision() {
+        return lastRevision();
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {

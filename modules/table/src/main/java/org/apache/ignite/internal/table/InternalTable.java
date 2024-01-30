@@ -23,11 +23,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Function;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -67,6 +67,14 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Table name.
      */
     String name();
+
+    /**
+     * Sets the name of the table.
+     *
+     * @param newName New name.
+     */
+    // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
+    void name(String newName);
 
     /**
      * Extracts an identifier of a partition from a given row.
@@ -331,6 +339,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partId The partition.
      * @param txId Transaction id.
+     * @param commitPartition Commit partition id.
      * @param recipient Primary replica that will handle given get request.
      * @param lowerBound Lower search bound.
      * @param upperBound Upper search bound.
@@ -341,6 +350,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -397,6 +407,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partId The partition.
      * @param txId Transaction id.
+     * @param commitPartition Commit partition id.
      * @param recipient Primary replica that will handle given get request.
      * @param indexId Index id.
      * @param key Key to search.
@@ -406,6 +417,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
@@ -418,23 +430,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Count of partitions.
      */
     int partitions();
-
-    /**
-     * Gets a list of current table assignments.
-     *
-     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of invocation.
-     *
-     * @return List of current assignments.
-     */
-    List<String> assignments();
-
-    /**
-     * Gets a list of current primary replicas for each partition.
-     *
-     * @return List of current primary replicas for each partition.
-     */
-    CompletableFuture<List<PrimaryReplica>> primaryReplicas();
 
     /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
@@ -482,6 +477,4 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partitionId Partition ID.
      */
     @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
-
-    Function<String, ClusterNode> getClusterNodeResolver();
 }

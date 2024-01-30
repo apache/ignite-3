@@ -140,12 +140,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         return startNode(idx, nodeName, cfgString, workDir.resolve(nodeName));
     }
 
-    /**
-     * Stop the node with given index.
-     *
-     * @param idx Node index.
-     */
-    private static void stopNode(int idx) {
+    /** {@inheritDoc} */
+    @Override
+    protected void stopNode(int idx) {
         Ignite node = CLUSTER_NODES.get(idx);
 
         if (node != null) {

@@ -24,21 +24,25 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Handshake rejected message, contains the reason for a rejection.
  * This message is sent from a server to a client or wise versa.
- * After this message is received it makes no sense to retry connections with same node identity (launch ID must be changed
- * to make a retry).
  */
 @Transferable(HANDSHAKE_REJECTED)
 public interface HandshakeRejectedMessage extends InternalMessage {
     /**
-     * Returns rejection reason.
-     *
-     * @return Reason of the rejection.
+     * Returns rejection message.
      */
-    String reason();
+    String message();
 
     /**
-     * Returns {@code true} iff the rejection is not expected and should be treated as a critical failure (requiring
-     * the rejected node to restart).
+     * Returns rejection reason (this is the name of a member of {@link HandshakeRejectionReason}).
+     *
+     * @see HandshakeRejectionReason
      */
-    boolean critical();
+    String reasonString();
+
+    /**
+     * Returns rejection reason.
+     */
+    default HandshakeRejectionReason reason() {
+        return HandshakeRejectionReason.valueOf(reasonString());
+    }
 }

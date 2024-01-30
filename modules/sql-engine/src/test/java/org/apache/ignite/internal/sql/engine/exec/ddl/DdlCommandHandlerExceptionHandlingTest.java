@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -24,9 +25,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
@@ -35,9 +35,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests distribution zone command exception handling.
- */
+/** Tests distribution zone command exception handling. */
 public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     private DdlCommandHandler commandHandler;
 
@@ -47,8 +45,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @BeforeEach
     void before() {
-        catalogManager = CatalogTestUtils.createTestCatalogManager("test", new HybridClockImpl());
-        catalogManager.start();
+        catalogManager = createTestCatalogManager("test", new HybridClockImpl());
+        assertThat(catalogManager.start(), willCompleteSuccessfully());
 
         commandHandler = new DdlCommandHandler(catalogManager);
     }
@@ -60,7 +58,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @Test
     public void testZoneAlreadyExistsOnCreate1() {
-        assertThat(handleCreateZoneCommand(false), willThrow(DistributionZoneAlreadyExistsException.class));
+        assertThat(handleCreateZoneCommand(false), willThrow(DistributionZoneExistsValidationException.class));
     }
 
     @Test
@@ -73,7 +71,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         DropZoneCommand cmd = new DropZoneCommand();
         cmd.zoneName(ZONE_NAME);
 
-        assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundException.class));
+        assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundValidationException.class));
     }
 
     @Test

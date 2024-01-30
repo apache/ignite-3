@@ -22,7 +22,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -39,20 +42,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.StringDescription;
 import org.junit.jupiter.api.function.Executable;
 
 /**
@@ -95,6 +96,34 @@ public class SqlTestUtils {
         ErrorGroup expectedErrorGroup = ErrorGroups.errorGroupByCode(expectedCode);
         String expectedError = format("{}-{}", expectedErrorGroup.name(), expectedErrorCode);
         String actualError = format("{}-{}", ex.groupName(), ex.errorCode());
+
+        boolean errorMatches = expectedError.equals(actualError);
+        boolean errorMessageMatches = CoreMatchers.containsString(expectedMessage).matches(ex.getMessage());
+
+        if (!errorMatches || !errorMessageMatches) {
+            StringWriter sw = new StringWriter();
+
+            try (PrintWriter pw = new PrintWriter(sw)) {
+                StringDescription description = new StringDescription();
+
+                if (errorMatches) {
+                    description.appendText("Error code does not match. Expected: ");
+                    description.appendValue(expectedError);
+                    description.appendText(" actual: ");
+                    description.appendValue(actualError);
+                } else {
+                    description.appendText("Error message does not match. Expected to include: ");
+                    description.appendValue(expectedMessage);
+                    description.appendText(" actual: ");
+                    description.appendValue(ex.getMessage());
+                }
+
+                pw.println(description);
+                ex.printStackTrace(pw);
+            }
+
+            fail(sw.toString());
+        }
 
         assertEquals(expectedError, actualError, "Error does not match. " + ex);
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
@@ -223,39 +252,27 @@ public class SqlTestUtils {
     }
 
     /**
-     * Run SQL on given Ignite instance with given transaction and parameters.
+     * Converts list of {@link InternalSqlRow} to list of list of objects, where internal list represent a row with fields.
      *
-     * @param ignite Ignite instance to run a query.
-     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
-     * @param sql Query to be run.
-     * @param args Dynamic parameters for a given query.
-     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     * @param rows List of rows to be converted.
+     * @return List of converted rows.
      */
-    public static List<List<Object>> sql(Ignite ignite, @Nullable Transaction tx, String sql, Object... args) {
-        try (
-                Session session = ignite.sql().createSession();
-                ResultSet<SqlRow> rs = session.execute(tx, sql, args)
-        ) {
-            return getAllResultSet(rs);
-        }
+    public static List<List<Object>> convertSqlRows(List<InternalSqlRow> rows) {
+        return rows.stream().map(SqlTestUtils::convertSqlRowToObjects).collect(Collectors.toList());
     }
 
-    private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
-        List<List<Object>> res = new ArrayList<>();
-
-        while (resultSet.hasNext()) {
-            SqlRow sqlRow = resultSet.next();
-
-            ArrayList<Object> row = new ArrayList<>(sqlRow.columnCount());
-            for (int i = 0; i < sqlRow.columnCount(); i++) {
-                row.add(sqlRow.value(i));
-            }
-
-            res.add(row);
+    /**
+     * Converts {@link InternalSqlRow} to list of objects, where each of list elements represents a field.
+     *
+     * @param row {@link InternalSqlRow} need to be converted.
+     * @return Converted value.
+     */
+    public static List<Object> convertSqlRowToObjects(InternalSqlRow row) {
+        List<Object> result = new ArrayList<>(row.fieldCount());
+        for (int i = 0; i < row.fieldCount(); i++) {
+            result.add(row.get(i));
         }
-
-        resultSet.close();
-
-        return res;
+        return result;
     }
+
 }

@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
@@ -35,6 +37,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -43,6 +47,7 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
@@ -59,21 +64,34 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.SingleClusterNodeResolver;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests execution flow of TableScanNode.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
     private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
+
+    @InjectConfiguration
+    private TransactionConfiguration txConfiguration;
 
     // Ensures that all data from TableScanNode is being propagated correctly.
     @Test
@@ -106,20 +124,32 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
 
+        String leaseholder = "local";
+
+        TopologyService topologyService = mock(TopologyService.class);
+        when(topologyService.localMember()).thenReturn(
+                new ClusterNodeImpl(leaseholder, leaseholder, NetworkAddress.from("127.0.0.1:1111"))
+        );
+
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
+        when(clusterService.topologyService()).thenReturn(topologyService);
+
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-            String leaseholder = "local";
-
             TxManagerImpl txManager = new TxManagerImpl(
+                    txConfiguration,
+                    clusterService,
                     replicaSvc,
                     new HeapLockManager(),
                     new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef),
-                    () -> leaseholder,
-                    new TestPlacementDriver(leaseholder, leaseholder)
+                    new TestPlacementDriver(leaseholder, leaseholder),
+                    () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                    new TestLocalRwTxCounter()
             );
 
             txManager.start();
@@ -129,6 +159,11 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 
             TableRowConverter rowConverter = new TableRowConverter() {
+                @Override
+                public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+                    throw new UnsupportedOperationException();
+                }
+
                 @Override
                 public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
                     return (RowT) TestInternalTableImpl.ROW;
@@ -181,7 +216,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     1,
                     Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
-                    addr -> mock(ClusterNode.class),
+                    new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,
                     mock(MvTableStorage.class),
                     mock(TxStateTableStorage.class),

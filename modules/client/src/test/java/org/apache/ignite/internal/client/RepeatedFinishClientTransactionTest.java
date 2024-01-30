@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -180,7 +180,8 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         }
 
         @Override
-        public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadWriter payloadWriter, PayloadReader<T> payloadReader) {
+        public <T> CompletableFuture<T> serviceAsync(
+                int opCode, PayloadWriter payloadWriter, PayloadReader<T> payloadReader, boolean expectNotifications) {
             txFinishStartedLatch.countDown();
 
             try {
@@ -189,7 +190,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
                 throw new RuntimeException(e);
             }
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
@@ -203,7 +204,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         }
 
         @Override
-        public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
+        public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
             // No-op.
         }
 
@@ -214,7 +215,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         @Override
         public void close() {
-
+            // No-op.
         }
     }
 }

@@ -46,7 +46,9 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
         }
 
         int hash = colocationHash(schema, item);
-        return assignment.get(Math.abs(hash % assignment.size()));
+        String partition = assignment.get(Math.abs(hash % assignment.size()));
+
+        return partition != null ? partition : "";
     }
 
     abstract int colocationHash(ClientSchema schema, T item);

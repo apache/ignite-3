@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -50,7 +50,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
 
     @Override
     public CompletableFuture<Void> waitForSchemaAvailability(int tableId, int schemaVersion) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -67,11 +67,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
                 })
                 .collect(toList());
 
-        var fullSchema = new FullTableSchema(
-                1,
-                1,
-                columns
-        );
+        var fullSchema = new FullTableSchema(1, tableId, "test", columns);
 
         return List.of(fullSchema);
     }

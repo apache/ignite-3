@@ -41,6 +41,11 @@ public class BitSetPartitionSet implements PartitionSet {
     }
 
     @Override
+    public void clear(int partitionId) {
+        backingSet.clear(partitionId);
+    }
+
+    @Override
     public boolean get(int partitionId) {
         return backingSet.get(partitionId);
     }

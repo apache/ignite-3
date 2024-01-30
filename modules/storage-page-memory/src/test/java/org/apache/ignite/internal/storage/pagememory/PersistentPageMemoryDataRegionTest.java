@@ -63,9 +63,9 @@ public class PersistentPageMemoryDataRegionTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCalculateCheckpointBufferSize() throws Exception {
-        PersistentPageMemoryDataRegionView dataRegionConfigView = dataRegionConfig.value();
+        dataRegionConfig.size().update(GiB / 4L).get(1, TimeUnit.SECONDS);
 
-        assertEquals(dataRegionConfigView.size(), calculateCheckpointBufferSize(dataRegionConfigView));
+        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfig.value()));
 
         dataRegionConfig.size().update(GiB / 2L).get(1, TimeUnit.SECONDS);
 

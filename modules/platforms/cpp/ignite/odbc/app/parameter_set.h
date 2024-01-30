@@ -30,11 +30,8 @@ namespace ignite {
  * Parameter set.
  */
 class parameter_set {
-    /** parameter binging map type alias. */
+    /** Parameter binging map type alias. */
     typedef std::map<std::uint16_t, parameter> parameter_binding_map;
-
-    /** parameter meta vector. */
-    typedef std::vector<ignite_type> parameter_type_vector;
 
 public:
     /**
@@ -107,37 +104,6 @@ public:
      * @return True if the data at execution is needed.
      */
     [[nodiscard]] bool is_data_at_exec_needed() const;
-
-    /**
-     * Update parameter types metadata.
-     *
-     * @param meta Types metadata.
-     */
-    void update_params_types(const parameter_type_vector &meta);
-
-    /**
-     * Get type id of the parameter.
-     *
-     * @param idx parameter index.
-     * @param dflt Default value to return if the type can not be found.
-     * @return Type ID of the parameter or dflt, if the type can not be returned.
-     */
-    ignite_type get_param_type(std::int16_t idx, ignite_type dflt);
-
-    /**
-     * Get expected m_parameters number.
-     * Using metadata. If metadata was not updated returns zero.
-     *
-     * @return Expected m_parameters number.
-     */
-    std::uint16_t get_expected_param_num();
-
-    /**
-     * Check if the metadata was set for the parameter set.
-     *
-     * @return True if the metadata was set for the parameter set.
-     */
-    [[nodiscard]] bool is_metadata_set() const;
 
     /**
      * Check if the parameter selected for putting data at-execution.
@@ -258,9 +224,6 @@ private:
     /** Parameters. */
     parameter_binding_map m_params{};
 
-    /** parameter types. */
-    parameter_type_vector m_param_types{};
-
     /** Offset added to pointers to change binding of m_parameters. */
     int *m_param_bind_offset{nullptr};
 
@@ -278,9 +241,6 @@ private:
 
     /** Index of the parameter, which is currently being set. */
     std::uint16_t m_current_param_idx{0};
-
-    /** Parameter types are set. */
-    bool m_types_set{false};
 };
 
 } // namespace ignite

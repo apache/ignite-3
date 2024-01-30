@@ -38,15 +38,17 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 public class FullTableSchema {
     private final int schemaVersion;
     private final int tableId;
+    private final String tableName;
 
     private final List<CatalogTableColumnDescriptor> columns;
 
     /**
      * Constructor.
      */
-    public FullTableSchema(int schemaVersion, int tableId, List<CatalogTableColumnDescriptor> columns) {
+    public FullTableSchema(int schemaVersion, int tableId, String tableName, List<CatalogTableColumnDescriptor> columns) {
         this.schemaVersion = schemaVersion;
         this.tableId = tableId;
+        this.tableName = tableName;
         this.columns = List.copyOf(columns);
     }
 
@@ -66,6 +68,13 @@ public class FullTableSchema {
      */
     public int tableId() {
         return tableId;
+    }
+
+    /**
+     * Returns name of the table.
+     */
+    public String tableName() {
+        return tableName;
     }
 
     /**
@@ -101,7 +110,15 @@ public class FullTableSchema {
             }
         }
 
-        return new TableDefinitionDiff(addedColumns, removedColumns, changedColumns);
+        return new TableDefinitionDiff(
+                prevSchema.schemaVersion(),
+                this.schemaVersion,
+                prevSchema.tableName(),
+                this.tableName(),
+                addedColumns,
+                removedColumns,
+                changedColumns
+        );
     }
 
     private static <T> Map<String, T> toMapByName(List<T> elements, Function<T, String> nameExtractor) {

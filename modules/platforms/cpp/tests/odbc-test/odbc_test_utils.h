@@ -167,7 +167,7 @@ inline void odbc_connect(std::string_view connect_str, SQLHENV &env, SQLHDBC &co
         out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
     if (!SQL_SUCCEEDED(ret)) {
-        FAIL() << get_odbc_error_message(SQL_HANDLE_DBC, conn);
+        throw ignite_error(get_odbc_error_message(SQL_HANDLE_DBC, conn));
     }
 
     // Allocate a statement handle

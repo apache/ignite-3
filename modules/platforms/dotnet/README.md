@@ -79,10 +79,7 @@ var cfg = new IgniteClientConfiguration
     },    
         
     // Retry all read operations in case of network issues.
-    RetryPolicy = new RetryReadPolicy { RetryLimit = 32 },
-
-    // Log to console.
-    Logger = new ConsoleLogger { MinLevel = LogLevel.Debug }
+    RetryPolicy = new RetryReadPolicy { RetryLimit = 32 }
 };
 ```
 
@@ -239,7 +236,29 @@ Ignite client implements a number of features to improve reliability and perform
 
 ## Logging
 
-To enable logging, set `IgniteClientConfiguration.Logger` property. `ConsoleLogger` is provided out of the box. Other loggers can be integrated by implementing `IIgniteLogger` interface.
+To enable logging, set `IgniteClientConfiguration.LoggerFactory` property. It uses the standard [Microsoft.Extensions.Logging](https://docs.microsoft.com/en-us/dotnet/core/extensions/logging) API.
+
+For example, to log to console (requires `Microsoft.Extensions.Logging.Console` package):
+
+```cs
+var cfg = new IgniteClientConfiguration
+{
+    LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug))
+};
+```
+
+Or with Serilog (requires `Serilog.Extensions.Logging` and `Serilog.Sinks.Console` packages):
+
+```cs
+var cfg = new IgniteClientConfiguration
+{
+    LoggerFactory = LoggerFactory.Create(builder =>
+        builder.AddSerilog(new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Console()
+            .CreateLogger()))
+};
+```
 
 
 ## Metrics

@@ -18,10 +18,12 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
@@ -31,13 +33,14 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -46,17 +49,19 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
@@ -98,7 +103,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final QueryProcessor queryProcessor;
 
     /** Compute. */
-    private final IgniteCompute igniteCompute;
+    private final IgniteComputeInternal igniteCompute;
 
     /** Cluster. */
     private final ClusterService clusterService;
@@ -113,6 +118,16 @@ public class ClientHandlerModule implements IgniteComponent {
     private final SchemaSyncService schemaSyncService;
 
     private final CatalogService catalogService;
+
+    private final ClientPrimaryReplicaTracker primaryReplicaTracker;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    @TestOnly
+    @SuppressWarnings("unused")
+    private volatile ChannelHandler handler;
 
     /**
      * Constructor.
@@ -135,7 +150,7 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteTablesInternal igniteTables,
             IgniteTransactionsImpl igniteTransactions,
             ConfigurationRegistry registry,
-            IgniteCompute igniteCompute,
+            IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,
@@ -145,7 +160,8 @@ public class ClientHandlerModule implements IgniteComponent {
             AuthenticationManager authenticationManager,
             HybridClock clock,
             SchemaSyncService schemaSyncService,
-            CatalogService catalogService
+            CatalogService catalogService,
+            PlacementDriver placementDriver
     ) {
         assert igniteTables != null;
         assert registry != null;
@@ -161,6 +177,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert clock != null;
         assert schemaSyncService != null;
         assert catalogService != null;
+        assert placementDriver != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -177,11 +194,12 @@ public class ClientHandlerModule implements IgniteComponent {
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock, schemaSyncService);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         if (channel != null) {
             throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
@@ -193,17 +211,22 @@ public class ClientHandlerModule implements IgniteComponent {
             metrics.enable();
         }
 
-        try {
-            channel = startEndpoint(configuration).channel();
-        } catch (InterruptedException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, e);
-        }
+        primaryReplicaTracker.start();
+
+        return startEndpoint(configuration).thenAccept(ch -> channel = ch);
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         metricManager.unregisterSource(metrics);
+        primaryReplicaTracker.stop();
 
         var ch = channel;
         if (ch != null) {
@@ -233,12 +256,11 @@ public class ClientHandlerModule implements IgniteComponent {
      *
      * @param configuration Configuration.
      * @return Channel future.
-     * @throws InterruptedException If thread has been interrupted during the start.
-     * @throws IgniteException      When startup has failed.
      */
-    private ChannelFuture startEndpoint(ClientConnectorView configuration) throws InterruptedException {
+    private CompletableFuture<Channel> startEndpoint(ClientConnectorView configuration) {
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
         CompletableFuture<UUID> clusterId = clusterIdSupplier.get();
+        CompletableFuture<Channel> result = new CompletableFuture<>();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
         SslContext sslContext = configuration.ssl().enabled() ? SslContextProvider.createServerSslContext(configuration.ssl()) : null;
@@ -246,67 +268,80 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
-                        long connectionId = CONNECTION_ID_GEN.incrementAndGet();
-
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("New client connection [connectionId=" + connectionId
-                                    + ", remoteAddress=" + ch.remoteAddress() + ']');
+                        if (!busyLock.enterBusy()) {
+                            ch.close();
+                            return;
                         }
 
-                        if (configuration.idleTimeout() > 0) {
-                            IdleStateHandler idleStateHandler = new IdleStateHandler(
-                                    configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+                        try {
+                            long connectionId = CONNECTION_ID_GEN.incrementAndGet();
 
-                            ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("New client connection [connectionId=" + connectionId
+                                        + ", remoteAddress=" + ch.remoteAddress() + ']');
+                            }
+
+                            if (configuration.idleTimeout() > 0) {
+                                IdleStateHandler idleStateHandler = new IdleStateHandler(
+                                        configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+
+                                ch.pipeline().addLast(idleStateHandler);
+                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
+                            }
+
+                            if (sslContext != null) {
+                                ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
+                            }
+
+                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
+                                    configuration, clusterId, connectionId);
+
+                            //noinspection TestOnlyProblems
+                            handler = messageHandler;
+
+                            ch.pipeline().addLast(
+                                    new ClientMessageDecoder(),
+                                    messageHandler
+                            );
+
+                            metrics.connectionsInitiatedIncrement();
+                        } finally {
+                            busyLock.leaveBusy();
                         }
-
-                        if (sslContext != null) {
-                            ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
-                        }
-
-                        ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, clusterId, connectionId);
-                        authenticationManager.listen(messageHandler);
-
-                        ch.pipeline().addLast(
-                                new ClientMessageDecoder(),
-                                messageHandler
-                        );
-
-                        ch.closeFuture().addListener(future -> authenticationManager.stopListen(messageHandler));
-
-                        metrics.connectionsInitiatedIncrement();
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
 
         int port = configuration.port();
-        Channel ch = null;
 
-        ChannelFuture bindRes = bootstrap.bind(port).await();
+        bootstrap.bind(port).addListener((ChannelFutureListener) bindFut -> {
+            if (bindFut.isSuccess()) {
+                if (LOG.isInfoEnabled()) {
+                    LOG.info("Thin client connector endpoint started successfully [port={}]", port);
+                }
 
-        if (bindRes.isSuccess()) {
-            ch = bindRes.channel();
-        } else if (!(bindRes.cause() instanceof BindException)) {
-            throw new IgniteException(
-                    INTERNAL_ERR,
-                    "Failed to start thin client connector endpoint: " + bindRes.cause().getMessage(),
-                    bindRes.cause());
-        }
+                result.complete(bindFut.channel());
+                return;
+            }
 
-        if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
+            if (bindFut.cause() instanceof BindException) {
+                result.completeExceptionally(
+                        new IgniteException(
+                                PORT_IN_USE_ERR,
+                                "Cannot start thin client connector endpoint. Port " + port + " is in use.",
+                                bindFut.cause())
+                );
+                return;
+            }
 
-            LOG.debug(msg);
+            result.completeExceptionally(
+                    new IgniteException(
+                            INTERNAL_ERR,
+                            "Failed to start thin client connector endpoint: " + bindFut.cause().getMessage(),
+                            bindFut.cause()));
+        });
 
-            throw new IgniteException(ErrorGroups.Network.PORT_IN_USE_ERR, msg);
-        }
-
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Thin client protocol started successfully [port={}]", port);
-        }
-
-        return ch.closeFuture();
+        return result;
     }
 
     private ClientInboundMessageHandler createInboundMessageHandler(
@@ -327,8 +362,8 @@ public class ClientHandlerModule implements IgniteComponent {
                 clock,
                 schemaSyncService,
                 catalogService,
-                connectionId
+                connectionId,
+                primaryReplicaTracker
         );
     }
-
 }

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -44,8 +44,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,17 +56,12 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
     private MetaStorageManager metastore;
 
-    private VaultManager vault;
-
     @BeforeEach
     void setUp() {
-        vault = new VaultManager(new InMemoryVaultService());
-
         keyValueStorage = new SimpleInMemoryKeyValueStorage("test");
 
-        metastore = StandaloneMetaStorageManager.create(vault, keyValueStorage);
+        metastore = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        vault.start();
         keyValueStorage.start();
         metastore.start();
     }
@@ -77,15 +70,14 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 metastore == null ? null : metastore::stop,
-                keyValueStorage == null ? null : keyValueStorage::close,
-                vault == null ? null : vault::stop
+                keyValueStorage == null ? null : keyValueStorage::close
         );
     }
 
     @Test
     void logReplayedOnStart() throws Exception {
         // First, let's append a few entries to the update log.
-        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> completedFuture(null));
+        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 
@@ -103,7 +95,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         // Let's check that we have recovered to the latest version.
@@ -139,7 +131,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         metastore.stop();
 
-        metastore = StandaloneMetaStorageManager.create(vault, keyValueStorage);
+        metastore = StandaloneMetaStorageManager.create(keyValueStorage);
         metastore.start();
 
         assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
@@ -172,7 +164,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
             appliedVersions.add(update.version());
             causalityTokens.add(causalityToken);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         long revisionBefore = metastore.appliedRevision();

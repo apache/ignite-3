@@ -1,0 +1,50 @@
+@startuml
+
+!pragma teoz true
+box "Commit partition" #LightGreen
+participant PartitionReplicaListener
+box "TxManager"
+participant TxCleanupRequestSender
+participant WriteIntentSwitchProcessor as WISP1
+end box
+participant PlacementDriver
+
+end box
+
+box "Partition primary #i" #LightBlue
+box "TxManager"
+participant TxCleanupRequestHandler
+participant WriteIntentSwitchProcessor as WISP2
+end box
+participant PartitionReplicaListener as PRL2
+participant LockManager
+end box
+
+box "New primary for a partition\n (old one stepped down)" #LightGray
+participant PartitionReplicaListener as PRL3
+end box
+rnote over PartitionReplicaListener
+ Finish transaction
+ (out of the scope)
+endrnote
+PartitionReplicaListener -> TxCleanupRequestSender: cleanup
+
+TxCleanupRequestSender -> PlacementDriver: For each enlisted partition\n do 'getPrimaryReplica'
+return
+
+alt Executes for each available primary node
+
+TxCleanupRequestSender -> TxCleanupRequestHandler: send \ntxCleanupMessage
+TxCleanupRequestHandler -> WISP2: switchWriteIntent
+WISP2 -> PRL2: send \nwriteIntentSwitchReplicaRequest
+return
+WISP2 --> TxCleanupRequestHandler
+TxCleanupRequestHandler->LockManager: releaseTxLocks
+return
+TxCleanupRequestHandler --> TxCleanupRequestSender
+else no primary found
+TxCleanupRequestSender -> WISP1: SwitchWriteIntentWithRetry
+WISP1 -> PRL3: send \nwriteIntentSwitchReplicaRequest
+end
+TxCleanupRequestSender --> PartitionReplicaListener
+@enduml

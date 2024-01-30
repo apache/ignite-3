@@ -127,7 +127,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
         StreamerBuffer<T> buf = buffers.computeIfAbsent(
                 partition,
-                p -> new StreamerBuffer<>(options.batchSize(), items -> enlistBatch(p, items)));
+                p -> new StreamerBuffer<>(options.pageSize(), items -> enlistBatch(p, items)));
 
         buf.add(item);
         this.metrics.streamerItemsQueuedAdd(1);
@@ -159,6 +159,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
     private void enlistBatch(P partition, Collection<T> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
+        assert partition != null : "Partition must not be null.";
 
         inFlightItemCount.addAndGet(batchSize);
         metrics.streamerBatchesActiveAdd(1);
@@ -235,7 +236,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         // This method controls backpressure. We won't get more items than we requested.
         // The idea is to have perNodeParallelOperations batches in flight for every connection.
         var pending = pendingItemCount.get();
-        var desiredInFlight = Math.max(1, buffers.size()) * options.batchSize() * options.perNodeParallelOperations();
+        var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perNodeParallelOperations();
         var inFlight = inFlightItemCount.get();
         var count = desiredInFlight - inFlight - pending;
 

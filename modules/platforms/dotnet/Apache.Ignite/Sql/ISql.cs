@@ -54,5 +54,13 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments for the statement.</param>
         /// <returns>Data reader.</returns>
         Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args);
+
+        /// <summary>
+        /// Executes a multi-statement SQL query.
+        /// </summary>
+        /// <param name="script">Script.</param>
+        /// <param name="args">Arguments.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task ExecuteScriptAsync(SqlStatement script, params object?[]? args);
     }
 }

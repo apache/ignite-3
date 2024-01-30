@@ -87,9 +87,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private int requested;
 
-    private boolean inLoop;
-
-    private State state = State.UPDATING;
+    private boolean inFlightUpdate;
 
     /**
      * Constructor.
@@ -124,9 +122,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         requested = rowsCnt;
 
-        if (!inLoop) {
-            tryEnd();
-        }
+        requestNextBatchIfNeeded();
     }
 
     /** {@inheritDoc} */
@@ -134,7 +130,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-        assert state == State.UPDATING;
 
         checkState();
 
@@ -142,11 +137,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         rows.add(row);
 
-        flushTuples(false);
+        assert rows.size() <= MODIFY_BATCH_SIZE;
 
-        if (waiting == 0) {
-            source().request(waiting = MODIFY_BATCH_SIZE);
+        if (needToFlush()) {
+            flushTuples();
         }
+
+        requestNextBatchIfNeeded();
     }
 
     /** {@inheritDoc} */
@@ -158,9 +155,15 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         checkState();
 
         waiting = -1;
-        state = State.UPDATED;
 
-        tryEnd();
+        if (needToFlush()) {
+            flushTuples();
+        } else {
+            // special case: if there is nothing to flush, and no in-flight batch,
+            // then the source most probably was empty, and we just need to pass
+            // through this signal to downstream
+            tryEnd();
+        }
     }
 
     /** {@inheritDoc} */
@@ -179,50 +182,42 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         return this;
     }
 
+    private void requestNextBatchIfNeeded() throws Exception {
+        if (waiting == 0 && rows.isEmpty()) {
+            source().request(waiting = MODIFY_BATCH_SIZE);
+        }
+    }
+
     private void tryEnd() throws Exception {
         assert downstream() != null;
 
-        if (state == State.UPDATING && waiting == 0) {
-            source().request(waiting = MODIFY_BATCH_SIZE);
-        }
+        if (waiting == -1 && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
+            downstream().push(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows));
 
-        if (state == State.UPDATED && requested > 0) {
-            flushTuples(true);
-
-            state = State.END;
-
-            inLoop = true;
-            try {
-                requested--;
-                downstream().push(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows));
-            } finally {
-                inLoop = false;
-            }
-        }
-
-        if (state == State.END && requested > 0) {
             requested = 0;
             downstream().end();
         }
     }
 
-    private void flushTuples(boolean force) {
-        if (nullOrEmpty(rows) || (!force && rows.size() < MODIFY_BATCH_SIZE)) {
-            return;
-        }
+    private void flushTuples() {
+        assert !nullOrEmpty(rows);
+
+        inFlightUpdate = true;
 
         List<RowT> rows = this.rows;
         this.rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
+        CompletableFuture<?> modifyResult;
+
         switch (modifyOp) {
             case INSERT:
-                table.insertAll(context(), rows).join();
+                modifyResult = table.insertAll(context(), rows);
 
                 break;
             case UPDATE:
                 inlineUpdates(0, rows);
 
-                table.upsertAll(context(), rows).join();
+                modifyResult = table.upsertAll(context(), rows);
 
                 break;
             case MERGE:
@@ -241,20 +236,43 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                     mergeParts.add(table.upsertAll(context(), split.getSecond()));
                 }
 
-                CompletableFuture.allOf(
+                modifyResult = CompletableFuture.allOf(
                         mergeParts.toArray(CompletableFuture[]::new)
-                ).join();
+                );
 
                 break;
             case DELETE:
-                table.deleteAll(context(), rows).join();
+                modifyResult = table.deleteAll(context(), rows);
 
                 break;
             default:
                 throw new UnsupportedOperationException(modifyOp.name());
         }
 
-        updatedRows += rows.size();
+        modifyResult.whenComplete((r, e) -> context().execute(() -> {
+            if (e != null) {
+                onError(e);
+
+                return;
+            }
+
+            inFlightUpdate = false;
+
+            updatedRows += rows.size();
+
+            if (needToFlush()) {
+                flushTuples();
+            }
+
+            requestNextBatchIfNeeded();
+
+            tryEnd();
+        }, this::onError));
+    }
+
+    private boolean needToFlush() {
+        return !inFlightUpdate
+                && (rows.size() >= MODIFY_BATCH_SIZE || (!rows.isEmpty() && waiting == -1));
     }
 
     /** See {@link #mapping(TableDescriptor, List)}. */
@@ -413,13 +431,5 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         return mapping;
-    }
-
-    private enum State {
-        UPDATING,
-
-        UPDATED,
-
-        END
     }
 }

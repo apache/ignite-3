@@ -455,7 +455,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
             return (T)(object)GetReader(ordinal, typeof(Instant)).GetTimestamp(ordinal);
         }
 
-        throw GetInvalidColumnTypeException(typeof(T), Metadata.Columns[ordinal]);
+        return (T)GetValue(ordinal);
     }
 
     /// <inheritdoc/>

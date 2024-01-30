@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -60,9 +61,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -155,6 +158,28 @@ public class IgniteUtils {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    /**
+     * Returns the amount of RAM memory available on this machine.
+     *
+     * @return Total amount of memory in bytes or {@code -1} if any exception happened.
+     */
+    public static long getTotalMemoryAvailable() {
+        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+
+        Object attr;
+
+        try {
+            attr = mbeanServer.getAttribute(
+                    ObjectName.getInstance("java.lang", "type", "OperatingSystem"),
+                    "TotalPhysicalMemorySize"
+            );
+        } catch (Exception e) {
+            return -1;
+        }
+
+        return (attr instanceof Long) ? (Long) attr : -1;
     }
 
     /**
@@ -800,6 +825,25 @@ public class IgniteUtils {
         }
         try {
             return fn.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Method that runs the provided {@code fn} in {@code busyLock}.
+     *
+     * @param busyLock Component's busy lock.
+     * @param fn Function to run.
+     * @return Result of the provided function.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteSpinBusyLock#enterBusy()} failed.
+     */
+    public static int inBusyLock(IgniteSpinBusyLock busyLock, IntSupplier fn) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            return fn.getAsInt();
         } finally {
             busyLock.leaveBusy();
         }

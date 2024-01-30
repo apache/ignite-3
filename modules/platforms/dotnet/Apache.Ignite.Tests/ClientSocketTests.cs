@@ -88,7 +88,7 @@ namespace Apache.Ignite.Tests
 
         private class NoOpListener : IClientSocketEventListener
         {
-            public void OnAssignmentChanged(ClientSocket clientSocket)
+            public void OnAssignmentChanged(long timestamp)
             {
                 // No-op.
             }

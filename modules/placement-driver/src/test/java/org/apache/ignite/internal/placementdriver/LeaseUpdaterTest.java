@@ -20,8 +20,9 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -132,7 +133,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                         leaseConsumer.accept(lease);
                     }
 
-                    return completedFuture(true);
+                    return trueCompletedFuture();
                 });
 
         leaseUpdater = new LeaseUpdater(

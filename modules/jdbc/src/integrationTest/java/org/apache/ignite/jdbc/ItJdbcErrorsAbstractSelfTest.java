@@ -36,6 +36,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -614,15 +615,5 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
 
             fail("Exception is expected");
         }, expState, expMsg);
-    }
-
-    /**
-     * A runnable that can throw an SQLException.
-     */
-    public interface RunnableX {
-        /**
-         * Runs this runnable.
-         */
-        void run() throws SQLException;
     }
 }

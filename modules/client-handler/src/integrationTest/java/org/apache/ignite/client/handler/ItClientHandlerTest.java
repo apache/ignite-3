@@ -56,8 +56,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
     private int serverPort;
 
-    @SuppressWarnings("unused")
-    @InjectConfiguration
+    @InjectConfiguration(rootName = "security")
     private SecurityConfiguration securityConfiguration;
 
     @BeforeEach
@@ -460,8 +459,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             change.changeEnabled(true);
             change.changeAuthentication().changeProviders().create("basic", authenticationProviderChange -> {
                 authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                        .changeUsername(username)
-                        .changePassword(password);
+                        .changeUsers(users -> users.create(username, user -> user.changePassword(password)));
             });
         }).join();
     }

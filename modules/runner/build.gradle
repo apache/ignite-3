@@ -79,6 +79,7 @@ dependencies {
     implementation project(':ignite-catalog')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-system-view')
+    implementation project(':ignite-workers')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -117,7 +118,6 @@ dependencies {
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.jmh.annotation.processor
-    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-page-memory')
@@ -150,6 +150,7 @@ dependencies {
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-workers')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -172,11 +173,6 @@ dependencies {
     integrationTestImplementation libs.disruptor
     integrationTestImplementation libs.jackson.databind
     integrationTestImplementation libs.jmh.core
-    integrationTestImplementation(libs.jsonpath.assert) {
-        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
-        //So, exclude asm-core transitive dependency to protect of jar-hell.
-        exclude group: 'org.ow2.asm', module: 'asm'
-    }
     integrationTestImplementation libs.typesafe.config
     integrationTestImplementation libs.netty.common
     integrationTestImplementation libs.netty.handler
@@ -191,10 +187,19 @@ dependencies {
     testFixturesImplementation project(':ignite-table')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-metastorage')
+    testFixturesImplementation project(':ignite-transactions')
+    testFixturesImplementation project(':ignite-system-view-api')
+    testFixturesImplementation project(':ignite-system-view')
+    testFixturesImplementation project(':ignite-storage-api')
+    testFixturesImplementation project(':ignite-cluster-management')
+    testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
-    testFixturesImplementation testFixtures(project(':ignite-sql-engine'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation testFixtures(project(':ignite-catalog'))
+    testFixturesImplementation testFixtures(project(':ignite-table'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.auto.service.annotations
@@ -202,6 +207,8 @@ dependencies {
 
 tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
+
+    jvmArgs += defaultJvmArgs
 
     classpath = sourceSets.integrationTest.runtimeClasspath
 
@@ -211,19 +218,11 @@ tasks.register("runnerPlatformTest", JavaExec) {
 tasks.register("runnerPlatformBenchmark", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
 
+    jvmArgs += defaultJvmArgs
+
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     enableAssertions = true
-}
-
-integrationTest {
-    useJUnitPlatform {
-        if (System.getProperty("sqlTest") != null) {
-            it.includeTags "sqllogic"
-        } else {
-            it.excludeTags "sqllogic"
-        }
-    }
 }
 
 jar {

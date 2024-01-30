@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -31,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -46,7 +47,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
-import org.apache.ignite.internal.utils.RebalanceUtil;
+import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -69,9 +70,6 @@ class PartitionReplicatorNodeRecovery {
 
     private final TopologyService topologyService;
 
-    /** Resolver that resolves a node consistent ID to cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
-
     /** Obtains a TableImpl instance by a table ID. */
     private final IntFunction<TableViewInternal> tableById;
 
@@ -79,13 +77,11 @@ class PartitionReplicatorNodeRecovery {
             MetaStorageManager metaStorageManager,
             MessagingService messagingService,
             TopologyService topologyService,
-            Function<String, ClusterNode> clusterNodeResolver,
             IntFunction<TableViewInternal> tableById
     ) {
         this.metaStorageManager = metaStorageManager;
         this.messagingService = messagingService;
         this.topologyService = topologyService;
-        this.clusterNodeResolver = clusterNodeResolver;
         this.tableById = tableById;
     }
 
@@ -148,7 +144,7 @@ class PartitionReplicatorNodeRecovery {
             return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment);
         }
 
-        return completedFuture(true);
+        return trueCompletedFuture();
     }
 
     private static boolean mightNeedGroupRecovery(InternalTable internalTable) {
@@ -178,7 +174,7 @@ class PartitionReplicatorNodeRecovery {
                     boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
 
                     if (majorityAvailable) {
-                        RebalanceUtil.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager);
+                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager);
 
                         return false;
                     } else {
@@ -214,7 +210,7 @@ class PartitionReplicatorNodeRecovery {
         Map<String, ClusterNode> peerNodesByConsistentIds = new ConcurrentHashMap<>();
 
         for (Peer peer : peers) {
-            ClusterNode node = clusterNodeResolver.apply(peer.consistentId());
+            ClusterNode node = topologyService.getByConsistentId(peer.consistentId());
 
             if (node != null) {
                 peerNodesByConsistentIds.put(peer.consistentId(), node);
@@ -222,7 +218,7 @@ class PartitionReplicatorNodeRecovery {
         }
 
         if (peerNodesByConsistentIds.size() >= peers.size()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         CompletableFuture<Void> allPeersAreSeenInTopology = new CompletableFuture<>();
@@ -245,7 +241,7 @@ class PartitionReplicatorNodeRecovery {
         // Check again for peers that could appear in the topology since last check, but before we installed the handler.
         for (Peer peer : peers) {
             if (!peerNodesByConsistentIds.containsKey(peer.consistentId())) {
-                ClusterNode node = clusterNodeResolver.apply(peer.consistentId());
+                ClusterNode node = topologyService.getByConsistentId(peer.consistentId());
 
                 if (node != null) {
                     peerNodesByConsistentIds.put(peer.consistentId(), node);
@@ -254,7 +250,7 @@ class PartitionReplicatorNodeRecovery {
         }
 
         if (peerNodesByConsistentIds.size() >= peers.size()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         // TODO: remove the handler after https://issues.apache.org/jira/browse/IGNITE-14519 is implemented.
@@ -282,7 +278,7 @@ class PartitionReplicatorNodeRecovery {
         //noinspection unchecked
         CompletableFuture<Boolean>[] requestFutures = peers.stream()
                 .map(Peer::consistentId)
-                .map(clusterNodeResolver)
+                .map(topologyService::getByConsistentId)
                 .filter(Objects::nonNull)
                 .map(node -> messagingService
                         .invoke(node, request, QUERY_DATA_NODES_COUNT_TIMEOUT_MILLIS)

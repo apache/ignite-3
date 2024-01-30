@@ -19,11 +19,11 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -111,11 +111,9 @@ public class CreateTableCommand extends AbstractTableCommand {
                 pkIndexId,
                 tableName,
                 zone.id(),
-                CatalogTableDescriptor.INITIAL_TABLE_VERSION,
                 columns.stream().map(CatalogUtils::fromParams).collect(toList()),
                 primaryKeyColumns,
-                colocationColumns,
-                INITIAL_CAUSALITY_TOKEN
+                colocationColumns
         );
 
         String indexName = pkIndexName(tableName);
@@ -128,7 +126,7 @@ public class CreateTableCommand extends AbstractTableCommand {
                 tableId,
                 true,
                 primaryKeyColumns,
-                true
+                AVAILABLE
         );
 
         return List.of(

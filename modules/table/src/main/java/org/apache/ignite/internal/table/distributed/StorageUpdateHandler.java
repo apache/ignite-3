@@ -30,10 +30,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
@@ -51,17 +49,8 @@ public class StorageUpdateHandler {
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
-    /** Garbage collector configuration. */
-    private final GcConfiguration gcConfig;
-
-    /** Low watermark. */
-    private final LowWatermark lowWatermark;
-
     /** Partition index update handler. */
     private final IndexUpdateHandler indexUpdateHandler;
-
-    /** Partition gc update handler. */
-    private final GcUpdateHandler gcUpdateHandler;
 
     /** A container for rows that were inserted, updated or removed. */
     private final PendingRows pendingRows = new PendingRows();
@@ -71,24 +60,16 @@ public class StorageUpdateHandler {
      *
      * @param partitionId Partition id.
      * @param storage Partition data storage.
-     * @param gcConfig Garbage collector configuration.
      * @param indexUpdateHandler Partition index update handler.
-     * @param gcUpdateHandler Partition gc update handler.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
-            GcConfiguration gcConfig,
-            LowWatermark lowWatermark,
-            IndexUpdateHandler indexUpdateHandler,
-            GcUpdateHandler gcUpdateHandler
+            IndexUpdateHandler indexUpdateHandler
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
-        this.gcConfig = gcConfig;
-        this.lowWatermark = lowWatermark;
         this.indexUpdateHandler = indexUpdateHandler;
-        this.gcUpdateHandler = gcUpdateHandler;
     }
 
     /**
@@ -155,8 +136,6 @@ public class StorageUpdateHandler {
 
             return null;
         });
-
-        executeBatchGc();
     }
 
     /**
@@ -224,8 +203,6 @@ public class StorageUpdateHandler {
 
             return null;
         });
-
-        executeBatchGc();
     }
 
     private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {
@@ -283,16 +260,6 @@ public class StorageUpdateHandler {
         });
     }
 
-    void executeBatchGc() {
-        HybridTimestamp lwm = lowWatermark.getLowWatermark();
-
-        if (lwm == null || gcUpdateHandler.getSafeTimeTracker().current().compareTo(lwm) < 0) {
-            return;
-        }
-
-        gcUpdateHandler.vacuumBatch(lwm, gcConfig.onUpdateBatchSize().value(), false);
-    }
-
     /**
      * Tries to remove a previous write from index.
      *
@@ -322,25 +289,27 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     * Switches write intents created by the transaction to regular values if the transaction is committed
+     * or removes them if the transaction is aborted.
      *
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      */
-    public void handleTransactionCleanup(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        handleTransactionCleanup(txId, commit, commitTimestamp, null);
+    public void switchWriteIntents(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        switchWriteIntents(txId, commit, commitTimestamp, null);
     }
 
     /**
-     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     * Switches write intents created by the transaction to regular values if the transaction is committed
+     * or removes them if the transaction is aborted.
      *
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      * @param onApplication On application callback.
      */
-    public void handleTransactionCleanup(
+    public void switchWriteIntents(
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,

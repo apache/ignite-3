@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Processing thin client requests and responses.
@@ -27,17 +28,36 @@ public interface ClientChannel extends AutoCloseable {
     /**
      * Send request and handle response asynchronously for client operation.
      *
-     * @param opCode        Operation code.
-     * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
-     * @param payloadReader Payload reader from stream.
-     * @param <T>           Response type.
+     * @param opCode              Operation code.
+     * @param payloadWriter       Payload writer to stream or {@code null} if request has no payload.
+     * @param payloadReader       Payload reader from stream or {@code null} if response has no payload.
+     * @param expectNotifications Whether to expect notifications as a result of the operation.
+     * @param <T>                 Response type.
      * @return Future for the operation.
      */
     <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
+            boolean expectNotifications
     );
+
+    /**
+     * Send request and handle response asynchronously for client operation.
+     *
+     * @param opCode              Operation code.
+     * @param payloadWriter       Payload writer to stream or {@code null} if request has no payload.
+     * @param payloadReader       Payload reader from stream or {@code null} if response has no payload.
+     * @param <T>                 Response type.
+     * @return Future for the operation.
+     */
+    default <T> CompletableFuture<T> serviceAsync(
+            int opCode,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader
+    ) {
+        return serviceAsync(opCode, payloadWriter, payloadReader, false);
+    }
 
     /**
      * Returns {@code true} channel is closed.
@@ -58,7 +78,7 @@ public interface ClientChannel extends AutoCloseable {
      *
      * @param listener Listener.
      */
-    void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener);
+    void addPartitionAssignmentChangeListener(Consumer<Long> listener);
 
     /**
      * Add observable timestamp listener.

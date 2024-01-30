@@ -55,6 +55,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.ComputeExecute => ClientOperationType.ComputeExecute,
                 ClientOp.ComputeExecuteColocated => ClientOperationType.ComputeExecute,
                 ClientOp.SqlExec => ClientOperationType.SqlExecute,
+                ClientOp.SqlExecScript => ClientOperationType.SqlExecuteScript,
                 ClientOp.SqlCursorNextPage => null,
                 ClientOp.SqlCursorClose => null,
                 ClientOp.TxBegin => null,
@@ -63,6 +64,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.Heartbeat => null,
                 ClientOp.ClusterGetNodes => null,
                 ClientOp.PartitionAssignmentGet => null,
+                ClientOp.SqlParamMeta => null,
 
                 // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
                 // ReSharper disable once PatternIsRedundant

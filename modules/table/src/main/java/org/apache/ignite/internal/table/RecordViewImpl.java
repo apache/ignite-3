@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
+import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
+
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.ArrayList;
@@ -27,17 +30,25 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -47,7 +58,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Record view implementation.
  */
-public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R> {
+public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordView<R> {
+    /** Record class mapper. */
+    private final Mapper<R> mapper;
+
     /** Marshaller factory. */
     private final Function<SchemaDescriptor, RecordMarshaller<R>> marshallerFactory;
 
@@ -61,10 +75,18 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
      * @param mapper Record class mapper.
+     * @param sql Ignite SQL facade.
      */
-    public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, Mapper<R> mapper) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaRegistry,
+            SchemaVersions schemaVersions,
+            Mapper<R> mapper,
+            IgniteSql sql
+    ) {
+        super(tbl, schemaVersions, schemaRegistry, sql);
 
+        this.mapper = mapper;
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
     }
 
@@ -550,5 +572,20 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
             return DataStreamer.streamData(publisher, options, batchSender, partitioner);
         });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+        Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+        Marshaller marsh = createMarshaller(toMarshallerColumns(cols), mapper, false, true);
+
+        return (row) -> {
+            try {
+                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(cols))), null);
+            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
+                throw new MarshallerException(e);
+            }
+        };
     }
 }

@@ -47,8 +47,8 @@ public:
      * Executes single SQL statement asynchronously and returns rows.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
-     * @param statement statement to execute.
-     * @param args Arguments for the statement.
+     * @param statement Statement to execute.
+     * @param args Arguments for the statement (can be empty).
      * @param callback A callback called on operation completion with SQL result set.
      */
     IGNITE_API void execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> args,
@@ -58,13 +58,35 @@ public:
      * Executes single SQL statement and returns rows.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
-     * @param statement statement to execute.
-     * @param args Arguments for the statement.
+     * @param statement Statement to execute.
+     * @param args Arguments for the statement (can be empty).
      * @return SQL result set.
      */
     IGNITE_API result_set execute(transaction *tx, const sql_statement &statement, std::vector<primitive> args) {
         return sync<result_set>([this, tx, &statement, args = std::move(args)](auto callback) mutable {
             execute_async(tx, statement, std::move(args), std::move(callback));
+        });
+    }
+
+    /**
+     * Executes a multi-statement SQL query asynchronously.
+     *
+     * @param statement Statement to execute.
+     * @param args Arguments for the template (can be empty).
+     * @param callback A callback called on operation completion with SQL result set.
+     */
+    IGNITE_API void execute_script_async(
+        const sql_statement &statement, std::vector<primitive> args, ignite_callback<void> callback);
+
+    /**
+     * Executes a multi-statement SQL query.
+     *
+     * @param statement Statement to execute.
+     * @param args Arguments for the template (can be empty).
+     */
+    IGNITE_API void execute_script(const sql_statement &statement, std::vector<primitive> args) {
+        sync<void>([this, &statement, args = std::move(args)](auto callback) mutable {
+            execute_script_async(statement, std::move(args), std::move(callback));
         });
     }
 

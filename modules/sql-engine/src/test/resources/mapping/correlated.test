@@ -118,7 +118,7 @@ Fragment#0 root
         IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
         IgniteSort
           IgniteFilter
-            IgniteTableFunctionScan(source=-1, distribution=single)
+            IgniteTableFunctionScan(source=2, distribution=single)
 
 Fragment#1
   targetNodes: [N0]
@@ -127,33 +127,32 @@ Fragment#1
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteSort
-        IgniteTableScan(name=PUBLIC.T_N1, source=2, distribution=random)
+        IgniteTableScan(name=PUBLIC.T_N1, source=3, distribution=random)
 ---
 
 N0
 SELECT t.c1 FROM ct_n1 t WHERE t.c1 < 5 AND
 EXISTS (SELECT x FROM table(system_range(t.c1, t.c2)) WHERE mod(x, 2) = 0)
 ---
-Fragment#2 root
+Fragment#3 root
   executionNodes: [N0]
-  remoteFragments: [3]
+  remoteFragments: [4]
   tree:
-    IgniteReceiver(sourceFragment=3, exchange=3, distribution=single)
+    IgniteReceiver(sourceFragment=4, exchange=4, distribution=single)
 
-Fragment#3
+Fragment#4
   targetNodes: [N0]
   executionNodes: [N1]
   tables: [CT_N1]
   tree:
-    IgniteSender(targetFragment=2, exchange=3, distribution=single)
+    IgniteSender(targetFragment=3, exchange=4, distribution=single)
       IgniteProject
-        IgniteFilter
-          IgniteCorrelatedNestedLoopJoin
-            IgniteTableScan(name=PUBLIC.CT_N1, source=1, distribution=single)
-            IgniteColocatedHashAggregate
-              IgniteProject
-                IgniteFilter
-                  IgniteTableFunctionScan(source=-1, distribution=single)
+        IgniteCorrelatedNestedLoopJoin
+          IgniteTableScan(name=PUBLIC.CT_N1, source=1, distribution=single)
+          IgniteColocatedHashAggregate
+            IgniteProject
+              IgniteFilter
+                IgniteTableFunctionScan(source=2, distribution=single)
 ---
 
 N0
@@ -165,13 +164,12 @@ Fragment#0 root
   remoteFragments: [1]
   tree:
     IgniteProject
-      IgniteFilter
-        IgniteCorrelatedNestedLoopJoin
-          IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
-          IgniteColocatedHashAggregate
-            IgniteProject
-              IgniteFilter
-                IgniteTableFunctionScan(source=-1, distribution=single)
+      IgniteCorrelatedNestedLoopJoin
+        IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+        IgniteColocatedHashAggregate
+          IgniteProject
+            IgniteFilter
+              IgniteTableFunctionScan(source=2, distribution=single)
 
 Fragment#1
   targetNodes: [N0]
@@ -179,5 +177,5 @@ Fragment#1
   tables: [T_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.T_N1, source=2, distribution=affinity[table: T_N1, columns: [ID]])
+      IgniteTableScan(name=PUBLIC.T_N1, source=3, distribution=affinity[table: T_N1, columns: [ID]])
 ---

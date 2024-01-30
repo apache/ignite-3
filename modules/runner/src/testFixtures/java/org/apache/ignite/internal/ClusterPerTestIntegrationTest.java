@@ -19,11 +19,12 @@ package org.apache.ignite.internal;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +48,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {}\n"
-            + "}";
+            + "  compute: {\n"
+            + "    threadPoolSize: 1\n"
+            + "  }\n"
+            + "}\n";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
     protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
@@ -102,7 +106,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {
-            cluster.startAndInit(initialNodes(), cmgMetastoreNodes());
+            cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
         }
     }
 
@@ -123,6 +127,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
 
     protected int[] cmgMetastoreNodes() {
         return new int[] { 0 };
+    }
+
+    protected void customizeInitParameters(InitParametersBuilder builder) {
+        // No-op.
     }
 
     /**
@@ -165,6 +173,22 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     }
 
     /**
+     * Stops a node by name.
+     *
+     * @param name Name of the node in the cluster.
+     */
+    protected void stopNode(String name) {
+        cluster.stopNode(name);
+    }
+
+    /**
+     * Returns nodes that are started and not stopped. This can include knocked out nodes.
+     */
+    protected final Stream<IgniteImpl> runningNodes() {
+        return cluster.runningNodes();
+    }
+
+    /**
      * Restarts a node by index.
      *
      * @param nodeIndex Node index.
@@ -187,6 +211,6 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     protected final List<List<Object>> executeSql(String sql, Object... args) {
         IgniteImpl ignite = node(0);
 
-        return SqlTestUtils.sql(ignite, null, sql, args);
+        return ClusterPerClassIntegrationTest.sql(ignite, null, sql, args);
     }
 }

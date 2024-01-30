@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
@@ -28,11 +29,15 @@ import org.apache.ignite.configuration.validation.OneOf;
  */
 @Config
 public class VolatilePageMemoryDataRegionConfigurationSchema extends BasePageMemoryDataRegionConfigurationSchema {
-    /** Default initial size. */
-    public static final long DFLT_DATA_REGION_INITIAL_SIZE = 256 * MiB;
+    /**
+     * Default initial size, maximum between 256 MiB and 20% of the total physical memory.
+     * 256 MiB, if system was unable to retrieve physical memory size.
+     */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    public static final long DFLT_DATA_REGION_INITIAL_SIZE = Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
 
-    /** Default max size. */
-    public static final long DFLT_DATA_REGION_MAX_SIZE = 256 * MiB;
+    /** Default max size, matches {@link #DFLT_DATA_REGION_INITIAL_SIZE}. */
+    public static final long DFLT_DATA_REGION_MAX_SIZE = DFLT_DATA_REGION_INITIAL_SIZE;
 
     /** Eviction is disabled. */
     public static final String DISABLED_EVICTION_MODE = "DISABLED";

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;

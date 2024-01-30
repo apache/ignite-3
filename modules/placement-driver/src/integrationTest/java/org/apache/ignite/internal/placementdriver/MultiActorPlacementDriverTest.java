@@ -49,6 +49,7 @@ import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
@@ -65,8 +66,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -220,7 +219,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         for (int i = 0; i < placementDriverNodeNames.size(); i++) {
             String nodeName = placementDriverNodeNames.get(i);
-            var vaultManager = new VaultManager(new InMemoryVaultService());
             var clusterService = services.get(nodeName);
 
             ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
@@ -253,7 +251,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
             var metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
@@ -280,7 +277,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeClock
             );
 
-            res.add(new Node(nodeName, vaultManager, clusterService, raftManager, metaStorageManager, placementDriverManager));
+            res.add(new Node(nodeName, clusterService, raftManager, metaStorageManager, placementDriverManager));
         }
 
         assertThat(allOf(res.stream().map(Node::startAsync).toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
@@ -331,9 +328,14 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
-        RaftGroupService msRaftClient = metaStorageManager.getService().raftGroupService();
+        CompletableFuture<RaftGroupService> msRaftClientFuture = metaStorageManager.metaStorageService()
+                .thenApply(MetaStorageServiceImpl::raftGroupService);
 
-        msRaftClient.refreshLeader().join();
+        assertThat(msRaftClientFuture, willCompleteSuccessfully());
+
+        RaftGroupService msRaftClient = msRaftClientFuture.join();
+
+        assertThat(msRaftClient.refreshLeader(), willCompleteSuccessfully());
 
         Peer previousLeader = msRaftClient.leader();
 
@@ -341,7 +343,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         log.info("The placement driver group active actor is transferring [from={}, to={}]", previousLeader, newLeader);
 
-        msRaftClient.transferLeadership(newLeader).get();
+        assertThat(msRaftClient.transferLeadership(newLeader), willCompleteSuccessfully());
 
         waitForProlong(grpPart0, lease);
 

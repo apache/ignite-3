@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Set;
@@ -134,14 +134,14 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
                         String thisNodeName = clusterService.topologyService().localMember().name();
 
                         if (!placementDriverNodes.contains(thisNodeName)) {
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }
 
                         try {
@@ -169,6 +169,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
             recoverInternalComponentsBusy();
         });
+
+        return nullCompletedFuture();
     }
 
     @Override

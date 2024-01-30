@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -28,7 +30,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
@@ -37,6 +41,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -59,7 +64,7 @@ public class CatalogUtils {
 
     /** Default distribution zone storage engine. */
     // TODO: IGNITE-19719 Should be defined differently
-    public static final String DEFAULT_STORAGE_ENGINE = "aipersist";
+    public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aipersist");
 
     /** Default distribution zone storage engine data region. */
     // TODO: IGNITE-19719 Must be storage engine specific
@@ -122,48 +127,45 @@ public class CatalogUtils {
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     static {
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT8, ColumnType.INT16, ColumnType.INT32,
+                ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT64, EnumSet.of(ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.FLOAT, ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DOUBLE, EnumSet.of(ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.STRING, EnumSet.of(ColumnType.STRING));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
+    }
+
+    public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
+
+    /** System schema names. */
+    static boolean isSystemSchema(String schemaName) {
+        return SYSTEM_SCHEMAS.contains(schemaName);
     }
 
     /**
-     * Converts CreateZone command params to descriptor.
-     *
-     * <p>If the following fields are not set, the default value is used for them:</p>
-     * <ul>
-     *     <li>{@link CreateZoneParams#partitions()} -> {@link #DEFAULT_PARTITION_COUNT};</li>
-     *     <li>{@link CreateZoneParams#replicas()} -> {@link #DEFAULT_REPLICA_COUNT};</li>
-     *     <li>{@link CreateZoneParams#dataNodesAutoAdjust()} -> {@link #INFINITE_TIMER_VALUE};</li>
-     *     <li>{@link CreateZoneParams#dataNodesAutoAdjustScaleUp()} -> {@link #IMMEDIATE_TIMER_VALUE} or {@link #INFINITE_TIMER_VALUE} if
-     *     {@link CreateZoneParams#dataNodesAutoAdjust()} not {@code null};</li>
-     *     <li>{@link CreateZoneParams#dataNodesAutoAdjustScaleDown()} -> {@link #INFINITE_TIMER_VALUE};</li>
-     *     <li>{@link CreateZoneParams#filter()} -> {@link #DEFAULT_FILTER};</li>
-     *     <li>{@link CreateZoneParams#dataStorage()} -> {@link #DEFAULT_STORAGE_ENGINE} with {@link #DEFAULT_DATA_REGION};</li>
-     * </ul>
+     * Returns zone descriptor with default parameters.
      *
      * @param id Distribution zone ID.
-     * @param params Parameters.
+     * @param zoneName Zone name.
      * @return Distribution zone descriptor.
      */
-    public static CatalogZoneDescriptor fromParams(int id, CreateZoneParams params) {
-        DataStorageParams dataStorageParams = params.dataStorage() != null
-                ? params.dataStorage()
-                : DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
+    public static CatalogZoneDescriptor fromParams(int id, String zoneName) {
+        DataStorageParams dataStorageParams =
+                DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
 
         return new CatalogZoneDescriptor(
                 id,
-                params.zoneName(),
-                Objects.requireNonNullElse(params.partitions(), DEFAULT_PARTITION_COUNT),
-                Objects.requireNonNullElse(params.replicas(), DEFAULT_REPLICA_COUNT),
-                Objects.requireNonNullElse(params.dataNodesAutoAdjust(), INFINITE_TIMER_VALUE),
-                Objects.requireNonNullElse(
-                        params.dataNodesAutoAdjustScaleUp(),
-                        params.dataNodesAutoAdjust() != null ? INFINITE_TIMER_VALUE : IMMEDIATE_TIMER_VALUE
-                ),
-                Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), INFINITE_TIMER_VALUE),
-                Objects.requireNonNullElse(params.filter(), DEFAULT_FILTER),
+                zoneName,
+                DEFAULT_PARTITION_COUNT,
+                DEFAULT_REPLICA_COUNT,
+                INFINITE_TIMER_VALUE,
+                IMMEDIATE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                DEFAULT_FILTER,
                 fromParams(dataStorageParams)
         );
     }
@@ -210,6 +212,87 @@ public class CatalogUtils {
     }
 
     /**
+     * Validates a column change. If something is not valid, the supplied listener is invoked with information about the exact reason.
+     *
+     * @param origin Original column definition.
+     * @param newType New type.
+     * @param newPrecision New column precision.
+     * @param newScale New column scale.
+     * @param newLength New column length.
+     * @param listener Listener to invoke on a validation failure.
+     * @return {@code true} iff the proposed change is valid.
+     */
+    public static boolean validateColumnChange(
+            CatalogTableColumnDescriptor origin,
+            @Nullable ColumnType newType,
+            @Nullable Integer newPrecision,
+            @Nullable Integer newScale,
+            @Nullable Integer newLength,
+            TypeChangeValidationListener listener
+    ) {
+        if (newType != null) {
+            if (isSupportedColumnTypeChange(origin.type(), newType)) {
+                if (origin.type().precisionAllowed() && newPrecision != null && newPrecision < origin.precision()) {
+                    listener.onFailure("Decreasing the precision for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                if (origin.type().scaleAllowed() && newScale != null && newScale != origin.scale()) {
+                    listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                if (origin.type().lengthAllowed() && newLength != null && newLength < origin.length()) {
+                    listener.onFailure("Decreasing the length for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (newType != origin.type()) {
+                listener.onFailure("Changing the type from {} to {} is not allowed", origin.type(), newType);
+                return false;
+            }
+        }
+
+        if (newPrecision != null && newPrecision != origin.precision()) {
+            listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newScale != null && newScale != origin.scale()) {
+            listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newLength != null && newLength != origin.length()) {
+            listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns whether the proposed column type change is supported.
+     *
+     * @param oldColumn Original column definition.
+     * @param newColumn New column definition.
+     * @return {@code true} iff the proposed change is supported.
+     */
+    public static boolean isColumnTypeChangeSupported(CatalogTableColumnDescriptor oldColumn, CatalogTableColumnDescriptor newColumn) {
+        return validateColumnChange(
+                oldColumn,
+                newColumn.type(),
+                newColumn.precision(),
+                newColumn.scale(),
+                newColumn.length(),
+                TypeChangeValidationListener.NO_OP
+        );
+    }
+
+    /**
      * Returns a list of schemas, replacing any schema with {@code newSchema} if its id equal to {@code newSchema.id()}.
      *
      * @param newSchema A schema.
@@ -226,6 +309,37 @@ public class CatalogUtils {
                 return s;
             }
         }).collect(toList());
+    }
+
+    /**
+     * Replaces the table descriptor that has the same ID as the {@code newTableDescriptor} in the given {@code schema}.
+     *
+     * @param schema Schema, which table descriptor needs to be replaced.
+     * @param newTableDescriptor Table descriptor which will replace the descriptor with the same ID in the schema.
+     * @return New schema descriptor with a replaced table descriptor.
+     * @throws CatalogValidationException If the table descriptor with the same ID is not present in the schema.
+     */
+    public static CatalogSchemaDescriptor replaceTable(CatalogSchemaDescriptor schema, CatalogTableDescriptor newTableDescriptor) {
+        CatalogTableDescriptor[] tableDescriptors = schema.tables().clone();
+
+        for (int i = 0; i < tableDescriptors.length; i++) {
+            if (tableDescriptors[i].id() == newTableDescriptor.id()) {
+                tableDescriptors[i] = newTableDescriptor;
+
+                return new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        tableDescriptors,
+                        schema.indexes(),
+                        schema.systemViews(),
+                        newTableDescriptor.updateToken()
+                );
+            }
+        }
+
+        throw new CatalogValidationException(String.format(
+                "Table with ID %d has not been found in schema with ID %d", newTableDescriptor.id(), newTableDescriptor.schemaId()
+        ));
     }
 
     /**
@@ -247,57 +361,6 @@ public class CatalogUtils {
     }
 
     /**
-     * Creates a new version of the distribution zone descriptor based on the AlterZone command params and the previous version. If a field
-     * is not set in the command params, then the value from the previous version is taken.
-     *
-     * <p>Features of working with auto adjust params:</p>
-     * <ul>
-     *     <li>If {@link AlterZoneParams#dataNodesAutoAdjust()} is <b>not</b> {@code null}, then
-     *     {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleUp()} and {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleDown()} will
-     *     be {@link #INFINITE_TIMER_VALUE} in the new version;</li>
-     *     <li>If {@link AlterZoneParams#dataNodesAutoAdjustScaleUp()} or {@link AlterZoneParams#dataNodesAutoAdjustScaleDown()} is
-     *     <b>not</b> {@code null}, then {@link CatalogZoneDescriptor#dataNodesAutoAdjust()} will be {@link #INFINITE_TIMER_VALUE} in the
-     *     new version.</li>
-     * </ul>
-     *
-     * @param params Parameters.
-     * @param previous Previous version of the distribution zone descriptor.
-     * @return Distribution zone descriptor.
-     */
-    public static CatalogZoneDescriptor fromParamsAndPreviousValue(AlterZoneParams params, CatalogZoneDescriptor previous) {
-        assert previous.name().equals(params.zoneName()) : "previousZoneName=" + previous.name() + ", paramsZoneName=" + params.zoneName();
-
-        @Nullable Integer autoAdjust = null;
-        @Nullable Integer scaleUp = null;
-        @Nullable Integer scaleDown = null;
-
-        if (params.dataNodesAutoAdjust() != null) {
-            autoAdjust = params.dataNodesAutoAdjust();
-            scaleUp = INFINITE_TIMER_VALUE;
-            scaleDown = INFINITE_TIMER_VALUE;
-        } else if (params.dataNodesAutoAdjustScaleUp() != null || params.dataNodesAutoAdjustScaleDown() != null) {
-            autoAdjust = INFINITE_TIMER_VALUE;
-            scaleUp = params.dataNodesAutoAdjustScaleUp();
-            scaleDown = params.dataNodesAutoAdjustScaleDown();
-        }
-
-        CatalogDataStorageDescriptor dataStorageDescriptor = params.dataStorage() != null
-                ? fromParams(params.dataStorage()) : previous.dataStorage();
-
-        return new CatalogZoneDescriptor(
-                previous.id(),
-                previous.name(),
-                Objects.requireNonNullElse(params.partitions(), previous.partitions()),
-                Objects.requireNonNullElse(params.replicas(), previous.replicas()),
-                Objects.requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
-                Objects.requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
-                Objects.requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
-                Objects.requireNonNullElse(params.filter(), previous.filter()),
-                dataStorageDescriptor
-        );
-    }
-
-    /**
      * Returns schema with given name, or throws {@link CatalogValidationException} if schema with given name not exists.
      *
      * @param catalog Catalog to look up schema in.
@@ -305,7 +368,7 @@ public class CatalogUtils {
      * @return Schema with given name. Never null.
      * @throws CatalogValidationException If schema with given name is not exists.
      */
-    static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+    public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "schemaName");
 
         CatalogSchemaDescriptor schema = catalog.schema(name);
@@ -325,7 +388,7 @@ public class CatalogUtils {
      * @return Table with given name. Never null.
      * @throws TableNotFoundValidationException If table with given name is not exists.
      */
-    static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+    public static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
@@ -345,13 +408,13 @@ public class CatalogUtils {
      * @return Zone with given name. Never null.
      * @throws CatalogValidationException If zone with given name is not exists.
      */
-    static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
 
         if (zone == null) {
-            throw new CatalogValidationException(format("Distribution zone with name '{}' not found", name));
+            throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
         }
 
         return zone;
@@ -373,7 +436,7 @@ public class CatalogUtils {
      * @param name Name of the index of interest.
      * @throws IndexNotFoundValidationException If index does not exist.
      */
-    static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+    public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.index(name);
 
         if (index == null) {
@@ -390,7 +453,7 @@ public class CatalogUtils {
      * @param indexId ID of the index of interest.
      * @throws IndexNotFoundValidationException If index does not exist.
      */
-    static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
+    public static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = catalog.index(indexId);
 
         if (index == null) {
@@ -398,5 +461,46 @@ public class CatalogUtils {
         }
 
         return index;
+    }
+
+    /**
+     * Collects all table indexes (including dropped) that the table has in the requested catalog version range.
+     *
+     * <p>It is expected that at least one index should be between the requested versions.</p>
+     *
+     * @param catalogService Catalog service.
+     * @param tableId Table ID for which indexes will be collected.
+     * @param catalogVersionFrom Catalog version from which indexes will be collected (including).
+     * @param catalogVersionTo Catalog version up to which indexes will be collected (including).
+     * @return Table indexes.
+     */
+    public static Collection<CatalogIndexDescriptor> collectIndexes(
+            CatalogService catalogService,
+            int tableId,
+            int catalogVersionFrom,
+            int catalogVersionTo
+    ) {
+        assert catalogVersionFrom <= catalogVersionTo : "from=" + catalogVersionFrom + ", to=" + catalogVersionTo;
+
+        if (catalogVersionFrom == catalogVersionTo) {
+            List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersionFrom, tableId);
+
+            assert !indexes.isEmpty() : "catalogVersion=" + catalogVersionFrom + ", tableId=" + tableId;
+
+            return indexes;
+        }
+
+        var indexByIdMap = new Int2ObjectOpenHashMap<CatalogIndexDescriptor>();
+
+        for (int catalogVersion = catalogVersionFrom; catalogVersion <= catalogVersionTo; catalogVersion++) {
+            for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion, tableId)) {
+                indexByIdMap.put(index.id(), index);
+            }
+        }
+
+        assert !indexByIdMap.isEmpty()
+                : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
+
+        return indexByIdMap.values();
     }
 }

@@ -21,6 +21,7 @@ using System;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using NUnit.Framework;
+using Security.Exception;
 
 /// <summary>
 /// Tests for <see cref="BasicAuthenticator"/>.
@@ -29,7 +30,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
 {
     private const string EnableAuthnJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$EnableAuthenticationJob";
 
-    private bool _authnEnabled;
+    private volatile bool _authnEnabled;
 
     [TearDown]
     public async Task DisableAuthenticationAfterTest() => await EnableAuthn(false);
@@ -56,12 +57,10 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         await EnableAuthn(true);
 
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await IgniteClient.StartAsync(GetConfig()));
+        var invalidCredentialsException = (InvalidCredentialsException)ex!.InnerException!;
 
-        // TODO IGNITE-20568: Cast to AuthenticationException.
-        var inner = (IgniteException)ex!.InnerException!;
-
-        StringAssert.Contains("Authentication failed", inner.Message);
-        Assert.AreEqual(ErrorGroups.Authentication.InvalidCredentials, inner.Code);
+        Assert.AreEqual("Authentication failed", invalidCredentialsException.Message);
+        Assert.AreEqual(ErrorGroups.Authentication.InvalidCredentials, invalidCredentialsException.Code);
     }
 
     [Test]
@@ -118,7 +117,13 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             {
                 try
                 {
-                    await Client.Tables.GetTablesAsync();
+                    // Ensure that all servers have applied the configuration change.
+                    foreach (var endpoint in GetConfig().Endpoints)
+                    {
+                        var cfg = new IgniteClientConfiguration(endpoint);
+                        using var client2 = await IgniteClient.StartAsync(cfg);
+                    }
+
                     return true;
                 }
                 catch (Exception)

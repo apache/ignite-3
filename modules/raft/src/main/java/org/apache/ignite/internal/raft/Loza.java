@@ -174,14 +174,14 @@ public class Loza implements RaftManager {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         RaftView raftConfig = raftConfiguration.value();
 
         opts.setRpcInstallSnapshotTimeout(raftConfig.rpcInstallSnapshotTimeout());
 
         opts.getRaftOptions().setSync(raftConfig.fsync());
 
-        raftServer.start();
+        return raftServer.start();
     }
 
     /** {@inheritDoc} */
@@ -268,9 +268,6 @@ public class Loza implements RaftManager {
     ) throws NodeStoppingException {
         CompletableFuture<RaftGroupService> fut = startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-        raftServer.raftNodeReadyFuture(nodeId.groupId()).join();
-
         return fut;
     }
 
@@ -309,9 +306,6 @@ public class Loza implements RaftManager {
                             .ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration),
                     factory
             );
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-            raftServer.raftNodeReadyFuture(nodeId.groupId()).join();
 
             return startRaftServiceFuture;
         } finally {
@@ -412,17 +406,6 @@ public class Loza implements RaftManager {
      */
     public boolean isStarted(RaftNodeId nodeId) {
         return raftServer.isStarted(nodeId);
-    }
-
-    /**
-     * Gets a future that completes when all committed updates are applied to state machine after the RAFT node start.
-     * TODO: IGNITE-18273 The method should be defined in RaftManager and takes RaftNodeId instead of its argument.
-     *
-     * @param groupId Raft group id.
-     * @return Future to last applied revision.
-     */
-    public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
-        return raftServer.raftNodeReadyFuture(groupId);
     }
 
     @Override

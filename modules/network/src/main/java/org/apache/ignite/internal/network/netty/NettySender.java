@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableF
 import static org.apache.ignite.internal.tracing.TracingManager.serializeSpan;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.handler.stream.ChunkedInput;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -64,7 +63,7 @@ public class NettySender {
      * Sends the message.
      *
      * @param obj Network message wrapper.
-     * @return Future of the send operation.
+     * @return Future of the send operation (that gets completed when the message gets acknowledged by the receiver).
      */
     public CompletableFuture<Void> send(OutNetworkObject obj) {
         var headers = serializeSpan();
@@ -77,7 +76,10 @@ public class NettySender {
             );
         }
 
-        return toCompletableFuture(channel.writeAndFlush(obj));
+        CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
+        CompletableFuture<Void> acknowledgedFuture = obj.acknowledgedFuture();
+
+        return obj.networkMessage().needAck() ? writeFuture.thenCompose(unused -> acknowledgedFuture) : writeFuture;
     }
 
     /**
@@ -105,15 +107,6 @@ public class NettySender {
      */
     public short channelId() {
         return channelId;
-    }
-
-    /**
-     * Closes channel and returns the {@link Channel#closeFuture()}.
-     *
-     * @return {@link Channel#closeFuture()} of the {@link #channel}.
-     */
-    public ChannelFuture close() {
-        return this.channel.close();
     }
 
     /**

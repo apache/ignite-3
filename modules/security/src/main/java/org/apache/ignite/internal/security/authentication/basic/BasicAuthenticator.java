@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.security.authentication.basic;
 
+import static java.util.function.Function.identity;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.Authenticator;
 import org.apache.ignite.internal.security.authentication.UserDetails;
@@ -26,23 +31,19 @@ import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeExcepti
 
 /** Implementation of basic authenticator. */
 public class BasicAuthenticator implements Authenticator {
-    private final String authenticatorName;
+    private final String providerName;
 
-    private final String username;
-
-    private final String password;
+    private final Map<String, BasicUser> users;
 
     /**
      * Constructor.
      *
-     * @param authenticatorName Authenticator name.
-     * @param username Username.
-     * @param password Password.
+     * @param providerName Provider name.
+     * @param users List of registered users.
      */
-    public BasicAuthenticator(String authenticatorName, String username, String password) {
-        this.authenticatorName = authenticatorName;
-        this.username = username;
-        this.password = password;
+    public BasicAuthenticator(String providerName, List<BasicUser> users) {
+        this.providerName = providerName;
+        this.users = users.stream().collect(Collectors.toMap(BasicUser::name, identity()));
     }
 
     @Override
@@ -53,10 +54,16 @@ public class BasicAuthenticator implements Authenticator {
             );
         }
 
-        if (username.equals(authenticationRequest.getIdentity()) && password.equals(authenticationRequest.getSecret())) {
-            return new UserDetails(username, authenticatorName);
-        } else {
-            throw new InvalidCredentialsException("Invalid credentials");
+        Object requestUsername = authenticationRequest.getIdentity();
+        Object requestPassword = authenticationRequest.getSecret();
+
+        BasicUser basicUser = users.get(requestUsername);
+        if (basicUser != null) {
+            if (basicUser.password().equals(requestPassword)) {
+                return new UserDetails(basicUser.name(), providerName);
+            }
         }
+
+        throw new InvalidCredentialsException("Invalid credentials");
     }
 }

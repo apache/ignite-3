@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class IgniteNameUtilsTest {
     @ParameterizedTest
     @CsvSource({
-            "foo, FOO", "fOo, FOO", "FOO, FOO", "1o0, 1O0", "@#$, @#$",
+            "foo, FOO", "fOo, FOO", "FOO, FOO", "\"FOO\", FOO", "1o0, 1O0", "@#$, @#$",
             "\"foo\", foo", "\"fOo\", fOo", "\"f.f\", f.f", "\"f\"\"f\", f\"f",
     })
     public void validSimpleNames(String source, String expected) {
@@ -58,5 +58,14 @@ public class IgniteNameUtilsTest {
         assertThat(ex.getMessage(), is(anyOf(
                 equalTo("Fully qualified name is not expected [name=" + source + "]"),
                 containsString("Malformed name [name=" + source))));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "foo, \"foo\"", "fOo, \"fOo\"", "FOO, FOO", "\"FOO\", \"FOO\"", "1o0, \"1o0\"", "@#$, @#$",
+            "\"foo\", \"foo\"", "\"fOo\", \"fOo\"", "\"f.f\", \"f.f\""
+    })
+    public void quoteIfNeeded(String source, String expected) {
+        assertThat(IgniteNameUtils.quoteIfNeeded(source), equalTo(expected));
     }
 }

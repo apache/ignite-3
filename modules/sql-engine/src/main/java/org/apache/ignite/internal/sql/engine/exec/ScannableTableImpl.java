@@ -67,7 +67,17 @@ public class ScannableTableImpl implements ScannableTable {
         } else {
             PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithTerm.term());
 
-            pub = internalTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
+            pub = internalTable.scan(
+                    partWithTerm.partId(),
+                    txAttributes.id(),
+                    txAttributes.commitPartition(),
+                    recipient,
+                    null,
+                    null,
+                    null,
+                    0,
+                    null
+            );
         }
 
         TableRowConverter rowConverter = converterFactory.create(requiredColumns);
@@ -126,6 +136,7 @@ public class ScannableTableImpl implements ScannableTable {
             pub = internalTable.scan(
                     partWithTerm.partId(),
                     txAttributes.id(),
+                    txAttributes.commitPartition(),
                     new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
                     indexId,
                     lower,
@@ -177,6 +188,7 @@ public class ScannableTableImpl implements ScannableTable {
             pub = internalTable.lookup(
                     partWithTerm.partId(),
                     txAttributes.id(),
+                    txAttributes.commitPartition(),
                     new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
                     indexId,
                     keyTuple,

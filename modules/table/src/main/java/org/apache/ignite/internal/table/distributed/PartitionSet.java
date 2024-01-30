@@ -31,6 +31,11 @@ public interface PartitionSet {
         }
 
         @Override
+        public void clear(int partitionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public boolean get(int partitionId) {
             return false;
         }
@@ -67,6 +72,13 @@ public interface PartitionSet {
      * @param partitionId Partition ID.
      */
     void set(int partitionId);
+
+    /**
+     * Removes the partition from the partition set.
+     *
+     * @param partitionId Partition ID.
+     */
+    void clear(int partitionId);
 
     /**
      * Returns {@code true} if partition with {@code partitionId} is present in this set, {@code false} otherwise.

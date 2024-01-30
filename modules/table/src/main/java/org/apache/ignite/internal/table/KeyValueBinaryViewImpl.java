@@ -28,18 +28,25 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -52,7 +59,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>NB: Binary view doesn't allow null tuples. Methods return either a tuple that represents the value, or {@code null} if no value
  * exists for the given key.
  */
-public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
+public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple>> implements KeyValueView<Tuple, Tuple> {
     private final TupleMarshallerCache marshallerCache;
 
     /**
@@ -61,9 +68,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      */
-    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, SchemaVersions schemaVersions) {
-        super(tbl, schemaVersions, schemaReg);
+    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, SchemaVersions schemaVersions, IgniteSql sql) {
+        super(tbl, schemaVersions, schemaReg, sql);
 
         marshallerCache = new TupleMarshallerCache(schemaReg);
     }
@@ -586,5 +594,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         }
 
         return rows;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+        return (row) -> new IgniteBiTuple<>(
+                new SqlRowProjection(row, meta, columnNames(schema.keyColumns().columns())),
+                new SqlRowProjection(row, meta, columnNames(schema.valueColumns().columns()))
+        );
     }
 }

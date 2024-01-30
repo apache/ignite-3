@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.jdbc;
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -58,6 +59,9 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         return spanWithResult("JdbcQueryCursor.requestNextAsync", (span) -> {
             long fetched0 = fetched.addAndGet(rows);
+
+            assert cur != null : "non initialized cursor";
+
             return cur.requestNextAsync(rows).thenApply(batch -> {
                 if (maxRows == 0 || fetched0 < maxRows) {
                     return batch;
@@ -82,6 +86,18 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<Void> onClose() {
+        return cur.onClose();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onFirstPageReady() {
+        return cur.onFirstPageReady();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public SqlQueryType queryType() {
         return cur.queryType();
     }
@@ -90,5 +106,21 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override
     public ResultSetMetadata metadata() {
         return cur.metadata();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasNextResult() {
+        return cur.hasNextResult();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
+        if (!hasNextResult()) {
+            throw new NoSuchElementException("Query has no more results");
+        }
+
+        return cur.nextResult();
     }
 }

@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
 import static java.util.concurrent.CompletableFuture.anyOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
 import java.util.Objects;
@@ -148,7 +148,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             } else {
                 logMetadataInsufficiencyAndSetError();
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
@@ -156,7 +156,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             if (metadataSufficient) {
                 return rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
             } else {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
     }
@@ -253,7 +253,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     private CompletableFuture<?> loadSnapshotMeta(ClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try {
@@ -298,7 +298,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     private CompletableFuture<?> loadSnapshotMvData(ClusterNode snapshotSender, Executor executor) {
         if (!busyLock.enterBusy()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try {
@@ -316,7 +316,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     // Let's write all versions for the row ID.
                     for (int i = 0; i < entry.rowVersions().size(); i++) {
                         if (!busyLock.enterBusy()) {
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }
 
                         try {
@@ -334,7 +334,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             snapshotMvDataResponse.rows().size()
                     );
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 } else {
                     LOG.info(
                             "Copier has loaded a portion of multi-versioned data [{}, rows={}]",
@@ -356,7 +356,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
         if (!busyLock.enterBusy()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try {
@@ -374,7 +374,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                 for (int i = 0; i < snapshotTxDataResponse.txMeta().size(); i++) {
                     if (!busyLock.enterBusy()) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     try {
@@ -394,7 +394,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             snapshotTxDataResponse.txMeta().size()
                     );
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 } else {
                     LOG.info(
                             "Copier has loaded a portion of transaction meta [{}, metas={}]",

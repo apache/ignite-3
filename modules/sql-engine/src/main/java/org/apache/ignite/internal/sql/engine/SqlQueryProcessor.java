@@ -17,39 +17,67 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext.NOOP_TX_WRAPPER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -69,6 +97,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -80,6 +109,9 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
@@ -90,24 +122,26 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.AsyncWrapper;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- *  SqlQueryProcessor.
- *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor {
-    /** Size of the cache for query plans. */
-    private static final int PLAN_CACHE_SIZE = 1024;
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
 
@@ -127,9 +161,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
 
+    private static final long EXECUTION_SERVICE_SHUTDOWN_TIMEOUT = 60_000;
+
     private final ParserService parserService = new ParserServiceImpl(
             PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
     );
+
+    private static final ResultSetMetadata EMPTY_RESULT_SET_METADATA =
+            new ResultSetMetadataImpl(Collections.emptyList());
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
@@ -171,7 +210,16 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Metric manager. */
     private final MetricManager metricManager;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
+
+    /** Cluster SQL configuration. */
+    private final SqlDistributedConfiguration clusterCfg;
+
+    /** Node SQL configuration. */
+    private final SqlLocalConfiguration nodeCfg;
 
     /** Constructor. */
     public SqlQueryProcessor(
@@ -187,7 +235,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             SchemaSyncService schemaSyncService,
             CatalogManager catalogManager,
             MetricManager metricManager,
-            SystemViewManager systemViewManager
+            SystemViewManager systemViewManager,
+            PlacementDriver placementDriver,
+            SqlDistributedConfiguration clusterCfg,
+            SqlLocalConfiguration nodeCfg
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -201,6 +252,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
+        this.placementDriver = placementDriver;
+        this.clusterCfg = clusterCfg;
+        this.nodeCfg = nodeCfg;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -211,10 +265,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void start() {
+    public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value()));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
@@ -222,11 +276,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
-                PLAN_CACHE_SIZE,
                 CACHE_FACTORY,
                 dataStorageManager,
                 dataStorageFieldsSupplier.get(),
-                metricManager
+                metricManager,
+                clusterCfg,
+                nodeCfg
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
@@ -257,15 +312,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         var executionTargetProvider = new ExecutionTargetProvider() {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-                return tableManager.tableAsync(table.id())
-                        .thenCompose(tbl -> tbl.internalTable().primaryReplicas())
-                        .thenApply(replicas -> {
-                            List<NodeWithTerm> assignments = replicas.stream()
-                                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
-                                    .collect(Collectors.toList());
-
-                            return factory.partitioned(assignments);
-                        });
+                return primaryReplicas(table.id())
+                        .thenApply(replicas -> factory.partitioned(replicas));
             }
 
             @Override
@@ -279,7 +327,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     );
                 }
 
-                return CompletableFuture.completedFuture(
+                return completedFuture(
                         view.distribution() == IgniteDistributions.single()
                                 ? factory.oneOf(nodes)
                                 : factory.allOf(nodes)
@@ -288,10 +336,15 @@ public class SqlQueryProcessor implements QueryProcessor {
         };
 
         var mappingService = new MappingServiceImpl(
-                nodeName, executionTargetProvider, CACHE_FACTORY, PLAN_CACHE_SIZE, taskExecutor
+                nodeName,
+                executionTargetProvider,
+                CACHE_FACTORY,
+                clusterCfg.planner().estimatedNumberOfQueries().value(),
+                taskExecutor
         );
 
         logicalTopologyService.addEventListener(mappingService);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, ignore) -> mappingService.onPrimaryReplicaExpired(evt));
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -303,7 +356,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
-                dependencyResolver
+                dependencyResolver,
+                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
@@ -312,6 +366,61 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.executionSrvc = executionSrvc;
 
         services.forEach(LifecycleAware::start);
+
+        return nullCompletedFuture();
+    }
+
+    // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
+    /** Get primary replicas. */
+    private CompletableFuture<List<NodeWithTerm>> primaryReplicas(int tableId) {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+
+        CatalogTableDescriptor tblDesc = Objects.requireNonNull(catalog.table(tableId), "table");
+
+        CatalogZoneDescriptor zoneDesc = Objects.requireNonNull(catalog.zone(tblDesc.zoneId()), "zone");
+
+        int partitions = zoneDesc.partitions();
+
+        List<CompletableFuture<NodeWithTerm>> result = new ArrayList<>(partitions);
+
+        HybridTimestamp clockNow = clock.now();
+
+        // no need to wait all partitions after pruning was implemented.
+        for (int partId = 0; partId < partitions; ++partId) {
+            int partitionId = partId;
+            ReplicationGroupId partGroupId = new TablePartitionId(tableId, partitionId);
+
+            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
+                    partGroupId,
+                    clockNow,
+                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                    SECONDS
+            );
+
+            result.add(f.handle((primaryReplica, e) -> {
+                if (e != null) {
+                    LOG.debug("Failed to retrieve primary replica for partition {}", e, partitionId);
+
+                    throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
+                            + " [tablePartitionId=" + partGroupId + ']', e);
+                } else {
+                    String holder = primaryReplica.getLeaseholder();
+
+                    assert holder != null : "Unable to map query, nothing holds the lease";
+
+                    return new NodeWithTerm(holder, primaryReplica.getStartTime().longValue());
+                }
+            }));
+        }
+
+        CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
+
+        return all.thenApply(v -> result.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList())
+        );
     }
 
     /** {@inheritDoc} */
@@ -334,9 +443,25 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
-    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+    public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
+            @Nullable InternalTransaction transaction,
+            String qry, Object... params) {
+
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            return prepareSingleAsync0(properties, transaction, qry, params);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -348,7 +473,27 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(properties, transactions, transaction, qry, params);
+            return querySingle0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
+            SqlProperties properties,
+            IgniteTransactions transactions,
+            @Nullable InternalTransaction transaction,
+            String qry,
+            Object... params
+    ) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            return queryScript0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -360,10 +505,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         return service;
     }
 
-    @WithSpan
-    private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
+    private CompletableFuture<QueryMetadata> prepareSingleAsync0(
             SqlProperties properties,
-            IgniteTransactions transactions,
             @Nullable InternalTransaction explicitTransaction,
             String sql,
             Object... params
@@ -373,30 +516,18 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>();
+        CompletableFuture<QueryMetadata> start = new CompletableFuture<>();
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(ignored -> {
+        CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
-            validateParsedStatement(properties0, result, params, explicitTransaction);
+            validateParsedStatement(properties0, result);
+            validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
-            QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, explicitTransaction);
+            HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clock.now();
 
-            return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
-                    .thenCompose(schema -> {
-                        BaseQueryContext ctx = BaseQueryContext.builder()
-                                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
-                                .queryId(UUID.randomUUID())
-                                .cancel(queryCancel)
-                                .parameters(params)
-                                .build();
-
-                        return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(txWrapper, ctx, plan));
-                    }).whenComplete((res, ex) -> {
-                        if (ex != null) {
-                            txWrapper.rollback();
-                        }
-                    });
+            return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
+                    .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
@@ -409,6 +540,116 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
+    }
+
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle0(
+            SqlProperties properties,
+            QueryTransactionContext txCtx,
+            String sql,
+            Object... params
+    ) {
+        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
+        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
+
+        QueryCancel queryCancel = new QueryCancel();
+
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> start = new CompletableFuture<>();
+
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> stage = start.thenCompose(ignored -> {
+            ParsedResult result = parserService.parse(sql);
+
+            validateParsedStatement(properties0, result);
+            validateDynamicParameters(result.dynamicParamsCount(), params, true);
+
+            QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
+
+            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, params, null);
+        });
+
+        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
+        stage.whenComplete((cur, ex) -> {
+            if (ex instanceof CancellationException) {
+                queryCancel.cancel();
+            }
+        });
+
+        start.completeAsync(() -> null, taskExecutor);
+
+        return stage;
+    }
+
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript0(
+            SqlProperties properties,
+            QueryTransactionContext txCtx,
+            String sql,
+            Object... params
+    ) {
+        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
+        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
+
+        CompletableFuture<?> start = new CompletableFuture<>();
+
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> parseFut = start
+                .thenApply(ignored -> parserService.parseScript(sql))
+                .thenCompose(parsedResults -> {
+                    MultiStatementHandler handler = new MultiStatementHandler(
+                            schemaName, txCtx, parsedResults, params);
+
+                    return handler.processNext();
+                });
+
+        start.completeAsync(() -> null, taskExecutor);
+
+        return parseFut;
+    }
+
+    private CompletableFuture<QueryPlan> prepareParsedStatement(String schemaName,
+            ParsedResult parsedResult,
+            HybridTimestamp timestamp,
+            QueryCancel queryCancel,
+            Object[] params) {
+
+        return waitForActualSchema(schemaName, timestamp)
+                .thenCompose(schema -> {
+                    BaseQueryContext ctx = BaseQueryContext.builder()
+                            .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
+                            .queryId(UUID.randomUUID())
+                            .cancel(queryCancel)
+                            .parameters(params)
+                            .build();
+
+                    return prepareSvc.prepareAsync(parsedResult, ctx);
+                });
+    }
+
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeParsedStatement(
+            String schemaName,
+            ParsedResult parsedResult,
+            QueryTransactionWrapper txWrapper,
+            QueryCancel queryCancel,
+            Object[] params,
+            @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement
+    ) {
+        return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
+                .thenCompose(schema -> {
+                    PrefetchCallback callback = new PrefetchCallback();
+
+                    BaseQueryContext ctx = BaseQueryContext.builder()
+                            .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
+                            .queryId(UUID.randomUUID())
+                            .cancel(queryCancel)
+                            .prefetchCallback(callback)
+                            .parameters(params)
+                            .build();
+
+                    return prepareSvc.prepareAsync(parsedResult, ctx)
+                            .thenCompose(plan -> executePlan(txWrapper, ctx, callback, plan, nextStatement));
+                })
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        txWrapper.rollback(ex);
+                    }
+                });
     }
 
     private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, HybridTimestamp timestamp) {
@@ -427,61 +668,58 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    private AsyncSqlCursor<List<Object>> executePlan(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executePlan(
             QueryTransactionWrapper txWrapper,
             BaseQueryContext ctx,
-            QueryPlan plan
+            PrefetchCallback callback,
+            QueryPlan plan,
+            @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement
     ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
+            AsyncCursor<InternalSqlRow> dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
             SqlQueryType queryType = plan.type();
             UUID queryId = ctx.queryId();
 
-            AsyncSqlCursor<List<Object>> cursor = new AsyncSqlCursorImpl<>(
+            AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
                     queryType,
                     plan.metadata(),
                     txWrapper,
                     dataCursor,
-                    () -> openedCursors.remove(queryId)
+                    callback.prefetchFuture(),
+                    nextStatement
             );
+
+            cursor.onClose().whenComplete((r, e) -> openedCursors.remove(queryId));
 
             Object old = openedCursors.put(queryId, cursor);
 
             assert old == null;
 
-            return cursor;
+            if (queryType == SqlQueryType.QUERY) {
+                // preserve lazy execution for statements that only reads
+                return completedFuture(cursor);
+            }
+
+            // for other types let's wait for the first page to make sure premature
+            // close of the cursor won't cancel an entire operation
+            return cursor.onFirstPageReady()
+                    .handle((none, executionError) -> {
+                        if (executionError != null) {
+                            return cursor.handleError(executionError)
+                                    .<AsyncSqlCursor<InternalSqlRow>>thenApply(none2 -> cursor);
+                        }
+
+                        return CompletableFuture.<AsyncSqlCursor<InternalSqlRow>>completedFuture(cursor);
+                    })
+                    .thenCompose(Function.identity());
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * Creates a new transaction wrapper using an existing outer transaction or starting a new "implicit" transaction.
-     *
-     * @param queryType Query type.
-     * @param transactions Transactions facade.
-     * @param outerTx Outer transaction.
-     * @return Wrapper for an active transaction.
-     * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
-     */
-    static QueryTransactionWrapper wrapTxOrStartImplicit(
-            SqlQueryType queryType,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction outerTx
-    ) {
-        if (outerTx == null) {
-            InternalTransaction tx = (InternalTransaction) transactions.begin(
-                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
-
-            return new QueryTransactionWrapper(tx, true);
-        }
-
-        return new QueryTransactionWrapper(outerTx, false);
     }
 
     @TestOnly
@@ -492,22 +730,10 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
             SqlProperties properties,
-            ParsedResult parsedResult,
-            Object[] params,
-            @Nullable InternalTransaction outerTx
+            ParsedResult parsedResult
     ) {
         Set<SqlQueryType> allowedTypes = properties.get(QueryProperty.ALLOWED_QUERY_TYPES);
         SqlQueryType queryType = parsedResult.queryType();
-
-        if (outerTx != null) {
-            if (SqlQueryType.DDL == queryType) {
-                throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
-            }
-
-            if (SqlQueryType.DML == queryType && outerTx.isReadOnly()) {
-                throw new SqlException(STMT_VALIDATION_ERR, "DML query cannot be started by using read only transactions.");
-            }
-        }
 
         if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
             String message = "Transaction control statement can not be executed as an independent statement";
@@ -520,11 +746,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }
+    }
 
-        if (parsedResult.dynamicParamsCount() != params.length) {
+    private static void validateDynamicParameters(int expectedParamsCount, Object[] params, boolean exactMatch) throws SqlException {
+        if (exactMatch && expectedParamsCount != params.length || params.length > expectedParamsCount) {
             String message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    params.length, parsedResult.dynamicParamsCount()
+                    params.length, expectedParamsCount
             );
 
             throw new SqlException(STMT_VALIDATION_ERR, message);
@@ -537,6 +765,269 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 throw new SqlException(STMT_VALIDATION_ERR, message);
             }
+        }
+    }
+
+    /** Returns count of opened cursors. */
+    @TestOnly
+    public int openedCursors() {
+        return openedCursors.size();
+    }
+
+    private class MultiStatementHandler {
+        private final String schemaName;
+        private final Queue<ScriptStatement> statements;
+        private final ScriptTransactionContext txCtx;
+
+        /**
+         * Collection is used to track SELECT statements to postpone following DML operation.
+         *
+         * <p>We have no isolation within the same transaction. This implies, that any changes to the data
+         * will be seen during next read. Considering lazy execution of read operations, DML started after
+         * SELECT operation may, in fact, outrun actual read. To address this problem, let's collect all
+         * SELECT cursor in this collection and postpone following DML until at least first page is ready
+         * for every collected so far cursor.
+         */
+        private final Queue<CompletableFuture<Void>> inFlightSelects = new ConcurrentLinkedQueue<>();
+
+        MultiStatementHandler(
+                String schemaName,
+                QueryTransactionContext txCtx,
+                List<ParsedResult> parsedResults,
+                Object[] params
+        ) {
+            this.schemaName = schemaName;
+            this.statements = prepareStatementsQueue(parsedResults, params);
+            this.txCtx = new ScriptTransactionContext(txCtx);
+        }
+
+        /**
+         * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
+         */
+        private Queue<ScriptStatement> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
+            assert !parsedResults.isEmpty();
+
+            int paramsCount = parsedResults.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
+
+            validateDynamicParameters(paramsCount, params, true);
+
+            ScriptStatement[] results = new ScriptStatement[parsedResults.size()];
+
+            // We fill parameters in reverse order, because each script statement
+            // requires a reference to the future of the next statement.
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> prevCursorFuture = null;
+            for (int i = parsedResults.size() - 1; i >= 0; i--) {
+                ParsedResult result = parsedResults.get(i);
+
+                Object[] params0 = Arrays.copyOfRange(params, paramsCount - result.dynamicParamsCount(), paramsCount);
+                paramsCount -= result.dynamicParamsCount();
+
+                results[i] = new ScriptStatement(result, params0, prevCursorFuture);
+                prevCursorFuture = results[i].cursorFuture;
+            }
+
+            return new ArrayBlockingQueue<>(results.length, false, List.of(results));
+        }
+
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> processNext() {
+            ScriptStatement scriptStatement = statements.poll();
+
+            assert scriptStatement != null;
+
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = scriptStatement.cursorFuture;
+
+            try {
+                // future may be already completed by concurrent cancel of all statements due to error
+                // during script execution
+                if (cursorFuture.isDone()) {
+                    return cursorFuture;
+                }
+
+                ParsedResult parsedResult = scriptStatement.parsedResult;
+                Object[] params = scriptStatement.dynamicParams;
+                CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCurFut = scriptStatement.nextStatementFuture;
+
+                CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut;
+
+                QueryTransactionWrapper txWrapper;
+                if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+                    // start of a new transaction is possible only while there is no
+                    // other explicit transaction; commit of a transaction will wait
+                    // for related cursor to be closed. In other words, we have no
+                    // interest in in-flight selects anymore, so lets just clean this
+                    // collection
+                    if (!inFlightSelects.isEmpty()) {
+                        inFlightSelects.clear();
+                    }
+
+                    // Return an empty cursor.
+                    fut = txCtx.handleControlStatement(parsedResult.parsedTree())
+                            .thenApply(ignored -> new AsyncSqlCursorImpl<>(parsedResult.queryType(),
+                                    EMPTY_RESULT_SET_METADATA,
+                                    NOOP_TX_WRAPPER,
+                                    new AsyncWrapper<>(Collections.emptyIterator()),
+                                    nullCompletedFuture(),
+                                    nextCurFut
+                            ));
+
+                    txWrapper = null;
+                } else {
+                    txWrapper = txCtx.getOrStartImplicit(parsedResult.queryType());
+
+                    txCtx.registerCursorFuture(parsedResult.queryType(), cursorFuture);
+
+                    fut = executeParsedStatement(schemaName, parsedResult, txWrapper, new QueryCancel(), params, nextCurFut);
+                }
+
+                fut.whenComplete((cursor, ex) -> {
+                    if (ex != null) {
+                        cancelAll(ex);
+
+                        return;
+                    }
+
+                    if (scriptStatement.isLastStatement()) {
+                        // Try to rollback script managed transaction, if any.
+                        txCtx.rollbackUncommitted();
+                    } else {
+                        CompletableFuture<Void> triggerFuture;
+                        ScriptStatement nextStatement = statements.peek();
+
+                        if (txWrapper == null) {
+                            // tx is started already, no need to wait
+                            triggerFuture = nullCompletedFuture();
+                        } else if (txWrapper.implicit()) {
+                            if (cursor.queryType() != SqlQueryType.QUERY) {
+                                CompletableFuture<Void> prefetchFuture = cursor.onFirstPageReady();
+
+                                // for non query statements cursor should not be resolved until the very first page is ready.
+                                // if prefetch was completed exceptionally, then cursor future is expected to be completed
+                                // exceptionally as well, resulting in the early return in the very beginning of the `whenComplete`
+                                assert prefetchFuture.isDone() && !prefetchFuture.isCompletedExceptionally()
+                                        : "prefetch future is expected to be completed successfully, but was "
+                                        + (prefetchFuture.isDone() ? "completed exceptionally" : "not completed");
+
+                                // any query apart from type of QUERY returns at most a single row, so
+                                // it should be safe to commit transaction prematurely after receiving
+                                // `firstPageReady` signal, since all sources have been processed
+                                triggerFuture = txWrapper.commitImplicit();
+                            } else {
+                                // for statements type of QUERY, an implicit transaction is expected to be RO,
+                                // and this optimization is possible only with RO transactions, since essentially
+                                // it's just a timestamp which is used to get consistent snapshot of data. No
+                                // concurrent modifications will affect this snapshot, thus no need to wait for
+                                // the first page
+                                assert txWrapper.unwrap().isReadOnly() : "expected RO transaction";
+
+                                triggerFuture = nullCompletedFuture();
+                            }
+                        } else {
+                            if (cursor.queryType() == SqlQueryType.QUERY) {
+                                inFlightSelects.add(CompletableFuture.anyOf(
+                                        cursor.onClose(), cursor.onFirstPageReady()
+                                ).handle((r, e) -> null));
+
+                                if (nextStatement != null && nextStatement.parsedResult.queryType() == SqlQueryType.DML) {
+                                    // we need to postpone DML until first page will be ready for every SELECT operation
+                                    // prior to that DML
+                                    triggerFuture = CompletableFuture.allOf(inFlightSelects.toArray(CompletableFuture[]::new));
+
+                                    inFlightSelects.clear();
+                                } else {
+                                    triggerFuture = nullCompletedFuture();
+                                }
+                            } else {
+                                CompletableFuture<Void> prefetchFuture = cursor.onFirstPageReady();
+
+                                // for non query statements cursor should not be resolved until the very first page is ready.
+                                // if prefetch was completed exceptionally, then cursor future is expected to be completed
+                                // exceptionally as well, resulting in the early return in the very beginning of the `whenComplete`
+                                assert prefetchFuture.isDone() && !prefetchFuture.isCompletedExceptionally()
+                                        : "prefetch future is expected to be completed successfully, but was "
+                                        + (prefetchFuture.isDone() ? "completed exceptionally" : "not completed");
+
+                                triggerFuture = nullCompletedFuture();
+                            }
+                        }
+
+                        triggerFuture.thenRunAsync(this::processNext, taskExecutor)
+                                .exceptionally(e -> {
+                                    cancelAll(e);
+
+                                    return null;
+                                });
+                    }
+                }).whenCompleteAsync((cursor, ex) -> {
+                    if (ex != null) {
+                        cursorFuture.completeExceptionally(ex);
+                    } else {
+                        cursorFuture.complete(cursor);
+                    }
+                }, taskExecutor);
+            } catch (Throwable e) {
+                txCtx.onError(e);
+
+                cursorFuture.completeExceptionally(e);
+
+                cancelAll(e);
+            }
+
+            return cursorFuture;
+        }
+
+        private void cancelAll(Throwable cause) {
+            for (ScriptStatement scriptStatement : statements) {
+                CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut = scriptStatement.cursorFuture;
+
+                if (fut.isDone()) {
+                    continue;
+                }
+
+                fut.completeExceptionally(new SqlException(
+                        EXECUTION_CANCELLED_ERR,
+                        "The script execution was canceled due to an error in the previous statement.",
+                        cause
+                ));
+            }
+        }
+
+        private class ScriptStatement {
+            private final CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = new CompletableFuture<>();
+            private final CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatementFuture;
+            private final ParsedResult parsedResult;
+            private final Object[] dynamicParams;
+
+            private ScriptStatement(
+                    ParsedResult parsedResult,
+                    Object[] dynamicParams,
+                    @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatementFuture
+            ) {
+                this.parsedResult = parsedResult;
+                this.dynamicParams = dynamicParams;
+                this.nextStatementFuture = nextStatementFuture;
+            }
+
+            boolean isLastStatement() {
+                return nextStatementFuture == null;
+            }
+        }
+    }
+
+    /** Completes the provided future when the callback is called. */
+    private static class PrefetchCallback implements QueryPrefetchCallback {
+        private final CompletableFuture<Void> prefetchFuture = new CompletableFuture<>();
+
+        @Override
+        public void onPrefetchComplete(@Nullable Throwable ex) {
+            if (ex == null) {
+                prefetchFuture.complete(null);
+            } else {
+                prefetchFuture.completeExceptionally(mapToPublicSqlException(ExceptionUtils.unwrapCause(ex)));
+            }
+        }
+
+        CompletableFuture<Void> prefetchFuture() {
+            return prefetchFuture;
         }
     }
 }

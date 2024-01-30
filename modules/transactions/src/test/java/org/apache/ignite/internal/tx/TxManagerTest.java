@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.tx;
 
-
 import static java.lang.Math.abs;
-import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.replicator.ReplicaManager.idleSafeTimePropagationPeriodMs;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,28 +40,45 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -72,53 +91,61 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.Mock.Strictness;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.verification.VerificationMode;
 
 /**
  * Basic tests for a transaction manager.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class TxManagerTest extends IgniteAbstractTest {
     private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("local_id", "local", new NetworkAddress("127.0.0.1", 2004), null);
 
-    /** Timestamp tracker. */
     private HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
+
+    private final LongSupplier idleSafeTimePropagationPeriodMsSupplier = () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 
     private TxManager txManager;
 
-    @Mock
+    @Mock(answer = RETURNS_DEEP_STUBS)
     private ClusterService clusterService;
 
-    @Mock
+    @Mock(answer = RETURNS_DEEP_STUBS)
     private ReplicaService replicaService;
 
     private final HybridClock clock = spy(new HybridClockImpl());
 
-    @Mock
+    @Mock(strictness = Strictness.LENIENT)
     private PlacementDriver placementDriver;
 
-    /** Init test callback. */
+    @InjectConfiguration
+    private TransactionConfiguration txConfiguration;
+
+    private final LocalRwTxCounter localRwTxCounter = spy(new TestLocalRwTxCounter());
+
     @BeforeEach
     public void setup() {
-        clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
 
-        when(clusterService.topologyService().localMember().address()).thenReturn(LOCAL_NODE.address());
+        when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(nullCompletedFuture());
 
-        replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
-
-        when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-        when(replicaService.invoke(anyString(), any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(replicaService.invoke(anyString(), any())).thenReturn(nullCompletedFuture());
 
         txManager = new TxManagerImpl(
+                txConfiguration,
+                clusterService,
                 replicaService,
                 new HeapLockManager(),
                 clock,
                 new TransactionIdGenerator(0xdeadbeef),
-                LOCAL_NODE::id,
-                placementDriver
+                placementDriver,
+                idleSafeTimePropagationPeriodMsSupplier,
+                localRwTxCounter
         );
 
         txManager.start();
@@ -135,14 +162,17 @@ public class TxManagerTest extends IgniteAbstractTest {
         InternalTransaction tx0 = txManager.begin(hybridTimestampTracker);
         InternalTransaction tx1 = txManager.begin(hybridTimestampTracker);
         InternalTransaction tx2 = txManager.begin(hybridTimestampTracker, true);
+        InternalTransaction tx3 = txManager.begin(hybridTimestampTracker, true, TxPriority.NORMAL);
 
         assertNotNull(tx0.id());
         assertNotNull(tx1.id());
         assertNotNull(tx2.id());
+        assertNotNull(tx3.id());
 
         assertFalse(tx0.isReadOnly());
         assertFalse(tx1.isReadOnly());
         assertTrue(tx2.isReadOnly());
+        assertTrue(tx3.isReadOnly());
     }
 
     @Test
@@ -220,6 +250,119 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
     }
 
+    @Test
+    public void testRepeatedCommitRollbackAfterCommit() throws Exception {
+        ReplicaMeta meta = mock(ReplicaMeta.class);
+        when(meta.getStartTime()).thenReturn(hybridTimestamp(1));
+
+        when(placementDriver.currentLease(any())).thenReturn(meta);
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+
+        HybridTimestamp commitTimestamp = clock.now();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
+
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker);
+
+        ClusterNode node = mock(ClusterNode.class);
+
+        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.assignCommitPartition(tablePartitionId1);
+
+        tx.commit();
+
+        tx.commitAsync().get(3, TimeUnit.SECONDS);
+        tx.rollbackAsync().get(3, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testRepeatedCommitRollbackAfterRollback() throws Exception {
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
+
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker);
+
+        ClusterNode node = mock(ClusterNode.class);
+
+        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.assignCommitPartition(tablePartitionId1);
+
+        tx.rollback();
+
+        tx.commitAsync().get(3, TimeUnit.SECONDS);
+        tx.rollbackAsync().get(3, TimeUnit.SECONDS);
+    }
+
+    @Test
+    void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(failedFuture(
+                        new MismatchingTransactionOutcomeException(
+                                "Test exception",
+                                new TransactionResult(TxState.ABORTED, null
+                                )
+                        )));
+
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker);
+
+        ClusterNode node = mock(ClusterNode.class);
+
+        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.assignCommitPartition(tablePartitionId1);
+
+        TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
+
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, ExceptionUtils.unwrapCause(transactionException.getCause()));
+
+        tx.commitAsync().get(3, TimeUnit.SECONDS);
+        tx.rollbackAsync().get(3, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(failedFuture(
+                        new MismatchingTransactionOutcomeException(
+                                "Test exception",
+                                new TransactionResult(TxState.ABORTED, null
+                                )
+                        )));
+
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker);
+
+        ClusterNode node = mock(ClusterNode.class);
+
+        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.assignCommitPartition(tablePartitionId1);
+
+        TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
+
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, ExceptionUtils.unwrapCause(transactionException.getCause()));
+
+        tx.commitAsync().get(3, TimeUnit.SECONDS);
+        tx.rollbackAsync().get(3, TimeUnit.SECONDS);
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testTestOnlyPendingCommit(boolean startReadOnlyTransaction) {
@@ -276,11 +419,10 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "1000")
     public void testObservableTimestamp() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
-        assertTrue(idleSafeTimePropagationPeriodMs() + CLOCK_SKEW > compareThreshold * 5);
+        assertTrue(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW > compareThreshold * 5);
 
         HybridTimestamp now = clock.now();
 
@@ -297,7 +439,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.commit();
 
         HybridTimestamp timestampInPast = new HybridTimestamp(
-                now.getPhysical() - idleSafeTimePropagationPeriodMs() * 2,
+                now.getPhysical() - idleSafeTimePropagationPeriodMsSupplier.getAsLong() * 2,
                 now.getLogical()
         );
 
@@ -307,7 +449,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx = txManager.begin(hybridTimestampTracker, true);
 
-        long readTime = now.getPhysical() - idleSafeTimePropagationPeriodMs() - CLOCK_SKEW;
+        long readTime = now.getPhysical() - idleSafeTimePropagationPeriodMsSupplier.getAsLong() - CLOCK_SKEW;
 
         assertThat(abs(readTime - tx.readTimestamp().getPhysical()), Matchers.lessThan(compareThreshold));
 
@@ -315,11 +457,10 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "1000")
     public void testObservableTimestampLocally() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
-        assertTrue(idleSafeTimePropagationPeriodMs() + CLOCK_SKEW > compareThreshold * 5);
+        assertTrue(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW > compareThreshold * 5);
 
         HybridTimestamp now = clock.now();
 
@@ -330,7 +471,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(firstReadTs.compareTo(now) < 0);
 
         assertTrue(now.getPhysical() - firstReadTs.getPhysical() < compareThreshold
-                + idleSafeTimePropagationPeriodMs() + CLOCK_SKEW);
+                + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW);
         tx.commit();
 
         tx = txManager.begin(hybridTimestampTracker, true);
@@ -338,22 +479,73 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(firstReadTs.compareTo(tx.readTimestamp()) <= 0);
 
         assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold
-                + idleSafeTimePropagationPeriodMs() + CLOCK_SKEW);
+                + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW);
         tx.commit();
     }
 
     @Test
     public void testFinishSamePrimary() {
         // Same primary that was enlisted is returned during finish phase and commitTimestamp is less that primary.expirationTimestamp.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(CompletableFuture.completedFuture(
+        when(placementDriver.currentLease(any())).thenReturn(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
+        HybridTimestamp commitTimestamp = clock.now();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
         // Ensure that commit doesn't throw exceptions.
         InternalTransaction committedTransaction = prepareTransaction();
         committedTransaction.commit();
-        assertEquals(TxState.COMMITED, txManager.stateMeta(committedTransaction.id()).txState());
+        assertEquals(TxState.COMMITTED, txManager.stateMeta(committedTransaction.id()).txState());
+
+        // Ensure that rollback doesn't throw exceptions.
+        assertRollbackSucceeds();
+    }
+
+    @Test
+    public void testPrimaryMissOnFirstCall() {
+        // First call to the commit partition primary fails with PrimaryReplicaMissException,
+        // then we retry and the second call succeeds.
+        when(placementDriver.getPrimaryReplica(any(), any()))
+                .thenReturn(
+                        completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10)))
+                );
+        when(placementDriver.currentLease(any()))
+                .thenReturn(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10)));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any()))
+                .thenReturn(
+                        completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))),
+                        completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(12), HybridTimestamp.MAX_VALUE))
+                );
+
+        HybridTimestamp commitTimestamp = hybridTimestamp(9);
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(
+                        failedFuture(new PrimaryReplicaMissException(
+                                LOCAL_NODE.name(),
+                                null,
+                                LOCAL_NODE.id(),
+                                null,
+                                10L,
+                                null,
+                                null
+                        )),
+                        completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp))
+                );
+
+        when(clock.now()).thenReturn(hybridTimestamp(5));
+        // Ensure that commit doesn't throw exceptions.
+        InternalTransaction committedTransaction = prepareTransaction();
+
+        when(clock.now()).thenReturn(commitTimestamp, hybridTimestamp(13));
+
+        committedTransaction.commit();
+        assertEquals(TxState.COMMITTED, txManager.stateMeta(committedTransaction.id()).txState());
+        assertEquals(hybridTimestamp(9), txManager.stateMeta(committedTransaction.id()).commitTimestamp());
 
         // Ensure that rollback doesn't throw exceptions.
         assertRollbackSucceeds();
@@ -362,12 +554,77 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testFinishExpiredWithNullPrimary() {
         // Null is returned as primaryReplica during finish phase.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(CompletableFuture.completedFuture(
+        when(placementDriver.currentLease(any())).thenReturn(null);
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
 
         assertCommitThrowsTransactionExceptionWithPrimaryReplicaExpiredExceptionAsCause();
 
+        assertRollbackSucceeds();
+    }
+
+    @Test
+    public void testExpiredExceptionDoesNotShadeResponseExceptions() {
+        // Null is returned as primaryReplica during finish phase.
+        when(placementDriver.currentLease(any())).thenReturn(null);
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(failedFuture(new MismatchingTransactionOutcomeException(
+                        "TX already finished.",
+                        new TransactionResult(TxState.ABORTED, null)
+                )));
+
+        InternalTransaction committedTransaction = prepareTransaction();
+
+        assertThrowsWithCause(committedTransaction::commit, MismatchingTransactionOutcomeException.class);
+
+        assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());
+
+        assertRollbackSucceeds();
+    }
+
+    @Test
+    public void testOnlyPrimaryExpirationAffectsTransaction() {
+        // Prepare transaction.
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker);
+
+        ClusterNode node = mock(ClusterNode.class);
+
+        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.assignCommitPartition(tablePartitionId1);
+
+        TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
+        tx.enlist(tablePartitionId2, new IgniteBiTuple<>(node, 1L));
+
+        when(placementDriver.getPrimaryReplica(eq(tablePartitionId1), any()))
+                .thenReturn(completedFuture(
+                        new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+        when(placementDriver.currentLease(eq(tablePartitionId1)))
+                .thenReturn(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE));
+        when(placementDriver.awaitPrimaryReplica(eq(tablePartitionId1), any(), anyLong(), any()))
+                .thenReturn(completedFuture(
+                        new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+
+        lenient().when(placementDriver.getPrimaryReplica(eq(tablePartitionId2), any()))
+                .thenReturn(nullCompletedFuture());
+        lenient().when(placementDriver.awaitPrimaryReplica(eq(tablePartitionId2), any(), anyLong(), any()))
+                .thenReturn(completedFuture(
+                        new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
+
+        HybridTimestamp commitTimestamp = clock.now();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
+
+        // Ensure that commit doesn't throw exceptions.
+        InternalTransaction committedTransaction = prepareTransaction();
+        committedTransaction.commit();
+        assertEquals(TxState.COMMITTED, txManager.stateMeta(committedTransaction.id()).txState());
+
+        // Ensure that rollback doesn't throw exceptions.
         assertRollbackSucceeds();
     }
 
@@ -376,10 +633,13 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Primary with expirationTimestamp less than commitTimestamp is returned.
         // It's impossible from the point of view of getPrimaryReplica to return expired lease,
         // given test checks that an assertion exception will be thrown and wrapped with proper transaction public one.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(CompletableFuture.completedFuture(
+        when(placementDriver.currentLease(any())).thenReturn(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10)));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
 
         InternalTransaction committedTransaction = prepareTransaction();
         Throwable throwable = assertThrowsWithCause(committedTransaction::commit, AssertionError.class);
@@ -397,14 +657,81 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testFinishExpiredWithDifferentEnlistmentConsistencyToken() {
         // Primary with another enlistment consistency token is returned.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        when(placementDriver.currentLease(any())).thenReturn(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(2), HybridTimestamp.MAX_VALUE));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(2), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(CompletableFuture.completedFuture(
-                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(2), HybridTimestamp.MAX_VALUE)));
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
 
         assertCommitThrowsTransactionExceptionWithPrimaryReplicaExpiredExceptionAsCause();
 
         assertRollbackSucceeds();
+    }
+
+    @ParameterizedTest(name = "readOnly = {0}")
+    @ValueSource(booleans = {true, false})
+    void testIncrementLocalRwTxCounterOnBeginTransaction(boolean readOnly) {
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker, readOnly);
+
+        VerificationMode verificationMode = readOnly ? never() : times(1);
+
+        verify(localRwTxCounter, verificationMode).inUpdateRwTxCountLock(any());
+        verify(localRwTxCounter, verificationMode).incrementRwTxCount(eq(beginTs(tx)));
+    }
+
+    @ParameterizedTest(name = "readOnly = {0}, commit = {1}")
+    @MethodSource("txTypeAndWayCompleteTx")
+    void testDecrementLocalRwTxCounterOnCompleteTransaction(boolean readOnly, boolean commit) {
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker, readOnly);
+
+        clearInvocations(localRwTxCounter);
+
+        assertThat(commit ? tx.commitAsync() : tx.rollbackAsync(), willSucceedFast());
+
+        VerificationMode verificationMode = readOnly ? never() : times(1);
+
+        verify(localRwTxCounter, verificationMode).inUpdateRwTxCountLock(any());
+        verify(localRwTxCounter, verificationMode).decrementRwTxCount(eq(beginTs(tx)));
+    }
+
+    @ParameterizedTest(name = "commit = {0}")
+    @ValueSource(booleans = {true, false})
+    void testDecrementLocalRwTxCounterOnCompleteTransactionWithEnlistedPartitions(boolean commit) {
+        InternalTransaction rwTx = prepareTransaction();
+
+        clearInvocations(localRwTxCounter);
+
+        ReplicaMeta replicaMeta = new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<ReplicaMeta> primaryReplicaMetaFuture = completedFuture(replicaMeta);
+
+        when(placementDriver.currentLease(any())).thenReturn(replicaMeta);
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(primaryReplicaMetaFuture);
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(primaryReplicaMetaFuture);
+
+        var txResult = new TransactionResult(commit ? TxState.COMMITTED : TxState.ABORTED, clock.now());
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class))).thenReturn(completedFuture(txResult));
+
+        assertThat(commit ? rwTx.commitAsync() : rwTx.rollbackAsync(), willSucceedFast());
+
+        verify(localRwTxCounter).inUpdateRwTxCountLock(any());
+        verify(localRwTxCounter).decrementRwTxCount(eq(beginTs(rwTx)));
+    }
+
+    @Test
+    void testCreateBeginTsInsideInUpdateRwTxCount() {
+        doAnswer(invocation -> {
+            clearInvocations(clock);
+
+            Object result = invocation.callRealMethod();
+
+            verify(clock).now();
+
+            return result;
+        }).when(localRwTxCounter).inUpdateRwTxCountLock(any());
+
+        txManager.begin(hybridTimestampTracker, false);
     }
 
     private InternalTransaction prepareTransaction() {
@@ -432,8 +759,24 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     private void assertRollbackSucceeds() {
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
+
         InternalTransaction abortedTransaction = prepareTransaction();
         abortedTransaction.rollback();
         assertEquals(TxState.ABORTED, txManager.stateMeta(abortedTransaction.id()).txState());
+    }
+
+    private static Stream<Arguments> txTypeAndWayCompleteTx() {
+        return Stream.of(
+                Arguments.of(true, true),  // Read-only, commit.
+                Arguments.of(true, false), // Read-only, rollback.
+                Arguments.of(false, true), // Read-write, commit.
+                Arguments.of(false, false) // Read-write, rollback.
+        );
+    }
+
+    private static HybridTimestamp beginTs(InternalTransaction tx) {
+        return TransactionIds.beginTimestamp(tx.id());
     }
 }

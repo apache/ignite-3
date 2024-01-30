@@ -113,6 +113,12 @@ namespace Apache.Ignite.Internal.Proto
         SqlCursorClose = 52,
 
         /** Get partition assignment. */
-        PartitionAssignmentGet = 53
+        PartitionAssignmentGet = 53,
+
+        /** Execute SQL script. */
+        SqlExecScript = 56,
+
+        /** SQL parameter metadata. */
+        SqlParamMeta = 57
     }
 }

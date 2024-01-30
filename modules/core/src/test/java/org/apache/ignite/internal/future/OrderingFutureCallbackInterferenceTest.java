@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.future;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
@@ -42,14 +42,40 @@ class OrderingFutureCallbackInterferenceTest {
         });
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
         future.thenComposeToCompletable(x -> {
             throw cause;
         });
         future.thenComposeToCompletable(x -> {
             order.add(2);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
+        });
+
+        future.complete(1);
+
+        assertThat(order, contains(1, 2));
+    }
+
+    @Test
+    void composeDoesNotInterfereWithEachOther() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+
+        List<Integer> order = new CopyOnWriteArrayList<>();
+
+        future.thenCompose(x -> {
+            throw cause;
+        });
+        future.thenCompose(x -> {
+            order.add(1);
+            return OrderingFuture.completedFuture(null);
+        });
+        future.thenCompose(x -> {
+            throw cause;
+        });
+        future.thenCompose(x -> {
+            order.add(2);
+            return OrderingFuture.completedFuture(null);
         });
 
         future.complete(1);

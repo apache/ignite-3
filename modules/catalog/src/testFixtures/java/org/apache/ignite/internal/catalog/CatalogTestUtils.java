@@ -17,19 +17,26 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
@@ -38,14 +45,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
 
-/**
- * Utilities for working with the catalog in tests.
- */
+/** Utilities for working with the catalog in tests. */
 public class CatalogTestUtils {
     /**
      * Creates a test implementation of {@link CatalogManager}.
@@ -56,22 +59,14 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock) {
-        var vault = new VaultManager(new InMemoryVaultService());
-
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
-            public void start() {
-                vault.start();
-                metastore.start();
-                clockWaiter.start();
-
-                super.start();
-
-                assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+            public CompletableFuture<Void> start() {
+                return allOf(metastore.start(), clockWaiter.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
             }
 
             @Override
@@ -80,7 +75,6 @@ public class CatalogTestUtils {
 
                 clockWaiter.beforeNodeStop();
                 metastore.beforeNodeStop();
-                vault.beforeNodeStop();
             }
 
             @Override
@@ -89,7 +83,41 @@ public class CatalogTestUtils {
 
                 clockWaiter.stop();
                 metastore.stop();
-                vault.stop();
+            }
+        };
+    }
+
+    /**
+     * Creates a test implementation of {@link CatalogManager}.
+     *
+     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals it needs, may change in the future.
+     *
+     * @param nodeName Node name.
+     * @param clockWaiter Clock waiter.
+     */
+    public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter) {
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
+
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
+            @Override
+            public CompletableFuture<Void> start() {
+                return allOf(metastore.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
+            }
+
+            @Override
+            public void beforeNodeStop() {
+                super.beforeNodeStop();
+
+                clockWaiter.beforeNodeStop();
+                metastore.beforeNodeStop();
+            }
+
+            @Override
+            public void stop() throws Exception {
+                super.stop();
+
+                clockWaiter.stop();
+                metastore.stop();
             }
         };
     }
@@ -108,10 +136,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
-            public void start() {
-                clockWaiter.start();
-
-                super.start();
+            public CompletableFuture<Void> start() {
+                return allOf(clockWaiter.start(), super.start());
             }
 
             @Override
@@ -148,10 +174,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new TestUpdateLog(clock), clockWaiter) {
             @Override
-            public void start() {
-                clockWaiter.start();
-
-                super.start();
+            public CompletableFuture<Void> start() {
+                return allOf(clockWaiter.start(), super.start());
             }
 
             @Override
@@ -256,6 +280,14 @@ public class CatalogTestUtils {
         return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
     }
 
+    public static CreateZoneCommandBuilder createZoneBuilder(String zoneName) {
+        return CreateZoneCommand.builder().zoneName(zoneName);
+    }
+
+    public static AlterZoneCommandBuilder alterZoneBuilder(String zoneName) {
+        return AlterZoneCommand.builder().zoneName(zoneName);
+    }
+
     private static class TestUpdateLog implements UpdateLog {
         private final HybridClock clock;
 
@@ -270,7 +302,7 @@ public class CatalogTestUtils {
         @Override
         public synchronized CompletableFuture<Boolean> append(VersionedUpdate update) {
             if (update.version() - 1 != lastSeenVersion) {
-                return completedFuture(false);
+                return falseCompletedFuture();
             }
 
             lastSeenVersion = update.version();
@@ -284,18 +316,56 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public void start() throws IgniteInternalException {
+        public CompletableFuture<Void> start() throws IgniteInternalException {
             if (onUpdateHandler == null) {
                 throw new IgniteInternalException(
                         Common.INTERNAL_ERR,
                         "Handler must be registered prior to component start"
                 );
             }
+
+            return nullCompletedFuture();
         }
 
         @Override
         public void stop() throws Exception {
 
         }
+    }
+
+    /**
+     * Searches for a table by name in the requested version of the catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param catalogVersion Catalog version in which to find the table.
+     * @param tableName Table name.
+     */
+    public static CatalogTableDescriptor table(CatalogService catalogService, int catalogVersion, String tableName) {
+        CatalogTableDescriptor tableDescriptor = catalogService.tables(catalogVersion).stream()
+                .filter(table -> tableName.equals(table.name()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(tableDescriptor, "catalogVersion=" + catalogVersion + ", tableName=" + tableName);
+
+        return tableDescriptor;
+    }
+
+    /**
+     * Searches for an index by name in the requested version of the catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param catalogVersion Catalog version in which to find the index.
+     * @param indexName Index name.
+     */
+    public static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
+        CatalogIndexDescriptor indexDescriptor = catalogService.indexes(catalogVersion).stream()
+                .filter(index -> indexName.equals(index.name()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
+
+        return indexDescriptor;
     }
 }

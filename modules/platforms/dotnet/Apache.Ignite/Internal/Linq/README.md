@@ -93,7 +93,7 @@ string sql = query.ToQueryString();
 ```csharp
 var cfg = new IgniteClientConfiguration
 {
-    Logger = new ConsoleLogger { MinLevel = LogLevel.Debug },
+    Logger = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug)),
     ...
 };
 

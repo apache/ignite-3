@@ -98,7 +98,7 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
         try {
             // Check for an empty file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+                PartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
                 assertEquals(0, meta.lastAppliedIndex());
                 assertEquals(0, meta.lastAppliedTerm());
@@ -125,7 +125,7 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
             // Check not empty file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+                PartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
                 assertEquals(50, meta.lastAppliedIndex());
                 assertEquals(10, meta.lastAppliedTerm());
@@ -152,7 +152,7 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
                 deltaFilePageStoreIo.sync();
 
-                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+                PartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
                 assertEquals(100, meta.lastAppliedIndex());
                 assertEquals(10, meta.lastAppliedTerm());
@@ -174,7 +174,7 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
                 fileIo.writeFully(buffer.rewind(), filePageStore.headerSize());
 
-                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+                PartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
                 assertEquals(0, meta.lastAppliedIndex());
                 assertEquals(0, meta.lastAppliedTerm());
@@ -215,5 +215,19 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
         filePageStore.ensure();
 
         return filePageStore;
+    }
+
+    private static PartitionMeta readOrCreateMeta(
+            PartitionMetaManager manager,
+            GroupPartitionId partId,
+            FilePageStore filePageStore
+    ) throws Exception {
+        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+
+        try {
+            return manager.readOrCreateMeta(null, partId, filePageStore, buffer);
+        } finally {
+            freeBuffer(buffer);
+        }
     }
 }

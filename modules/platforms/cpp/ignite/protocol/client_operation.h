@@ -115,17 +115,12 @@ enum class client_operation {
 
     /** Close cursor. */
     SQL_CURSOR_CLOSE = 52,
-};
 
-/**
- * Message type.
- */
-enum class message_type {
-    /** response. */
-    RESPONSE = 0,
+    /** Execute SQL script. */
+    SQL_EXEC_SCRIPT = 56,
 
-    /** Notification. */
-    NOTIFICATION = 1,
+    /** SQL query metadata. */
+    SQL_QUERY_META = 57,
 };
 
 } // namespace ignite::protocol

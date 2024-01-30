@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -53,7 +55,6 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -77,7 +78,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public SchemaPlus schema(int schemaVersion) {
         return schemaCache.get(
@@ -88,7 +88,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public SchemaPlus schema(long timestamp) {
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
@@ -101,7 +100,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public CompletableFuture<Void> schemaReadyFuture(int version) {
         // SqlSchemaManager creates SQL schema lazily on-demand, thus waiting for Catalog version is enough.
         if (catalogManager.latestCatalogVersion() >= version) {
-            return Commons.completedFuture();
+            return nullCompletedFuture();
         }
 
         return catalogManager.catalogReadyFuture(version);
@@ -163,7 +162,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return rootSchema;
     }
 
-    @WithSpan
     private static IgniteSchema createSqlSchema(int catalogVersion, CatalogSchemaDescriptor schemaDescriptor) {
         String schemaName = schemaDescriptor.name();
 
@@ -181,6 +179,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         // Assemble indexes as they are required by tables.
         for (CatalogIndexDescriptor indexDescriptor : schemaDescriptor.indexes()) {
+            if (indexDescriptor.status() != AVAILABLE) {
+                continue;
+            }
+
             int tableId = indexDescriptor.tableId();
             TableDescriptor tableDescriptor = tableDescriptorMap.get(tableId);
             assert tableDescriptor != null : "Table is not found in schema: " + tableId;
@@ -224,7 +226,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return new IgniteSchema(schemaName, catalogVersion, schemaDataSources);
     }
 
-    @WithSpan
     private static IgniteIndex createSchemaIndex(CatalogIndexDescriptor indexDescriptor, TableDescriptor tableDescriptor) {
         Type type;
         if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
@@ -239,7 +240,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return new IgniteIndex(indexDescriptor.id(), indexDescriptor.name(), type, tableDescriptor.distribution(), outputCollation);
     }
 
-    @WithSpan
     private static TableDescriptor createTableDescriptorForTable(CatalogTableDescriptor descriptor) {
         List<ColumnDescriptor> colDescriptors = new ArrayList<>();
 

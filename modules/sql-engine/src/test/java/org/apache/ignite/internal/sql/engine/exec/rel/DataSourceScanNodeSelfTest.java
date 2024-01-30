@@ -22,12 +22,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -45,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
+import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
@@ -241,13 +240,13 @@ public class DataSourceScanNodeSelfTest extends AbstractExecutionTest<RowWrapper
                 context, factory, fromRowSchema(ROW_SCHEMA), dataSource, predicate, projection, requiredFields
         );
 
-        DrainAllDownstream<RowWrapper> downstream = new DrainAllDownstream<>();
+        TestDownstream<RowWrapper> downstream = new TestDownstream<>();
 
         node.onRegister(downstream);
 
         context.execute(() -> node.request(Integer.MAX_VALUE), node::onError);
 
-        return await(downstream.completion);
+        return await(downstream.result());
     }
 
     static class IterableDataSource implements ScannableDataSource {
@@ -293,26 +292,6 @@ public class DataSourceScanNodeSelfTest extends AbstractExecutionTest<RowWrapper
                     subscriber.onSubscribe(subscription);
                 }
             };
-        }
-    }
-
-    static class DrainAllDownstream<T> implements Downstream<T> {
-        private final List<T> rows = new ArrayList<>();
-        private final CompletableFuture<List<T>> completion = new CompletableFuture<>();
-
-        @Override
-        public void push(T row) {
-            rows.add(row);
-        }
-
-        @Override
-        public void end() throws Exception {
-            completion.complete(rows);
-        }
-
-        @Override
-        public void onError(Throwable e) {
-            completion.completeExceptionally(e);
         }
     }
 

@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -39,8 +41,8 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
@@ -48,7 +50,6 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -58,6 +59,8 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
     private static final String TABLE_NAME = "TEST_FINISH";
+
+    private final Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
     private void createTestTableWith3Replicas() {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3";
@@ -74,9 +77,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             throws ExecutionException, InterruptedException {
         createTestTableWith3Replicas();
 
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = defaultTablePartitionId(node(0));
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -99,11 +100,19 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Tuple keyTpl = Tuple.create().set("key", 42);
         Tuple tpl = Tuple.create().set("key", 42).set("val", "val 42");
 
+        TableImpl tbl = (TableImpl) coordinatorNode.tables().table(TABLE_NAME);
+
         tbl.recordView().upsert(rwTx, tpl);
 
         msgConf.accept(primaryNode, coordinatorNode, tbl, rwTx);
 
         finisher.accept(rwTx, tbl, keyTpl);
+    }
+
+    private TablePartitionId defaultTablePartitionId(IgniteImpl node) {
+        TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+
+        return new TablePartitionId(table.tableId(), 0);
     }
 
     private void commitRow(InternalTransaction rwTx, TableImpl tbl, Tuple keyTpl) {
@@ -135,23 +144,19 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     ) {
         DefaultMessagingService coordinatorMessaging = messaging(coordinatorNode);
 
-        CountDownLatch msg = new CountDownLatch(1);
-        CountDownLatch transfer = new CountDownLatch(1);
+        AtomicBoolean dropMessage = new AtomicBoolean(true);
+
+        CountDownLatch commitStartedLatch = new CountDownLatch(1);
 
         // Make sure the finish message is prepared, i.e. the outcome, commit timestamp, primary node, etc. have been set,
         // and then temporarily block the messaging to simulate network issues.
         coordinatorMessaging.dropMessages((s, networkMessage) -> {
-            if (networkMessage instanceof TxFinishReplicaRequest) {
-                try {
-                    logger().info("Pausing message handling: {}.", networkMessage);
+            if (networkMessage instanceof TxFinishReplicaRequest && dropMessage.get()) {
+                logger().info("Dropping: {}.", networkMessage);
 
-                    transfer.countDown();
-                    msg.await();
+                commitStartedLatch.countDown();
 
-                    logger().info("Continue message handling: {}.", networkMessage);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+                return true;
             }
 
             return false;
@@ -162,7 +167,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // will run in the current thread.
         CompletableFuture.runAsync(() -> {
             try {
-                transfer.await();
+                commitStartedLatch.await();
 
                 logger().info("Start transferring primary.");
 
@@ -172,15 +177,18 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             } finally {
                 logger().info("Finished transferring primary.");
 
-                msg.countDown();
+                dropMessage.set(false);
             }
         });
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20825")
     void testCoordinatorMissedResponse() throws ExecutionException, InterruptedException {
         testFinishRow(this::coordinatorMissedResponse, this::commitRow);
+
+        for (CompletableFuture<?> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+        }
     }
 
     private void coordinatorMissedResponse(
@@ -197,15 +205,17 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             if (networkMessage instanceof TxFinishReplicaRequest && !messageHandled.get()) {
                 messageHandled.set(true);
 
-                logger().info("Pausing message handling: {}.", networkMessage);
+                logger().info("Drop message [msg={}].", networkMessage);
+
+                // Here we act as a man-in-the-middle: the finish request is intercepted and further routed to
+                // the commit partition as normal. The coordinator instead fails with a timeout (see DefaultMessagingService.invoke0)
+                // and has to retry the finish request according to the durable finish logic.
+                // The test checks that the second coordinator attempt to commit succeeds
+                // and the server is able to apply a COMMIT over COMMIT without exceptions.
 
                 CompletableFuture<NetworkMessage> finish = coordinatorMessaging.invoke(s, networkMessage, 3000);
 
-                assertThat(finish, willCompleteSuccessfully());
-
-                finish.join();
-
-                logger().info("Continue message handling: {}.", networkMessage);
+                futures.add(finish);
 
                 return true;
             }
@@ -227,28 +237,15 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     ) {
         DefaultMessagingService primaryMessaging = messaging(primaryNode);
 
-        CountDownLatch msg = new CountDownLatch(1);
-        CountDownLatch transfer = new CountDownLatch(1);
-        AtomicBoolean messageHandled = new AtomicBoolean();
+        AtomicBoolean dropMessage = new AtomicBoolean(true);
 
         // Make sure the finish message is prepared, i.e. the outcome, commit timestamp, primary node, etc. have been set,
         // and then temporarily block the messaging to simulate network issues.
         primaryMessaging.dropMessages((s, networkMessage) -> {
-            if (networkMessage instanceof TxCleanupReplicaRequest && !messageHandled.get()) {
-                messageHandled.set(true);
+            if (networkMessage instanceof WriteIntentSwitchReplicaRequest && dropMessage.get()) {
+                logger().info("Dropping message: {}.", networkMessage);
 
-                try {
-                    logger().info("Pausing message handling: {}.", networkMessage);
-
-                    transfer.countDown();
-                    msg.await();
-
-                    logger().info("Continue message handling: {}.", networkMessage);
-
-                    return true;
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+                return true;
             }
 
             return false;
@@ -259,8 +256,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // will run in the current thread.
         CompletableFuture.runAsync(() -> {
             try {
-                transfer.await();
-
                 logger().info("Start transferring primary.");
 
                 NodeUtils.transferPrimary(tbl, null, this::node);
@@ -269,7 +264,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             } finally {
                 logger().info("Finished transferring primary.");
 
-                msg.countDown();
+                dropMessage.set(false);
             }
         });
     }

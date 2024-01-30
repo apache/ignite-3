@@ -18,19 +18,23 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -179,7 +183,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     @Test
-    void testSafeToUpdate(
+    void testCheckpointUrgency(
             @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
@@ -221,23 +225,33 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
             long maxPages = pageMemory.totalPages();
 
-            long maxDirtyPages = (maxPages * 3 / 4);
+            long dirtyPagesSoftThreshold = (maxPages * 3 / 4);
+            long dirtyPagesHardThreshold = (maxPages * 9 / 10);
 
-            assertThat(maxDirtyPages, greaterThanOrEqualTo(50L));
+            assertThat(dirtyPagesSoftThreshold, greaterThanOrEqualTo(70L));
+            assertThat(dirtyPagesHardThreshold, greaterThanOrEqualTo(80L));
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
             try {
-                for (int i = 0; i < maxDirtyPages - 1; i++) {
+                int i = 0;
+
+                for (; i < dirtyPagesSoftThreshold - 1; i++) {
                     createDirtyPage(pageMemory);
 
-                    assertTrue(pageMemory.safeToUpdate(), "i=" + i);
+                    assertEquals(NOT_REQUIRED, pageMemory.checkpointUrgency(), "i=" + i);
                 }
 
-                for (int i = (int) maxDirtyPages - 1; i < maxPages; i++) {
+                for (; i < dirtyPagesHardThreshold - 1; i++) {
                     createDirtyPage(pageMemory);
 
-                    assertFalse(pageMemory.safeToUpdate(), "i=" + i);
+                    assertEquals(SHOULD_TRIGGER, pageMemory.checkpointUrgency(), "i=" + i);
+                }
+
+                for (; i < maxPages; i++) {
+                    createDirtyPage(pageMemory);
+
+                    assertEquals(MUST_TRIGGER, pageMemory.checkpointUrgency(), "i=" + i);
                 }
             } finally {
                 checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
@@ -248,7 +262,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                     .futureFor(FINISHED)
                     .get(1, SECONDS);
 
-            assertTrue(pageMemory.safeToUpdate());
+            assertEquals(NOT_REQUIRED, pageMemory.checkpointUrgency());
         } finally {
             closeAll(
                     () -> pageMemory.stop(true),
@@ -365,7 +379,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         doAnswer(answer -> {
             startWriteMetaToBufferFuture.complete(null);
 
-            await(finishWaitWriteMetaToBufferFuture, 1, SECONDS);
+            assertThat(finishWaitWriteMetaToBufferFuture, willCompleteSuccessfully());
 
             return answer.callRealMethod();
         })
@@ -497,13 +511,15 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
+        ByteBuffer buffer = null;
+
         try {
+            buffer = allocateBuffer(PAGE_SIZE);
+
             for (int partition = 0; partition < partitions; partition++) {
                 GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, partition);
 
-                filePageStoreManager.initialize(groupPartitionId);
-
-                FilePageStore filePageStore = filePageStoreManager.getStore(groupPartitionId);
+                FilePageStore filePageStore = filePageStoreManager.readOrCreateStore(groupPartitionId, buffer.rewind());
 
                 filePageStore.ensure();
 
@@ -512,10 +528,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
                         lastCheckpointProgress == null ? null : lastCheckpointProgress.id(),
                         groupPartitionId,
-                        filePageStore
+                        filePageStore,
+                        buffer.rewind()
                 );
-
-                partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
 
                 filePageStore.setPageAllocationListener(pageIdx -> {
                     assert checkpointManager.checkpointTimeoutLock().checkpointLockIsHeldByThread();
@@ -526,9 +541,17 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 });
 
                 filePageStore.pages(partitionMeta.pageCount());
+
+                filePageStoreManager.addStore(groupPartitionId, filePageStore);
+                partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
             }
         } finally {
-            checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+            ByteBuffer bufferToClose = buffer;
+
+            closeAll(
+                    bufferToClose == null ? null : () -> freeBuffer(bufferToClose),
+                    () -> checkpointManager.checkpointTimeoutLock().checkpointReadUnlock()
+            );
         }
     }
 }

@@ -57,9 +57,6 @@ public enum IgniteMethod {
     /** See {@link ExecutionContext#correlatedVariable(int)}. */
     CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "correlatedVariable", int.class),
 
-    /** See {@link ExecutionContext#nullBound()}. */
-    CONTEXT_NULL_BOUND(ExecutionContext.class, "nullBound"),
-
     /** See {@link ExecutionContext#getParameter(String, Type)}. */
     CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
 
@@ -117,7 +114,14 @@ public enum IgniteMethod {
     SUBSTR(SqlFunctions.class, "substring", String.class, int.class, int.class),
 
     /** ROUND function. See {@link IgniteSqlFunctions#sround(double)}, {@link IgniteSqlFunctions#sround(double, int)} and variants. */
-    ROUND(IgniteSqlFunctions.class, "sround", true);
+    ROUND(IgniteSqlFunctions.class, "sround", true),
+
+    /**
+     * TRUNCATE function. See {@link IgniteSqlFunctions#struncate(double)}, {@link IgniteSqlFunctions#struncate(double, int)} and variants.
+     */
+    TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
+
+    SUBSTRING(IgniteSqlFunctions.class, "substring", true);
 
     private final Method method;
 

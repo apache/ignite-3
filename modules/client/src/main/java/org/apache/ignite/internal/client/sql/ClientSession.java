@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -36,12 +37,14 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -153,7 +156,7 @@ public class ClientSession implements AbstractSession {
 
             w.out().packLongNullable(defaultSessionTimeout);
 
-            packProperties(w, clientStatement.properties());
+            packProperties(w, properties, clientStatement.properties());
 
             w.out().packString(clientStatement.query());
 
@@ -165,8 +168,12 @@ public class ClientSession implements AbstractSession {
         PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), r.in(), mapper);
 
         if (transaction != null) {
-            //noinspection resource
-            return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+            try {
+                //noinspection resource
+                return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+            } catch (TransactionException e) {
+                return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
+            }
         }
 
         return ch.serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
@@ -223,16 +230,23 @@ public class ClientSession implements AbstractSession {
 
     /** {@inheritDoc} */
     @Override
-    public void executeScript(String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17060.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17060.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(query);
+
+        PayloadWriter payloadWriter = w -> {
+            w.out().packString(defaultSchema);
+            w.out().packIntNullable(defaultPageSize);
+            w.out().packLongNullable(defaultQueryTimeout);
+            w.out().packLongNullable(defaultSessionTimeout);
+
+            packProperties(w, properties, null);
+
+            w.out().packString(query);
+            w.out().packObjectArrayAsBinaryTuple(arguments);
+            w.out().packLong(ch.observableTimestamp());
+        };
+
+        return ch.serviceAsync(ClientOp.SQL_EXEC_SCRIPT, payloadWriter, null);
     }
 
     /** {@inheritDoc} */
@@ -279,7 +293,7 @@ public class ClientSession implements AbstractSession {
     @Override
     public CompletableFuture<Void> closeAsync() {
         // TODO IGNITE-17134 Cancel/close all active cursors, queries, futures.
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
@@ -302,39 +316,42 @@ public class ClientSession implements AbstractSession {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    private void packProperties(PayloadOutputChannel w, Map<String, Object> props) {
+    private static void packProperties(
+            PayloadOutputChannel w,
+            @Nullable Map<String, Object> sessionProps,
+            @Nullable Map<String, Object> statementProps) {
         int size = 0;
 
-        if (props != null) {
-            size += props.size();
+        if (statementProps != null) {
+            size += statementProps.size();
         }
 
         // Statement properties override session properties.
-        if (properties != null) {
-            if (props != null) {
-                for (String k : properties.keySet()) {
-                    if (!props.containsKey(k)) {
+        if (sessionProps != null) {
+            if (statementProps != null) {
+                for (String k : sessionProps.keySet()) {
+                    if (!statementProps.containsKey(k)) {
                         size++;
                     }
                 }
             } else {
-                size += properties.size();
+                size += sessionProps.size();
             }
         }
 
         w.out().packInt(size);
         var builder = new BinaryTupleBuilder(size * 4);
 
-        if (props != null) {
-            for (Entry<String, Object> entry : props.entrySet()) {
+        if (statementProps != null) {
+            for (Entry<String, Object> entry : statementProps.entrySet()) {
                 builder.appendString(entry.getKey());
                 ClientBinaryTupleUtils.appendObject(builder, entry.getValue());
             }
         }
 
-        if (properties != null) {
-            for (Entry<String, Object> entry : properties.entrySet()) {
-                if (props == null || !props.containsKey(entry.getKey())) {
+        if (sessionProps != null) {
+            for (Entry<String, Object> entry : sessionProps.entrySet()) {
+                if (statementProps == null || !statementProps.containsKey(entry.getKey())) {
                     builder.appendString(entry.getKey());
                     ClientBinaryTupleUtils.appendObject(builder, entry.getValue());
                 }

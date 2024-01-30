@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -43,13 +45,13 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -77,6 +79,7 @@ public class SessionImpl implements AbstractSession {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final CompletableFuture<Void> closedFut = new CompletableFuture<>();
 
     private final AtomicInteger cursorIdGen = new AtomicInteger();
 
@@ -142,12 +145,6 @@ public class SessionImpl implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void executeScript(String query, @Nullable Object... arguments) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -231,14 +228,15 @@ public class SessionImpl implements AbstractSession {
                         try {
                             int cursorId = registerCursor(cur);
 
+                            cur.onClose().whenComplete((r, e) -> openedCursors.remove(cursorId));
+
                             return cur.requestNextAsync(pageSize)
                                     .thenApply(
                                             batchRes -> new AsyncResultSetImpl<>(
                                                     cur,
                                                     batchRes,
                                                     pageSize,
-                                                    expirationTracker,
-                                                    () -> openedCursors.remove(cursorId)
+                                                    expirationTracker
                                             )
                                     );
                         } finally {
@@ -305,7 +303,7 @@ public class SessionImpl implements AbstractSession {
                     .build();
 
             var counters = new LongArrayList(batch.size());
-            CompletableFuture<?> tail = CompletableFuture.completedFuture(null);
+            CompletableFuture<?> tail = nullCompletedFuture();
             ArrayList<CompletableFuture<?>> batchFuts = new ArrayList<>(batch.size());
 
             for (int i = 0; i < batch.size(); ++i) {
@@ -341,7 +339,7 @@ public class SessionImpl implements AbstractSession {
 
                                                     counters.add((long) page.items().get(0).get(0));
 
-                                                    return CompletableFuture.completedFuture(null);
+                                                    return nullCompletedFuture();
                                                 }).thenCompose(Function.identity());
                                     } finally {
                                         busyLock.leaveBusy();
@@ -401,7 +399,30 @@ public class SessionImpl implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        touchAndCloseIfExpired();
+
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(sessionIsClosedException());
+        }
+
+        CompletableFuture<Void> resFut = new CompletableFuture<>();
+        try {
+            SqlProperties properties = SqlPropertiesHelper.emptyProperties();
+
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
+                    qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
+
+            ScriptHandler handler = new ScriptHandler(resFut);
+            f.whenComplete(handler::processCursor);
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return resFut.exceptionally((th) -> {
+            Throwable cause = ExceptionUtils.unwrapCause(th);
+
+            throw new CompletionException(mapToPublicSqlException(cause));
+        });
     }
 
     /** {@inheritDoc} */
@@ -444,9 +465,12 @@ public class SessionImpl implements AbstractSession {
     @Override
     public CompletableFuture<Void> closeAsync() {
         try {
-            closeInternal();
+            return closeInternal()
+                    .exceptionally(e -> {
+                        sneakyThrow(mapToPublicSqlException(e));
 
-            return Commons.completedFuture();
+                        return null;
+                    });
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
@@ -472,23 +496,72 @@ public class SessionImpl implements AbstractSession {
         return sessionId;
     }
 
-    @SuppressWarnings("resource")
-    private void closeInternal() {
+    @SuppressWarnings("rawtypes")
+    private CompletableFuture<Void> closeInternal() {
         if (closed.compareAndSet(false, true)) {
             busyLock.block();
 
-            openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
+            List<AsyncSqlCursor<?>> cursorsToClose = new ArrayList<>(openedCursors.values());
+
             openedCursors.clear();
 
-            onClose.run();
+            CompletableFuture[] closeCursorFutures = new CompletableFuture[cursorsToClose.size()];
+
+            int idx = 0;
+            for (AsyncSqlCursor<?> cursor : cursorsToClose) {
+                closeCursorFutures[idx++] = cursor.closeAsync();
+            }
+
+            CompletableFuture.allOf(closeCursorFutures)
+                    .whenComplete((r, e) -> {
+                        Throwable error = null;
+
+                        if (e != null) {
+                            for (CompletableFuture<?> fut : closeCursorFutures) {
+                                if (!fut.isCompletedExceptionally()) {
+                                    continue;
+                                }
+
+                                try {
+                                    fut.getNow(null);
+                                } catch (Throwable th) {
+                                    Throwable unwrapped = ExceptionUtils.unwrapCause(th);
+
+                                    if (error == null) {
+                                        error = unwrapped;
+                                    } else {
+                                        error.addSuppressed(unwrapped);
+                                    }
+                                }
+                            }
+                        }
+
+                        try {
+                            onClose.run();
+                        } catch (Throwable th) {
+                            if (error == null) {
+                                error = th;
+                            } else {
+                                error.addSuppressed(th);
+                            }
+                        }
+
+                        if (error != null) {
+                            closedFut.completeExceptionally(error);
+                        } else {
+                            closedFut.complete(null);
+                        }
+                    });
         }
+
+        return closedFut;
     }
 
-    private static void validateDmlResult(AsyncCursor.BatchedResult<List<Object>> page) {
+    private static void validateDmlResult(AsyncCursor.BatchedResult<InternalSqlRow> page) {
         if (page == null
                 || page.items() == null
                 || page.items().size() != 1
-                || page.items().get(0).size() != 1
+                || page.items().get(0).fieldCount() != 1
                 || page.hasMore()) {
             throw new IgniteInternalException(INTERNAL_ERR, "Invalid DML results: " + page);
         }
@@ -522,5 +595,64 @@ public class SessionImpl implements AbstractSession {
     @TestOnly
     List<AsyncSqlCursor<?>> openedCursors() {
         return List.copyOf(openedCursors.values());
+    }
+
+    private class ScriptHandler {
+        private final CompletableFuture<Void> resFut;
+        private final List<Throwable> cursorCloseErrors = Collections.synchronizedList(new ArrayList<>());
+
+        ScriptHandler(CompletableFuture<Void> resFut) {
+            this.resFut = resFut;
+        }
+
+        void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, Throwable scriptError) {
+            if (scriptError != null) {
+                // Stopping script execution.
+                onFail(scriptError);
+
+                return;
+            }
+
+            cursor.closeAsync().whenComplete((ignored, cursorCloseError) -> {
+                if (cursorCloseError != null) {
+                    // Just save the error for later and continue fetching cursors.
+                    cursorCloseErrors.add(cursorCloseError);
+                }
+
+                if (!busyLock.enterBusy()) {
+                    onFail(sessionIsClosedException());
+                    return;
+                }
+
+                try {
+                    if (cursor.hasNextResult()) {
+                        cursor.nextResult().whenCompleteAsync(this::processCursor);
+                        return;
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+
+                onComplete();
+            });
+        }
+
+        private void onComplete() {
+            if (!cursorCloseErrors.isEmpty()) {
+                onFail(new IllegalStateException("The script was completed with errors."));
+
+                return;
+            }
+
+            resFut.complete(null);
+        }
+
+        private void onFail(Throwable err) {
+            for (Throwable cursorCloseErr : cursorCloseErrors) {
+                err.addSuppressed(cursorCloseErr);
+            }
+
+            resFut.completeExceptionally(err);
+        }
     }
 }

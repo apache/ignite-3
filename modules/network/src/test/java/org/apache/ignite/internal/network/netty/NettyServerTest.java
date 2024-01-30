@@ -149,7 +149,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     public void testHandshakeManagerInvoked() throws Exception {
         HandshakeManager handshakeManager = mock(HandshakeManager.class);
 
-        when(handshakeManager.handshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
+        when(handshakeManager.localHandshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
+        when(handshakeManager.finalHandshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 
@@ -218,7 +219,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
 
         order.verify(handshakeManager, timeout()).onInit(any());
         order.verify(handshakeManager, timeout()).onConnectionOpen();
-        order.verify(handshakeManager, timeout()).handshakeFuture();
+        order.verify(handshakeManager, timeout()).localHandshakeFuture();
         order.verify(handshakeManager, timeout()).onMessage(any());
     }
 

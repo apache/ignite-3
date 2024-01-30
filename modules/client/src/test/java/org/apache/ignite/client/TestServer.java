@@ -19,11 +19,8 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOError;
@@ -39,13 +36,15 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.DummyAuthenticationManager;
+import org.apache.ignite.client.handler.FakeCatalogService;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.client.ClientClusterNode;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -84,7 +83,11 @@ public class TestServer implements AutoCloseable {
 
     private final ClientHandlerMetricSource metrics;
 
+    private final AuthenticationManager authenticationManager;
+
     private final Ignite ignite;
+
+    private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
 
     /**
      * Constructor.
@@ -186,32 +189,36 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteCompute compute = new FakeCompute(nodeName);
+        IgniteComputeInternal compute = new FakeCompute(nodeName);
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
-
-        SecurityConfiguration securityConfigurationOnInit = securityConfiguration == null
-                ? mock(SecurityConfiguration.class)
-                : securityConfiguration;
 
         if (clock == null) {
             clock = new HybridClockImpl();
         }
 
+        if (securityConfiguration == null) {
+            authenticationManager = new DummyAuthenticationManager();
+        } else {
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration);
+            authenticationManager.start();
+        }
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
-                        ignite,
-                        cfg,
-                        bootstrapFactory,
-                        shouldDropConnection,
-                        responseDelay,
-                        clusterService,
-                        compute,
-                        clusterId,
-                        metrics,
-                        securityConfigurationOnInit,
-                        clock)
+                ignite,
+                cfg,
+                bootstrapFactory,
+                shouldDropConnection,
+                responseDelay,
+                clusterService,
+                compute,
+                clusterId,
+                metrics,
+                authenticationManager,
+                clock,
+                placementDriver)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
@@ -224,25 +231,14 @@ public class TestServer implements AutoCloseable {
                         () -> CompletableFuture.completedFuture(clusterId),
                         mock(MetricManager.class),
                         metrics,
-                        authenticationManager(securityConfigurationOnInit),
+                        authenticationManager,
                         clock,
                         new AlwaysSyncedSchemaSyncService(),
-                        mockCatalogService()
+                        new FakeCatalogService(FakeInternalTable.PARTITIONS),
+                        placementDriver
                 );
 
-        module.start();
-    }
-
-    /**
-     * Creates a minimal mock-based {@link CatalogService}.
-     */
-    public static CatalogService mockCatalogService() {
-        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
-        when(tableDescriptor.tableVersion()).thenReturn(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
-
-        CatalogService catalogService = mock(CatalogService.class);
-        when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
-        return catalogService;
+        module.start().join();
     }
 
     /**
@@ -294,10 +290,20 @@ public class TestServer implements AutoCloseable {
         return metrics;
     }
 
+    /**
+     * Gets the placement driver.
+     *
+     * @return Placement driver.
+     */
+    public FakePlacementDriver placementDriver() {
+        return placementDriver;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         module.stop();
+        authenticationManager.stop();
         bootstrapFactory.stop();
         cfg.stop();
         generator.close();
@@ -317,11 +323,5 @@ public class TestServer implements AutoCloseable {
         } catch (IOException e) {
             throw new IOError(e);
         }
-    }
-
-    private AuthenticationManager authenticationManager(SecurityConfiguration securityConfiguration) {
-        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        securityConfiguration.listen(authenticationManager);
-        return authenticationManager;
     }
 }

@@ -31,18 +31,21 @@ dependencies {
     implementation project(':ignite-client')
     implementation project(':ignite-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-binary-tuple')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
     implementation libs.opentelemetry.sdk.extension.autoconfigure.spi
 
     testImplementation testFixtures(project(":ignite-core"))
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(":ignite-core"))
     integrationTestImplementation testFixtures(project(":ignite-sql-engine"))
     integrationTestImplementation testFixtures(project(':ignite-jdbc'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation project(":ignite-runner")
     integrationTestImplementation project(":ignite-api")
 

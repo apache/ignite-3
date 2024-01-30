@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * @apiNote 'Key/value class field' &gt;-&lt; 'table column' mapping laid down in implementation.
  * @see org.apache.ignite.table.mapper.Mapper
  */
-public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
+public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, CriteriaQuerySource<Entry<K, V>> {
     /**
      * Gets a value associated with a given key.
      *
@@ -69,6 +70,10 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Gets a nullable value associated with a given key.
      *
+     * <p>Examples:
+     *     {@code getNullable(tx, key)} returns {@code null} after {@code remove(tx, key)}.
+     *     {@code getNullable(tx, key)} returns {@code Nullable.of(null)} after {@code put(tx, key, null)}.
+     *
      * @param tx Transaction or {@code null} to auto commit.
      * @param key Key whose value is to be returned. The key cannot be {@code null}.
      * @return Wrapped nullable value or {@code null} if it does not exist.
@@ -82,6 +87,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key whose value is to be returned. The key cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
+     *     The future returns wrapped nullable value or {@code null} if the row with the given key does not exist.
      * @throws MarshallerException if the key doesn't match the schema.
      * @see #getNullable(Transaction, Object)
      */

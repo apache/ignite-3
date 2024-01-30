@@ -280,11 +280,7 @@ public:
      *
      * @return Primitive type.
      */
-    [[nodiscard]] ignite_type get_type() const noexcept {
-        if (is_null())
-            return ignite_type::UNDEFINED;
-        return static_cast<ignite_type>(m_value.index() - 1);
-    }
+    [[nodiscard]] ignite_type get_type() const noexcept { return static_cast<ignite_type>(m_value.index()); }
 
     /**
      * @brief Comparison operator.
@@ -310,26 +306,26 @@ public:
 
 private:
     /** Value type. */
-    typedef std::variant<std::nullptr_t,
-        bool, // Bool = 0
-        std::int8_t, // Int8 = 1
-        std::int16_t, // Int16 = 2
-        std::int32_t, // Int32 = 3
-        std::int64_t, // Int64 = 4
-        float, // Float = 5
-        double, // Double = 6
-        big_decimal, // Decimal = 7
-        ignite_date, // Date = 8
-        ignite_time, // Time = 9
-        ignite_date_time, // Datetime = 10
-        ignite_timestamp, // Timestamp = 11
-        uuid, // UUID = 12
-        bit_array, // Bitmask = 13
-        std::string, // String = 14
-        std::vector<std::byte>, // Bytes = 15
-        ignite_period, // Period = 16
-        ignite_duration, // Duration = 17
-        big_integer // Big Integer = 18
+    typedef std::variant<std::nullptr_t, // Null = 0
+        bool, // Bool = 1
+        std::int8_t, // Int8 = 2
+        std::int16_t, // Int16 = 3
+        std::int32_t, // Int32 = 4
+        std::int64_t, // Int64 = 5
+        float, // Float = 6
+        double, // Double = 7
+        big_decimal, // Decimal = 8
+        ignite_date, // Date = 9
+        ignite_time, // Time = 10
+        ignite_date_time, // Datetime = 11
+        ignite_timestamp, // Timestamp = 12
+        uuid, // UUID = 13
+        bit_array, // Bitmask = 14
+        std::string, // String = 15
+        std::vector<std::byte>, // Bytes = 16
+        ignite_period, // Period = 17
+        ignite_duration, // Duration = 18
+        big_integer // Big Integer = 19
         >
         value_type;
 

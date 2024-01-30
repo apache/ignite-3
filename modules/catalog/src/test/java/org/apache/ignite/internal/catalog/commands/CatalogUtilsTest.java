@@ -17,203 +17,374 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.jetbrains.annotations.Nullable;
+import java.util.Arrays;
+import java.util.List;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link CatalogUtils} testing. */
-public class CatalogUtilsTest {
-    private static final String ZONE_NAME = "test_zone";
+public class CatalogUtilsTest extends BaseIgniteAbstractTest {
+    private static final String TABLE_NAME = "test_table";
+
+    private static final String INDEX_NAME = "test_index";
+
+    private static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
+
+    private static final String COLUMN_NAME = "key";
+
+    private final HybridClock clock = new HybridClockImpl();
+
+    private final CatalogManager catalogManager = createTestCatalogManager("test", clock);
+
+    @BeforeEach
+    void setUp() {
+        assertThat(catalogManager.start(), willCompleteSuccessfully());
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        catalogManager.stop();
+    }
 
     @Test
-    void testFromParamsCreateZoneWithoutAutoAdjustFields() {
-        CreateZoneParams params = CreateZoneParams.builder()
-                .zoneName(ZONE_NAME)
-                .partitions(2)
-                .replicas(3)
-                .filter("test_filter")
-                .dataStorage(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
+    void testCollectIndexesAfterCreateTable() {
+        createTable(TABLE_NAME);
+
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+        );
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+        );
+    }
+
+    @Test
+    void testCollectIndexesAfterCreateIndex() {
+        createTable(TABLE_NAME);
+        createIndex(TABLE_NAME, INDEX_NAME);
+
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, INDEX_NAME)
+                )
+        );
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, INDEX_NAME)
+                )
+        );
+    }
+
+    @Test
+    void testCollectIndexesAfterCreateIndexAndStartBuildingIndexAndMakeAvailableIndex() {
+        String indexName0 = INDEX_NAME + 0;
+        String indexName1 = INDEX_NAME + 1;
+        String indexName2 = INDEX_NAME + 2;
+
+        createTable(TABLE_NAME);
+        createIndex(TABLE_NAME, indexName0);
+        createIndex(TABLE_NAME, indexName1);
+        createIndex(TABLE_NAME, indexName2);
+
+        startBuildingIndex(indexName1);
+        makeIndexAvailable(indexName1);
+
+        startBuildingIndex(indexName2);
+
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, indexName0),
+                        index(catalogManager, latestCatalogVersion, indexName1),
+                        index(catalogManager, latestCatalogVersion, indexName2)
+                )
+        );
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, indexName0),
+                        index(catalogManager, latestCatalogVersion, indexName1),
+                        index(catalogManager, latestCatalogVersion, indexName2)
+                )
+        );
+    }
+
+    @Test
+    void testCollectIndexesAfterDropIndexes() {
+        String indexName0 = INDEX_NAME + 0;
+        String indexName1 = INDEX_NAME + 1;
+        String indexName2 = INDEX_NAME + 2;
+
+        createTable(TABLE_NAME);
+        createIndex(TABLE_NAME, indexName0);
+        createIndex(TABLE_NAME, indexName1);
+        createIndex(TABLE_NAME, indexName2);
+
+        startBuildingIndex(indexName1);
+        makeIndexAvailable(indexName1);
+
+        startBuildingIndex(indexName2);
+
+        int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
+
+        dropIndex(indexName0);
+
+        int catalogVersionBeforeDropIndex1 = catalogManager.latestCatalogVersion();
+
+        dropIndex(indexName1);
+
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+        );
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
+                        index(catalogManager, catalogVersionBeforeDropIndex1, indexName1),
+                        index(catalogManager, catalogVersionBeforeDropIndex1, indexName2)
+                )
+        );
+    }
+
+    /**
+     * Tests the more complex case of getting indexes.
+     *
+     * <p>Consider the following versions of the catalog with its contents:</p>
+     * <pre>
+     *     Catalog versions and entity IDs have been simplified.
+     *
+     *     0 : T0 Ipk(A)
+     *     1 : T0 Ipk(A) I0(R) I1(R) I2(R) I3(R)
+     *     2 : T0 Ipk(A) I0(A) I1(B) I2(A) I3(R)
+     *     3 : T0 Ipk(A) I1(B) I2(A)
+     * </pre>
+     *
+     * <p>Expected indexes for range version:</p>
+     * <pre>
+     *     3 -> 3 : Ipk(A) I1(B) I2(A)
+     *     0 -> 3 : Ipk(A) I0(A) I1(B) I2(A) I3(R)
+     * </pre>
+     */
+    @Test
+    void testCollectIndexesComplexCase() {
+        String indexName0 = INDEX_NAME + 0;
+        String indexName1 = INDEX_NAME + 1;
+        String indexName2 = INDEX_NAME + 2;
+        String indexName3 = INDEX_NAME + 3;
+
+        createTable(TABLE_NAME);
+        createIndex(TABLE_NAME, indexName0);
+        createIndex(TABLE_NAME, indexName1);
+        createIndex(TABLE_NAME, indexName2);
+        createIndex(TABLE_NAME, indexName3);
+
+        startBuildingIndex(indexName0);
+        startBuildingIndex(indexName1);
+        startBuildingIndex(indexName2);
+
+        makeIndexAvailable(indexName0);
+        makeIndexAvailable(indexName2);
+
+        int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
+
+        dropIndex(indexName0);
+
+        int catalogVersionBeforeDropIndex3 = catalogManager.latestCatalogVersion();
+
+        dropIndex(indexName3);
+
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+
+        int tableId = tableId(latestCatalogVersion, TABLE_NAME);
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, latestCatalogVersion, indexName1),
+                        index(catalogManager, latestCatalogVersion, indexName2)
+                )
+        );
+
+        assertThat(
+                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
+                hasItems(
+                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
+                        index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
+                        index(catalogManager, latestCatalogVersion, indexName1),
+                        index(catalogManager, latestCatalogVersion, indexName2),
+                        index(catalogManager, catalogVersionBeforeDropIndex3, indexName3)
+                )
+        );
+    }
+
+    @Test
+    void testReplaceTable() {
+        createTable("foo");
+        createTable("bar");
+
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+
+        assertThat(schema, is(notNullValue()));
+
+        CatalogTableDescriptor fooTable = catalogManager.table("foo", clock.nowLong());
+
+        assertThat(fooTable, is(notNullValue()));
+
+        CatalogTableDescriptor bazTable = fooTable.newDescriptor(
+                "baz",
+                fooTable.tableVersion(),
+                fooTable.columns(),
+                fooTable.updateToken()
+        );
+
+        CatalogSchemaDescriptor updatedSchema = replaceTable(schema, bazTable);
+
+        List<String> tableNames = Arrays.stream(updatedSchema.tables()).map(CatalogTableDescriptor::name).collect(toList());
+
+        assertThat(tableNames, contains("baz", "bar"));
+    }
+
+    @Test
+    void testReplaceTableMissingTable() {
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+
+        assertThat(schema, is(notNullValue()));
+
+        var table = mock(CatalogTableDescriptor.class);
+
+        when(table.id()).thenReturn(Integer.MAX_VALUE);
+
+        Exception e = assertThrows(CatalogValidationException.class, () -> replaceTable(schema, table));
+
+        assertThat(e.getMessage(), is(String.format("Table with ID %d has not been found in schema with ID %d", Integer.MAX_VALUE, 0)));
+    }
+
+    private void createTable(String tableName) {
+        CatalogCommand catalogCommand = CreateTableCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .zone(DEFAULT_ZONE_NAME)
+                .tableName(tableName)
+                .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
+                .primaryKeyColumns(List.of(COLUMN_NAME))
+                .colocationColumns(List.of(COLUMN_NAME))
                 .build();
 
-        CatalogZoneDescriptor descriptor = fromParams(1, params);
-
-        assertEquals(1, descriptor.id());
-        assertEquals(ZONE_NAME, descriptor.name());
-        assertEquals(2, descriptor.partitions());
-        assertEquals(3, descriptor.replicas());
-        assertEquals("test_filter", descriptor.filter());
-        assertEquals("test_engine", descriptor.dataStorage().engine());
-        assertEquals("test_region", descriptor.dataStorage().dataRegion());
+        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    @Test
-    void testFromParamsCreateZoneWithDefaults() {
-        CatalogZoneDescriptor descriptor = fromParams(2, CreateZoneParams.builder().zoneName(ZONE_NAME).build());
-
-        assertEquals(2, descriptor.id());
-        assertEquals(ZONE_NAME, descriptor.name());
-        assertEquals(DEFAULT_PARTITION_COUNT, descriptor.partitions());
-        assertEquals(DEFAULT_REPLICA_COUNT, descriptor.replicas());
-        assertEquals(INFINITE_TIMER_VALUE, descriptor.dataNodesAutoAdjust());
-        assertEquals(IMMEDIATE_TIMER_VALUE, descriptor.dataNodesAutoAdjustScaleUp());
-        assertEquals(INFINITE_TIMER_VALUE, descriptor.dataNodesAutoAdjustScaleDown());
-        assertEquals(DEFAULT_FILTER, descriptor.filter());
-        assertEquals(DEFAULT_STORAGE_ENGINE, descriptor.dataStorage().engine());
-        assertEquals(DEFAULT_DATA_REGION, descriptor.dataStorage().dataRegion());
-    }
-
-    @Test
-    void testFromParamsCreateZoneWithAutoAdjustFields() {
-        checkAutoAdjustParams(
-                fromParams(1, createZoneParams(1, 2, 3)),
-                1, 2, 3
-        );
-
-        checkAutoAdjustParams(
-                fromParams(1, createZoneParams(1, null, null)),
-                1, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE
-        );
-
-        checkAutoAdjustParams(
-                fromParams(1, createZoneParams(1, 2, null)),
-                1, 2, INFINITE_TIMER_VALUE
-        );
-
-        checkAutoAdjustParams(
-                fromParams(1, createZoneParams(1, null, 3)),
-                1, INFINITE_TIMER_VALUE, 3
-        );
-
-        checkAutoAdjustParams(
-                fromParams(1, createZoneParams(null, 2, null)),
-                INFINITE_TIMER_VALUE, 2, INFINITE_TIMER_VALUE
-        );
-
-        checkAutoAdjustParams(
-                fromParams(1, createZoneParams(null, null, 3)),
-                INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, 3
-        );
-
-        checkAutoAdjustParams(
-                fromParams(1, createZoneParams(null, 2, 3)),
-                INFINITE_TIMER_VALUE, 2, 3
-        );
-    }
-
-    @Test
-    void testFromParamsAndPreviousValueWithoutAutoAdjustFields() {
-        AlterZoneParams params = AlterZoneParams.builder()
-                .zoneName(ZONE_NAME)
-                .partitions(2)
-                .replicas(3)
-                .filter("test_filter")
-                .dataStorage(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
+    private void createIndex(String tableName, String indexName) {
+        CatalogCommand catalogCommand = CreateHashIndexCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .indexName(indexName)
+                .columns(List.of(COLUMN_NAME))
+                .unique(false)
                 .build();
 
-        CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(params, createPreviousZoneWithDefaults());
-
-        assertEquals(1, descriptor.id());
-        assertEquals(ZONE_NAME, descriptor.name());
-        assertEquals(2, descriptor.partitions());
-        assertEquals(3, descriptor.replicas());
-        assertEquals("test_filter", descriptor.filter());
-        assertEquals("test_engine", descriptor.dataStorage().engine());
-        assertEquals("test_region", descriptor.dataStorage().dataRegion());
+        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    @Test
-    void testFromParamsAndPreviousValueWithPreviousValues() {
-        CreateZoneParams createZoneParams = CreateZoneParams.builder()
-                .zoneName(ZONE_NAME)
-                .partitions(11)
-                .replicas(22)
-                .dataNodesAutoAdjust(33)
-                .dataNodesAutoAdjustScaleUp(44)
-                .dataNodesAutoAdjustScaleDown(55)
-                .filter("previous_filter")
-                .dataStorage(DataStorageParams.builder().engine("previous_engine").dataRegion("previous_region").build())
+    private void startBuildingIndex(String indexName) {
+        CatalogIndexDescriptor index = index(catalogManager, catalogManager.latestCatalogVersion(), indexName);
+
+        CatalogCommand catalogCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
+
+        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
+    }
+
+    private void makeIndexAvailable(String indexName) {
+        CatalogIndexDescriptor index = index(catalogManager, catalogManager.latestCatalogVersion(), indexName);
+
+        CatalogCommand catalogCommand = MakeIndexAvailableCommand.builder()
+                .indexId(index.id())
                 .build();
 
-        CatalogZoneDescriptor previous = fromParams(10, createZoneParams);
-
-        CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(AlterZoneParams.builder().zoneName(ZONE_NAME).build(), previous);
-
-        assertEquals(10, descriptor.id());
-        assertEquals(ZONE_NAME, descriptor.name());
-        assertEquals(11, descriptor.partitions());
-        assertEquals(22, descriptor.replicas());
-        assertEquals(33, descriptor.dataNodesAutoAdjust());
-        assertEquals(44, descriptor.dataNodesAutoAdjustScaleUp());
-        assertEquals(55, descriptor.dataNodesAutoAdjustScaleDown());
-        assertEquals("previous_filter", descriptor.filter());
-        assertEquals("previous_engine", descriptor.dataStorage().engine());
-        assertEquals("previous_region", descriptor.dataStorage().dataRegion());
+        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    @Test
-    void testFromParamsAndPreviousValueWithAutoAdjustFields() {
-        checkAutoAdjustParams(
-                fromParamsAndPreviousValue(alterZoneParams(1, 2, 3), createPreviousZoneWithDefaults()),
-                1, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE
-        );
-
-        checkAutoAdjustParams(
-                fromParamsAndPreviousValue(alterZoneParams(1, null, null), createPreviousZoneWithDefaults()),
-                1, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE
-        );
-
-        checkAutoAdjustParams(
-                fromParamsAndPreviousValue(alterZoneParams(null, 2, null), createPreviousZoneWithDefaults()),
-                INFINITE_TIMER_VALUE, 2, INFINITE_TIMER_VALUE
-        );
-
-        checkAutoAdjustParams(
-                fromParamsAndPreviousValue(alterZoneParams(null, null, 3), createPreviousZoneWithDefaults()),
-                INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, 3
-        );
-
-        checkAutoAdjustParams(
-                fromParamsAndPreviousValue(alterZoneParams(null, 2, 3), createPreviousZoneWithDefaults()),
-                INFINITE_TIMER_VALUE, 2, 3
-        );
-    }
-
-    private static CreateZoneParams createZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {
-        return CreateZoneParams.builder()
-                .zoneName(ZONE_NAME)
-                .dataNodesAutoAdjust(autoAdjust)
-                .dataNodesAutoAdjustScaleUp(scaleUp)
-                .dataNodesAutoAdjustScaleDown(scaleDown)
+    private void dropIndex(String indexName) {
+        CatalogCommand catalogCommand = DropIndexCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .indexName(indexName)
                 .build();
+
+        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private static AlterZoneParams alterZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {
-        return AlterZoneParams.builder()
-                .zoneName(ZONE_NAME)
-                .dataNodesAutoAdjust(autoAdjust)
-                .dataNodesAutoAdjustScaleUp(scaleUp)
-                .dataNodesAutoAdjustScaleDown(scaleDown)
-                .build();
-    }
+    private int tableId(int catalogVersion, String tableName) {
+        CatalogTableDescriptor tableDescriptor = catalogManager.tables(catalogVersion).stream()
+                .filter(table -> tableName.equals(table.name()))
+                .findFirst()
+                .orElse(null);
 
-    private static void checkAutoAdjustParams(CatalogZoneDescriptor descriptor, int expAutoAdjust, int expScaleUp, int expScaleDown) {
-        assertEquals(expAutoAdjust, descriptor.dataNodesAutoAdjust());
-        assertEquals(expScaleUp, descriptor.dataNodesAutoAdjustScaleUp());
-        assertEquals(expScaleDown, descriptor.dataNodesAutoAdjustScaleDown());
-    }
+        assertNotNull(tableDescriptor, "catalogVersion=" + catalogVersion + ", tableName=" + tableName);
 
-    private static CatalogZoneDescriptor createPreviousZoneWithDefaults() {
-        return fromParams(1, CreateZoneParams.builder().zoneName(ZONE_NAME).build());
+        return tableDescriptor.id();
     }
 }

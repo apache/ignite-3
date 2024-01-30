@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.impl;
 
 import static java.util.Comparator.comparing;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -70,7 +72,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile boolean rebalance;
 
-    final LockByRowId lockByRowId = new LockByRowId();
+    private final LockByRowId lockByRowId = new LockByRowId();
+
+    /** Amount of cursors that opened and still do not close. */
+    private final AtomicInteger pendingCursors = new AtomicInteger();
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
@@ -157,7 +162,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public CompletableFuture<Void> flush() {
         checkStorageClosed();
 
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -438,11 +443,22 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return new ScanVersionsCursor(rowId);
     }
 
+    /**
+     * Gets amount of pending cursors.
+     *
+     * @return Amount of pending cursors.
+     */
+    public int pendingCursors() {
+        return pendingCursors.get();
+    }
+
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) {
         checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<VersionChain> iterator = map.values().iterator();
+
+        pendingCursors.incrementAndGet();
 
         return new PartitionTimestampCursor() {
             @Nullable
@@ -469,7 +485,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             @Override
             public void close() {
-                // No-op.
+                pendingCursors.decrementAndGet();
             }
 
             @Override

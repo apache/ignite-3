@@ -25,12 +25,12 @@ internal record struct PreferredNode
     /// <summary>
     /// Gets the name (same as Consistent ID).
     /// </summary>
-    public string Name { get; private init; }
+    public string? Name { get; private init; }
 
     /// <summary>
     /// Creates an instance from name.
     /// </summary>
     /// <param name="name">Name.</param>
     /// <returns>Preferred node.</returns>
-    public static PreferredNode FromName(string name) => new() { Name = name };
+    public static PreferredNode FromName(string? name) => new() { Name = name };
 }

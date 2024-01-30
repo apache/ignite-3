@@ -217,7 +217,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
             }
         }
 
-        long expectedNullCount = 20;
+        long expectedNullCount = 22;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "
@@ -229,7 +229,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     @Test
     public void testRetryReadPolicyAllOperationsSupported() {
         var plc = new RetryReadPolicy();
-        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, 0, null, 0, 0, null, null, null, false, null);
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, 0, null, 0, 0, null, null, null, false, null, 0);
 
         for (var op : ClientOperationType.values()) {
             var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);

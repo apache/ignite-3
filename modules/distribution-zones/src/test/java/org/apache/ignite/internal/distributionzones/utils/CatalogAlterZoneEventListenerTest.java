@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.distributionzones.utils;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.alterZoneBuilder;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createZoneBuilder;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.BaseCatalogManagerTest;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.junit.jupiter.api.Test;
@@ -44,12 +44,12 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
-        assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
-        assertThat(manager.alterZone(alterZoneBuilder().build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(alterZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
 
         assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
     }
@@ -66,7 +66,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -75,12 +75,12 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onPartitionsUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
-        assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
-        assertThat(manager.alterZone(alterZoneBuilder().partitions(newPartitions).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(alterZoneBuilder(ZONE_NAME).partitions(newPartitions).build()), willCompleteSuccessfully());
 
         assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
         assertThat(onPartitionsUpdateFuture, willCompleteSuccessfully());
@@ -99,7 +99,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -108,12 +108,12 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onReplicasUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
-        assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
-        assertThat(manager.alterZone(alterZoneBuilder().replicas(newReplicas).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(alterZoneBuilder(ZONE_NAME).replicas(newReplicas).build()), willCompleteSuccessfully());
 
         assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
         assertThat(onReplicasUpdateFuture, willCompleteSuccessfully());
@@ -131,7 +131,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -140,12 +140,12 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onFilterUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
-        assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
-        assertThat(manager.alterZone(alterZoneBuilder().filter(newFilter).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(alterZoneBuilder(ZONE_NAME).filter(newFilter).build()), willCompleteSuccessfully());
 
         assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
         assertThat(onFilterUpdateFuture, willCompleteSuccessfully());
@@ -163,7 +163,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -172,12 +172,12 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onAutoAdjustUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
-        assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
-        assertThat(manager.alterZone(alterZoneBuilder().dataNodesAutoAdjust(newAutoAdjust).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
+        assertThat(manager.execute(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(newAutoAdjust).build()), willCompleteSuccessfully());
 
         assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
         assertThat(onAutoAdjustUpdateFuture, willCompleteSuccessfully());
@@ -195,7 +195,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -204,13 +204,13 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onAutoAdjustScaleUpUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
-        assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
         assertThat(
-                manager.alterZone(alterZoneBuilder().dataNodesAutoAdjustScaleUp(newAutoAdjustScaleUp).build()),
+                manager.execute(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(newAutoAdjustScaleUp).build()),
                 willCompleteSuccessfully()
         );
 
@@ -230,7 +230,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -239,13 +239,13 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onAutoAdjustScaleDownUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
-        assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
         assertThat(
-                manager.alterZone(alterZoneBuilder().dataNodesAutoAdjustScaleDown(newAutoAdjustScaleDown).build()),
+                manager.execute(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(newAutoAdjustScaleDown).build()),
                 willCompleteSuccessfully()
         );
 
@@ -255,13 +255,5 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
     private void listenAlterZone(CatalogAlterZoneEventListener listener) {
         manager.listen(ZONE_ALTER, listener);
-    }
-
-    private static CreateZoneParams.Builder createZoneBuilder() {
-        return CreateZoneParams.builder().zoneName(ZONE_NAME);
-    }
-
-    private static AlterZoneParams.Builder alterZoneBuilder() {
-        return AlterZoneParams.builder().zoneName(ZONE_NAME);
     }
 }

@@ -31,9 +31,9 @@ public class GcConfigurationSchema {
     @Value(hasDefault = true)
     public int threads = Runtime.getRuntime().availableProcessors();
 
-    /** The number of entries in the storage to be garbage collected during a storage update operation. */
+    /** The maximal number of entries in the storage to be garbage collected in a single batch. */
     @Value(hasDefault = true)
-    public int onUpdateBatchSize = 5;
+    public int batchSize = 5;
 
     /** Low watermark configuration. */
     @ConfigValue

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
+
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +32,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -152,7 +156,7 @@ public class CheckpointManager {
         checkpointTimeoutLock = new CheckpointTimeoutLock(
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
-                () -> safeToUpdateAllPageMemories(dataRegions),
+                () -> checkpointUrgency(dataRegions),
                 checkpointer
         );
     }
@@ -244,19 +248,28 @@ public class CheckpointManager {
     }
 
     /**
-     * Returns {@link true} if it is safe for all {@link DataRegion data regions} to update their {@link PageMemory}.
+     * Returns checkpoint urgency status. {@link CheckpointUrgency#NOT_REQUIRED} if it is safe for all {@link DataRegion data regions} to
+     * update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.
-     * @see PersistentPageMemory#safeToUpdate()
+     * @see PersistentPageMemory#checkpointUrgency()
+     * @see CheckpointUrgency
      */
-    static boolean safeToUpdateAllPageMemories(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
+    static CheckpointUrgency checkpointUrgency(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
+        CheckpointUrgency urgency = NOT_REQUIRED;
         for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
-            if (!dataRegion.pageMemory().safeToUpdate()) {
-                return false;
+            CheckpointUrgency regionCheckpointUrgency = dataRegion.pageMemory().checkpointUrgency();
+
+            if (regionCheckpointUrgency.compareTo(urgency) > 0) {
+                urgency = regionCheckpointUrgency;
+            }
+
+            if (urgency == MUST_TRIGGER) {
+                return MUST_TRIGGER;
             }
         }
 
-        return true;
+        return urgency;
     }
 
     /**
@@ -306,11 +319,13 @@ public class CheckpointManager {
      * @param partitionDirtyPages Dirty pages of the partition.
      */
     static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
-        // +1 since the first page (pageIdx == 0) will always be PartitionMetaIo.
-        int[] pageIndexes = new int[partitionDirtyPages.size() + 1];
+        // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
+        int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
+
+        int[] pageIndexes = new int[partitionDirtyPages.size() + offset];
 
         for (int i = 0; i < partitionDirtyPages.size(); i++) {
-            pageIndexes[i + 1] = partitionDirtyPages.get(i).pageIdx();
+            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
         }
 
         return pageIndexes;

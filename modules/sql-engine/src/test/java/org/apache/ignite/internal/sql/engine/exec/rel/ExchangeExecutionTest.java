@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -633,7 +634,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private static QueryTaskExecutor getOrCreateTaskExecutor(String name) {
         return executors.computeIfAbsent(name, name0 -> {
-            var executor = new QueryTaskExecutorImpl(name0);
+            var executor = new QueryTaskExecutorImpl(name0, 4);
 
             executor.start();
 
@@ -655,7 +656,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         @Override
         public CompletableFuture<Void> closeAsync() {
             // do nothing
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         CompletableFuture<?> rewind() {

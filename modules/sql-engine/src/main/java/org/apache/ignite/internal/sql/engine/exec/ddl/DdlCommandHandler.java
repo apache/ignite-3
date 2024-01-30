@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -27,12 +27,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -92,29 +92,29 @@ public class DdlCommandHandler {
     /** Handles create distribution zone command. */
     @WithSpan
     private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
-        return catalogManager.createZone(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneExistsValidationException.class));
     }
 
     /** Handles rename zone command. */
     @WithSpan
     private CompletableFuture<Boolean> handleRenameZone(AlterZoneRenameCommand cmd) {
-        return catalogManager.renameZone(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles alter zone command. */
     @WithSpan
     private CompletableFuture<Boolean> handleAlterZone(AlterZoneSetCommand cmd) {
-        return catalogManager.alterZone(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles drop distribution zone command. */
     @WithSpan
     private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
-        return catalogManager.dropZone(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles create table command. */
@@ -135,7 +135,7 @@ public class DdlCommandHandler {
     @WithSpan
     private CompletableFuture<Boolean> handleAlterAddColumn(AlterTableAddCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return completedFuture(Boolean.FALSE);
+            return falseCompletedFuture();
         }
 
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
@@ -146,7 +146,7 @@ public class DdlCommandHandler {
     @WithSpan
     private CompletableFuture<Boolean> handleAlterDropColumn(AlterTableDropCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return completedFuture(Boolean.FALSE);
+            return falseCompletedFuture();
         }
 
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))

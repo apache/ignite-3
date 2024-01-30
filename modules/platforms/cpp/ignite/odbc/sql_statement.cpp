@@ -23,8 +23,8 @@
 #include "ignite/odbc/query/data_query.h"
 #include "ignite/odbc/query/foreign_keys_query.h"
 #include "ignite/odbc/query/primary_keys_query.h"
-#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/special_columns_query.h"
+#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/system/odbc_constants.h"
@@ -457,7 +457,7 @@ void sql_statement::get_parameters_number(uint16_t &param_num) {
     IGNITE_ODBC_API_CALL(internal_get_parameters_number(param_num));
 }
 
-sql_result sql_statement::internal_get_parameters_number(uint16_t &param_num) {
+sql_result sql_statement::internal_get_parameters_number(std::uint16_t &param_num) {
     if (!m_current_query) {
         add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
 
@@ -470,14 +470,15 @@ sql_result sql_statement::internal_get_parameters_number(uint16_t &param_num) {
         return sql_result::AI_SUCCESS;
     }
 
-    if (!m_parameters.is_metadata_set()) {
-        sql_result res = update_params_meta();
+    auto qry0 = static_cast<data_query *>(m_current_query.get());
+    if (!qry0->is_param_meta_available()) {
+        sql_result res = qry0->update_meta();
 
         if (res != sql_result::AI_SUCCESS)
             return res;
     }
 
-    param_num = m_parameters.get_expected_param_num();
+    param_num = std::uint16_t(qry0->get_expected_param_num());
 
     return sql_result::AI_SUCCESS;
 }
@@ -815,7 +816,7 @@ sql_result sql_statement::internal_get_column_attribute(uint16_t column_idx, uin
         return sql_result::AI_ERROR;
 
     if (column_idx > meta->size() || column_idx < 1) {
-        add_status_record(sql_state::SHY000_GENERAL_ERROR, "Column index is out of range.", 0, column_idx);
+        add_status_record(sql_state::S42S22_COLUMN_NOT_FOUND, "Column index is out of range.", 0, column_idx);
 
         return sql_result::AI_ERROR;
     }
@@ -979,48 +980,36 @@ sql_result sql_statement::internal_describe_param(
         return sql_result::AI_ERROR;
     }
 
-    auto type = m_parameters.get_param_type(std::int16_t(param_num), ignite_type::UNDEFINED);
-
-    LOG_MSG("Type: " << type);
-
-    if (type == ignite_type::UNDEFINED) {
-        sql_result res = update_params_meta();
+    auto qry0 = static_cast<data_query *>(qry);
+    if (!qry0->is_param_meta_available()) {
+        sql_result res = qry0->update_meta();
 
         if (res != sql_result::AI_SUCCESS)
             return res;
-
-        type = m_parameters.get_param_type(std::int16_t(param_num), ignite_type::UNDEFINED);
     }
 
+    auto sql_param = qry0->get_sql_param(std::int16_t(param_num));
+    if (!sql_param) {
+        add_status_record(sql_state::S07009_INVALID_DESCRIPTOR_INDEX, "Parameter index is out of range.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    LOG_MSG("Type: " << (int) sql_param->data_type);
+
     if (data_type)
-        *data_type = ignite_type_to_sql_type(type);
+        *data_type = ignite_type_to_sql_type(sql_param->data_type);
 
-    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (param_size)
-        *param_size = ignite_type_max_column_size(type);
+        *param_size = sql_param->precision;
 
-    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (decimal_digits)
-        *decimal_digits = int16_t(ignite_type_decimal_digits(type, -1));
+        *decimal_digits = (std::int16_t) sql_param->scale;
 
-    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (nullable)
-        *nullable = ignite_type_nullability(type);
+        *nullable = sql_param->nullable ? SQL_NULLABLE : SQL_NO_NULLS;
 
     return sql_result::AI_SUCCESS;
-}
-
-sql_result sql_statement::update_params_meta() {
-    auto *qry0 = m_current_query.get();
-    UNUSED_VALUE qry0;
-
-    assert(qry0);
-    assert(qry0->get_type() == query_type::DATA);
-
-    // TODO: IGNITE-19854: Implement params metadata fetching
-
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Parameters metadata is not supported");
-    return sql_result::AI_ERROR;
 }
 
 uint16_t sql_statement::sql_result_to_row_result(sql_result value) {

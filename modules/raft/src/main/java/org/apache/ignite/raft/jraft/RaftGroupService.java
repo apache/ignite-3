@@ -155,14 +155,6 @@ public class RaftGroupService {
         return this.node;
     }
 
-    /**
-     * Gets a future which complete when all committed update are applied to the node's state machine on start.
-     * @return Future completes when this node committed revision would be equal to the applied one.
-     */
-    public CompletableFuture<Long> getApplyCommittedFuture() {
-        return node.getApplyCommittedFuture();
-    }
-
     public synchronized void shutdown() {
         // TODO asch remove handlers before shutting down raft node https://issues.apache.org/jira/browse/IGNITE-14519
         if (!this.started) {

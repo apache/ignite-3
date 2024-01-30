@@ -126,6 +126,7 @@ void sql_connection::init_socket() {
 
 sql_result sql_connection::internal_establish(const configuration &cfg) {
     m_config = cfg;
+    m_info.rebuild();
 
     if (!m_config.get_address().is_set() || m_config.get_address().get_value().empty()) {
         add_status_record("No valid address to connect.");
@@ -332,12 +333,6 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
             throw odbc_error(sql_state::SHYT00_TIMEOUT_EXPIRED, "Could not receive a response within timeout");
 
         protocol::reader reader(res);
-        auto response_type = reader.read_int32();
-        if (protocol::message_type(response_type) != protocol::message_type::RESPONSE) {
-            LOG_MSG("Unsupported message type: " + std::to_string(response_type));
-            continue;
-        }
-
         auto req_id = reader.read_int64();
         if (req_id != id) {
             throw odbc_error(
@@ -345,14 +340,18 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         }
 
         auto flags = reader.read_int32();
-        UNUSED_VALUE flags; // Flags are unused for now.
+        if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED)) {
+            auto assignment_ts = reader.read_int64();
+
+            UNUSED_VALUE assignment_ts;
+        }
 
         auto observable_timestamp = reader.read_int64();
         on_observable_timestamp(observable_timestamp);
 
-        auto err = protocol::read_error(reader);
-        if (err) {
-            throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.value().what_str());
+        if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
+            auto err = protocol::read_error(reader);
+            throw odbc_error(error_code_to_sql_state(err.get_status_code()), err.what_str());
         }
 
         return network::data_buffer_owning{std::move(res), reader.position()};
@@ -616,7 +615,14 @@ sql_result sql_connection::make_request_handshake() {
     m_protocol_version = protocol::protocol_version::get_current();
 
     try {
-        std::vector<std::byte> message = protocol::make_handshake_request(ODBC_CLIENT, m_protocol_version, {});
+        std::map<std::string, std::string> extensions;
+        if (!m_config.get_auth_identity().get_value().empty()) {
+            extensions.emplace("authn-type", m_config.get_auth_type());
+            extensions.emplace("authn-identity", m_config.get_auth_identity().get_value());
+            extensions.emplace("authn-secret", m_config.get_auth_secret().get_value());
+        }
+
+        std::vector<std::byte> message = protocol::make_handshake_request(ODBC_CLIENT, m_protocol_version, extensions);
 
         auto res = send_all(message.data(), message.size(), m_login_timeout);
         if (res != operation_result::SUCCESS) {

@@ -29,15 +29,16 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,6 +47,8 @@ import org.junit.jupiter.api.Test;
 public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /** SQL query. */
     private static final String SQL = "select * from PERSON where age > 30";
+
+    private int populateStmtCnt = 10;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
@@ -57,9 +60,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @BeforeEach
     public void beforeEach() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            int stmtCnt = 10;
-
-            for (int i = 0; i < stmtCnt; ++i) {
+            for (int i = 0; i < populateStmtCnt; ++i) {
                 statement.executeUpdate("insert into TEST (ID, NAME) values (" + i + ", 'name_" + i + "'); ");
             }
         }
@@ -162,6 +163,30 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertEquals(2, cnt);
 
         assertFalse(stmt.getMoreResults(), "Statement has more results.");
+    }
+
+    @Test
+    public void executeQueryWithNullColTypes() throws Exception {
+        ResultSet rs = stmt.executeQuery("SELECT LOWER(NULL), UPPER(NULL), SUBSTRING(NULL FROM 1 FOR 2)");
+        rs.next();
+        assertNull(rs.getString(1));
+        assertNull(rs.getString(2));
+        assertNull(rs.getString(3));
+
+        ResultSetMetaData meta = rs.getMetaData();
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(1));
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(2));
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(3));
+
+        stmt.executeUpdate("DELETE FROM TEST");
+        stmt.executeUpdate("insert into TEST (ID, NAME) values (1, null)");
+
+        rs = stmt.executeQuery("SELECT LOWER(NAME) FROM TEST");
+        rs.next();
+        assertNull(rs.getObject(1));
+
+        meta = rs.getMetaData();
+        assertEquals("VARCHAR", meta.getColumnTypeName(1));
     }
 
     @Test
@@ -347,7 +372,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecuteQueryMultipleOnlyResultSets() throws Exception {
         assertTrue(conn.getMetaData().supportsMultipleResultSets());
 
@@ -381,7 +405,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleOnlyDml() throws Exception {
         Statement stmt0 = conn.createStatement();
 
@@ -406,7 +429,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertEquals(0, stmt0.getUpdateCount());
 
         for (int i = 0; i < stmtCnt; ++i) {
-            assertTrue(stmt0.getMoreResults());
+            assertFalse(stmt0.getMoreResults());
 
             assertNull(stmt0.getResultSet());
             assertEquals(1, stmt0.getUpdateCount());
@@ -416,7 +439,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleMixed() throws Exception {
         int stmtCnt = 10;
 
@@ -436,19 +458,20 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
 
-        assertTrue(stmt.getMoreResults(), "Result set doesn't have more results.");
+        // DROP TABLE
+        assertFalse(stmt.getMoreResults(), "Result set doesn't have more results.");
 
         // CREATE TABLE statement
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
 
         for (int i = 0; i < stmtCnt; ++i) {
-            assertTrue(stmt.getMoreResults());
-
             if (i % 2 == 0) {
+                assertFalse(stmt.getMoreResults());
                 assertNull(stmt.getResultSet());
                 assertEquals(1, stmt.getUpdateCount());
             } else {
+                assertTrue(stmt.getMoreResults());
                 assertEquals(-1, stmt.getUpdateCount());
 
                 ResultSet rs = stmt.getResultSet();
@@ -462,8 +485,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
                 assertEquals((i + 1) / 2, rowsCnt);
             }
         }
-
-        assertFalse(stmt.getMoreResults());
     }
 
     @Test
@@ -782,5 +803,38 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
                 "The data must not be updated. "
                         + "Because update statement is executed via 'executeQuery' method."
                         + " Data [val=" + rs.getString(1) + ']');
+    }
+
+    @Test
+    public void testOpenCursorsPureQuery() throws Exception {
+        int initial = openResources();
+
+        stmt.execute("SELECT 1; SELECT 2;");
+        ResultSet rs = stmt.getResultSet();
+        stmt.execute("SELECT 3;");
+        assertTrue(rs.isClosed());
+
+        assertTrue(populateStmtCnt < 100);
+        //more than one fetch request
+        for (int i = populateStmtCnt; i < stmt.getMaxRows() + 100; ++i) {
+            stmt.execute(String.format("INSERT INTO TEST VALUES (%d, '1')", i));
+        }
+
+        stmt.close();
+        assertEquals(0, openResources() - initial);
+        assertEquals(0, openCursors());
+    }
+
+    @Test
+    public void testOpenCursorsWithDdl() throws Exception {
+        int initial = openResources();
+
+        stmt.execute("CREATE TABLE T1(ID INT PRIMARY KEY, AGE INT, NAME VARCHAR)");
+        stmt.getResultSet();
+        stmt.execute("SELECT 3;");
+        stmt.execute("DROP TABLE T1");
+        stmt.getResultSet();
+
+        assertEquals(0, openResources() - initial);
     }
 }

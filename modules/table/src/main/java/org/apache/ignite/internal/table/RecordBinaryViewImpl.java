@@ -37,6 +37,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -46,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table view implementation for binary objects.
  */
-public class RecordBinaryViewImpl extends AbstractTableView implements RecordView<Tuple> {
+public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements RecordView<Tuple> {
     private final TupleMarshallerCache marshallerCache;
 
     /**
@@ -55,9 +56,10 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * @param tbl The table.
      * @param schemaRegistry Table schema registry.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      */
-    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, IgniteSql sql) {
+        super(tbl, schemaVersions, schemaRegistry, sql);
 
         marshallerCache = new TupleMarshallerCache(schemaRegistry);
     }
@@ -512,9 +514,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null, (schemaVersion) -> {
-            return this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId);
-        });
+        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null,
+                (schemaVersion) -> this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

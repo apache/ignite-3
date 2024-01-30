@@ -300,13 +300,22 @@ public class LeaseUpdater {
 
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
-            long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
+            HybridTimestamp now = clock.now();
+
+            long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
-            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
+            Map<ReplicationGroupId, Set<Assignment>> currentAssignments = assignmentsTracker.assignments();
+            Set<ReplicationGroupId> currentAssignmentsReplicationGroupIds = currentAssignments.keySet();
+
+            // Remove all expired leases that are no longer present in assignments.
+            renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now)
+                    && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
+
+            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
 
                 Lease lease = leaseTracker.getLease(grpId);
@@ -319,6 +328,7 @@ public class LeaseUpdater {
 
                         continue;
                     } else if (agreement.ready()) {
+                        // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
                         ClusterNode candidate = nextLeaseHolder(entry.getValue(), agreement.getRedirectTo());
 
                         if (candidate == null) {
@@ -364,14 +374,24 @@ public class LeaseUpdater {
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
                     noop()
-            ).thenAccept(success -> {
-                if (success) {
-                    for (Map.Entry<ReplicationGroupId, Boolean> e : toBeNegotiated.entrySet()) {
-                        Lease lease = renewedLeases.get(e.getKey());
-                        boolean force = e.getValue();
+            ).whenComplete((success, e) -> {
+                if (e != null) {
+                    LOG.error("Lease update invocation failed", e);
 
-                        leaseNegotiator.negotiate(lease, force);
-                    }
+                    return;
+                }
+
+                if (!success) {
+                    LOG.debug("Lease update invocation failed");
+
+                    return;
+                }
+
+                for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
+                    Lease lease = renewedLeases.get(entry.getKey());
+                    boolean force = entry.getValue();
+
+                    leaseNegotiator.negotiate(lease, force);
                 }
             });
         }
@@ -429,7 +449,7 @@ public class LeaseUpdater {
 
         /**
          * Checks that the lease is outdated.
-         * {@link Lease#EMPTY_LEASE} is always outdated.
+         * {@link Lease#emptyLease} is always outdated.
          *
          * @param lease Lease.
          * @return True when the candidate can be a leaseholder, otherwise false.

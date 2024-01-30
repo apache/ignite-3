@@ -37,6 +37,8 @@ dependencies {
     implementation project(':ignite-metrics')
     implementation project(':ignite-transactions')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-compute')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.netty.common
@@ -47,10 +49,13 @@ dependencies {
     implementation libs.msgpack.jackson
     implementation libs.auto.service.annotations
 
+    testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-security')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation project(':ignite-catalog')
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.awaitility
@@ -65,12 +70,21 @@ dependencies {
     integrationTestImplementation project(':ignite-security')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))
+    integrationTestImplementation(testFixtures(project(':ignite-client-handler')))
     integrationTestImplementation libs.msgpack.core
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.jetbrains.annotations
+
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-placement-driver-api')
+    testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation project(':ignite-security-api')
+    testFixturesImplementation libs.mockito.junit
 }
 
 description = 'ignite-client-handler'

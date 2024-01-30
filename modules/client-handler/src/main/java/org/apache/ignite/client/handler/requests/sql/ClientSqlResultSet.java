@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -78,6 +80,6 @@ class ClientSqlResultSet {
             return resultSet.closeAsync().thenCompose(res -> session.closeAsync()).toCompletableFuture();
         }
 
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 }

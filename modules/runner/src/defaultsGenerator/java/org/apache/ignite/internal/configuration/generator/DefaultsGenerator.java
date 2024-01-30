@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.configuration.generator;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
@@ -91,8 +92,7 @@ public class DefaultsGenerator {
         ConfigurationValidator configurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
 
-        ConfigurationUpdateListener empty = (oldRoot, newRoot, storageRevision, notificationNumber) ->
-                CompletableFuture.completedFuture(null);
+        ConfigurationUpdateListener empty = (oldRoot, newRoot, storageRevision, notificationNumber) -> nullCompletedFuture();
 
         return new ConfigurationChanger(empty, modules.local().rootKeys(), storage, configurationValidator) {
             @Override

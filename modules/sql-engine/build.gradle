@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/sql-parser-generator.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-sql-engine'
 
@@ -40,6 +41,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-system-view')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -57,7 +59,6 @@ dependencies {
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
-    implementation libs.classgraph
     implementation libs.javassist
     implementation libs.auto.service.annotations
     implementation libs.jsr305
@@ -65,6 +66,7 @@ dependencies {
     implementation libs.opentelemetry.instrumentation.annotations
 
     annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.value.annotation.processor
     annotationProcessor libs.auto.service
 
@@ -83,6 +85,7 @@ dependencies {
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-placement-driver')
     testImplementation libs.jmh.core
+    testImplementation(testFixtures(project(':ignite-api')))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-schema')))
@@ -94,6 +97,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-transactions')))
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
@@ -101,11 +105,40 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-schema')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-system-view')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-schema'))
+    integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
+    integrationTestImplementation testFixtures(project(':ignite-table'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation libs.jetbrains.annotations
+
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-transactions')
+    testFixturesImplementation project(':ignite-system-view-api')
+    testFixturesImplementation project(':ignite-system-view')
     testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-runner'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
+}
+
+integrationTest {
+    useJUnitPlatform {
+        if (System.getProperty("sqlTest") != null) {
+            it.includeTags "sqllogic"
+        } else {
+            it.excludeTags "sqllogic"
+        }
+    }
 }

@@ -29,7 +29,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -39,21 +38,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @SuppressWarnings({"resource", "ThrowableNotThrown"})
 @ExtendWith(ConfigurationExtension.class)
 public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
-    @SuppressWarnings("unused")
-    @InjectConfiguration
+    @InjectConfiguration(rootName = "security")
     private SecurityConfiguration securityConfiguration;
 
     private TestServer server;
 
     private IgniteClient client;
-
-    @BeforeEach
-    public void beforeEach() {
-        securityConfiguration.change(change -> {
-            change.changeEnabled(false);
-            change.changeAuthentication().changeProviders().delete("basic");
-        }).join();
-    }
 
     @AfterEach
     public void afterEach() throws Exception {
@@ -115,12 +105,14 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
                 null);
 
         if (basicAuthn) {
-            securityConfiguration.change(change -> {
-                change.changeEnabled(true);
-                change.changeAuthentication().changeProviders().create("basic", authenticationProviderChange ->
-                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("usr")
-                                .changePassword("pwd"));
+            securityConfiguration.change(securityChange -> {
+                securityChange.changeEnabled(true);
+                securityChange.changeAuthentication().changeProviders().create("basic", change ->
+                        change.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users -> users.create("usr", user ->
+                                        user.changePassword("pwd"))
+                                )
+                );
             }).join();
         }
 

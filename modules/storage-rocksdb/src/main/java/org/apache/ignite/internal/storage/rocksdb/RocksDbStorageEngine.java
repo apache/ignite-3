@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -133,7 +133,7 @@ public class RocksDbStorageEngine implements StorageEngine {
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<RocksDbDataRegionView> ctx) {
                 registerDataRegion(ctx.newName(RocksDbDataRegionView.class));
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
     }

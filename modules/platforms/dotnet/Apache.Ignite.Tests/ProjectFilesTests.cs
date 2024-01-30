@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using NUnit.Framework;
 
@@ -34,6 +35,8 @@ namespace Apache.Ignite.Tests
 
         private static readonly string InternalDir =
             $"{Path.DirectorySeparatorChar}Internal{Path.DirectorySeparatorChar}";
+
+        public static IEnumerable<string> GetCsFiles() => Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
 
         [Test]
         public void TestInternalNamespaceHasNoPublicTypes()
@@ -83,32 +86,46 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestTodosHaveTickets()
         {
-            Assert.Multiple(() =>
+            var exceptions = new List<Exception>();
+
+            foreach (var file in GetCsFiles())
             {
-                foreach (var file in GetCsFiles())
+                if (file.EndsWith("ProjectFilesTests.cs", StringComparison.Ordinal))
                 {
-                    if (file.EndsWith("ProjectFilesTests.cs", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    int lineNum = 0;
-                    foreach (var line in File.ReadAllLines(file))
-                    {
-                        lineNum++;
+                int lineNum = 0;
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    lineNum++;
 
-                        if (line.Contains("TODO", StringComparison.Ordinal))
-                        {
-                            StringAssert.Contains("IGNITE-", line, $"TODOs should be linked to tickets in {file}:line {lineNum}");
-                        }
+                    if (line.Contains("TODO", StringComparison.Ordinal) && !line.Contains("IGNITE-", StringComparison.Ordinal))
+                    {
+                        exceptions.Add(new TodoWithoutTicketException(
+                            "TODO without ticket: " + line.Trim(),
+                            $"at Apache.Ignite.Tests.ProjectFilesTests.TestTodosHaveTickets() in {file}:line {lineNum}"));
                     }
                 }
-            });
+            }
+
+            if (exceptions.Count > 0)
+            {
+                throw new AggregateException(exceptions);
+            }
         }
 
-        private static IEnumerable<string> GetCsFiles()
+        [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]
+        [SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Tests.")]
+        private sealed class TodoWithoutTicketException : AssertionException
         {
-            return Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
+            public TodoWithoutTicketException(string message, string stackTrace)
+                : base(message)
+            {
+                StackTrace = stackTrace;
+            }
+
+            public override string StackTrace { get; }
         }
     }
 }

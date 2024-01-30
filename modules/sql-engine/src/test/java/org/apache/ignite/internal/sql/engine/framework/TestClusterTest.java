@@ -17,17 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -42,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
@@ -184,7 +187,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node("N1");
         QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID = 1");
 
-        for (List<?> row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        for (InternalSqlRow row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
 
@@ -201,7 +204,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node("N1");
         QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
 
-        for (List<?> row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        for (InternalSqlRow row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
 
@@ -209,6 +212,36 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         assertTrue(plan instanceof MultiStepPlan);
         assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteIndexScan);
         assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).root())).indexName());
+    }
+
+    /** Check that already stopped message service correctly process incoming message. */
+    @Test
+    public void stoppedMessageServiceNotThrowsException() throws Exception {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+
+        TestNode stoppedNode = cluster.node("N2");
+
+        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
+
+        AsyncCursor<InternalSqlRow> cur = gatewayNode.executePlan(plan);
+
+        await(cur.requestNextAsync(1));
+
+        stoppedNode.holdLock().block();
+
+        try {
+            stoppedNode.messageService().stop();
+
+            await(cur.closeAsync());
+
+            gatewayNode.stop();
+
+            assertFalse(stoppedNode.exceptionRaised);
+        } finally {
+            stoppedNode.holdLock().unblock();
+        }
     }
 
     private static IgniteRel lastNode(IgniteRel root) {
@@ -226,8 +259,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node("N1");
         QueryPlan plan = gatewayNode.prepare("SELECT * FROM SYSTEM.NODES, SYSTEM.NODE_N2");
 
-        BatchedResult<List<Object>> results = await(gatewayNode.executePlan(plan).requestNextAsync(10_000));
-        List<List<Object>> rows = new ArrayList<>(results.items());
+        BatchedResult<InternalSqlRow> results = await(gatewayNode.executePlan(plan).requestNextAsync(10_000));
+        List<List<Object>> rows = convertSqlRows(results.items());
 
         assertEquals(List.of(List.of(42L, "mango", "N2", 42)), rows);
     }

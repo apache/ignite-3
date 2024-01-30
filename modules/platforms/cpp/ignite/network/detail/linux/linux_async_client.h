@@ -172,7 +172,7 @@ public:
      *
      * @return Connection error.
      */
-    [[nodiscard]] const ignite_error &get_close_error() const { return m_close_err; }
+    [[nodiscard]] std::optional<ignite_error> get_close_error() const { return m_close_err; }
 
 private:
     /**
@@ -211,7 +211,7 @@ private:
     std::vector<std::byte> m_recv_packet;
 
     /** Closing error. */
-    ignite_error m_close_err;
+    std::optional<ignite_error> m_close_err{};
 };
 
 } // namespace ignite::network::detail

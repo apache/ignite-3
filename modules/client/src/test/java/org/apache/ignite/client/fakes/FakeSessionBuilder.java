@@ -31,6 +31,8 @@ import org.jetbrains.annotations.Nullable;
 public class FakeSessionBuilder implements SessionBuilder {
     private final Map<String, Object> properties = new HashMap<>();
 
+    private final FakeIgniteSql sql;
+
     private String defaultSchema;
 
     private Long defaultQueryTimeoutMs;
@@ -38,6 +40,10 @@ public class FakeSessionBuilder implements SessionBuilder {
     private Long defaultSessionTimeoutMs;
 
     private Integer pageSize;
+
+    public FakeSessionBuilder(FakeIgniteSql sql) {
+        this.sql = sql;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -118,6 +124,6 @@ public class FakeSessionBuilder implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        return new FakeSession(pageSize, defaultSchema, defaultQueryTimeoutMs, defaultSessionTimeoutMs, new HashMap<>(properties));
+        return new FakeSession(pageSize, defaultSchema, defaultQueryTimeoutMs, defaultSessionTimeoutMs, new HashMap<>(properties), sql);
     }
 }

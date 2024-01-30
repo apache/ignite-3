@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -49,7 +50,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     String DEFAULT_ZONE_NAME = "Default";
 
-    Catalog catalog(int version);
+    @Nullable Catalog catalog(int catalogVersion);
 
     @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
 
@@ -67,9 +68,13 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
 
-    @Nullable CatalogSchemaDescriptor schema(int version);
+    List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId);
 
-    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
+    @Nullable CatalogSchemaDescriptor schema(int catalogVersion);
+
+    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int catalogVersion);
+
+    @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion);
 
     @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp);
 
@@ -85,9 +90,10 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     int activeCatalogVersion(long timestamp);
 
-    /**
-     * Returns the latest registered version of the catalog.
-     */
+    /** Returns the earliest registered version of the catalog. */
+    int earliestCatalogVersion();
+
+    /** Returns the latest registered version of the catalog. */
     int latestCatalogVersion();
 
     /**
@@ -96,4 +102,11 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @param version Catalog version to wait for.
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
+
+    /**
+     * Returns a local snapshot of all versions of the catalog that exist at the time the method is called.
+     *
+     * <p>NOTE: List is sorted by {@link Catalog#version() catalog version} in ascending order.</p>
+     */
+    List<Catalog> catalogVersionsSnapshot();
 }

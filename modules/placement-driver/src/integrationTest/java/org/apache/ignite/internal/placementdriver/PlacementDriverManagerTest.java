@@ -20,12 +20,13 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.lang.ByteArray.fromString;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,14 +39,17 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -57,6 +61,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -75,8 +80,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -106,9 +109,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     private HybridClock nodeClock = new HybridClockImpl();
 
-    private VaultManager vaultManager;
-
     private ClusterService clusterService;
+
+    private LogicalTopologyServiceTestImpl logicalTopologyService;
 
     /** This service is used to redirect a lease proposal. */
     private ClusterService anotherClusterService;
@@ -145,8 +148,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     }
 
     private void startPlacementDriverManager() {
-        vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, PORT), workDir.resolve("vault")));
-
         var nodeFinder = new StaticNodeFinder(Collections.singletonList(new NetworkAddress("localhost", PORT)));
 
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, PORT, nodeFinder);
@@ -165,7 +166,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
-        LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceTestImpl(clusterService);
+        logicalTopologyService = new LogicalTopologyServiceTestImpl(clusterService);
 
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterService,
@@ -185,7 +186,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
         metaStorageManager = new MetaStorageManagerImpl(
-                vaultManager,
                 clusterService,
                 cmgManager,
                 logicalTopologyService,
@@ -208,7 +208,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 nodeClock
         );
 
-        vaultManager.start();
         clusterService.start();
         anotherClusterService.start();
         raftManager.start();
@@ -263,8 +262,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 metaStorageManager,
                 raftManager,
                 clusterService,
-                anotherClusterService,
-                vaultManager
+                anotherClusterService
         );
 
         IgniteUtils.closeAll(Stream.concat(
@@ -337,42 +335,161 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     }
 
     @Test
-    public void testPrimaryReplicaExpired() throws Exception {
-        AtomicBoolean leaseExpired = new AtomicBoolean();
-
+    public void testPrimaryReplicaEvents() throws Exception {
         TablePartitionId grpPart0 = createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName));
-
-        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
-            log.info("Primary replica is expired [grp={}]", grpPart0);
-
-            leaseExpired.set(true);
-
-            return CompletableFuture.completedFuture(false);
-        });
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
-        assertFalse(leaseExpired.get());
+        ConcurrentHashMap<String, HybridTimestamp> electedEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<String, HybridTimestamp> expiredEvts = new ConcurrentHashMap<>(2);
+
+        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (evt, e) -> {
+            log.info("Primary replica is elected [grp={}]", evt.groupId());
+
+            electedEvts.put(evt.leaseholderId(), evt.startTime());
+
+            return falseCompletedFuture();
+        });
+
+        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+            log.info("Primary replica is expired [grp={}]", evt.groupId());
+
+            expiredEvts.put(evt.leaseholderId(), evt.startTime());
+
+            return falseCompletedFuture();
+        });
 
         Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 1);
 
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
+            CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
+                    .getPrimaryReplica(grpPart0, lease1.getExpirationTime());
 
-            Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
+            ReplicaMeta meta = fut.join();
 
-            return lease.getLeaseholder().equals(anotherNodeName);
+            return meta != null && meta.getLeaseholder().equals(anotherNodeName);
         }, 10_000));
 
         Lease lease2 = checkLeaseCreated(grpPart0, true);
 
         assertNotEquals(lease1.getLeaseholder(), lease2.getLeaseholder());
 
-        assertTrue(leaseExpired.get());
+        assertEquals(1, electedEvts.size());
+        assertEquals(1, expiredEvts.size());
+
+        assertTrue(electedEvts.containsKey(lease2.getLeaseholderId()));
+        assertTrue(expiredEvts.containsKey(lease1.getLeaseholderId()));
+
+        stopAnotherNode(anotherClusterService);
+        anotherClusterService = startAnotherNode(anotherNodeName, PORT + 1);
+
+        assertTrue(waitForCondition(() -> {
+            CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
+                    .getPrimaryReplica(grpPart0, lease2.getExpirationTime());
+
+            ReplicaMeta meta = fut.join();
+
+            return meta != null && meta.getLeaseholderId().equals(anotherClusterService.topologyService().localMember().id());
+        }, 10_000));
+
+        Lease lease3 = checkLeaseCreated(grpPart0, true);
+
+        assertEquals(2, electedEvts.size());
+        assertEquals(2, expiredEvts.size());
+
+        assertTrue(electedEvts.containsKey(lease3.getLeaseholderId()));
+        assertTrue(expiredEvts.containsKey(lease2.getLeaseholderId()));
     }
 
+    /**
+     * Stops another node.
+     *
+     * @param nodeClusterService Node service to stop.
+     * @throws Exception If failed.
+     */
+    private void stopAnotherNode(ClusterService nodeClusterService) throws Exception {
+        nodeClusterService.beforeNodeStop();
+        nodeClusterService.stop();
+
+        assertTrue(waitForCondition(
+                () -> !clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),
+                10_000
+        ));
+
+        logicalTopologyService.updateTopology();
+    }
+
+    /**
+     * Starts another node.
+     *
+     * @param nodeName Node name.
+     * @param port Node port.
+     * @return Cluster service for the newly started node.
+     * @throws Exception If failed.
+     */
+    private ClusterService startAnotherNode(String nodeName, int port) throws Exception {
+        ClusterService nodeClusterService = ClusterServiceTestUtils.clusterService(
+                testInfo,
+                port,
+                new StaticNodeFinder(Collections.singletonList(new NetworkAddress("localhost", PORT)))
+        );
+
+        nodeClusterService.messagingService().addMessageHandler(
+                PlacementDriverMessageGroup.class,
+                leaseGrantMessageHandler(nodeName)
+        );
+
+        nodeClusterService.start();
+
+        assertTrue(waitForCondition(
+                () -> clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),
+                10_000
+        ));
+
+        logicalTopologyService.updateTopology();
+
+        return nodeClusterService;
+    }
+
+    @Test
+    public void testLeaseRemovedAfterExpirationAndAssignmetnsRemoval() throws Exception {
+        List<TablePartitionId> groupIds = List.of(
+                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName)),
+                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName))
+        );
+
+        Map<TablePartitionId, AtomicBoolean> leaseExpirationMap =
+                groupIds.stream().collect(Collectors.toMap(id -> id, id -> new AtomicBoolean()));
+
+        groupIds.forEach(groupId -> {
+            placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+                log.info("Primary replica is expired [grp={}]", groupId);
+
+                leaseExpirationMap.get(groupId).set(true);
+
+                return falseCompletedFuture();
+            });
+        });
+
+        checkLeaseCreated(groupIds.get(0), true);
+        checkLeaseCreated(groupIds.get(1), true);
+
+        assertFalse(leaseExpirationMap.get(groupIds.get(0)).get());
+        assertFalse(leaseExpirationMap.get(groupIds.get(1)).get());
+
+        metaStorageManager.remove(fromString(STABLE_ASSIGNMENTS_PREFIX + groupIds.get(0)));
+
+        assertTrue(waitForCondition(() -> {
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
+
+            // Only lease from grpPart0 should be removed.
+            return leaseFromBytes(fut.join().value(), groupIds.get(0)) == null
+                    && leaseFromBytes(fut.join().value(), groupIds.get(1)) != null;
+
+        }, 10_000));
+    }
 
     @Test
     public void testLeaseAccepted() throws Exception {
@@ -526,6 +643,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         private List<LogicalTopologyEventListener> listeners;
 
+        private int ver = 1;
+
         public LogicalTopologyServiceTestImpl(ClusterService clusterService) {
             this.clusterService = clusterService;
             this.listeners = new ArrayList<>();
@@ -546,16 +665,19 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
          */
         public void updateTopology() {
             if (listeners != null) {
-                var top = clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet());
+                var topologySnapshot = new LogicalTopologySnapshot(
+                        ++ver,
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet())
+                );
 
-                listeners.forEach(lnsr -> lnsr.onTopologyLeap(new LogicalTopologySnapshot(2, top)));
+                listeners.forEach(lnsr -> lnsr.onTopologyLeap(topologySnapshot));
             }
         }
 
         @Override
         public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
             return completedFuture(new LogicalTopologySnapshot(
-                    1,
+                    ver,
                     clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()))
             );
         }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.server.impl;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -238,7 +238,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         assert opts.isSharedPools() : "RAFT server is supposed to run in shared pools mode";
 
         // Pre-create all pools in shared mode.
@@ -332,6 +332,8 @@ public class JraftServerImpl implements RaftServer {
         logStorageFactory.start();
 
         rpcServer.init(null);
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
@@ -523,14 +525,6 @@ public class JraftServerImpl implements RaftServer {
     @Override
     public boolean isStarted(RaftNodeId nodeId) {
         return nodes.containsKey(nodeId);
-    }
-
-    @Override
-    public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
-        RaftGroupService jraftNode = nodes.entrySet().stream().filter(entry -> entry.getKey().groupId().equals(groupId))
-                .map(Entry::getValue).findAny().get();
-
-        return jraftNode.getApplyCommittedFuture();
     }
 
     @Override

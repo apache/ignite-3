@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndStatus;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackDeploymentUnits;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
@@ -24,10 +25,14 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -37,27 +42,33 @@ public class ClientComputeExecuteColocatedRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param compute   Compute.
-     * @param tables    Tables.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param compute Compute.
+     * @param tables Tables.
+     * @param cluster Cluster service
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteCompute compute,
-            IgniteTables tables) {
+            IgniteTables tables,
+            ClusterService cluster,
+            NotificationSender notificationSender) {
         return readTableAsync(in, tables).thenCompose(table -> {
             return readTuple(in, table, true).thenCompose(keyTuple -> {
                 List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
                 String jobClassName = in.unpackString();
+                JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
                 Object[] args = unpackArgs(in);
 
-                return compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
-                    out.packInt(table.schemaView().lastKnownSchemaVersion());
-                    out.packObjectAsBinaryTuple(val);
-                });
+                out.packInt(table.schemaView().lastKnownSchemaVersion());
+
+                JobExecution<Object> execution =
+                        compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, options, args);
+                sendResultAndStatus(execution, notificationSender);
+                return execution.idAsync().thenAccept(out::packUuid);
             });
         });
     }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -90,8 +92,10 @@ public class MetricManager implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override public CompletableFuture<Void> start() {
         start(loadExporters());
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -271,7 +275,7 @@ public class MetricManager implements IgniteComponent {
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ExporterView> ctx) {
             checkAndStartExporter(ctx.newValue().exporterName(), ctx.newValue());
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
@@ -282,7 +286,7 @@ public class MetricManager implements IgniteComponent {
                 removed.stop();
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
@@ -293,7 +297,7 @@ public class MetricManager implements IgniteComponent {
                 exporter.reconfigure(ctx.newValue());
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

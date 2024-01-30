@@ -19,10 +19,9 @@ package org.apache.ignite.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
-import static org.apache.ignite.internal.thread.NamedThreadFactory.create;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
-import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.network.NettyBootstrapFactory.isInNetworkThread;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -32,21 +31,18 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
-import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -54,10 +50,15 @@ import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.InNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
+import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
+import org.apache.ignite.internal.worker.CriticalWorker;
+import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -72,11 +73,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /** Topology service. */
     private final TopologyService topologyService;
 
+    private final StaleIdDetector staleIdDetector;
+
     /** User object marshaller. */
     private final UserObjectMarshaller marshaller;
 
     /** Class descriptor registry. */
     private final ClassDescriptorRegistry classDescriptorRegistry;
+
+    private final CriticalWorkerRegistry criticalWorkerRegistry;
 
     /** Connection manager that provides access to {@link NettySender}. */
     private volatile ConnectionManager connectionManager;
@@ -88,10 +93,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final AtomicLong correlationIdGenerator = new AtomicLong();
 
     /** Executor for outbound messages. */
-    private final ExecutorService outboundExecutor;
+    private final CriticalSingleThreadExecutor outboundExecutor;
 
-    /** Executor for inbound messages. */
-    private final ExecutorService inboundExecutor;
+    /** Executors for inbound messages. */
+    private final LazyStripedExecutor inboundExecutors;
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -102,6 +107,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @param factory Network messages factory.
      * @param topologyService Topology service.
+     * @param staleIdDetector Used to detect stale node IDs.
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
      */
@@ -109,18 +115,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
             String nodeName,
             NetworkMessagesFactory factory,
             TopologyService topologyService,
+            StaleIdDetector staleIdDetector,
             ClassDescriptorRegistry classDescriptorRegistry,
-            UserObjectMarshaller marshaller
+            UserObjectMarshaller marshaller,
+            CriticalWorkerRegistry criticalWorkerRegistry
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
+        this.staleIdDetector = staleIdDetector;
         this.classDescriptorRegistry = classDescriptorRegistry;
         this.marshaller = marshaller;
+        this.criticalWorkerRegistry = criticalWorkerRegistry;
 
-        this.outboundExecutor = taskWrapping(Executors.newSingleThreadExecutor(create(nodeName, "MessagingService-outbound-", LOG)));
+        this.outboundExecutor = new CriticalSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound", LOG));
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
-        this.inboundExecutor = taskWrapping(Executors.newSingleThreadExecutor(create(nodeName, "MessagingService-inbound-", LOG)));
+        inboundExecutors = new CriticalLazyStripedExecutor(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
     }
 
     /**
@@ -171,7 +181,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return respond(recipient, msg, correlationId);
+        return respond(recipient, type, msg, correlationId);
     }
 
     @Override
@@ -208,7 +218,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         // TODO: IGNITE-18493 - remove/move this
         if (shouldDropMessage(recipient, msg)) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
@@ -220,12 +230,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 sendToSelf(msg, null);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
-        return sendMessage0(recipient.name(), type, recipientAddress, message);
+        return sendViaNetwork(recipient.name(), type, recipientAddress, message);
     }
 
     private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
@@ -269,7 +279,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendMessage0(recipient.name(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
+        return sendViaNetwork(recipient.name(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
     }
 
     /**
@@ -282,21 +292,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @return Future of the send operation.
      */
-    private CompletableFuture<Void> sendMessage0(
+    private CompletableFuture<Void> sendViaNetwork(
             @Nullable String consistentId,
             ChannelType type,
             InetSocketAddress addr,
             NetworkMessage message
     ) {
         if (isInNetworkThread()) {
-            return CompletableFuture.supplyAsync(() -> sendMessage0(consistentId, type, addr, message), outboundExecutor)
+            return CompletableFuture.supplyAsync(() -> sendViaNetwork(consistentId, type, addr, message), outboundExecutor)
                     .thenCompose(Function.identity());
         }
 
         List<ClassDescriptorMessage> descriptors;
 
         try {
-            descriptors = beforeRead(message);
+            descriptors = prepareMarshal(message);
         } catch (Exception e) {
             return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
         }
@@ -308,28 +318,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
             span.addAttribute("message", message::toString);
 
-            OrderingFuture<NettySender> channel = connectionManager.channel(consistentId, type, addr);
-
-            return channel.handle((sender, throwable) -> {
-                if (throwable != null) {
-                    if (throwable instanceof CompletionException && throwable.getCause() instanceof ChannelAlreadyExistsException) {
-                        ChannelAlreadyExistsException e = (ChannelAlreadyExistsException) throwable.getCause();
-
-                        OrderingFuture<NettySender> channelFut = connectionManager.channel(e.consistentId(), type, addr);
-
-                        return channelFut.thenComposeToCompletable(nettySender -> {
-                            return nettySender.send(new OutNetworkObject(message, descriptors));
-                        });
-                    }
-
-                    throw new CompletionException(throwable);
-                }
-                return sender.send(new OutNetworkObject(message, descriptors));
-            }).thenComposeToCompletable(Function.identity());
+            return connectionManager.channel(consistentId, type, addr)
+                    .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)));
         });
     }
 
-    private List<ClassDescriptorMessage> beforeRead(NetworkMessage msg) throws Exception {
+    private List<ClassDescriptorMessage> prepareMarshal(NetworkMessage msg) throws Exception {
         IntSet ids = new IntOpenHashSet();
 
         msg.prepareMarshal(ids, marshaller);
@@ -357,15 +351,27 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param obj Incoming message wrapper.
      */
     private void onMessage(InNetworkObject obj) {
-        if (isInNetworkThread()) {
-            inboundExecutor.execute(() -> {
-                try {
-                    onMessage(obj);
-                } catch (Throwable e) {
-                    logAndRethrowIfError(obj, e);
-                }
-            });
+        assert isInNetworkThread();
 
+        inboundExecutors.execute(obj.connectionIndex(), () -> {
+            long startedNanos = System.nanoTime();
+
+            try {
+                handleIncomingMessage(obj);
+            } catch (Throwable e) {
+                logAndRethrowIfError(obj, e);
+            } finally {
+                long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+                if (tookMillis > 100) {
+                    LOG.warn("Processing of {} from {} took {} ms", obj.message(), obj.consistentId(), tookMillis);
+                }
+            }
+        });
+    }
+
+    private void handleIncomingMessage(InNetworkObject obj) {
+        if (senderIdIsStale(obj)) {
+            LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}", obj.launchId(), obj.consistentId(), obj.message());
             return;
         }
 
@@ -402,6 +408,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
             networkMessageHandler.onReceived(message, senderConsistentId, correlationId);
         }
+    }
+
+    private boolean senderIdIsStale(InNetworkObject obj) {
+        return staleIdDetector.isIdStale(obj.launchId());
     }
 
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
@@ -493,6 +503,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     /**
+     * Starts the service.
+     */
+    public void start() {
+        criticalWorkerRegistry.register(outboundExecutor);
+    }
+
+    /**
      * Stops the messaging service.
      */
     public void stop() {
@@ -502,7 +519,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.clear();
 
-        IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
+        criticalWorkerRegistry.unregister(outboundExecutor);
+
+        inboundExecutors.close();
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 
@@ -543,5 +562,37 @@ public class DefaultMessagingService extends AbstractMessagingService {
     @TestOnly
     public ConnectionManager connectionManager() {
         return connectionManager;
+    }
+
+    private static class CriticalLazyStripedExecutor extends LazyStripedExecutor {
+        private final CriticalWorkerRegistry workerRegistry;
+
+        private final List<CriticalWorker> registeredWorkers = new CopyOnWriteArrayList<>();
+
+        CriticalLazyStripedExecutor(String nodeName, String poolName, CriticalWorkerRegistry workerRegistry) {
+            super(nodeName, poolName);
+
+            this.workerRegistry = workerRegistry;
+        }
+
+        @Override
+        protected ExecutorService newSingleThreadExecutor(NamedThreadFactory threadFactory) {
+            CriticalSingleThreadExecutor executor = new CriticalSingleThreadExecutor(threadFactory);
+
+            workerRegistry.register(executor);
+
+            registeredWorkers.add(executor);
+
+            return executor;
+        }
+
+        @Override
+        protected void onStoppingInitiated() {
+            super.onStoppingInitiated();
+
+            for (CriticalWorker worker : registeredWorkers) {
+                workerRegistry.unregister(worker);
+            }
+        }
     }
 }

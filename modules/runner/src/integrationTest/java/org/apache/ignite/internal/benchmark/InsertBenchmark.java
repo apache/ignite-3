@@ -29,6 +29,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
@@ -55,7 +56,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for insertion operation, comparing KV, JDBC and SQL APIs.
  */
 @State(Scope.Benchmark)
-@Fork(1)
+@Fork(3)
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
@@ -65,12 +66,23 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "3"})
     private int clusterSize;
 
+    @Param({"1", "2", "4", "8", "16", "32"})
+    private int partitionCount;
+
     /**
      * Benchmark for SQL insert via embedded client.
      */
     @Benchmark
     public void sqlInsert(SqlState state) {
         state.executeQuery();
+    }
+
+    /**
+     * Benchmark for SQL script insert via embedded client.
+     */
+    @Benchmark
+    public void sqlInsertScript(SqlState state) {
+        state.executeScript();
     }
 
     /**
@@ -87,6 +99,14 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     public void jdbcInsert(JdbcState state) throws SQLException {
         state.executeQuery();
+    }
+
+    /**
+     * Benchmark for JDBC script insert.
+     */
+    @Benchmark
+    public void jdbcInsertScript(JdbcState state) throws SQLException {
+        state.executeScript();
     }
 
     /**
@@ -111,16 +131,13 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + InsertBenchmark.class.getSimpleName() + ".*")
-                .forks(1)
-                .threads(1)
-                .mode(Mode.AverageTime)
                 .build();
 
         new Runner(opt).run();
     }
 
     /**
-     * Benchmark state for {@link #sqlInsert(SqlState)}.
+     * Benchmark state for {@link #sqlInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
      *
      * <p>Holds {@link Session} and {@link Statement}.
      */
@@ -154,7 +171,13 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         private int id = 0;
 
         void executeQuery() {
-            session.execute(null, statement, id++);
+            try (ResultSet<?> rs = session.execute(null, statement, id++)) {
+                // NO-OP
+            }
+        }
+
+        void executeScript() {
+            session.executeScript(statement.query(), id++);
         }
     }
 
@@ -201,7 +224,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #jdbcInsert(JdbcState)}.
+     * Benchmark state for {@link #jdbcInsert(JdbcState)} and {@link #jdbcInsertScript(JdbcState)}.
      *
      * <p>Holds {@link Connection} and {@link PreparedStatement}.
      */
@@ -237,6 +260,11 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         void executeQuery() throws SQLException {
             stmt.setInt(1, id++);
             stmt.executeUpdate();
+        }
+
+        void executeScript() throws SQLException {
+            stmt.setInt(1, id++);
+            stmt.execute();
         }
     }
 
@@ -317,5 +345,10 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int nodes() {
         return clusterSize;
+    }
+
+    @Override
+    protected int partitionCount() {
+        return partitionCount;
     }
 }

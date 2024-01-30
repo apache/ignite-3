@@ -21,25 +21,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.validation.NotBlank;
-import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.junit.jupiter.api.Test;
 
 class BasicAuthenticationProviderConfigurationSchemaTest {
     @Test
-    public void usernameIsNotBlank() {
-        Field username = Arrays.stream(BasicAuthenticationProviderConfigurationSchema.class.getDeclaredFields())
+    public void usernameIsInjected() {
+        Field username = Arrays.stream(BasicUserConfigurationSchema.class.getDeclaredFields())
                 .filter(it -> it.getName().equals("username"))
                 .findFirst()
                 .orElseThrow();
 
-        assertTrue(username.isAnnotationPresent(NotBlank.class));
+        assertTrue(username.isAnnotationPresent(InjectedName.class));
     }
 
     @Test
     public void passwordIsSecretAndNotBlank() {
-        Field password = Arrays.stream(BasicAuthenticationProviderConfigurationSchema.class.getDeclaredFields())
+        Field password = Arrays.stream(BasicUserConfigurationSchema.class.getDeclaredFields())
                 .filter(it -> it.getName().equals("password"))
                 .findFirst()
                 .orElseThrow();

@@ -22,7 +22,7 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 /**
  * Message for exchanging information in a cluster.
  */
-public interface NetworkMessage {
+public interface NetworkMessage extends Cloneable {
     /** Group type for the {@code null} message. */
     short NULL_GROUP_TYPE = -1;
 
@@ -60,4 +60,9 @@ public interface NetworkMessage {
     default boolean needAck() {
         return true;
     }
+
+    /**
+     * Public clone version that is implemented in generated *Impl class.
+     */
+    NetworkMessage clone();
 }

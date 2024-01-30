@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -68,8 +69,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -86,8 +85,6 @@ import org.mockito.ArgumentCaptor;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
-    private VaultManager vaultManager;
-
     private ClusterService clusterService;
 
     private Loza raftManager;
@@ -121,8 +118,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 raftGroupEventsClientListener
         );
 
-        vaultManager = new VaultManager(new InMemoryVaultService());
-
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(clusterService.nodeName())));
@@ -130,7 +125,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         storage = new RocksDbKeyValueStorage(clusterService.nodeName(), workDir.resolve("metastorage"));
 
         metaStorageManager = new MetaStorageManagerImpl(
-                vaultManager,
                 clusterService,
                 cmgManager,
                 logicalTopologyService,
@@ -141,7 +135,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 metaStorageConfiguration
         );
 
-        vaultManager.start();
         clusterService.start();
         raftManager.start();
         metaStorageManager.start();
@@ -151,7 +144,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService, vaultManager);
+        List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService);
 
         IgniteUtils.closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
@@ -195,19 +188,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         assertThat(actualKeysFuture, will(contains(key1.bytes(), key2.bytes(), key3.bytes())));
     }
 
-    private static class NoOpListener implements WatchListener {
-        @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            return completedFuture(null);
-        }
-
-        @Override
-        public void onError(Throwable e) {}
-    }
-
     @Test
     void testMetaStorageStopClosesRaftService() throws Exception {
-        MetaStorageServiceImpl svc = metaStorageManager.metaStorageServiceFuture().join();
+        MetaStorageServiceImpl svc = metaStorageManager.metaStorageService().join();
 
         metaStorageManager.stop();
 
@@ -228,7 +211,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageNodes()).thenReturn(cmgFut);
 
         metaStorageManager = new MetaStorageManagerImpl(
-                vaultManager,
                 clusterService,
                 cmgManager,
                 mock(LogicalTopologyService.class),
@@ -244,7 +226,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         // stop method.
         cmgFut.complete(msNodes);
 
-        assertThat(metaStorageManager.metaStorageServiceFuture(), willThrowFast(CancellationException.class));
+        assertThat(metaStorageManager.metaStorageService(), willThrowFast(CancellationException.class));
     }
 
     @Test
@@ -253,7 +235,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         RevisionUpdateListener listener = mock(RevisionUpdateListener.class);
 
-        when(listener.onUpdated(revisionCapture.capture())).thenReturn(completedFuture(null));
+        when(listener.onUpdated(revisionCapture.capture())).thenReturn(nullCompletedFuture());
 
         long revision = metaStorageManager.appliedRevision();
 

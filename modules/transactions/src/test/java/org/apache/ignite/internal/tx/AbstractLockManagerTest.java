@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -63,11 +64,13 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     protected abstract LockManager newInstance();
 
+    protected abstract LockKey lockKey();
+
     @Test
     public void testSingleKeyWrite() {
         UUID txId1 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, X);
 
@@ -89,7 +92,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId2, key, X);
 
@@ -123,10 +126,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         lockManager.acquire(txId0, key, S).join();
-        lockManager.acquire(txId2, key, S).join();
+        Lock lock = lockManager.acquire(txId2, key, S).join();
 
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
         assertFalse(fut0.isDone());
@@ -139,8 +142,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertFalse(fut0.isDone());
 
-        lockManager.release(lockManager.locks(txId2).next());
-        fut0.thenAccept(lock -> lockManager.release(lock));
+        lockManager.release(lock);
+        fut0.thenAccept(l -> lockManager.release(l));
     }
 
     @Test
@@ -149,7 +152,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, IS);
         assertTrue(fut.isDone());
@@ -175,7 +178,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(txId3.compareTo(txId2) > 0);
         assertTrue(txId2.compareTo(txId1) > 0);
         assertTrue(txId1.compareTo(txId0) > 0);
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         CompletableFuture<Lock> fut3 = lockManager.acquire(txId3, key, S);
         assertTrue(fut3.isDone());
@@ -220,7 +223,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testSingleKeyReadWriteConflict() {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         // Lock in order
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, S);
@@ -252,7 +255,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     @Test
     public void testSingleKeyReadWriteConflict2() {
         UUID[] txId = generate(3);
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         // Lock in order
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId[1], key, S);
@@ -275,7 +278,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         // Lock in order
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, S);
@@ -301,7 +304,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         final UUID txId2 = TestTransactionIds.newTransactionId();
         UUID txId3 = TestTransactionIds.newTransactionId();
         UUID txId4 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         CompletableFuture<Lock> fut4 = lockManager.acquire(txId4, key, S);
         assertTrue(fut4.isDone());
@@ -320,7 +323,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testSingleKeyReadWriteConflict5() {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         lockManager.acquire(txId0, key, X).join();
 
@@ -332,7 +335,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         List<IgniteBiTuple<LockMode, LockMode>> lockModes = new ArrayList<>();
 
@@ -375,7 +378,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         // Lock in order
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, X);
@@ -398,7 +401,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         // Lock in order
         CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, X);
@@ -447,7 +450,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testLockUpgrade() {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         lockManager.acquire(txId0, key, S).join();
 
@@ -469,7 +472,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testLockUpgrade2() {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         lockManager.acquire(txId0, key, S).join();
 
@@ -483,7 +486,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         lockManager.acquire(txId1, key, S).join();
 
@@ -504,7 +507,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testLockUpgrade4() {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         lockManager.acquire(txId0, key, S).join();
 
@@ -525,7 +528,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testLockUpgrade5() {
         UUID txId0 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         for (LockMode lockMode : List.of(IS, IX, SIX, X)) {
             lockManager.acquire(txId0, key, lockMode).join();
@@ -561,7 +564,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     @Test
     public void testReenter() {
         UUID txId = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         CompletableFuture<Lock> fut = lockManager.acquire(txId, key, X);
         assertTrue(fut.isDone());
@@ -593,7 +596,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         List<List<LockMode>> lockModes = new ArrayList<>();
 
@@ -638,7 +641,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId0 = TestTransactionIds.newTransactionId();
         UUID txId1 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         List<List<LockMode>> lockModes = new ArrayList<>();
 
@@ -673,7 +676,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testPossibleDowngradeLockModes() {
         UUID txId0 = TestTransactionIds.newTransactionId();
 
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         for (LockMode lockMode : List.of(SIX, S, IS, IX)) {
             CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
@@ -703,7 +706,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     @Test
     public void testAcquireRelease() {
         UUID txId = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         for (LockMode lockMode : LockMode.values()) {
             lockManager.acquire(txId, key, lockMode);
@@ -718,7 +721,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     @Test
     public void testAcquireReleaseWhenHoldOther() {
         UUID txId = TestTransactionIds.newTransactionId();
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         for (LockMode holdLockMode : LockMode.values()) {
             lockManager.acquire(txId, key, holdLockMode);
@@ -744,7 +747,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testReleaseThenReleaseWeakerInHierarchy() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
@@ -774,7 +777,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testReleaseThenNoReleaseWeakerInHierarchy() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
@@ -804,7 +807,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testLockingOverloadAndUpgrade() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
@@ -829,7 +832,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testLockingOverload() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
@@ -857,7 +860,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testFailUpgrade() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
@@ -891,7 +894,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testDowngradeTargetLock() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
@@ -920,7 +923,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testFailWait() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
@@ -947,7 +950,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testWaitInOrder() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
@@ -979,7 +982,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testWaitNotInOrder() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
@@ -1011,7 +1014,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testWaitFailNotInOrder() {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
@@ -1041,6 +1044,50 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         expectConflict(tx2Lock);
     }
 
+    @Test
+    public void testLocksInIterator() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+
+        LockKey key = new LockKey(0);
+
+        lockManager.acquire(txId1, key, S).join();
+
+        assertTrue(lockManager.locks(txId1).hasNext());
+
+        LockKey key2 = new LockKey(1, 1);
+
+        lockManager.acquire(txId1, key2, S).join();
+
+        AtomicInteger counter = new AtomicInteger();
+
+        lockManager.locks(txId1).forEachRemaining(lock -> counter.incrementAndGet());
+
+        assertEquals(2, counter.get());
+    }
+
+    @Test
+    public void testLockIsReleased() {
+        LockKey key = new LockKey(0);
+
+        UUID txId1 = TestTransactionIds.newTransactionId();
+
+        lockManager.acquire(txId1, key, X).join();
+
+        assertFalse(lockManager.isEmpty());
+
+        lockManager.release(txId1, key, X);
+
+        assertTrue(lockManager.isEmpty());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+
+        lockManager.acquire(txId2, key, X).join();
+
+        lockManager.release(txId2, key, X);
+
+        assertTrue(lockManager.isEmpty());
+    }
+
     /**
      * Do test single key multithreaded.
      *
@@ -1058,7 +1105,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             LongAdder failedLocks,
             int mode
     ) throws InterruptedException {
-        LockKey key = new LockKey("test");
+        LockKey key = lockKey();
 
         Thread[] threads = new Thread[Runtime.getRuntime().availableProcessors() * 2];
 

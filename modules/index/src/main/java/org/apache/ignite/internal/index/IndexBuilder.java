@@ -65,6 +65,7 @@ import org.apache.ignite.network.ClusterNode;
 class IndexBuilder implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuilder.class);
 
+    /** Batch size of row IDs to build the index. */
     static final int BATCH_SIZE = 100;
 
     private final ExecutorService executor;

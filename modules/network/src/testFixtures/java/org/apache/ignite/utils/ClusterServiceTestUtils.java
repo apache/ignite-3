@@ -20,9 +20,11 @@ package org.apache.ignite.utils;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.StaleIds;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
@@ -137,7 +140,8 @@ public class ClusterServiceTestUtils {
                 networkConfiguration,
                 bootstrapFactory,
                 serializationRegistry,
-                staleIds
+                staleIds,
+                new NoOpCriticalWorkerRegistry()
         );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
@@ -154,7 +158,7 @@ public class ClusterServiceTestUtils {
             }
 
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
                 nodeConfigurationMgr.start();
 
                 NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
@@ -174,6 +178,8 @@ public class ClusterServiceTestUtils {
                 bootstrapFactory.start();
 
                 clusterSvc.start();
+
+                return nullCompletedFuture();
             }
 
             @Override

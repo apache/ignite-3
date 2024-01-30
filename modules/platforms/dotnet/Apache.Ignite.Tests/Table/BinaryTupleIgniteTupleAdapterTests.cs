@@ -70,7 +70,7 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
     protected override IIgniteTuple CreateTuple(IIgniteTuple source)
     {
         var cols = new List<Column>();
-        var builder = new BinaryTupleBuilder(source.FieldCount);
+        using var builder = new BinaryTupleBuilder(source.FieldCount);
 
         for (var i = 0; i < source.FieldCount; i++)
         {
@@ -83,7 +83,7 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
             builder.AppendObject(val, type);
         }
 
-        var buf = builder.Build();
+        var buf = builder.Build().ToArray();
         var schema = new Schema(0, 0, 0, 0, cols);
 
         return new BinaryTupleIgniteTupleAdapter(buf, schema, cols.Count);

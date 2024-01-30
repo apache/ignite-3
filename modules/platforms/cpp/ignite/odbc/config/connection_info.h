@@ -74,6 +74,11 @@ public:
      */
     sql_result get_info(info_type type, void *buf, short buffer_len, short *result_len) const;
 
+    /**
+     * Rebuild connection_info from config.
+     */
+    void rebuild();
+
 private:
     /** Associative array of string m_parameters. */
     typedef std::map<info_type, std::string> string_info_map;

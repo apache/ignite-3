@@ -108,6 +108,13 @@ public class AsyncWrapperSelfTest extends BaseIgniteAbstractTest {
         Mockito.verify(mockIt).close();
     }
 
+    @Test
+    public void wrapperCanBeClosedEvenIfIteratorFutureCompletedExceptionally() {
+        var cursor = new AsyncWrapper<>(CompletableFuture.failedFuture(new RuntimeException()), Runnable::run);
+
+        await(cursor.closeAsync());
+    }
+
     /**
      * All calls to {@link AsyncCursor#requestNextAsync(int)} should be chained and executed in the proper order.
      */

@@ -18,13 +18,16 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Type;
@@ -41,10 +44,12 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -200,6 +205,15 @@ abstract class QueryCheckerImpl implements QueryChecker {
         return this;
     }
 
+    @Override
+    public QueryChecker returnRowCount(int rowCount) {
+        assert resultChecker == null : "Result checker already set to " + resultChecker.getClass().getSimpleName();
+
+        resultChecker = new RowCountResultChecker(rowCount);
+
+        return this;
+    }
+
     /**
      * Sets columns names.
      *
@@ -275,10 +289,10 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
 
-            CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.querySingleAsync(
                     PROPERTIES, transactions(), tx, "EXPLAIN PLAN FOR " + qry, params);
-            AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
-            List<List<Object>> explainRes = getAllFromCursor(explainCursor);
+            AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
+            List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
 
             String actualPlan = (String) explainRes.get(0).get(0);
 
@@ -288,35 +302,50 @@ abstract class QueryCheckerImpl implements QueryChecker {
                 }
             }
         }
+
+        // Check column metadata only.
+        if (resultChecker == null && metadataMatchers != null) {
+            QueryMetadata queryMetadata = await(qryProc.prepareSingleAsync(PROPERTIES, tx, qry, params));
+
+            assertNotNull(queryMetadata);
+
+            checkColumnsMetadata(queryMetadata.columns());
+
+            return;
+        }
+
         // Check result.
-        CompletableFuture<AsyncSqlCursor<List<Object>>> cursors =
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
                 qryProc.querySingleAsync(PROPERTIES, transactions(), tx, qry, params);
 
-        AsyncSqlCursor<List<Object>> cur = await(cursors);
+        AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 
         checkMetadata(cur.metadata());
 
         if (metadataMatchers != null) {
-            List<ColumnMetadata> columnMetadata = cur.metadata().columns();
-
-            Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
-            Iterator<ColumnMatcher> matcherIterator = metadataMatchers.iterator();
-
-            while (matcherIterator.hasNext() && valueIterator.hasNext()) {
-                ColumnMatcher matcher = matcherIterator.next();
-                ColumnMetadata actualElement = valueIterator.next();
-
-                matcher.check(actualElement);
-            }
-
-            assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
+            checkColumnsMetadata(cur.metadata().columns());
         }
 
-        List<List<?>> res = Commons.cast(getAllFromCursor(cur));
+        List<InternalSqlRow> rows = Commons.cast(getAllFromCursor(cur));
+        List<List<Object>> res = convertSqlRows(rows);
 
         if (resultChecker != null) {
             resultChecker.check(res, ordered);
         }
+    }
+
+    private void checkColumnsMetadata(List<ColumnMetadata> columnsMetadata) {
+        Iterator<ColumnMetadata> valueIterator = columnsMetadata.iterator();
+        Iterator<ColumnMatcher> matcherIterator = metadataMatchers.iterator();
+
+        while (matcherIterator.hasNext() && valueIterator.hasNext()) {
+            ColumnMatcher matcher = matcherIterator.next();
+            ColumnMetadata actualElement = valueIterator.next();
+
+            matcher.check(actualElement);
+        }
+
+        assertEquals(metadataMatchers.size(), columnsMetadata.size(), "Column metadata doesn't match");
     }
 
     @Override
@@ -421,28 +450,28 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
     @FunctionalInterface
     interface ResultChecker {
-        void check(List<List<?>> rows, boolean ordered);
+        void check(List<List<Object>> rows, boolean ordered);
     }
 
     private static class EmptyResultChecker implements ResultChecker {
         @Override
-        public void check(List<List<?>> rows, boolean ordered) {
+        public void check(List<List<Object>> rows, boolean ordered) {
             assertThat(rows, empty());
         }
     }
 
     private static class NotEmptyResultChecker implements ResultChecker {
         @Override
-        public void check(List<List<?>> rows, boolean ordered) {
+        public void check(List<List<Object>> rows, boolean ordered) {
             assertThat(rows, not(empty()));
         }
     }
 
     private static class RowByRowResultChecker implements ResultChecker {
-        private final List<List<?>> expectedResult = new ArrayList<>();
+        private final List<List<Object>> expectedResult = new ArrayList<>();
 
         @Override
-        public void check(List<List<?>> rows, boolean ordered) {
+        public void check(List<List<Object>> rows, boolean ordered) {
             if (!ordered) {
                 // Avoid arbitrary order.
                 rows.sort(new ListComparator());
@@ -450,6 +479,19 @@ abstract class QueryCheckerImpl implements QueryChecker {
             }
 
             QueryChecker.assertEqualsCollections(expectedResult, rows);
+        }
+    }
+
+    private static class RowCountResultChecker implements ResultChecker {
+        private final int expRowCount;
+
+        private RowCountResultChecker(int expRowCount) {
+            this.expRowCount = expRowCount;
+        }
+
+        @Override
+        public void check(List<List<Object>> rows, boolean ordered) {
+            assertThat(rows, hasSize(expRowCount));
         }
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -60,6 +62,8 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     private final boolean hasMorePages;
 
+    private final FakeIgniteSql sql;
+
     /**
      * Constructor.
      *
@@ -68,7 +72,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
      * @param statement Statement.
      * @param arguments Arguments.
      */
-    public FakeAsyncResultSet(Session session, Transaction transaction, Statement statement, Object[] arguments) {
+    public FakeAsyncResultSet(Session session, Transaction transaction, Statement statement, Object[] arguments, FakeIgniteSql sql) {
         assert session != null;
         assert statement != null;
 
@@ -76,6 +80,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         this.transaction = transaction;
         this.statement = statement;
         this.arguments = arguments;
+        this.sql = sql;
 
         hasMorePages = session.property("hasMorePages") != null;
 
@@ -140,6 +145,9 @@ public class FakeAsyncResultSet implements AsyncResultSet {
                     BigInteger.valueOf(42));
 
             rows = List.of(row);
+        } else if ("SELECT LAST SCRIPT".equals(statement.query())) {
+            rows = List.of(getRow(sql.lastScript));
+            columns = List.of(new FakeColumnMetadata("script", ColumnType.STRING));
         } else {
             rows = List.of(getRow(1));
             columns = List.of(new FakeColumnMetadata("col1", ColumnType.INT32));
@@ -195,7 +203,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<? extends AsyncResultSet> fetchNextPage() {
-        return CompletableFuture.completedFuture(new FakeAsyncResultSet(session, transaction, statement, arguments));
+        return CompletableFuture.completedFuture(new FakeAsyncResultSet(session, transaction, statement, arguments, sql));
     }
 
     /** {@inheritDoc} */
@@ -207,7 +215,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private SqlRow getRow(Object... vals) {

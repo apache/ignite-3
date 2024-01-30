@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
@@ -53,6 +54,10 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return Stream.of(null, "", " ", "  ").map(Arguments::of);
     }
 
+    static Stream<Arguments> reservedSchemaNames() {
+        return SYSTEM_SCHEMAS.stream().map(Arguments::of);
+    }
+
     static Stream<Arguments> nullAndEmptyLists() {
         return Stream.of(null, List.of()).map(Arguments::of);
     }
@@ -79,6 +84,18 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return catalog(builder.build());
     }
 
+    static Catalog catalogWithZone(String name) {
+        return catalog(
+                createZoneCommand(name)
+        );
+    }
+
+    static Catalog catalogWithZones(String zone1, String zone2) {
+        return catalog(
+                List.of(createZoneCommand(zone1), createZoneCommand(zone2))
+        );
+    }
+
     static Catalog catalogWithIndex(String name) {
         return catalog(List.of(
                 createTableCommand(TABLE_NAME),
@@ -86,7 +103,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         ));
     }
 
-    protected static CatalogCommand createIndexCommand(String tableName, String indexName) {
+    static CatalogCommand createIndexCommand(String tableName, String indexName) {
         return CreateHashIndexCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .indexName(indexName)
@@ -95,15 +112,26 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    protected static CatalogCommand createTableCommand(String tableName) {
+    static CatalogCommand createTableCommand(String tableName) {
+        return createTableCommand(ZONE_NAME, tableName);
+    }
+
+    static CatalogCommand createTableCommand(String zoneName, String tableName) {
         return CreateTableCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
+                .zone(zoneName)
                 .columns(List.of(
                         ColumnParams.builder().name("ID").type(INT32).build(),
                         ColumnParams.builder().name("VAL").type(INT32).build()
                 ))
                 .primaryKeyColumns(List.of("ID"))
+                .build();
+    }
+
+    static CatalogCommand createZoneCommand(String zoneName) {
+        return CreateZoneCommand.builder()
+                .zoneName(zoneName)
                 .build();
     }
 

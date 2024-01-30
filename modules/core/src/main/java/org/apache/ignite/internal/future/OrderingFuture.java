@@ -253,7 +253,7 @@ public class OrderingFuture<T> {
             @Nullable T result,
             @Nullable Throwable ex,
             @Nullable ListNode<T> dependents,
-            ListNode<T> lastNotifiedNode
+            @Nullable ListNode<T> lastNotifiedNode
     ) {
         if (dependents != null) {
             dependents.notifyHeadToTail(result, ex, lastNotifiedNode);
@@ -299,7 +299,7 @@ public class OrderingFuture<T> {
         }
     }
 
-    private static <T> void acceptQuietly(BiConsumer<? super T, ? super Throwable> action, T result, Throwable ex) {
+    private static <T> void acceptQuietly(BiConsumer<? super T, ? super Throwable> action, @Nullable T result, @Nullable Throwable ex) {
         try {
             action.accept(result, ex);
         } catch (Exception ignored) {
@@ -325,12 +325,45 @@ public class OrderingFuture<T> {
                 if (prevState.exception != null) {
                     return CompletableFuture.failedFuture(wrapWithCompletionException(prevState.exception));
                 } else {
-                    return applyMapper(mapper, prevState.result);
+                    return applyMapperToCompletable(mapper, prevState.result);
                 }
             }
 
             if (dependent == null) {
                 dependent = new ThenComposeToCompletable<>(new CompletableFuture<>(), mapper);
+            }
+            State<T> newState = prevState.enqueueDependent(dependent);
+
+            if (replaceState(prevState, newState)) {
+                return dependent.resultFuture;
+            }
+        }
+    }
+
+    /**
+     * Creates a composition of this future with a function producing an {@link OrderingFuture}.
+     *
+     * @param mapper Mapper used to produce an {@link OrderingFuture} from this future result.
+     * @param <U> Result future payload type.
+     * @return Composition.
+     * @see CompletableFuture#thenCompose(Function)
+     */
+    public <U> OrderingFuture<U> thenCompose(Function<? super T, ? extends OrderingFuture<U>> mapper) {
+        ThenCompose<T, U> dependent = null;
+
+        while (true) {
+            State<T> prevState = state;
+
+            if (prevState.completionQueueProcessed()) {
+                if (prevState.exception != null) {
+                    return failedFuture(wrapWithCompletionException(prevState.exception));
+                } else {
+                    return applyMapperToOrdering(mapper, prevState.result);
+                }
+            }
+
+            if (dependent == null) {
+                dependent = new ThenCompose<>(new OrderingFuture<>(), mapper);
             }
             State<T> newState = prevState.enqueueDependent(dependent);
 
@@ -379,11 +412,25 @@ public class OrderingFuture<T> {
         return ex instanceof CompletionException ? (CompletionException) ex : new CompletionException(ex);
     }
 
-    private static <T, U> CompletableFuture<U> applyMapper(Function<? super T, ? extends CompletableFuture<U>> mapper, T result) {
+    private static <T, U> CompletableFuture<U> applyMapperToCompletable(
+            Function<? super T, ? extends CompletableFuture<U>> mapper,
+            @Nullable T result
+    ) {
         try {
             return mapper.apply(result);
         } catch (Throwable e) {
             return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    private static <T, U> OrderingFuture<U> applyMapperToOrdering(
+            Function<? super T, ? extends OrderingFuture<U>> mapper,
+            @Nullable T result
+    ) {
+        try {
+            return mapper.apply(result);
+        } catch (Throwable e) {
+            return failedFuture(e);
         }
     }
 
@@ -396,7 +443,7 @@ public class OrderingFuture<T> {
      * @return Completion value or default value.
      * @see CompletableFuture#getNow(Object)
      */
-    public T getNow(T valueIfAbsent) {
+    public @Nullable T getNow(@Nullable T valueIfAbsent) {
         State<T> currentState = state;
 
         if (currentState.completionValuesAvailable()) {
@@ -423,7 +470,7 @@ public class OrderingFuture<T> {
      * @throws ExecutionException Thrown (with the original exception as a cause) if the future completes exceptionally.
      * @see CompletableFuture#get(long, TimeUnit)
      */
-    public T get(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException, ExecutionException {
+    public @Nullable T get(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException, ExecutionException {
         boolean completedInTime = completionValuesReadyLatch.await(timeout, unit);
         if (!completedInTime) {
             throw new TimeoutException();
@@ -442,6 +489,7 @@ public class OrderingFuture<T> {
 
     private ExecutionException exceptionForThrowingFromGet(State<T> currentState) {
         Throwable unwrapped = currentState.exception;
+        assert unwrapped != null;
         Throwable cause = unwrapped.getCause();
         if (cause != null) {
             unwrapped = cause;
@@ -469,6 +517,7 @@ public class OrderingFuture<T> {
      *
      * @param <T> Payload type.
      */
+    @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
     private interface DependentAction<T> {
         /**
          * Informs that dependent that the host future is completed.
@@ -549,6 +598,43 @@ public class OrderingFuture<T> {
         }
     }
 
+    private static class ThenCompose<T, U> implements DependentAction<T>, BiConsumer<U, Throwable> {
+        private final OrderingFuture<U> resultFuture;
+        private final Function<? super T, ? extends OrderingFuture<U>> mapper;
+
+        private ThenCompose(OrderingFuture<U> resultFuture, Function<? super T, ? extends OrderingFuture<U>> mapper) {
+            this.resultFuture = resultFuture;
+            this.mapper = mapper;
+        }
+
+        @Override
+        public void onCompletion(@Nullable T result, @Nullable Throwable ex, NotificationContext context) {
+            if (ex != null) {
+                resultFuture.completeExceptionally(context.completionExceptionCaching(ex));
+                return;
+            }
+
+            try {
+                OrderingFuture<U> mapResult = mapper.apply(result);
+
+                // Reusing this object as a BiConsumer instead of writing lambda to spare one allocation (might be
+                // important if there is a huge amount of dependents).
+                mapResult.whenComplete(this);
+            } catch (Throwable e) {
+                resultFuture.completeExceptionally(e);
+            }
+        }
+
+        @Override
+        public void accept(U mapRes, Throwable mapEx) {
+            if (mapEx != null) {
+                resultFuture.completeExceptionally(mapEx);
+            } else {
+                resultFuture.complete(mapRes);
+            }
+        }
+    }
+
     private static class State<T> {
         private static final State<?> INCOMPLETE_STATE = new State<>(Phase.INCOMPLETE, null, null, null);
 
@@ -557,14 +643,13 @@ public class OrderingFuture<T> {
         private final Throwable exception;
         private final ListNode<T> dependentsQueueTail;
 
-        private State(Phase phase, T result, Throwable exception, ListNode<T> dependentsQueueTail) {
+        private State(Phase phase, @Nullable T result, @Nullable Throwable exception, @Nullable ListNode<T> dependentsQueueTail) {
             this.phase = phase;
             this.result = result;
             this.exception = exception;
             this.dependentsQueueTail = dependentsQueueTail;
         }
 
-        @SuppressWarnings("unchecked")
         private static <T> State<T> empty() {
             return (State<T>) INCOMPLETE_STATE;
         }
@@ -577,7 +662,7 @@ public class OrderingFuture<T> {
             return phase == Phase.COMPLETED;
         }
 
-        public State<T> switchToNotifying(T completionResult, Throwable completionCause) {
+        public State<T> switchToNotifying(@Nullable T completionResult, @Nullable Throwable completionCause) {
             return new State<>(Phase.NOTIFYING, completionResult, completionCause, dependentsQueueTail);
         }
 
@@ -601,7 +686,7 @@ public class OrderingFuture<T> {
             this.prev = prev;
         }
 
-        public void notifyHeadToTail(@Nullable T result, @Nullable Throwable exception, ListNode<T> lastNotifiedNode) {
+        public void notifyHeadToTail(@Nullable T result, @Nullable Throwable exception, @Nullable ListNode<T> lastNotifiedNode) {
             Deque<ListNode<T>> stack = new ArrayDeque<>();
 
             for (ListNode<T> node = this; node != null && node != lastNotifiedNode; node = node.prev) {

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.sql;
 
-import java.util.Iterator;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -40,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  * @see Session#execute(Transaction, String, Object...)
  * @see Session#execute(Transaction, Mapper, String, Object...)
  */
-public interface ResultSet<T> extends Iterator<T>, AutoCloseable {
+public interface ResultSet<T> extends Cursor<T> {
     /**
      * Returns metadata for the results if the result contains rows (if {@link #hasRowSet()} returns {@code true}).
      *
@@ -70,12 +70,12 @@ public interface ResultSet<T> extends Iterator<T>, AutoCloseable {
     long affectedRows();
 
     /**
-     * Indicated whether the query that had produced the result was a conditional query. 
-     * E.g., for query "Create table if not exists", the method returns {@code true} if 
+     * Indicates whether the query that had produced the result was a conditional query.
+     * E.g., for query "Create table if not exists", the method returns {@code true} if
      * the operation was successful, and {@code false} if the operation was ignored becasue
      * the table already existed.
      *
-     * <p>Note: If the method returns {@code false}, either {@link #affectedRows()} returns 
+     * <p>Note: If the method returns {@code false}, either {@link #affectedRows()} returns
      * the number the affected rows or {@link #hasRowSet()} returns {@code true}.
      *
      * @return {@code True} if the query is conditional, {@code false} otherwise.

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
@@ -97,12 +98,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        checkEnlistReady();
+        checkEnlistPossibility();
 
         enlistPartitionLock.readLock().lock();
 
         try {
-            checkEnlistReady();
+            checkEnlistPossibility();
 
             return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndTerm);
         } finally {
@@ -113,26 +114,45 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /**
      * Checks that this transaction was not finished and will be able to enlist another partition.
      */
-    private void checkEnlistReady() {
-        if (isFinalState(state())) {
+    private void checkEnlistPossibility() {
+        if (hasTxFinalizationBegun()) {
             throw new TransactionException(
                     TX_FAILED_READ_WRITE_OPERATION_ERR,
                     format("Transaction is already finished [id={}, state={}].", id(), state()));
         }
     }
 
+    /**
+     * Checks the transaction state and makes a decision depends on it.
+     *
+     * @return True when the transaction started to finalize, false otherwise.
+     */
+    private boolean hasTxFinalizationBegun() {
+        return isFinalState(state()) || state() == FINISHING;
+    }
+
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        if (isFinalState(state())) {
+        if (hasTxFinalizationBegun()) {
+            assert finishFuture != null : "Transaction is in final state but there is no finish future [id="
+                    + id() + ", state=" + state() + "].";
+
             return finishFuture;
         }
 
         enlistPartitionLock.writeLock().lock();
 
         try {
-            if (!isFinalState(state())) {
-                finishFuture = finishInternal(commit);
+            if (!hasTxFinalizationBegun()) {
+                assert finishFuture == null : "Transaction is already finished [id=" + id() + ", state=" + state() + "].";
+
+                CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
+
+                finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+
+                // Return the real future first time.
+                return finishFutureInternal;
             }
 
             return finishFuture;

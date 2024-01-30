@@ -36,7 +36,7 @@ using namespace std::string_view_literals;
 /**
  * Test suite.
  */
-class ignite_runner_suite : public ::testing::Test {
+class ignite_runner_suite : public virtual ::testing::Test {
 public:
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
     static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -45,6 +46,8 @@ public class MetricsTests
         AssertMetric("connections-active", 0);
 
         _listener.Dispose();
+
+        TestUtils.CheckByteArrayPoolLeak(5000);
     }
 
     [OneTimeTearDown]
@@ -87,10 +90,11 @@ public class MetricsTests
         await client.Tables.GetTablesAsync();
 
         AssertMetric("bytes-sent", 17);
-        AssertMetric("bytes-received", 73);
+        AssertMetric("bytes-received", 72);
     }
 
     [Test]
+    [SuppressMessage("ReSharper", "DisposeOnUsingVariable", Justification = "Test")]
     public async Task TestConnectionsLost()
     {
         using var server = new FakeServer();
@@ -201,7 +205,7 @@ public class MetricsTests
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
 
-        await view.StreamDataAsync(GetTuples().ToAsyncEnumerable(), DataStreamerOptions.Default with { BatchSize = 2 });
+        await view.StreamDataAsync(GetTuples().ToAsyncEnumerable(), DataStreamerOptions.Default with { PageSize = 2 });
 
         AssertMetric("streamer-batches-sent", 1);
         AssertMetric("streamer-items-sent", 2);
@@ -245,7 +249,7 @@ public class MetricsTests
         var view = table!.RecordBinaryView;
         var cts = new CancellationTokenSource();
 
-        var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { BatchSize = 10 }, cts.Token);
+        var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { PageSize = 10 }, cts.Token);
 
         AssertMetricGreaterOrEqual("streamer-batches-sent", 1);
         cts.Cancel();
@@ -267,6 +271,26 @@ public class MetricsTests
                 }
             }
         }
+    }
+
+    [Test]
+    public async Task TestMetricNames()
+    {
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        var publicNames = typeof(MetricNames).GetFields()
+            .Where(x => x is { IsPublic: true, IsStatic: true, IsLiteral: true } && x.FieldType == typeof(string))
+            .Where(x => x.Name != nameof(MetricNames.MeterName) && x.Name != nameof(MetricNames.MeterVersion))
+            .Select(x => x.GetValue(null))
+            .Cast<string>()
+            .OrderBy(x => x)
+            .ToList();
+
+        var instrumentNames = _listener.MetricNames;
+
+        CollectionAssert.AreEquivalent(publicNames, instrumentNames);
+        CollectionAssert.AreEquivalent(publicNames, MetricNames.All);
     }
 
     private static IgniteClientConfiguration GetConfig() =>
@@ -303,6 +327,7 @@ public class MetricsTests
                 if (instrument.Meter.Name == "Apache.Ignite")
                 {
                     listener.EnableMeasurementEvents(instrument);
+                    _metrics[instrument.Name] = 0;
                 }
             };
 
@@ -310,6 +335,8 @@ public class MetricsTests
             _listener.SetMeasurementEventCallback<int>(Handle);
             _listener.Start();
         }
+
+        public ICollection<string> MetricNames => _metrics.Keys;
 
         public int GetMetric(string name)
         {

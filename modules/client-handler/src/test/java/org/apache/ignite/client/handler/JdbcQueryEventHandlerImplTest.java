@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_SUCCESS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -143,7 +144,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     public void explicitTxRollbackOnCloseRegistry() {
         InternalTransaction tx = mock(InternalTransaction.class);
 
-        when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(tx.rollbackAsync()).thenReturn(nullCompletedFuture());
         when(igniteTransactions.begin()).thenReturn(tx);
 
         long connectionId = acquireConnectionId();
@@ -164,8 +165,8 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Expected")));
 
         InternalTransaction tx = mock(InternalTransaction.class);
-        when(tx.commitAsync()).thenReturn(CompletableFuture.completedFuture(null));
-        when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(tx.commitAsync()).thenReturn(nullCompletedFuture());
+        when(tx.rollbackAsync()).thenReturn(nullCompletedFuture());
         when(igniteTransactions.begin()).thenReturn(tx);
 
         long connectionId = acquireConnectionId();
@@ -174,7 +175,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         String schema = "schema";
         JdbcStatementType type = JdbcStatementType.SELECT_STATEMENT_TYPE;
 
-        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 1", null, false)));
+        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 1", null, false, false)));
         verify(igniteTransactions, times(1)).begin();
         await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1", "UPDATE 2"), false)));
         verify(igniteTransactions, times(1)).begin();
@@ -184,7 +185,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1", "UPDATE 2"), false)));
         verify(igniteTransactions, times(2)).begin();
-        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 2", null, false)));
+        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 2", null, false, false)));
         verify(igniteTransactions, times(2)).begin();
         await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 3", "UPDATE 4"), false)));
         verify(igniteTransactions, times(2)).begin();

@@ -28,8 +28,12 @@ import static org.apache.ignite.internal.pagememory.persistence.store.FilePageSt
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.TMP_PART_DELTA_FILE_TEMPLATE;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.findPartitionDeltaFiles;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
@@ -39,16 +43,22 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
@@ -56,10 +66,12 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -72,11 +84,20 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
+    private static final int PAGE_SIZE = 1024;
+
     /** To be used in a loop. {@link RepeatedTest} cannot be combined with {@link ParameterizedTest}. */
     private static final int REPEATS = 100;
 
     @WorkDirectory
     private Path workDir;
+
+    private final Collection<FilePageStoreManager> managers = new ConcurrentLinkedQueue<>();
+
+    @AfterEach
+    void tearDown() throws Exception {
+        closeAll(managers.stream().filter(Objects::nonNull).map(manager -> manager::stop));
+    }
 
     @Test
     void testCreateManager() {
@@ -109,12 +130,13 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, manager::start);
 
         assertThat(exception.getMessage(), containsString("Could not create work directory for page stores"));
-
     }
 
     @Test
-    void testInitialize() throws Exception {
+    void testReadOrCreateStore() throws Exception {
         FilePageStoreManager manager = createManager();
+
+        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
         try {
             Files.createDirectories(workDir.resolve("db"));
@@ -125,19 +147,21 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
 
             GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
 
-            IgniteInternalCheckedException exception = assertThrows(
+            IgniteTestUtils.assertThrows(
                     IgniteInternalCheckedException.class,
-                    () -> manager.initialize(groupPartitionId00)
+                    () -> manager.readOrCreateStore(groupPartitionId00, buffer.rewind()),
+                    "Failed to initialize group working directory"
             );
-
-            assertThat(exception.getMessage(), containsString("Failed to initialize group working directory"));
 
             Files.delete(testGroupDir);
 
             GroupPartitionId groupPartitionId01 = new GroupPartitionId(0, 1);
 
-            assertDoesNotThrow(() -> manager.initialize(groupPartitionId00));
-            assertDoesNotThrow(() -> manager.initialize(groupPartitionId01));
+            FilePageStore filePageStore0 = manager.readOrCreateStore(groupPartitionId00, buffer.rewind());
+            FilePageStore filePageStore1 = manager.readOrCreateStore(groupPartitionId01, buffer.rewind());
+
+            assertNull(manager.getStore(groupPartitionId00));
+            assertNull(manager.getStore(groupPartitionId01));
 
             assertTrue(Files.isDirectory(testGroupDir));
 
@@ -145,10 +169,8 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
                 assertThat(files.count(), is(0L));
             }
 
-            Iterator<GroupPartitionPageStore<FilePageStore>> iterator = manager.allPageStores().iterator();
-            while (iterator.hasNext()) {
-                iterator.next().pageStore().ensure();
-            }
+            filePageStore0.ensure();
+            filePageStore1.ensure();
 
             try (Stream<Path> files = Files.list(testGroupDir)) {
                 assertThat(
@@ -157,7 +179,7 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
                 );
             }
         } finally {
-            manager.stop();
+            freeBuffer(buffer);
         }
     }
 
@@ -170,7 +192,7 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         try {
             GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
 
-            manager0.initialize(groupPartitionId00);
+            createAndAddFilePageStore(manager0, groupPartitionId00);
 
             manager0.getStore(groupPartitionId00).ensure();
 
@@ -194,7 +216,7 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         try {
             GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
 
-            manager1.initialize(groupPartitionId10);
+            createAndAddFilePageStore(manager1, groupPartitionId10);
 
             manager1.getStore(groupPartitionId10).ensure();
 
@@ -216,8 +238,8 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
         GroupPartitionId groupPartitionId20 = new GroupPartitionId(2, 0);
 
-        manager.initialize(groupPartitionId10);
-        manager.initialize(groupPartitionId20);
+        createAndAddFilePageStore(manager, groupPartitionId10);
+        createAndAddFilePageStore(manager, groupPartitionId20);
 
         Path grpDir0 = workDir.resolve("db/table-1");
         Path grpDir1 = workDir.resolve("db/table-2");
@@ -247,8 +269,8 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
         GroupPartitionId groupPartitionId20 = new GroupPartitionId(2, 0);
 
-        manager.initialize(groupPartitionId10);
-        manager.initialize(groupPartitionId20);
+        createAndAddFilePageStore(manager, groupPartitionId10);
+        createAndAddFilePageStore(manager, groupPartitionId20);
 
         Path grpDir0 = workDir.resolve("db/table-1");
         Path grpDir1 = workDir.resolve("db/table-2");
@@ -328,8 +350,8 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
 
         manager.start();
 
-        manager.initialize(new GroupPartitionId(1, 0));
-        manager.initialize(new GroupPartitionId(2, 0));
+        createAndAddFilePageStore(manager, new GroupPartitionId(1, 0));
+        createAndAddFilePageStore(manager, new GroupPartitionId(2, 0));
 
         List<Path> allPageStoreFiles = manager.allPageStores()
                 .map(GroupPartitionPageStore::pageStore)
@@ -354,8 +376,8 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
         GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
 
-        manager.initialize(groupPartitionId00);
-        manager.initialize(groupPartitionId10);
+        createAndAddFilePageStore(manager, groupPartitionId00);
+        createAndAddFilePageStore(manager, groupPartitionId10);
 
         FilePageStore filePageStore0 = manager.getStore(groupPartitionId00);
         FilePageStore filePageStore1 = manager.getStore(groupPartitionId10);
@@ -399,10 +421,10 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
         GroupPartitionId groupPartitionId11 = new GroupPartitionId(1, 1);
 
-        manager.initialize(groupPartitionId00);
-        manager.initialize(groupPartitionId01);
-        manager.initialize(groupPartitionId10);
-        manager.initialize(groupPartitionId11);
+        createAndAddFilePageStore(manager, groupPartitionId00);
+        createAndAddFilePageStore(manager, groupPartitionId01);
+        createAndAddFilePageStore(manager, groupPartitionId10);
+        createAndAddFilePageStore(manager, groupPartitionId11);
 
         FilePageStore filePageStore00 = manager.getStore(groupPartitionId00);
         FilePageStore filePageStore01 = manager.getStore(groupPartitionId01);
@@ -480,8 +502,34 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    void testAddStore() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        GroupPartitionId groupPartitionId0 = new GroupPartitionId(0, 0);
+        GroupPartitionId groupPartitionId1 = new GroupPartitionId(0, 1);
+        GroupPartitionId groupPartitionId2 = new GroupPartitionId(1, 0);
+
+        FilePageStore filePageStore = mock(FilePageStore.class);
+
+        manager.addStore(groupPartitionId0, filePageStore);
+
+        assertSame(filePageStore, manager.getStore(groupPartitionId0));
+        assertNull(manager.getStore(groupPartitionId1));
+        assertNull(manager.getStore(groupPartitionId2));
+
+        assertThat(
+                manager.allPageStores().map(GroupPartitionPageStore::pageStore).collect(toList()),
+                contains(filePageStore)
+        );
+    }
+
     private FilePageStoreManager createManager() throws Exception {
-        return new FilePageStoreManager("test", workDir, new RandomAccessFileIoFactory(), 1024);
+        FilePageStoreManager manager = new FilePageStoreManager("test", workDir, new RandomAccessFileIoFactory(), PAGE_SIZE);
+
+        managers.add(manager);
+
+        return manager;
     }
 
     private static List<Path> collectFilesOnly(Path start) throws Exception {
@@ -517,6 +565,18 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
             Path tmpDeltaFile = createTmpDeltaFilePath(groupWorkDir, partitionId, i);
 
             assertTrue(IgniteUtils.deleteIfExists(tmpDeltaFile), tmpDeltaFile.toString());
+        }
+    }
+
+    private static void createAndAddFilePageStore(FilePageStoreManager manager, GroupPartitionId groupPartitionId) throws Exception {
+        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+
+        try {
+            FilePageStore filePageStore = manager.readOrCreateStore(groupPartitionId, buffer);
+
+            manager.addStore(groupPartitionId, filePageStore);
+        } finally {
+            freeBuffer(buffer);
         }
     }
 }

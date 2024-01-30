@@ -20,13 +20,9 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,15 +30,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -52,31 +44,25 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
-import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.Fireable;
-import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
-import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneBindTableException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -120,6 +106,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
 
+    /** Busy lock to stop synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     /**
      * Constructor.
      */
@@ -150,7 +139,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
@@ -175,7 +164,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         CatalogZoneDescriptor defaultZone = fromParams(
                 objectIdGen++,
-                CreateZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).build()
+                DEFAULT_ZONE_NAME
         );
 
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema)));
@@ -183,10 +172,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
         updateLog.start();
+
+        return nullCompletedFuture();
     }
 
     @Override
     public void stop() throws Exception {
+        busyLock.block();
+        versionTracker.close();
         updateLog.stop();
     }
 
@@ -231,25 +224,31 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogSchemaDescriptor schema(int version) {
-        Catalog catalog = catalog(version);
-
-        if (catalog == null) {
-            return null;
-        }
-
-        return catalog.schema(DEFAULT_SCHEMA_NAME);
+    public List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId) {
+        return catalog(catalogVersion).indexes(tableId);
     }
 
     @Override
-    public @Nullable CatalogSchemaDescriptor schema(String schemaName, int version) {
-        Catalog catalog = catalog(version);
+    public @Nullable CatalogSchemaDescriptor schema(int catalogVersion) {
+        return schema(DEFAULT_SCHEMA_NAME, catalogVersion);
+    }
+
+    @Override
+    public @Nullable CatalogSchemaDescriptor schema(String schemaName, int catalogVersion) {
+        Catalog catalog = catalog(catalogVersion);
 
         if (catalog == null) {
             return null;
         }
 
         return catalog.schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
+    }
+
+    @Override
+    public @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
+        Catalog catalog = catalog(catalogVersion);
+
+        return catalog == null ? null : catalog.schema(schemaId);
     }
 
     @Override
@@ -288,6 +287,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
+    public int earliestCatalogVersion() {
+        return catalogByVer.firstEntry().getKey();
+    }
+
+    @Override
     public int latestCatalogVersion() {
         return catalogByVer.lastEntry().getKey();
     }
@@ -298,8 +302,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public Catalog catalog(int version) {
-        return catalogByVer.get(version);
+    public @Nullable Catalog catalog(int catalogVersion) {
+        return catalogByVer.get(catalogVersion);
     }
 
     private Catalog catalogAt(long timestamp) {
@@ -320,101 +324,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> execute(List<CatalogCommand> commands) {
         if (nullOrEmpty(commands)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
-    }
-
-    @Override
-    public CompletableFuture<Void> createZone(CreateZoneParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateCreateZoneParams(params);
-
-            if (catalog.zone(params.zoneName()) != null) {
-                throw new DistributionZoneAlreadyExistsException(params.zoneName());
-            }
-
-            CatalogZoneDescriptor zone = fromParams(catalog.objectIdGenState(), params);
-
-            return List.of(
-                    new NewZoneEntry(zone),
-                    new ObjectIdGenUpdateEntry(1)
-            );
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> dropZone(DropZoneParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateDropZoneParams(params);
-
-            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
-
-            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
-                throw new IgniteInternalException(
-                        DistributionZones.ZONE_DROP_ERR,
-                        "Default distribution zone can't be dropped"
-                );
-            }
-
-            catalog.schemas().stream()
-                    .flatMap(s -> Arrays.stream(s.tables()))
-                    .filter(t -> t.zoneId() == zone.id())
-                    .findAny()
-                    .ifPresent(t -> {
-                        throw new DistributionZoneBindTableException(zone.name(), t.name());
-                    });
-
-            return List.of(new DropZoneEntry(zone.id()));
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> renameZone(RenameZoneParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateRenameZoneParams(params);
-
-            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
-
-            if (catalog.zone(params.newZoneName()) != null) {
-                throw new DistributionZoneAlreadyExistsException(params.newZoneName());
-            }
-
-            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
-                throw new IgniteInternalException(
-                        DistributionZones.ZONE_RENAME_ERR,
-                        "Default distribution zone can't be renamed"
-                );
-            }
-
-            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
-                    zone.id(),
-                    params.newZoneName(),
-                    zone.partitions(),
-                    zone.replicas(),
-                    zone.dataNodesAutoAdjust(),
-                    zone.dataNodesAutoAdjustScaleUp(),
-                    zone.dataNodesAutoAdjustScaleDown(),
-                    zone.filter(),
-                    zone.dataStorage()
-            );
-
-            return List.of(new AlterZoneEntry(descriptor));
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> alterZone(AlterZoneParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateAlterZoneParams(params);
-
-            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
-
-            CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(params, zone);
-
-            return List.of(new AlterZoneEntry(descriptor));
-        });
     }
 
     private void registerCatalog(Catalog newCatalog) {
@@ -428,12 +341,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     Catalog catalog = catalogByVer.get(newVersion);
 
                     HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
-                    HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(
-                            HybridTimestamp.maxClockSkew()
-                    );
+                    HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(HybridTimestamp.maxClockSkew())
+                            // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
+                            // logical parts on different nodes of the cluster (see IGNITE-21084).
+                            .roundUpToPhysicalTick();
                     // TODO: this addition has to be removed when IGNITE-20378 is implemented.
                     HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTs.addPhysicalTime(
-                            partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong()
+                            partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.maxClockSkew()
                     );
 
                     return clockWaiter.waitFor(tsSafeForRoReadingInPastOptimization);
@@ -449,41 +363,55 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * @return Future that completes with the new Catalog version (if update was saved successfully) or an exception, otherwise.
      */
     private CompletableFuture<Integer> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
-        if (attemptNo >= MAX_RETRY_COUNT) {
-            return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
         }
 
-        Catalog catalog = catalogByVer.lastEntry().getValue();
-
-        List<UpdateEntry> updates;
         try {
-            updates = updateProducer.get(catalog);
-        } catch (Exception ex) {
-            return failedFuture(ex);
+            if (attemptNo >= MAX_RETRY_COUNT) {
+                return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
+            }
+
+            Catalog catalog = catalogByVer.lastEntry().getValue();
+
+            List<UpdateEntry> updates;
+            try {
+                updates = updateProducer.get(catalog);
+            } catch (Exception ex) {
+                return failedFuture(ex);
+            }
+
+            if (updates.isEmpty()) {
+                return completedFuture(catalog.version());
+            }
+
+            int newVersion = catalog.version() + 1;
+
+            // It is quite important to preserve such behavior: we wait here for versionTracker to be updated. It is updated when all events
+            // that were triggered by this change will be completed. That means that any Catalog update will be completed only
+            // after all reactions to that event will be completed through the catalog event notifications mechanism.
+            // This is important for the distribution zones recovery purposes:
+            // we guarantee recovery for a zones' catalog actions only if that actions were completed.
+            return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
+                    .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
+                    .thenCompose(result -> {
+                        if (result) {
+                            return completedFuture(newVersion);
+                        }
+
+                        return saveUpdate(updateProducer, attemptNo + 1);
+                    });
+        } finally {
+            busyLock.leaveBusy();
         }
-
-        if (updates.isEmpty()) {
-            return completedFuture(catalog.version());
-        }
-
-        int newVersion = catalog.version() + 1;
-
-        return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
-                .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
-                .thenCompose(result -> {
-                    if (result) {
-                        return completedFuture(newVersion);
-                    }
-
-                    return saveUpdate(updateProducer, attemptNo + 1);
-                });
     }
 
     @Override
     public List<SystemView<?>> systemViews() {
         return List.of(
                 createSystemViewsView(),
-                createSystemViewColumnsView()
+                createSystemViewColumnsView(),
+                createSystemViewZonesView()
         );
     }
 
@@ -516,6 +444,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 }
             }
 
+            // It is quite important to preserve such behavior: we wait for all events to be completed and only after that we complete
+            // versionTracker, which is used for saving any update to Catalog. That means that any Catalog update will be completed only
+            // after all reactions to that event will be completed through the catalog event notifications mechanism.
+            // This is important for the distribution zones recovery purposes:
+            // we guarantee recovery for a zones' catalog actions only if that actions were completed.
             return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
@@ -530,28 +463,18 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
         long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
-        long prevVersionActivationTimestamp = catalog.time() + 1;
+
+        assert activationTimestamp > catalog.time()
+                : "Activation timestamp " + activationTimestamp + " must be greater than previous catalog version activation timestamp "
+                        + catalog.time();
 
         return new Catalog(
                 update.version(),
-                // Remove this maxing when https://issues.apache.org/jira/browse/IGNITE-20854 is fixed and DelayDuration is truly constant.
-                Math.max(activationTimestamp, prevVersionActivationTimestamp),
+                activationTimestamp,
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 catalog.schemas()
         );
-    }
-
-    private static CatalogZoneDescriptor getZone(Catalog catalog, String zoneName) {
-        zoneName = Objects.requireNonNull(zoneName, "zoneName");
-
-        CatalogZoneDescriptor zone = catalog.zone(zoneName);
-
-        if (zone == null) {
-            throw new DistributionZoneNotFoundException(zoneName);
-        }
-
-        return zone;
     }
 
     private static class BulkUpdateProducer implements UpdateProducer {
@@ -636,6 +559,24 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .build();
     }
 
+    private SystemView<?> createSystemViewZonesView() {
+        return SystemViews.<CatalogZoneDescriptor>clusterViewBuilder()
+                .name("ZONES")
+                .addColumn("NAME", NativeTypes.STRING, CatalogZoneDescriptor::name)
+                .addColumn("PARTITIONS", NativeTypes.INT32, CatalogZoneDescriptor::partitions)
+                .addColumn("REPLICAS", NativeTypes.INT32, CatalogZoneDescriptor::replicas)
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", NativeTypes.INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleUp)
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", NativeTypes.INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleDown)
+                .addColumn("DATA_NODES_FILTER", NativeTypes.STRING, CatalogZoneDescriptor::filter)
+                .addColumn("IS_DEFAULT_ZONE", NativeTypes.BOOLEAN, isDefaultZone())
+                .dataProvider(SubscriptionUtils.fromIterable(() -> catalog(latestCatalogVersion()).zones().iterator()))
+                .build();
+    }
+
+    private static Function<CatalogZoneDescriptor, Boolean> isDefaultZone() {
+        return zone -> zone.name().equals(DEFAULT_ZONE_NAME);
+    }
+
     /**
      * A container that keeps given descriptor along with name of the schema this
      * descriptor belongs to.
@@ -661,5 +602,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             this.descriptor = descriptor;
             this.id = id;
         }
+    }
+
+    @Override
+    public List<Catalog> catalogVersionsSnapshot() {
+        return List.copyOf(catalogByVer.values());
     }
 }

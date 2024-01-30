@@ -53,8 +53,8 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
             }
 
             @Override
-            public CompletableFuture<Void> onRevisionApplied(WatchEvent e) {
-                return CompletableFuture.completedFuture(null);
+            public void onRevisionApplied(long revision) {
+                // No-op.
             }
         });
     }

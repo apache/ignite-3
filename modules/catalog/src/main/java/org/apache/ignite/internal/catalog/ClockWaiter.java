@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -93,10 +93,12 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         clock.addUpdateListener(updateListener);
 
         scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter-scheduler", LOG));
+
+        return nullCompletedFuture();
     }
 
     @Override
@@ -160,7 +162,7 @@ public class ClockWaiter implements IgniteComponent {
         HybridTimestamp now = clock.now();
 
         if (targetTimestamp.compareTo(now) <= 0) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp.longValue());

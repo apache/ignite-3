@@ -47,12 +47,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -62,6 +64,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -76,6 +79,8 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -102,6 +107,8 @@ public class PlatformTestNodeRunner {
     private static final String TABLE_NAME_ALL_COLUMNS = "TBL_ALL_COLUMNS";
 
     private static final String TABLE_NAME_ALL_COLUMNS_SQL = "TBL_ALL_COLUMNS_SQL"; // All column types supported by SQL.
+
+    private static final String TABLE_NAME_ALL_COLUMNS_NOT_NULL = "TBL_ALL_COLUMNS_NOT_NULL";
 
     private static final String ZONE_NAME = "zone1";
 
@@ -321,6 +328,35 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
+                ),
+                List.of(keyCol)
+        );
+
+        createTable(
+                ignite.catalogManager(),
+                DEFAULT_SCHEMA_NAME,
+                ZONE_NAME,
+                TABLE_NAME_ALL_COLUMNS_NOT_NULL,
+                List.of(
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
+                        ColumnParams.builder().name("STR").type(STRING).nullable(false)
+                                .defaultValue(DefaultValue.constant("")).length(1000).build(),
+                        ColumnParams.builder().name("INT8").type(INT8).nullable(false)
+                                .defaultValue(DefaultValue.constant((byte) 0)).build(),
+                        ColumnParams.builder().name("INT16").type(INT16).nullable(false)
+                                .defaultValue(DefaultValue.constant((short) 0)).build(),
+                        ColumnParams.builder().name("INT32").type(INT32).nullable(false)
+                                .defaultValue(DefaultValue.constant(0)).build(),
+                        ColumnParams.builder().name("INT64").type(INT64).nullable(false)
+                                .defaultValue(DefaultValue.constant((long) 0)).build(),
+                        ColumnParams.builder().name("FLOAT").type(FLOAT).nullable(false)
+                                .defaultValue(DefaultValue.constant((float) 0)).build(),
+                        ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(false)
+                                .defaultValue(DefaultValue.constant((double) 0)).build(),
+                        ColumnParams.builder().name("UUID").type(UUID).nullable(false)
+                                .defaultValue(DefaultValue.constant(new java.util.UUID(0, 0))).build(),
+                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(false)
+                                .defaultValue(DefaultValue.constant(BigDecimal.ZERO)).build()
                 ),
                 List.of(keyCol)
         );
@@ -547,6 +583,17 @@ public class PlatformTestNodeRunner {
     }
 
     /**
+     * Compute job that throws an exception.
+     */
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class CheckedExceptionJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + args[0]));
+        }
+    }
+
+    /**
      * Compute job that computes row colocation hash.
      */
     @SuppressWarnings("unused") // Used by platform tests.
@@ -563,7 +610,7 @@ public class PlatformTestNodeRunner {
             var reader = new BinaryTupleReader(columnCount * 3, buf);
 
             for (int i = 0; i < columnCount; i++) {
-                var type = ColumnTypeConverter.fromOrdinalOrThrow(reader.intValue(i * 3));
+                var type = ColumnTypeConverter.fromIdOrThrow(reader.intValue(i * 3));
                 var scale = reader.intValue(i * 3 + 1);
                 var valIdx = i * 3 + 2;
 
@@ -708,19 +755,16 @@ public class PlatformTestNodeRunner {
                     root -> {
                         SecurityChange securityChange = root.changeRoot(SecurityConfiguration.KEY);
                         securityChange.changeEnabled(enable);
-                        securityChange.changeAuthentication(
-                                change -> {
-                                    change.changeProviders().delete("basic");
-
-                                    if (enable) {
-                                        change.changeProviders().create("basic", authenticationProviderChange -> {
-                                            authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                                    .changeUsername("user-1")
-                                                    .changePassword("password-1");
-                                        });
+                        securityChange.changeAuthentication().changeProviders().update("default", defaultProviderChange -> {
+                            defaultProviderChange.convert(BasicAuthenticationProviderChange.class).changeUsers(users -> {
+                                        if (enable) {
+                                            users.create("user-1", user -> user.changePassword("password-1"));
+                                        } else {
+                                            users.delete("user-1");
+                                        }
                                     }
-                                }
-                        );
+                            );
+                        });
                     });
 
             assertThat(changeFuture, willCompleteSuccessfully());

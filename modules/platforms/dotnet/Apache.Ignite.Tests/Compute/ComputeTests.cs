@@ -48,6 +48,8 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string EchoJob = ItThinClientComputeTest + "$EchoJob";
 
+        private const string SleepJob = ItThinClientComputeTest + "$SleepJob";
+
         private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
         private const string CreateTableJob = PlatformTestNodeRunner + "$CreateTableJob";
@@ -55,6 +57,8 @@ namespace Apache.Ignite.Tests.Compute
         private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
 
         private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
+
+        private const string CheckedExceptionJob = PlatformTestNodeRunner + "$CheckedExceptionJob";
 
         private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
 
@@ -298,7 +302,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExecuteColocatedUpdatesTableCacheOnTableDrop()
+        public async Task TestExecuteColocatedUpdatesTableCacheOnTableDrop([Values(false, true)] bool forceLoadAssignment)
         {
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
@@ -313,6 +317,12 @@ namespace Apache.Ignite.Tests.Compute
                 // This should update the cached table and complete the computation successfully.
                 await Client.Compute.ExecuteAsync<string>(nodes, Units, DropTableJob, tableName);
                 await Client.Compute.ExecuteAsync<string>(nodes, Units, CreateTableJob, tableName);
+
+                if (forceLoadAssignment)
+                {
+                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[tableName]!;
+                    table.SetFieldValue("_partitionAssignment", null);
+                }
 
                 var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
 
@@ -340,6 +350,18 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains(
                 "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
                 str);
+        }
+
+        [Test]
+        public void TestCheckedExceptionInJobPropagatesToClient()
+        {
+            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+                await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, CheckedExceptionJob, "foo-bar"));
+
+            Assert.AreEqual("TestCheckedEx: foo-bar", ex!.Message);
+            Assert.IsNotNull(ex.InnerException);
+
+            StringAssert.Contains("org.apache.ignite.lang.IgniteCheckedException: IGN-CMN-5", ex.ToString());
         }
 
         [Test]
@@ -434,6 +456,24 @@ namespace Apache.Ignite.Tests.Compute
                 async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
 
             Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Version')", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestDelayedJobExecutionThrowsWhenConnectionFails()
+        {
+            // Compute jobs are completed with a notification message.
+            // In this test, the job execution starts, but we drop the client connection, so notification can't be received.
+            using var client = await IgniteClient.StartAsync(GetConfig());
+
+            const int sleepMs = 3000;
+            var jobTask = client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+
+            // Wait a bit and close the connection.
+            await Task.Delay(10);
+            client.Dispose();
+
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await jobTask);
+            Assert.AreEqual("Connection closed.", ex!.Message);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>

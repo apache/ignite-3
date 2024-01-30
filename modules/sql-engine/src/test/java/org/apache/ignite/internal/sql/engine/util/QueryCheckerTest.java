@@ -17,23 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.Matchers.containsString;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -213,15 +217,15 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testMetadata() {
-        assertQuery("SELECT * FROM t1")
+        assertQueryMeta("SELECT * FROM t1")
                 .columnNames("ID", "VAL")
                 .check();
 
-        assertQuery("SELECT * FROM t1")
+        assertQueryMeta("SELECT * FROM t1")
                 .columnTypes(Integer.class, Integer.class)
                 .check();
 
-        assertQuery("SELECT id, val::DECIMAL(19, 2) as val_dec, id::VARCHAR(64) as id_str FROM t1")
+        assertQueryMeta("SELECT id, val::DECIMAL(19, 2) as val_dec, id::VARCHAR(64) as id_str FROM t1")
                 .columnMetadata(
                         new MetadataMatcher()
                                 .name("ID")
@@ -245,13 +249,44 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                                 .nullable(false)
                 )
                 .check();
+
+        // Test that validates the results cannot be executed correctly without actually executing the query.
+        assertThrows(
+                AssertionError.class,
+                () -> assertQueryMeta("SELECT * FROM t1")
+                        .columnTypes(Integer.class, Integer.class)
+                        .returns(1, 1)
+                        .returns(2, 2)
+                        .check(),
+                "Expected that the query will only be prepared, but not executed"
+        );
+
+        // Test that only checks metadata should not execute the query.
+        assertThrows(
+                AssertionError.class,
+                () -> assertQuery("SELECT * FROM t1")
+                        .columnTypes(Integer.class, Integer.class)
+                        .check(),
+                "Expected that the query will be executed"
+        );
     }
 
     private static QueryChecker assertQuery(String qry) {
         TestNode testNode = CLUSTER.node(NODE_NAME);
 
         return queryCheckerFactory.create(
-                new TestQueryProcessor(testNode),
+                new TestQueryProcessor(testNode, false),
+                new TestIgniteTransactions(),
+                null,
+                qry
+        );
+    }
+
+    private static QueryChecker assertQueryMeta(String qry) {
+        TestNode testNode = CLUSTER.node(NODE_NAME);
+
+        return queryCheckerFactory.create(
+                new TestQueryProcessor(testNode, true),
                 new TestIgniteTransactions(),
                 null,
                 qry
@@ -260,13 +295,26 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
     private static class TestQueryProcessor implements QueryProcessor {
         private final TestNode node;
+        private final boolean prepareOnly;
 
-        TestQueryProcessor(TestNode node) {
+        TestQueryProcessor(TestNode node, boolean prepareOnly) {
             this.node = node;
+            this.prepareOnly = prepareOnly;
         }
 
         @Override
-        public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+        public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
+                @Nullable InternalTransaction transaction, String qry, Object... params) {
+            assert params == null || params.length == 0 : "params are not supported";
+            assert prepareOnly : "Expected that the query will be executed";
+
+            QueryPlan plan = node.prepare(qry);
+
+            return CompletableFuture.completedFuture(new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
+        }
+
+        @Override
+        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
                 SqlProperties properties,
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction transaction,
@@ -274,28 +322,42 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 Object... params
         ) {
             assert params == null || params.length == 0 : "params are not supported";
+            assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
 
             QueryPlan plan = node.prepare(qry);
-            AsyncCursor<List<Object>> dataCursor = node.executePlan(plan);
+            AsyncCursor<InternalSqlRow> dataCursor = node.executePlan(plan);
 
             SqlQueryType type = plan.type();
 
             assert type != null;
 
-            AsyncSqlCursor<List<Object>> sqlCursor = new AsyncSqlCursorImpl<>(
+            AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
-                    new QueryTransactionWrapper(new NoOpTransaction("test"), false),
+                    new QueryTransactionWrapperImpl(new NoOpTransaction("test"), false),
                     dataCursor,
-                    () -> {}
+                    nullCompletedFuture(),
+                    null
             );
 
             return CompletableFuture.completedFuture(sqlCursor);
         }
 
         @Override
-        public void start() {
+        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
+                SqlProperties properties,
+                IgniteTransactions transactions,
+                @Nullable InternalTransaction transaction,
+                String qry,
+                Object... params
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<Void> start() {
             // NO-OP
+            return nullCompletedFuture();
         }
 
         @Override

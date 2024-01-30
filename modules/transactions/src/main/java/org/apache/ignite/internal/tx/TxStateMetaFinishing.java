@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,9 +36,10 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * Constructor.
      *
      * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition id.
      */
-    public TxStateMetaFinishing(String txCoordinatorId) {
-        super(TxState.FINISHING, txCoordinatorId, null);
+    public TxStateMetaFinishing(@Nullable String txCoordinatorId, @Nullable TablePartitionId commitPartitionId) {
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null);
     }
 
     /**
@@ -52,5 +54,31 @@ public class TxStateMetaFinishing extends TxStateMeta {
     @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         throw new UnsupportedOperationException("Can't get commit timestamp from FINISHING transaction state meta.");
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+
+        TxStateMetaFinishing that = (TxStateMetaFinishing) o;
+
+        return txFinishFuture.equals(that.txFinishFuture);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+
+        result = 31 * result + txFinishFuture.hashCode();
+
+        return result;
     }
 }

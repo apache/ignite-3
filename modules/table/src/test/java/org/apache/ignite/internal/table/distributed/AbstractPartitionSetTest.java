@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,9 +47,29 @@ abstract class AbstractPartitionSetTest {
 
         // Check that only partitions that were set are actually set.
         for (int i = 0; i < partCount; i++) {
-            boolean isSet = partitionSet.get(i);
+            assertEquals((i % 2) == 0, partitionSet.get(i));
+        }
+    }
 
-            assertEquals((i % 2) == 0, isSet);
+    @Test
+    public void testClearPartition() {
+        int partCount = 65_000;
+
+        // Set every partition.
+        for (int i = 0; i < partCount; i++) {
+            partitionSet.set(i);
+        }
+
+        // Clear every even partition.
+        for (int i = 0; i < partCount; i++) {
+            if ((i % 2) == 0) {
+                partitionSet.clear(i);
+            }
+        }
+
+        // Check that only odd partitions are set.
+        for (int i = 0; i < partCount; i++) {
+            assertEquals((i % 2) != 0, partitionSet.get(i));
         }
     }
 
@@ -72,7 +91,7 @@ abstract class AbstractPartitionSetTest {
 
         // Check that only partitions that were set are actually set.
         partitionSet.stream().forEach(value -> {
-            assertTrue((value % 2) == 0);
+            assertEquals(0, value % 2);
             realCount.incrementAndGet();
         });
 
@@ -94,6 +113,7 @@ abstract class AbstractPartitionSetTest {
     /**
      * Tests that empty sets of different classes are equal.
      */
+    @SuppressWarnings("MisorderedAssertEqualsArguments")
     @Test
     public void testEmptyEqual() {
         assertEquals(partitionSet, PartitionSet.EMPTY_SET);

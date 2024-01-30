@@ -663,13 +663,11 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                         .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
-
-                raftServer.raftNodeReadyFuture(grpId).join();
             }, opts -> {});
         }
 
         for (AtomicInteger counter : counters.values()) {
-            assertEquals(3, counter.get());
+            assertTrue(waitForCondition(() -> counter.get() == 3, 10_000));
         }
     }
 
