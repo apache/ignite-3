@@ -264,7 +264,16 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         makeIndexesAvailable(indexName0, indexName2, indexNameOtherTable1, indexNameOtherTable3);
 
         List<CatalogIndexDescriptor> droppedIndexes = dropIndexes(indexName1, indexName2);
+        CatalogIndexDescriptor index1BeforeDrop = droppedIndexes.get(0);
+
+        List<CatalogIndexDescriptor> removedIndexes = removeIndexes(indexName2);
+        CatalogIndexDescriptor index2BeforeRemove = removedIndexes.get(0);
+
         List<CatalogIndexDescriptor> droppedIndexesOtherTable = dropIndexes(indexNameOtherTable0, indexNameOtherTable1);
+        CatalogIndexDescriptor index0OtherTableBeforeDrop = droppedIndexesOtherTable.get(0);
+
+        List<CatalogIndexDescriptor> removedIndexesOtherTable = removeIndexes(indexNameOtherTable1);
+        CatalogIndexDescriptor index1OtherTableBeforeRemove = removedIndexesOtherTable.get(0);
 
         Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectedIndexes = collectIndexesForRecovery();
 
@@ -283,8 +292,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                         index(latestCatalogVersion, indexName0),
                         index(latestCatalogVersion, indexName3),
                         index(latestCatalogVersion, indexName4),
-                        droppedIndexes.get(0),
-                        droppedIndexes.get(1)
+                        index1BeforeDrop,
+                        index2BeforeRemove
                 )
         );
 
@@ -295,8 +304,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                         index(latestCatalogVersion, indexNameOtherTable2),
                         index(latestCatalogVersion, indexNameOtherTable3),
                         index(latestCatalogVersion, indexNameOtherTable4),
-                        droppedIndexesOtherTable.get(0),
-                        droppedIndexesOtherTable.get(1)
+                        index0OtherTableBeforeDrop,
+                        index1OtherTableBeforeRemove
                 )
         );
     }
@@ -443,6 +452,10 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
+    private void removeIndex(String indexName) {
+        TableTestUtils.removeIndex(catalogManager, indexName);
+    }
+
     private void createIndexes(String tableName, String... indexNames) {
         for (String indexName : indexNames) {
             createIndex(tableName, indexName);
@@ -468,6 +481,18 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
             res.add(index(catalogManager.latestCatalogVersion(), indexName));
 
             dropIndex(indexName);
+        }
+
+        return res;
+    }
+
+    private List<CatalogIndexDescriptor> removeIndexes(String... indexNames) {
+        var res = new ArrayList<CatalogIndexDescriptor>(indexNames.length);
+
+        for (String indexName : indexNames) {
+            res.add(index(catalogManager.latestCatalogVersion(), indexName));
+
+            removeIndex(indexName);
         }
 
         return res;

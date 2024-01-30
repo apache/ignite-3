@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -24,7 +27,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -34,16 +37,22 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Abstract test for commands that change the index {@link CatalogIndexDescriptor#status()}. */
-@SuppressWarnings("ThrowableNotThrown")
-public abstract class AbstractChangeIndexStatusCommandValidationTest extends AbstractIndexByIdCommandValidationTest {
-    /**
-     * Returns {@code true} if the index status is invalid when executing the command.
-     *
-     * @param indexStatus Index status.
-     */
-    abstract boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus);
+/** Tests to verify validation of {@link RemoveIndexCommand}. */
+public class RemoveIndexCommandValidationTest extends AbstractIndexByIdCommandValidationTest {
+    private static Stream<Arguments> indexStatuses() {
+        return Stream.of(CatalogIndexStatus.values()).map(Arguments::of);
+    }
 
+    @Override
+    public CatalogCommand createCommand(int indexId) {
+        return RemoveIndexCommand.builder().indexId(indexId).build();
+    }
+
+    private boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
+        return indexStatus != REGISTERED && indexStatus != BUILDING && indexStatus != STOPPING;
+    }
+
+    @SuppressWarnings("ThrowableNotThrown")
     @ParameterizedTest
     @MethodSource("indexStatuses")
     void exceptionIsThrownIfIndexHasInvalidPreviousStatus(CatalogIndexStatus invalidPreviousIndexStatus) {
@@ -81,12 +90,8 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
 
         assertThrowsWithCause(
                 () -> command.get(catalog),
-                ChangeIndexStatusValidationException.class,
-                "It is impossible to change the index status:"
+                CatalogValidationException.class,
+                "Cannot remove index"
         );
-    }
-
-    private static Stream<Arguments> indexStatuses() {
-        return Stream.of(CatalogIndexStatus.values()).map(Arguments::of);
     }
 }

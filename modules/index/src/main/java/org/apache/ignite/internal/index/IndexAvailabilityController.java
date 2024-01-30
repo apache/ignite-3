@@ -54,8 +54,8 @@ import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -93,12 +93,12 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *
  * <p>Notes:</p>
  * <ul>
- *     <li>At {@link CatalogEvent#INDEX_DROP},
+ *     <li>At {@link CatalogEvent#INDEX_REMOVED},
  *     {@link IndexManagementUtils#putBuildIndexMetastoreKeysIfAbsent(MetaStorageManager, int, int) index building keys} in the metastore
  *     are deleted.</li>
- *     <li>Handling of {@link CatalogEvent#INDEX_BUILDING}, {@link CatalogEvent#INDEX_DROP}, {@link CatalogEvent#INDEX_AVAILABLE} and watch
- *     prefix {@link IndexManagementUtils#PARTITION_BUILD_INDEX_KEY_PREFIX} is made by the whole cluster (and only one node makes a write to
- *     the metastore) as these events are global, but only one node (a primary replica owning a partition) handles
+ *     <li>Handling of {@link CatalogEvent#INDEX_BUILDING}, {@link CatalogEvent#INDEX_REMOVED}, {@link CatalogEvent#INDEX_AVAILABLE}
+ *     and watch prefix {@link IndexManagementUtils#PARTITION_BUILD_INDEX_KEY_PREFIX} is made by the whole cluster (and only one node makes
+ *     a write to the metastore) as these events are global, but only one node (a primary replica owning a partition) handles
  *     {@link IndexBuildCompletionListener#onBuildCompletion} (form {@link IndexBuilder#listen}) event.</li>
  *     <li>Restoring index availability occurs in {@link #recover(long)}.</li>
  * </ul>
@@ -195,12 +195,12 @@ class IndexAvailabilityController implements ManuallyCloseable {
             return onIndexBuilding((StartBuildingIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
 
-            return onIndexDrop((DropIndexEventParameters) parameters).thenApply(unused -> false);
+            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
         catalogService.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
@@ -236,7 +236,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
         });
     }
 
-    private CompletableFuture<?> onIndexDrop(DropIndexEventParameters parameters) {
+    private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             int indexId = parameters.indexId();
 

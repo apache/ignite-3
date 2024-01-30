@@ -26,6 +26,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
@@ -55,7 +56,8 @@ public class DropTableCommand extends AbstractTableCommand {
 
         Arrays.stream(schema.indexes())
                 .filter(index -> index.tableId() == table.id())
-                .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId(), schemaName)));
+                .filter(index -> index.status() != CatalogIndexStatus.STOPPING)
+                .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
 
         updateEntries.add(new DropTableEntry(table.id(), schemaName));
 

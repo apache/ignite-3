@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.events;
 
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.event.Event;
 
 /**
@@ -35,14 +36,20 @@ public enum CatalogEvent implements Event {
     /** This event is fired, when an index was created in Catalog. */
     INDEX_CREATE,
 
-    /** This event is fired, when an index was dropped in Catalog. */
-    INDEX_DROP,
-
     /** This event is fired when the index is ready to start building. */
     INDEX_BUILDING,
 
     /** This event is fired when the index becomes available, i.e. the index has been built. */
     INDEX_AVAILABLE,
+
+    /**
+     * This event is fired when an index was dropped in the Catalog (that is, it's switched to the {@link CatalogIndexStatus#STOPPING}
+     * state.
+     */
+    INDEX_DROP,
+
+    /** Fired when an index is removed from the Catalog. */
+    INDEX_REMOVED,
 
     /** This event is fired, when a distribution zone was created in Catalog. */
     ZONE_CREATE,

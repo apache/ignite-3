@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
@@ -30,6 +32,7 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.jetbrains.annotations.Nullable;
@@ -91,6 +94,23 @@ public class TableTestUtils {
     public static void dropIndex(CatalogManager catalogManager, String schemaName, String indexName) {
         assertThat(
                 catalogManager.execute(DropIndexCommand.builder().schemaName(schemaName).indexName(indexName).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    /**
+     * Removes index from the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param indexName Index name.
+     */
+    public static void removeIndex(CatalogManager catalogManager, String indexName) {
+        Integer indexId = getIndexId(catalogManager, indexName, Long.MAX_VALUE);
+
+        assertThat(indexId, is(notNullValue()));
+
+        assertThat(
+                catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).build()),
                 willCompleteSuccessfully()
         );
     }

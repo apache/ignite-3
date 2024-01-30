@@ -46,6 +46,7 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollat
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -78,6 +79,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
@@ -92,6 +94,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -110,11 +113,13 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
@@ -132,6 +137,7 @@ import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -374,9 +380,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.table(TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table1.id(), clock.nowLong()));
 
-        assertNull(schema.index(pkIndexName(TABLE_NAME)));
-        assertNull(manager.index(pkIndexName(TABLE_NAME), clock.nowLong()));
-        assertNull(manager.index(pkIndex1.id(), clock.nowLong()));
+        assertThat(schema.index(pkIndexName(TABLE_NAME)).status(), is(STOPPING));
+        assertThat(manager.index(pkIndexName(TABLE_NAME), clock.nowLong()).status(), is(STOPPING));
+        assertThat(manager.index(pkIndex1.id(), clock.nowLong()).status(), is(STOPPING));
 
         assertSame(table2, manager.table(TABLE_NAME_2, clock.nowLong()));
         assertSame(table2, manager.table(table2.id(), clock.nowLong()));
@@ -971,9 +977,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.table(TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table.id(), clock.nowLong()));
 
-        assertNull(schema.index(INDEX_NAME));
-        assertNull(manager.index(INDEX_NAME, clock.nowLong()));
-        assertNull(manager.index(index.id(), clock.nowLong()));
+        CatalogIndexStatus indexFromSchema = schema.index(INDEX_NAME).status();
+        assertThat(indexFromSchema, is(notNullValue()));
+        assertThat(indexFromSchema, is(STOPPING));
+
+        CatalogIndexDescriptor indexFromManagerByName = manager.index(INDEX_NAME, clock.nowLong());
+        assertThat(indexFromManagerByName.status(), is(STOPPING));
+
+        CatalogIndexDescriptor indexFromManagerById = manager.index(index.id(), clock.nowLong());
+        assertThat(indexFromManagerById, is(notNullValue()));
+        assertThat(indexFromManagerById.status(), is(STOPPING));
     }
 
     @Test
@@ -1158,7 +1171,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.INDEX_CREATE, eventListener);
+        manager.listen(CatalogEvent.INDEX_BUILDING, eventListener);
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, eventListener);
         manager.listen(CatalogEvent.INDEX_DROP, eventListener);
+        manager.listen(CatalogEvent.INDEX_REMOVED, eventListener);
 
         // Try to create index without table.
         assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundValidationException.class));
@@ -1174,11 +1190,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(createIndexCmd), willCompleteSuccessfully());
         verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
 
+        startBuildingIndex(indexId(INDEX_NAME));
+        verify(eventListener).notify(any(StartBuildingIndexEventParameters.class), isNull());
+
+        makeIndexAvailable(indexId(INDEX_NAME));
+        verify(eventListener).notify(any(MakeIndexAvailableEventParameters.class), isNull());
+
         clearInvocations(eventListener);
 
         // Drop index.
         assertThat(manager.execute(dropIndexCmd), willBe(nullValue()));
         verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
+
+        // Remove index.
+        assertThat(manager.execute(RemoveIndexCommand.builder().indexId(indexId(INDEX_NAME)).build()), willBe(nullValue()));
+        verify(eventListener).notify(any(RemoveIndexEventParameters.class), isNull());
 
         clearInvocations(eventListener);
 
@@ -1556,9 +1582,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))), willBe(nullValue()));
 
+        int indexId = manager.index(INDEX_NAME, clock.nowLong()).id();
+
+        startBuildingIndex(indexId);
+        makeIndexAvailable(indexId);
+
         int tableId = manager.table(TABLE_NAME, clock.nowLong()).id();
         int pkIndexId = manager.index(pkIndexName(TABLE_NAME), clock.nowLong()).id();
-        int indexId = manager.index(INDEX_NAME, clock.nowLong()).id();
 
         assertNotEquals(tableId, indexId);
 
@@ -1570,7 +1600,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         manager.listen(CatalogEvent.INDEX_DROP, eventListener);
 
-        // Let's remove the index.
+        // Let's drop the index.
         assertThat(
                 manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
                 willBe(nullValue())
@@ -1581,10 +1611,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(indexId, eventParameters.indexId());
         assertEquals(tableId, eventParameters.tableId());
 
-        // Let's delete the table.
+        // Let's drop the table.
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
-        // Let's make sure that the PK index has been deleted.
+        // Let's make sure that the PK index has been dropped.
         eventParameters = captor.getValue();
 
         assertEquals(pkIndexId, eventParameters.indexId());
@@ -1798,6 +1828,111 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    void droppingAnAvailableIndexMovesItToStoppingState() {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+        startBuildingIndex(indexId(INDEX_NAME));
+        makeIndexAvailable(indexId(INDEX_NAME));
+
+        dropIndex(INDEX_NAME);
+
+        CatalogIndexDescriptor index = index(manager.latestCatalogVersion(), INDEX_NAME);
+
+        assertThat(index, is(notNullValue()));
+        assertThat(index.status(), is(STOPPING));
+    }
+
+    @ParameterizedTest
+    @MethodSource("notYetAvailableIndexStatuses")
+    void droppingNotAvailableIndexRemovesIt(CatalogIndexStatus status) {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        rollIndexStatusTo(status, indexId(INDEX_NAME));
+
+        dropIndex(INDEX_NAME);
+
+        CatalogIndexDescriptor index = index(manager.latestCatalogVersion(), INDEX_NAME);
+
+        assertThat(index, is(nullValue()));
+    }
+
+    private void startBuildingIndex(int indexId) {
+        assertThat(manager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+    }
+
+    private static Stream<Arguments> notYetAvailableIndexStatuses() {
+        return Stream.of(REGISTERED, BUILDING).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonAvailableIndexStatuses")
+    void removingNonAvailableIndexRemovesItFromCatalog(CatalogIndexStatus status) {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        rollIndexStatusTo(status, indexId(INDEX_NAME));
+
+        assertThat(index(manager.latestCatalogVersion(), INDEX_NAME).status(), is(status));
+
+        removeIndex(indexId(INDEX_NAME));
+
+        CatalogIndexDescriptor index = index(manager.latestCatalogVersion(), INDEX_NAME);
+
+        assertThat(index, is(nullValue()));
+    }
+
+    private void rollIndexStatusTo(CatalogIndexStatus status, int indexId) {
+        for (CatalogIndexStatus currentStatus : List.of(REGISTERED, BUILDING, AVAILABLE, STOPPING)) {
+            if (currentStatus == status) {
+                break;
+            }
+
+            switch (currentStatus) {
+                case REGISTERED:
+                    startBuildingIndex(indexId);
+                    break;
+                case BUILDING:
+                    makeIndexAvailable(indexId);
+                    break;
+                case AVAILABLE:
+                    dropIndex(indexId);
+                    break;
+                case STOPPING:
+                    removeIndex(indexId);
+                    break;
+                default:
+                    fail("Unsupported state: " + currentStatus);
+                    break;
+            }
+        }
+    }
+
+    private static Stream<Arguments> nonAvailableIndexStatuses() {
+        return Arrays.stream(CatalogIndexStatus.values())
+                .filter(status -> status != AVAILABLE)
+                .map(Arguments::of);
+    }
+
+    private void removeIndex(int indexId) {
+        assertThat(manager.execute(RemoveIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+    }
+
+    private void dropIndex(String indexName) {
+        assertThat(
+                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(DEFAULT_SCHEMA_NAME).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void dropIndex(int indexId) {
+        CatalogIndexDescriptor index = manager.index(indexId, Long.MAX_VALUE);
+        assertThat(index, is(notNullValue()));
+
+        dropIndex(index.name());
+    }
+
+    @Test
     void testDropNotExistingIndex() {
         assertThat(
                 manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
@@ -1942,19 +2077,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        assertThat(
-                manager.execute(startBuildingIndexCommand(indexId)),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
-                willBe(nullValue())
-        );
+        startBuildingIndex(indexId);
+        makeIndexAvailable(indexId);
 
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
         assertEquals(AVAILABLE, index.status());
+    }
+
+    private void makeIndexAvailable(int indexId) {
+        assertThat(
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
+                willBe(nullValue())
+        );
     }
 
     @Test
@@ -1973,10 +2108,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 willBe(nullValue())
         );
 
-        assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
-                willBe(nullValue())
-        );
+        makeIndexAvailable(indexId);
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
@@ -2017,10 +2149,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 willBe(nullValue())
         );
 
-        assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
-                willBe(nullValue())
-        );
+        makeIndexAvailable(indexId);
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
     }

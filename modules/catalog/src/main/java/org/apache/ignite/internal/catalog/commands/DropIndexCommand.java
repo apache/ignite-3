@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
+import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
@@ -66,9 +67,14 @@ public class DropIndexCommand extends AbstractIndexCommand {
             throw new CatalogValidationException("Dropping primary key index is not allowed");
         }
 
-        return List.of(
-                new DropIndexEntry(index.id(), index.tableId(), schemaName)
-        );
+        switch (index.status()) {
+            case AVAILABLE:
+                return List.of(new DropIndexEntry(index.id(), index.tableId()));
+            case STOPPING:
+                throw new CatalogValidationException("Dropping an already dropped index is not allowed");
+            default:
+                return List.of(new RemoveIndexEntry(index.id()));
+        }
     }
 
     private static class Builder implements DropIndexCommandBuilder {
