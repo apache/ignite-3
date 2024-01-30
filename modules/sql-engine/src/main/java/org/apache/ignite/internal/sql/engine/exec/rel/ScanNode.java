@@ -34,6 +34,8 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
     private boolean inLoop;
 
+    private boolean firstBatch;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -57,7 +59,17 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::push, this::onError);
+            if (firstBatch) {
+                try {
+                    push();
+                } catch (Throwable e) {
+                    this.onError(e);
+                } finally {
+                    firstBatch = false;
+                }
+            } else {
+                context().execute(this::push, this::onError);
+            }
         }
     }
 
@@ -77,6 +89,7 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         Commons.closeQuiet(it);
         it = null;
         requested = 0;
+        firstBatch = true;
     }
 
     /** {@inheritDoc} */
