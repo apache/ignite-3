@@ -41,9 +41,7 @@ public class AssignmentResolverImpl<RowT> implements AssignmentsResolver<RowT> {
     @Override
     public void append(@Nullable Object value) {
         if (calculated) {
-            hash = 0;
-            curColIdx = 0;
-            calculated = false;
+            reset();
         }
         assert curColIdx < colocationKeysSize : "extra keys supplied";
         curColIdx++;
@@ -61,5 +59,11 @@ public class AssignmentResolverImpl<RowT> implements AssignmentsResolver<RowT> {
         assert curColIdx == colocationKeysSize :
                 format("partially initialized: keys supplied={}, keys expected={}", curColIdx, colocationKeysSize);
         calculated = true;
+    }
+
+    private void reset() {
+        hash = 0;
+        curColIdx = 0;
+        calculated = false;
     }
 }
