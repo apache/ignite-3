@@ -85,7 +85,6 @@ enum class code : underlying_t {
     CLUSTER_ID_MISMATCH = 0x30008,
     CLIENT_SSL_CONFIGURATION = 0x30009,
     HANDSHAKE_HEADER = 0x3000a,
-    NODE_NOT_FOUND = 0x3000b,
 
     // Sql group. Group code: 4
     CURSOR_NO_MORE_PAGES = 0x40001,

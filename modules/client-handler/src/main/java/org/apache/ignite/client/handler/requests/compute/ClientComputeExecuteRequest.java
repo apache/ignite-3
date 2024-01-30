@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
-import static org.apache.ignite.lang.ErrorGroups.Client.NODE_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -72,13 +71,13 @@ public class ClientComputeExecuteRequest {
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
         int size = in.unpackInt();
         Set<ClusterNode> nodes = new HashSet<>(size);
-        
+
         for (int i = 0; i < size; i++) {
             String nodeName = in.unpackString();
             ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
 
             if (node == null) {
-                throw new IgniteException(NODE_NOT_FOUND_ERR, "Specified node is not present in the cluster: " + nodeName);
+                throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
             }
 
             nodes.add(node);

@@ -203,9 +203,6 @@ public class ErrorGroups {
 
         /** Client handshake header error. */
         public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
-
-        /** Specified node is not found in the cluster. */
-        public static final int NODE_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** SQL error group. */
