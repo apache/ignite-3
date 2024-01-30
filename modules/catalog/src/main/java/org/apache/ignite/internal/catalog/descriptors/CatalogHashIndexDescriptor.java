@@ -36,12 +36,12 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param creationVersion Catalog version in which the index was created.
+     * @param creationCatalogVersion Catalog version in which the index was created.
      * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, int creationVersion, List<String> columns) {
-        this(id, name, tableId, unique, REGISTERED, creationVersion, columns);
+    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, int creationCatalogVersion, List<String> columns) {
+        this(id, name, tableId, unique, REGISTERED, creationCatalogVersion, columns);
     }
 
     /**

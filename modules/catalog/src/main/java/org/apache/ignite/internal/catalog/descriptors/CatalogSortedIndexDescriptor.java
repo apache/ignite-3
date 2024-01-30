@@ -37,7 +37,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param creationVersion Catalog version in which the index was created.
+     * @param creationCatalogVersion Catalog version in which the index was created.
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
@@ -46,10 +46,10 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             String name,
             int tableId,
             boolean unique,
-            int creationVersion,
+            int creationCatalogVersion,
             List<CatalogIndexColumnDescriptor> columns
     ) {
-        this(id, name, tableId, unique, REGISTERED, creationVersion, columns);
+        this(id, name, tableId, unique, REGISTERED, creationCatalogVersion, columns);
     }
 
     /**

@@ -2326,9 +2326,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     private static Stream<Arguments> argumentsForCheckIndexCreationCatalogVersion() {
         return Stream.of(
-                Arguments.of(true, true), // Create hash index and update status index.
+                Arguments.of(true, true), // Create hash index and update index status..
                 Arguments.of(true, false), // Create hash index and update catalog (create table).
-                Arguments.of(false, true), // Create sorted index and update status index.
+                Arguments.of(false, true), // Create sorted index and update index status..
                 Arguments.of(false, false) // Create sorted index and update catalog (create table).
         );
     }
