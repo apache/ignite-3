@@ -52,7 +52,7 @@ import org.apache.ignite.network.ClusterService;
  *     <li>{@link CatalogEvent#INDEX_CREATE} - task starts for the new index.</li>
  *     <li>{@link CatalogEvent#INDEX_DROP} - stops task for the new index if it has been added.</li>
  *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - when the local node becomes the primary replica for partition {@code 0} of
- *     the table, it starts tasks for it all new indexes, and when the primary replica expires, it stops all tasks for the table.</li>
+ *     the table, it starts tasks for its all new indexes, and when the primary replica expires, it stops all tasks for the table.</li>
  * </ul>
  *
  * <br><p>On node recovery, tasks will be started on {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}, which will fire due to a change in
@@ -68,7 +68,7 @@ class IndexBuildingStarterController implements ManuallyCloseable {
     private final IndexBuildingStarter indexBuildingStarter;
 
     /** Tables IDs for which the local node is the primary replica for the partition with ID {@code 0}. */
-    private final Set<Integer> tableIds = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> localNodeIsPrimaryReplicaForTableIds = ConcurrentHashMap.newKeySet();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -129,8 +129,8 @@ class IndexBuildingStarterController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             CatalogIndexDescriptor indexDescriptor = parameters.indexDescriptor();
 
-            if (tableIds.contains(indexDescriptor.tableId())) {
-                // Start building the index only if the local node is the primary replica for the 0 partition of the table for which the
+            if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
+                // Schedule building the index only if the local node is the primary replica for the 0 partition of the table for which the
                 // index was created.
                 indexBuildingStarter.scheduleTask(indexDescriptor.tableId(), indexDescriptor.id());
             }
@@ -159,11 +159,11 @@ class IndexBuildingStarterController implements ManuallyCloseable {
             int tableId = primaryReplicaId.tableId();
 
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                if (tableIds.add(tableId)) {
+                if (localNodeIsPrimaryReplicaForTableIds.add(tableId)) {
                     scheduleTasksOnPrimaryReplicaElectedBusy(tableId);
                 }
             } else {
-                if (tableIds.remove(tableId)) {
+                if (localNodeIsPrimaryReplicaForTableIds.remove(tableId)) {
                     indexBuildingStarter.stopTasks(tableId);
                 }
             }

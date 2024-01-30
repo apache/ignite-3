@@ -69,7 +69,7 @@ import org.apache.ignite.network.RecipientLeftException;
  *
  * <br><p>Approximate algorithm for the task:</p>
  * <ul>
- *     <li>Waiting for the activation of the catalog version in which the index was created.</li>
+ *     <li>Waiting for the activation (on every cluster node) of the catalog version in which the index was created.</li>
  *     <li>Make sure that the local node is still the primary replica for partition {@code 0} of the table.</li>
  *     <li>Get the logical topology from the CMG leader.</li>
  *     <li>For each node in the logical topology, send {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} and process the following
@@ -162,7 +162,7 @@ class IndexBuildingStarterTask {
 
                 return awaitActivateForCatalogVersionOfIndexCreation()
                         .thenCompose(unused -> ensureThatLocalNodeStillPrimaryReplica())
-                        .thenCompose(unused -> inBusyLock(logicalTopologyService::logicalTopologyOnLeader))
+                        .thenCompose(unused -> inBusyLocks(logicalTopologyService::logicalTopologyOnLeader))
                         .thenComposeAsync(this::awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation, executor)
                         .thenComposeAsync(unused -> switchIndexToBuildingStatus(), executor);
             }, executor)
@@ -171,7 +171,7 @@ class IndexBuildingStarterTask {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);
 
-                            if (!(cause instanceof TakStoppingException) && !(cause instanceof NodeStoppingException)) {
+                            if (!(cause instanceof IndexTaskStoppingException) && !(cause instanceof NodeStoppingException)) {
                                 LOG.error("Error starting index building: ", cause, indexId);
                             }
                         }
@@ -193,7 +193,7 @@ class IndexBuildingStarterTask {
     }
 
     private CompletableFuture<Void> awaitActivateForCatalogVersionOfIndexCreation() {
-        return inBusyLock(() -> {
+        return inBusyLocks(() -> {
             Catalog catalog = catalogManager.catalog(catalogVersionOfIndexCreation);
 
             assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
@@ -206,13 +206,13 @@ class IndexBuildingStarterTask {
     private CompletableFuture<Void> ensureThatLocalNodeStillPrimaryReplica() {
         return awaitPrimaryReplica().thenAccept(replicaMeta -> {
             if (!enterBusy()) {
-                throw new TakStoppingException();
+                throw new IndexTaskStoppingException();
             }
 
             try {
                 if (!isPrimaryReplica(replicaMeta, localNode(clusterService), clock.now())) {
                     // Lease has expired, we stop the task.
-                    throw new TakStoppingException();
+                    throw new IndexTaskStoppingException();
                 }
             } finally {
                 leaveBusy();
@@ -221,7 +221,7 @@ class IndexBuildingStarterTask {
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica() {
-        return inBusyLock(() -> {
+        return inBusyLocks(() -> {
             TablePartitionId groupId = new TablePartitionId(tableId, 0);
 
             return placementDriver.awaitPrimaryReplica(groupId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
@@ -242,7 +242,7 @@ class IndexBuildingStarterTask {
     }
 
     private CompletableFuture<Void> awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation(LogicalTopologySnapshot logicalTopologySnapshot) {
-        return inBusyLock(() -> {
+        return inBusyLocks(() -> {
             Set<LogicalNode> remainingNodes = ConcurrentHashMap.newKeySet();
             remainingNodes.addAll(logicalTopologySnapshot.nodes());
 
@@ -262,7 +262,7 @@ class IndexBuildingStarterTask {
             LogicalNode targetNode,
             Set<LogicalNode> remainingNodes
     ) {
-        return inBusyLock(() -> {
+        return inBusyLocks(() -> {
             if (!remainingNodes.contains(targetNode)) {
                 // Target node left logical topology, there is no need to do anything.
                 return nullCompletedFuture();
@@ -285,14 +285,14 @@ class IndexBuildingStarterTask {
                         }
 
                         // Let's try to send the message again, but after a short time.
-                        return inBusyLock(() -> clockWaiter.waitFor(clock.now().addPhysicalTime(RETRY_SEND_MESSAGE_TIMEOUT_MILLS)))
+                        return inBusyLocks(() -> clockWaiter.waitFor(clock.now().addPhysicalTime(RETRY_SEND_MESSAGE_TIMEOUT_MILLS)))
                                 .thenCompose(unused -> awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation(targetNode, remainingNodes));
                     }).thenCompose(Function.identity());
         });
     }
 
     private CompletableFuture<Void> switchIndexToBuildingStatus() {
-        return inBusyLock(() -> catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()));
+        return inBusyLocks(() -> catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()));
     }
 
     private IsNodeFinishedRwTransactionsStartedBeforeRequest isNodeFinishedRwTransactionsStartedBeforeRequest() {
@@ -307,9 +307,9 @@ class IndexBuildingStarterTask {
         IndexManagementUtils.leaveBusy(busyLock, taskBusyLock);
     }
 
-    private <T> CompletableFuture<T> inBusyLock(Supplier<CompletableFuture<T>> supplier) {
+    private <T> CompletableFuture<T> inBusyLocks(Supplier<CompletableFuture<T>> supplier) {
         if (!IndexManagementUtils.enterBusy(busyLock, taskBusyLock)) {
-            return failedFuture(new TakStoppingException());
+            return failedFuture(new IndexTaskStoppingException());
         }
 
         try {

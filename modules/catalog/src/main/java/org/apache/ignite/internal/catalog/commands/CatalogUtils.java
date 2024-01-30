@@ -498,7 +498,8 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns the activation timestamp of the catalog version for the whole cluster.
+     * Returns the timestamp at which the catalog version is guaranteed to be activated on every node of the cluster. This takes into
+     * account possible clock skew between nodes.
      *
      * @param catalog Catalog version of interest.
      */

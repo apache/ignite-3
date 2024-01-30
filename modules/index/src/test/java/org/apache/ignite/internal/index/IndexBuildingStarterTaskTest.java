@@ -86,6 +86,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /** For {@link IndexBuildingStarterTask} testing. */
@@ -97,9 +98,10 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final ClockWaiter clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));
+    @Spy
+    private final ClockWaiter clockWaiter = new ClockWaiter(NODE_NAME, clock);
 
-    private final CatalogManager catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter);
+    private CatalogManager catalogManager;
 
     private final ExecutorService executor = spy(newSingleThreadExecutor());
 
@@ -117,6 +119,8 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter);
+
         assertThat(allOf(clockWaiter.start(), catalogManager.start()), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
@@ -165,8 +169,6 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     @Test
     void testSimpleTaskExecution() {
-        clearInvocations(clockWaiter);
-
         assertThat(task.start(), willCompleteSuccessfully());
         assertEquals(BUILDING, actualIndexStatus());
 
