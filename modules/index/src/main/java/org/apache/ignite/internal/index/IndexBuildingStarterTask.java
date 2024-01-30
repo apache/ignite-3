@@ -26,7 +26,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
-import static org.apache.ignite.internal.index.IndexManagementUtils.earliestCatalogVersionOfIndexInRegisteredStatus;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.index.IndexManagementUtils.localNode;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -44,6 +43,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -94,9 +94,7 @@ class IndexBuildingStarterTask {
 
     private static final int RETRY_SEND_MESSAGE_TIMEOUT_MILLS = 100;
 
-    private final int indexId;
-
-    private final int tableId;
+    private final CatalogIndexDescriptor indexDescriptor;
 
     private final CatalogManager catalogManager;
 
@@ -114,15 +112,12 @@ class IndexBuildingStarterTask {
 
     private final IgniteSpinBusyLock busyLock;
 
-    private volatile int catalogVersionOfIndexCreation = -1;
-
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean taskStopGuard = new AtomicBoolean();
 
     IndexBuildingStarterTask(
-            int indexId,
-            int tableId,
+            CatalogIndexDescriptor indexDescriptor,
             CatalogManager catalogManager,
             PlacementDriver placementDriver,
             ClusterService clusterService,
@@ -132,8 +127,7 @@ class IndexBuildingStarterTask {
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
-        this.indexId = indexId;
-        this.tableId = tableId;
+        this.indexDescriptor = indexDescriptor;
         this.catalogManager = catalogManager;
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
@@ -155,26 +149,18 @@ class IndexBuildingStarterTask {
         }
 
         try {
-            return supplyAsync(() -> {
-                int catalogVersionOfIndexCreation = earliestCatalogVersionOfIndexInRegisteredStatus(catalogManager, indexId);
-
-                assert catalogVersionOfIndexCreation >= 0 : indexId;
-
-                this.catalogVersionOfIndexCreation = catalogVersionOfIndexCreation;
-
-                return awaitActivateForCatalogVersionOfIndexCreation()
-                        .thenCompose(unused -> ensureThatLocalNodeStillPrimaryReplica())
-                        .thenCompose(unused -> inBusyLocks(logicalTopologyService::logicalTopologyOnLeader))
-                        .thenComposeAsync(this::awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation, executor)
-                        .thenComposeAsync(unused -> switchIndexToBuildingStatus(), executor);
-            }, executor)
+            return supplyAsync(() -> awaitActivateForCatalogVersionOfIndexCreation()
+                    .thenCompose(unused -> ensureThatLocalNodeStillPrimaryReplica())
+                    .thenCompose(unused -> inBusyLocks(logicalTopologyService::logicalTopologyOnLeader))
+                    .thenComposeAsync(this::awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation, executor)
+                    .thenComposeAsync(unused -> switchIndexToBuildingStatus(), executor), executor)
                     .thenCompose(Function.identity())
                     .handle((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);
 
                             if (!(cause instanceof IndexTaskStoppingException) && !(cause instanceof NodeStoppingException)) {
-                                LOG.error("Error starting index building: ", cause, indexId);
+                                LOG.error("Error starting index building: {}", cause, indexDescriptor.id());
                             }
                         }
 
@@ -196,10 +182,10 @@ class IndexBuildingStarterTask {
 
     private CompletableFuture<Void> awaitActivateForCatalogVersionOfIndexCreation() {
         return inBusyLocks(() -> {
-            Catalog catalog = catalogManager.catalog(catalogVersionOfIndexCreation);
+            Catalog catalog = catalogManager.catalog(indexDescriptor.creationCatalogVersion());
 
             assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
-                    indexId, catalogVersionOfIndexCreation);
+                    indexDescriptor.id(), indexDescriptor.creationCatalogVersion());
 
             return clockWaiter.waitFor(clusterWideEnsuredActivationTimestamp(catalog));
         });
@@ -224,7 +210,7 @@ class IndexBuildingStarterTask {
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica() {
         return inBusyLocks(() -> {
-            TablePartitionId groupId = new TablePartitionId(tableId, 0);
+            TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
 
             return placementDriver.awaitPrimaryReplica(groupId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {
@@ -300,11 +286,13 @@ class IndexBuildingStarterTask {
     }
 
     private CompletableFuture<Void> switchIndexToBuildingStatus() {
-        return inBusyLocks(() -> catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()));
+        return inBusyLocks(() -> catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexDescriptor.id()).build()));
     }
 
     private IsNodeFinishedRwTransactionsStartedBeforeRequest isNodeFinishedRwTransactionsStartedBeforeRequest() {
-        return FACTORY.isNodeFinishedRwTransactionsStartedBeforeRequest().targetCatalogVersion(catalogVersionOfIndexCreation).build();
+        return FACTORY.isNodeFinishedRwTransactionsStartedBeforeRequest()
+                .targetCatalogVersion(indexDescriptor.creationCatalogVersion())
+                .build();
     }
 
     private boolean enterBusy() {

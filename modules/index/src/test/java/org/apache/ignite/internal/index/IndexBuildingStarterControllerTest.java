@@ -29,7 +29,7 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.dropInde
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -96,11 +97,11 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
     void testStartTaskOnIndexCreateEvent() {
         setPrimaryReplicaLocalNode();
 
-        verify(indexBuildingStarter, never()).scheduleTask(eq(tableId()), anyInt());
+        verify(indexBuildingStarter, never()).scheduleTask(any());
 
         createIndex();
 
-        verify(indexBuildingStarter).scheduleTask(eq(tableId()), eq(indexId()));
+        verify(indexBuildingStarter).scheduleTask(eq(indexDescriptor()));
     }
 
     @Test
@@ -109,22 +110,24 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
 
         createIndex();
 
-        int indexId = indexId();
+        CatalogIndexDescriptor indexDescriptor = indexDescriptor();
 
         dropIndex(catalogManager, INDEX_NAME);
 
-        verify(indexBuildingStarter).stopTask(eq(tableId()), eq(indexId));
+        verify(indexBuildingStarter).stopTask(eq(indexDescriptor));
     }
 
     @Test
     void testStartTasksOnPrimaryReplicaElected() {
         createIndex();
 
-        verify(indexBuildingStarter, never()).scheduleTask(eq(tableId()), eq(indexId()));
+        CatalogIndexDescriptor indexDescriptor = indexDescriptor();
+
+        verify(indexBuildingStarter, never()).scheduleTask(eq(indexDescriptor));
 
         setPrimaryReplicaLocalNode();
 
-        verify(indexBuildingStarter).scheduleTask(eq(tableId()), eq(indexId()));
+        verify(indexBuildingStarter).scheduleTask(eq(indexDescriptor));
     }
 
     @Test
@@ -162,8 +165,8 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
         return TestIndexManagementUtils.tableId(catalogManager, TABLE_NAME, clock);
     }
 
-    private int indexId() {
-        return TestIndexManagementUtils.indexId(catalogManager, INDEX_NAME, clock);
+    private CatalogIndexDescriptor indexDescriptor() {
+        return TestIndexManagementUtils.indexDescriptor(catalogManager, INDEX_NAME, clock);
     }
 
     private static ClusterService createClusterService() {

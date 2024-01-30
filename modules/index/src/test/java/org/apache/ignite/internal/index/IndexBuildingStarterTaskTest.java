@@ -141,8 +141,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(logicalTopologySnapshotFuture);
 
         task = new IndexBuildingStarterTask(
-                indexDescriptor.id(),
-                indexDescriptor.tableId(),
+                indexDescriptor,
                 catalogManager,
                 placementDriver,
                 clusterService,

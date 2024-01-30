@@ -132,7 +132,7 @@ class IndexBuildingStarterController implements ManuallyCloseable {
             if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
                 // Schedule building the index only if the local node is the primary replica for the 0 partition of the table for which the
                 // index was created.
-                indexBuildingStarter.scheduleTask(indexDescriptor.tableId(), indexDescriptor.id());
+                indexBuildingStarter.scheduleTask(parameters.indexDescriptor());
             }
 
             return nullCompletedFuture();
@@ -141,7 +141,9 @@ class IndexBuildingStarterController implements ManuallyCloseable {
 
     private CompletableFuture<?> onIndexDrop(DropIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            indexBuildingStarter.stopTask(parameters.tableId(), parameters.indexId());
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion() - 1);
+
+            indexBuildingStarter.stopTask(indexDescriptor);
 
             return nullCompletedFuture();
         });
@@ -178,7 +180,7 @@ class IndexBuildingStarterController implements ManuallyCloseable {
 
         for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, tableId)) {
             if (indexDescriptor.status() == REGISTERED) {
-                indexBuildingStarter.scheduleTask(indexDescriptor.tableId(), indexDescriptor.id());
+                indexBuildingStarter.scheduleTask(indexDescriptor);
             }
         }
     }

@@ -27,6 +27,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -88,16 +89,14 @@ class IndexBuildingStarter implements ManuallyCloseable {
     /**
      * Schedules {@link IndexBuildingStarterTask} for the table index if it is not already in progress.
      *
-     * @param tableId Table ID.
-     * @param indexId Index ID.
+     * @param indexDescriptor Index descriptor.
      */
-    void scheduleTask(int tableId, int indexId) {
+    void scheduleTask(CatalogIndexDescriptor indexDescriptor) {
         inBusyLockSafe(busyLock, () -> {
-            IndexBuildingStarterTaskId taskId = new IndexBuildingStarterTaskId(tableId, indexId);
+            IndexBuildingStarterTaskId taskId = taskId(indexDescriptor);
 
             IndexBuildingStarterTask task = new IndexBuildingStarterTask(
-                    indexId,
-                    tableId,
+                    indexDescriptor,
                     catalogManager,
                     placementDriver,
                     clusterService,
@@ -120,12 +119,11 @@ class IndexBuildingStarter implements ManuallyCloseable {
     /**
      * Stops {@link IndexBuildingStarterTask} for the table index if it is present.
      *
-     * @param tableId Table ID.
-     * @param indexId Index ID.
+     * @param indexDescriptor Index descriptor.
      */
-    void stopTask(int tableId, int indexId) {
+    void stopTask(CatalogIndexDescriptor indexDescriptor) {
         inBusyLockSafe(busyLock, () -> {
-            IndexBuildingStarterTask removed = taskById.remove(new IndexBuildingStarterTaskId(tableId, indexId));
+            IndexBuildingStarterTask removed = taskById.remove(taskId(indexDescriptor));
 
             if (removed != null) {
                 removed.stop();
@@ -157,5 +155,9 @@ class IndexBuildingStarter implements ManuallyCloseable {
     private void stopAllTasks() {
         taskById.values().forEach(IndexBuildingStarterTask::stop);
         taskById.clear();
+    }
+
+    private static IndexBuildingStarterTaskId taskId(CatalogIndexDescriptor indexDescriptor) {
+        return new IndexBuildingStarterTaskId(indexDescriptor.tableId(), indexDescriptor.id());
     }
 }
