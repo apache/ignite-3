@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -55,7 +54,7 @@ public class IndexBuildingManager implements IgniteComponent {
 
     private final MetaStorageManager metaStorageManager;
 
-    private final ExecutorService executor;
+    private final ThreadPoolExecutor executor;
 
     private final IndexBuilder indexBuilder;
 
@@ -96,6 +95,8 @@ public class IndexBuildingManager implements IgniteComponent {
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "build-index", LOG)
         );
+
+        executor.allowCoreThreadTimeOut(true);
 
         indexBuilder = new IndexBuilder(executor, replicaService);
 

@@ -19,8 +19,10 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
@@ -285,8 +287,14 @@ class IndexBuildingStarterTask {
                         }
 
                         // Let's try to send the message again, but after a short time.
-                        return inBusyLocks(() -> clockWaiter.waitFor(clock.now().addPhysicalTime(RETRY_SEND_MESSAGE_TIMEOUT_MILLS)))
-                                .thenCompose(unused -> awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation(targetNode, remainingNodes));
+                        return inBusyLocks(() -> {
+                            Executor delayedExecutor = delayedExecutor(RETRY_SEND_MESSAGE_TIMEOUT_MILLS, MILLISECONDS, executor);
+
+                            return supplyAsync(
+                                    () -> awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation(targetNode, remainingNodes),
+                                    delayedExecutor
+                            ).thenCompose(Function.identity());
+                        });
                     }).thenCompose(Function.identity());
         });
     }

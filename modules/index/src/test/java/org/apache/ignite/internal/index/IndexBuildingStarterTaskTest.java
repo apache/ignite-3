@@ -265,7 +265,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         assertEquals(BUILDING, actualIndexStatus());
 
         verify(clusterService.messagingService(), times(3)).invoke(any(ClusterNode.class), any(), anyLong());
-        verify(clockWaiter, times(4)).waitFor(any());
+        verify(clockWaiter, times(2)).waitFor(any());
     }
 
     @Test
@@ -281,7 +281,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
         assertEquals(BUILDING, actualIndexStatus());
 
         verify(clusterService.messagingService(), times(2)).invoke(any(ClusterNode.class), any(), anyLong());
-        verify(clockWaiter, times(3)).waitFor(any());
+        verify(clockWaiter, times(2)).waitFor(any());
     }
 
     @Test
