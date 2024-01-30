@@ -761,6 +761,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
 
+            case ClientOp.STREAMER_PROCESS_BATCH:
+                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources);
+
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
