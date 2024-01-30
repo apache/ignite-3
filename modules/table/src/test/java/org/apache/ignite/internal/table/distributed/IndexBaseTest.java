@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -71,6 +73,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
             SCHEMA_DESCRIPTOR.column("INTVAL").schemaIndex(),
             SCHEMA_DESCRIPTOR.column("STRVAL").schemaIndex()
     };
+
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
     private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
 
@@ -151,7 +156,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                indexUpdateHandler
+                indexUpdateHandler,
+                storageUpdateConfiguration
         );
     }
 

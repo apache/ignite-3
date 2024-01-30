@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -89,8 +91,10 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     private TestHashIndexStorage hashInnerStorage;
     private TestMvPartitionStorage storage;
     private StorageUpdateHandler storageUpdateHandler;
-
     private IndexUpdateHandler indexUpdateHandler;
+
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
     @BeforeEach
     void setUp() {
@@ -147,7 +151,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                indexUpdateHandler
+                indexUpdateHandler,
+                storageUpdateConfiguration
         );
     }
 

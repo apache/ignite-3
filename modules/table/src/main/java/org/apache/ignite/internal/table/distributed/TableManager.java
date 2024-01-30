@@ -130,6 +130,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupStripes;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -353,12 +354,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Ends at the {@link #stop()} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
+    /** Configuration for {@link StorageUpdateHandler}. */
+    private final StorageUpdateConfiguration storageUpdateConfig;
+
     /**
      * Creates a new table manager.
      *
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
+     * @param storageUpdateConfig Storage update handler configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
@@ -377,6 +382,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             GcConfiguration gcConfig,
+            StorageUpdateConfiguration storageUpdateConfig,
             ClusterService clusterService,
             RaftManager raftMgr,
             ReplicaManager replicaMgr,
@@ -420,6 +426,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
         this.sql = sql;
+        this.storageUpdateConfig = storageUpdateConfig;
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -797,7 +804,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partId,
                 partitionDataStorage,
                 table,
-                safeTimeTracker
+                safeTimeTracker,
+                storageUpdateConfig
         );
 
         Peer serverPeer = newConfiguration.peer(localNode().name());
@@ -2234,7 +2242,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int partitionId,
             PartitionDataStorage partitionDataStorage,
             TableImpl table,
-            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
+            StorageUpdateConfiguration storageUpdateConfig
     ) {
         TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
 
@@ -2245,7 +2254,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
-                indexUpdateHandler
+                indexUpdateHandler,
+                storageUpdateConfig
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);

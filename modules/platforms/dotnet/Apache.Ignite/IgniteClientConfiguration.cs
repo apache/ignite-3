@@ -21,6 +21,7 @@ namespace Apache.Ignite
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Linq;
+    using System.Threading;
     using Internal.Common;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
@@ -83,6 +84,7 @@ namespace Apache.Ignite
 
             LoggerFactory = other.LoggerFactory;
             SocketTimeout = other.SocketTimeout;
+            OperationTimeout = other.OperationTimeout;
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
             HeartbeatInterval = other.HeartbeatInterval;
@@ -103,10 +105,19 @@ namespace Apache.Ignite
         /// If the server does not respond to the initial handshake message or a periodic heartbeat in the specified time,
         /// the connection is closed with a <see cref="TimeoutException"/>.
         /// <para />
-        /// -1 means infinite timeout.
+        /// Use <see cref="Timeout.InfiniteTimeSpan"/> for infinite timeout.
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
+
+        /// <summary>
+        /// Gets or sets the operation timeout. Default is <see cref="Timeout.InfiniteTimeSpan"/> (no timeout).
+        /// <para />
+        /// The timeout applies to all operations except handshake and heartbeats.
+        /// The time is measured from the moment the request is written to the socket to the moment the response is received.
+        /// </summary>
+        [DefaultValue(typeof(TimeSpan), "-00:00:00.001")]
+        public TimeSpan OperationTimeout { get; set; } = Timeout.InfiniteTimeSpan;
 
         /// <summary>
         /// Gets endpoints to connect to.
