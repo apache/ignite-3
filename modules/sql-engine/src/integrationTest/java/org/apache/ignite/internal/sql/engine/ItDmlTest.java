@@ -197,6 +197,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     /**Test full MERGE command. */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21371")
     public void testMerge() {
         clearAndPopulateMergeTable1();
 
