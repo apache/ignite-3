@@ -272,11 +272,13 @@ public class StorageUpdateHandler {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
             }
 
-            if (onApplication != null) {
+            if (entryToProcess == null && onApplication != null) {
                 onApplication.run();
             }
+
             return entryToProcess;
         });
+
     }
 
     private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {
