@@ -47,6 +47,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -100,6 +101,9 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private static StorageUpdateConfiguration storageUpdateConfiguration;
+
     @BeforeAll
     static void beforeAll() {
         NativeType[] types = {
@@ -129,7 +133,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration);
+        intTable = new DummyInternalTableImpl(
+                mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration, storageUpdateConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 
