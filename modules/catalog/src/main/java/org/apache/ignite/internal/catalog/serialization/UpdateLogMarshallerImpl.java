@@ -76,11 +76,11 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     @Override
     public VersionedUpdate unmarshall(byte[] bytes) {
         try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
-            int updateEntryVersion = input.readShort();
+            int entryVersion = input.readShort();
 
-            if (updateEntryVersion > protocolVersion) {
+            if (entryVersion > protocolVersion) {
                 throw new IllegalStateException(format("An object could not be deserialized because it was using "
-                        + "a newer version of the serialization protocol [objectVersion={}, supported={}]", updateEntryVersion,
+                        + "a newer version of the serialization protocol [objectVersion={}, supported={}]", entryVersion,
                         protocolVersion));
             }
 
@@ -95,7 +95,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
                 CatalogObjectSerializer<UpdateEntry> serializer = serializers.get(entryTypeId);
 
-                entries.add(serializer.readFrom(updateEntryVersion, input));
+                entries.add(serializer.readFrom(entryVersion, input));
             }
 
             return new VersionedUpdate(version, delayDurationMs, entries);
