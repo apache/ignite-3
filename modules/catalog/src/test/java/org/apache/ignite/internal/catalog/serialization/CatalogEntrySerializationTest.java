@@ -332,11 +332,13 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogIndexColumnDescriptor colDesc1 = new CatalogIndexColumnDescriptor("C1", CatalogColumnCollation.ASC_NULLS_FIRST);
         CatalogIndexColumnDescriptor colDesc2 = new CatalogIndexColumnDescriptor("C2", CatalogColumnCollation.DESC_NULLS_LAST);
 
-        return new CatalogSortedIndexDescriptor(1, name, 12, false, List.of(colDesc1, colDesc2), CatalogIndexStatus.AVAILABLE);
+        return new CatalogSortedIndexDescriptor(
+                1, name, 12, false, CatalogIndexStatus.AVAILABLE, 1, List.of(colDesc1, colDesc2));
     }
 
     private static CatalogHashIndexDescriptor newHashIndexDescriptor(String name) {
-        return new CatalogHashIndexDescriptor(1, name, 12, true, List.of("C1", "C2"), CatalogIndexStatus.REGISTERED);
+        return new CatalogHashIndexDescriptor(
+                1, name, 12, true, CatalogIndexStatus.REGISTERED, 1, List.of("C1", "C2"));
     }
 
     private static CatalogTableDescriptor newTableDescriptor(String name, List<CatalogTableColumnDescriptor> columns) {

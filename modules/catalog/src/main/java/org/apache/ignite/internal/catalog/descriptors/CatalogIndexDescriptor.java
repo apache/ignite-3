@@ -44,11 +44,16 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index status. */
     private final CatalogIndexStatus status;
 
-    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, CatalogIndexStatus status, long causalityToken) {
+    /** Catalog version in which the index was created. */
+    private final int creationCatalogVersion;
+
+    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, CatalogIndexStatus status, int creationCatalogVersion,
+            long causalityToken) {
         super(id, Type.INDEX, name, causalityToken);
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");
+        this.creationCatalogVersion = creationCatalogVersion;
     }
 
     /** Gets table ID. */
@@ -66,6 +71,11 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return status;
     }
 
+    /** Returns catalog version in which the index was created. */
+    public int creationCatalogVersion() {
+        return creationCatalogVersion;
+    }
+
     @Override
     public String toString() {
         return S.toString(this);
@@ -80,6 +90,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
             int tableId = input.readInt();
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
+            int creationCatalogVersion = input.readInt();
 
             byte idxType = input.readByte();
 
@@ -88,11 +99,11 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
             if (idxType == 0) {
                 List<CatalogIndexColumnDescriptor> columns = readList(version, CatalogIndexColumnDescriptor.SERIALIZER, input);
 
-                return new CatalogSortedIndexDescriptor(id, name, tableId, unique, columns, status, updateToken);
+                return new CatalogSortedIndexDescriptor(id, name, tableId, unique, status, creationCatalogVersion, columns, updateToken);
             } else {
                 List<String> columns = readStringCollection(input, ArrayList::new);
 
-                return new CatalogHashIndexDescriptor(id, name, tableId, unique, columns, status, updateToken);
+                return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, creationCatalogVersion, columns, updateToken);
             }
         }
 
@@ -104,6 +115,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
             output.writeInt(descriptor.tableId());
             output.writeBoolean(descriptor.unique());
             output.writeByte(descriptor.status().id());
+            output.writeInt(descriptor.creationCatalogVersion());
 
             if (descriptor instanceof CatalogSortedIndexDescriptor) {
                 output.writeByte(0);

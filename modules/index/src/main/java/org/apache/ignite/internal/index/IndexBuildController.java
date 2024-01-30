@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -72,8 +74,6 @@ import org.apache.ignite.network.ClusterService;
  * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
 class IndexBuildController implements ManuallyCloseable {
-    private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
-
     private final IndexBuilder indexBuilder;
 
     private final IndexManager indexManager;
@@ -128,7 +128,7 @@ class IndexBuildController implements ManuallyCloseable {
                 return failedFuture(exception);
             }
 
-            return onIndexBuilding(((StartBuildingIndexEventParameters) parameters)).thenApply(unused -> false);
+            return onIndexBuilding((StartBuildingIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
         catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
@@ -136,7 +136,7 @@ class IndexBuildController implements ManuallyCloseable {
                 return failedFuture(exception);
             }
 
-            return onIndexDrop(((DropIndexEventParameters) parameters)).thenApply(unused -> false);
+            return onIndexDrop((DropIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
@@ -186,7 +186,7 @@ class IndexBuildController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
 
-            if (isLocalNode(parameters.leaseholderId())) {
+            if (isLocalNode(clusterService, parameters.leaseholderId())) {
                 primaryReplicaIds.add(primaryReplicaId);
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
@@ -315,12 +315,8 @@ class IndexBuildController implements ManuallyCloseable {
         );
     }
 
-    private boolean isLocalNode(String nodeId) {
-        return nodeId.equals(localNode().id());
-    }
-
     private ClusterNode localNode() {
-        return clusterService.topologyService().localMember();
+        return IndexManagementUtils.localNode(clusterService);
     }
 
     private boolean isLeaseExpire(ReplicaMeta replicaMeta) {

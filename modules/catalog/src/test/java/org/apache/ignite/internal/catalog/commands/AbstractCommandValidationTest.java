@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
@@ -53,6 +54,10 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return Stream.of(null, "", " ", "  ").map(Arguments::of);
     }
 
+    static Stream<Arguments> reservedSchemaNames() {
+        return SYSTEM_SCHEMAS.stream().map(Arguments::of);
+    }
+
     static Stream<Arguments> nullAndEmptyLists() {
         return Stream.of(null, List.of()).map(Arguments::of);
     }
@@ -62,7 +67,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog emptyCatalog() {
-        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
+        return catalog(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithTable(String name) {
@@ -147,12 +152,13 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog catalog(
+            int version,
             CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
             CatalogSystemViewDescriptor[] systemViews
     ) {
         return new Catalog(
-                1,
+                version,
                 0L,
                 1,
                 List.of(DEFAULT_ZONE),

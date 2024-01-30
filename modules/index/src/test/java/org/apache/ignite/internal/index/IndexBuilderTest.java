@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,6 +34,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -54,11 +59,16 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final ReplicaService replicaService = mock(ReplicaService.class, invocation -> nullCompletedFuture());
 
-    private final IndexBuilder indexBuilder = new IndexBuilder("test", 1, replicaService);
+    private final ExecutorService executorService = newSingleThreadExecutor();
+
+    private final IndexBuilder indexBuilder = new IndexBuilder(executorService, replicaService);
 
     @AfterEach
-    void tearDown() {
-        indexBuilder.close();
+    void tearDown() throws Exception {
+        closeAll(
+                indexBuilder::close,
+                () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
+        );
     }
 
     @Test

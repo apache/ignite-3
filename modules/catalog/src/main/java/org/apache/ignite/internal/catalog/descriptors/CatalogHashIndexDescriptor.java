@@ -34,11 +34,12 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
+     * @param creationCatalogVersion Catalog version in which the index was created.
      * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        this(id, name, tableId, unique, columns, CatalogIndexStatus.REGISTERED, INITIAL_CAUSALITY_TOKEN);
+    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, int creationCatalogVersion, List<String> columns) {
+        this(id, name, tableId, unique, CatalogIndexStatus.REGISTERED, creationCatalogVersion, columns, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -48,12 +49,21 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param columns A list of indexed columns. Must not contains duplicates.
      * @param status Index status.
+     * @param creationCatalogVersion Catalog version in which the index was created.
+     * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns, CatalogIndexStatus status) {
-        this(id, name, tableId, unique, columns, status, INITIAL_CAUSALITY_TOKEN);
+    public CatalogHashIndexDescriptor(
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            CatalogIndexStatus status,
+            int creationCatalogVersion,
+            List<String> columns
+    ) {
+        this(id, name, tableId, unique, status, creationCatalogVersion, columns, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -63,8 +73,9 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param columns A list of indexed columns. Must not contains duplicates.
      * @param status Index status.
+     * @param creationCatalogVersion Catalog version in which the index was created.
+     * @param columns A list of indexed columns. Must not contains duplicates.
      * @param causalityToken Token of the update of the descriptor.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
@@ -73,11 +84,12 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             String name,
             int tableId,
             boolean unique,
-            List<String> columns,
             CatalogIndexStatus status,
+            int creationCatalogVersion,
+            List<String> columns,
             long causalityToken
     ) {
-        super(id, name, tableId, unique, status, causalityToken);
+        super(id, name, tableId, unique, status, creationCatalogVersion, causalityToken);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }

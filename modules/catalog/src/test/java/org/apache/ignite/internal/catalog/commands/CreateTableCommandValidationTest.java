@@ -227,6 +227,20 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsThrownIfSchemaIsReserved(String schema) {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder).schemaName(schema);
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Operations with reserved schemas are not allowed"
+        );
+    }
+
     @Test
     void exceptionIsThrownIfZoneNotExists() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
