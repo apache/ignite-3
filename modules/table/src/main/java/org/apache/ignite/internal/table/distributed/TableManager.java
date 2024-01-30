@@ -1829,6 +1829,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         RaftGroupService partGrpSvc = table.internalTable().partitionRaftGroupService(partId);
 
+        if (!partGrpSvc.peers().stream().anyMatch(this::isLocalPeer)) {
+            return nullCompletedFuture();
+        }
+
         return partGrpSvc.refreshAndGetLeaderWithTerm()
                 .thenCompose(leaderWithTerm -> {
                     if (!isLocalPeer(leaderWithTerm.leader())) {
