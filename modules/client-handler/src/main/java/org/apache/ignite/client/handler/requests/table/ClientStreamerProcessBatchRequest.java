@@ -19,19 +19,21 @@ package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readSchema;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
- * Client tuple upsert all request.
+ * Client streamer batch request.
  */
-public class StreamerProcessBatchRequest {
+public class ClientStreamerProcessBatchRequest {
     /**
      * Processes the request.
      *
@@ -52,7 +54,26 @@ public class StreamerProcessBatchRequest {
                 // TODO: Handle removals separately.
                 // TODO: We must ensure ordering.
                 // 1. Go on by one and batch the items. If there are removals, we should stop and process them separately.
-                // 2. Is there an internal API to process additions and removals together?
+                // 2. Ideally, we need an internal API to process additions and removals together.
+                int size = in.unpackInt();
+                int pos = 0;
+                boolean currentRemove = false;
+                List<Tuple> batch = new ArrayList<>(size);
+
+                for (pos = 0; pos < size; pos++) {
+                    int opCode = in.unpackInt();
+                    boolean remove = opCode == 1;
+                    boolean keyOnly = remove;
+
+                    Tuple tuple = readTuple(in, keyOnly, schema);
+
+                    if (remove == currentRemove) {
+                        batch.add(tuple);
+                    } else {
+                        // Send current batch and start a new one.
+                    }
+                }
+
                 return table.recordView().upsertAllAsync(null, null);
             });
         });
