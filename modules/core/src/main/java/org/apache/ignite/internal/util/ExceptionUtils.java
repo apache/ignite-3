@@ -631,7 +631,7 @@ public final class ExceptionUtils {
         UUID traceId = extractTraceIdFrom(cause);
         int code = extractCodeFrom(cause);
 
-        return copyExceptionWithCause(cause.getClass(), traceId, code, cause.getMessage(), exception);
+        return copyExceptionWithCause(cause.getClass(), traceId, code, cause.getMessage(), cause.getCause());
     }
 
     /**

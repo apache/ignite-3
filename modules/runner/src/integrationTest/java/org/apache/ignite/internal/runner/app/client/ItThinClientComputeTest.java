@@ -22,11 +22,13 @@ import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.compute.JobState.QUEUED;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -57,10 +59,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -290,21 +294,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         if (async) {
             JobExecution<String> execution = client().compute()
                     .executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName());
-
-            CompletionException ex = assertThrows(
-                    CompletionException.class,
-                    () -> execution.resultAsync().join()
-            );
-
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
-
-            cause = (IgniteException) ex.getCause();
+            cause = getExceptionInJobExecutionAsync(execution);
         } else {
-            IgniteException ex = assertThrows(
-                    IgniteException.class,
-                    () -> client().compute().<String>execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()));
-
-            cause = (IgniteException) ex.getCause();
+            cause = getExceptionInJobExecutionSync(
+                    () -> client().compute().execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
+            );
         }
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
@@ -321,27 +315,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         if (async) {
             JobExecution<String> execution = client().compute().executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName());
-
-            CompletionException ex = assertThrows(
-                    CompletionException.class,
-                    () -> execution.resultAsync().join()
-            );
-
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
-
-            cause = (IgniteException) ex.getCause();
+            cause = getExceptionInJobExecutionAsync(execution);
         } else {
-            IgniteException ex = assertThrows(
-                    IgniteException.class,
-                    () -> client().compute().<String>execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName()));
-
-            cause = (IgniteException) ex.getCause();
+            cause = getExceptionInJobExecutionSync(
+                    () -> client().compute().execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
+            );
         }
 
-        // TODO IGNITE-20858: Once user errors are handled properly, make sure the cause is ArithmeticException
-        assertThat(cause.getMessage(), containsString("math err"));
-        assertEquals(INTERNAL_ERR, cause.code());
-        assertNull(cause.getCause()); // No stack trace by default.
+        assertComputeExceptionWithClassAndMessage(cause);
     }
 
     @ParameterizedTest
@@ -352,32 +333,146 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         if (async) {
             JobExecution<String> execution = client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName());
-
-            CompletionException ex = assertThrows(
-                    CompletionException.class,
-                    () -> execution.resultAsync().join()
-            );
-
-            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
-
-            cause = (IgniteException) ex.getCause();
+            cause = getExceptionInJobExecutionAsync(execution);
         } else {
-            IgniteException ex = assertThrows(
-                    IgniteException.class,
-                    () -> client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName()));
-
-            cause = (IgniteException) ex.getCause();
+            cause = getExceptionInJobExecutionSync(
+                    () -> client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
+            );
         }
 
-        // TODO IGNITE-20858: Once user errors are handled properly, make sure the cause is ArithmeticException
-        assertThat(cause.getMessage(), containsString("math err"));
-        assertEquals(INTERNAL_ERR, cause.code());
+        assertComputeExceptionWithStackTrace(cause);
+    }
+
+    @Test
+    void testExceptionInBroadcastJobPropagatesToClient() {
+        Map<ClusterNode, JobExecution<String>> executions = client().compute().broadcastAsync(
+                Set.of(node(0), node(1)), List.of(), ExceptionJob.class.getName()
+        );
+
+        assertComputeExceptionWithClassAndMessage(getExceptionInJobExecutionAsync(executions.get(node(0))));
+
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        assertComputeExceptionWithStackTrace(getExceptionInJobExecutionAsync(executions.get(node(1))));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInColocatedTupleJobPropagatesToClientWithClassAndMessage(boolean async) {
+        IgniteException cause;
+        var keyTuple = Tuple.create().set(COLUMN_KEY, 1);
+
+        if (async) {
+
+            JobExecution<String> execution = client().compute().executeColocatedAsync(TABLE_NAME, keyTuple, List.of(),
+                    ExceptionJob.class.getName()
+            );
+            cause = getExceptionInJobExecutionAsync(execution);
+        } else {
+            cause = getExceptionInJobExecutionSync(
+                    () -> client().compute().executeColocated(TABLE_NAME, keyTuple, List.of(), ExceptionJob.class.getName())
+            );
+        }
+
+        assertComputeExceptionWithClassAndMessage(cause);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInColocatedTupleJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace(boolean async) {
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        var keyTuple = Tuple.create().set(COLUMN_KEY, 2);
+        IgniteException cause;
+
+        if (async) {
+            JobExecution<String> execution = client().compute().executeColocatedAsync(TABLE_NAME, keyTuple, List.of(),
+                    ExceptionJob.class.getName()
+            );
+            cause = getExceptionInJobExecutionAsync(execution);
+        } else {
+            cause = getExceptionInJobExecutionSync(
+                    () -> client().compute().executeColocated(TABLE_NAME, keyTuple, List.of(), ExceptionJob.class.getName())
+            );
+        }
+
+        assertComputeExceptionWithStackTrace(cause);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInColocatedPojoJobPropagatesToClientWithClassAndMessage(boolean async) {
+        var keyPojo = new TestPojo(1);
+        IgniteException cause;
+
+        if (async) {
+            JobExecution<String> execution = client().compute().executeColocatedAsync(TABLE_NAME, keyPojo, Mapper.of(TestPojo.class),
+                    List.of(), ExceptionJob.class.getName()
+            );
+            cause = getExceptionInJobExecutionAsync(execution);
+        } else {
+            cause = getExceptionInJobExecutionSync(() -> client().compute().executeColocated(TABLE_NAME, keyPojo, Mapper.of(TestPojo.class),
+                    List.of(), ExceptionJob.class.getName()
+            ));
+        }
+
+        assertComputeExceptionWithClassAndMessage(cause);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInColocatedPojoJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace(boolean async) {
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        var keyPojo = new TestPojo(2);
+        IgniteException cause;
+
+        if (async) {
+            JobExecution<String> execution = client().compute().executeColocatedAsync(TABLE_NAME, keyPojo, Mapper.of(TestPojo.class),
+                    List.of(), ExceptionJob.class.getName()
+            );
+            cause = getExceptionInJobExecutionAsync(execution);
+        } else {
+            cause = getExceptionInJobExecutionSync(() -> client().compute().executeColocated(TABLE_NAME, keyPojo, Mapper.of(TestPojo.class),
+                    List.of(), ExceptionJob.class.getName())
+            );
+        }
+
+        assertComputeExceptionWithStackTrace(cause);
+    }
+
+    private static IgniteException getExceptionInJobExecutionAsync(JobExecution<String> execution) {
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () -> execution.resultAsync().join()
+        );
+
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+
+        return (IgniteException) ex.getCause();
+    }
+
+    private static IgniteException getExceptionInJobExecutionSync(Supplier<String> execution) {
+        IgniteException ex = assertThrows(IgniteException.class, execution::get);
+
+        return (IgniteException) ex.getCause();
+    }
+
+    private static void assertComputeExceptionWithClassAndMessage(IgniteException cause) {
+        String expectedMessage = "Job execution failed: java.lang.ArithmeticException: math err";
+        assertTraceableException(cause, ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage);
+
+        assertNull(cause.getCause()); // No stack trace by default.
+    }
+
+    private static void assertComputeExceptionWithStackTrace(IgniteException cause) {
+        String expectedMessage = "Job execution failed: java.lang.ArithmeticException: math err";
+        assertTraceableException(cause, ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage);
 
         assertNotNull(cause.getCause());
 
         assertThat(cause.getCause().getMessage(), containsString(
-                "at org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$"
-                        + "ExceptionJob.execute(ItThinClientComputeTest.java:"));
+                "Caused by: java.lang.ArithmeticException: math err" + System.lineSeparator()
+                        + "\tat org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$"
+                        + "ExceptionJob.execute(ItThinClientComputeTest.java:")
+        );
     }
 
     @ParameterizedTest

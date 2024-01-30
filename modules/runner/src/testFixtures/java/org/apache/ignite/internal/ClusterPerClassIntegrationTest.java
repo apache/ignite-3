@@ -74,7 +74,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  compute.threadPoolSize: 1\n"
             + "}";
 
     /** Cluster nodes. */

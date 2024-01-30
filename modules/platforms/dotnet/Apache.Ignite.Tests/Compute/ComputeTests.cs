@@ -337,16 +337,14 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+            var ex = Assert.ThrowsAsync<ComputeException>(async () =>
                 await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, ExceptionJob, "foo-bar"));
 
-            Assert.AreEqual("Test exception: foo-bar", ex!.Message);
+            Assert.AreEqual("Job execution failed: java.lang.RuntimeException: Test exception: foo-bar", ex!.Message);
             Assert.IsNotNull(ex.InnerException);
 
             var str = ex.ToString();
 
-            // TODO IGNITE-20858: Fix once user errors are handled properly
-            StringAssert.Contains("Apache.Ignite.IgniteException: Test exception: foo-bar", str);
             StringAssert.Contains(
                 "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
                 str);

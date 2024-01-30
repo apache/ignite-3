@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
@@ -56,7 +53,17 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        deployJar(node(0), unit.name(), unit.version(), "ignite-it-jobs-1.0-SNAPSHOT.jar");
+        IgniteImpl entryNode = node(0);
+        try {
+            entryNode.deployment().undeployAsync(unit.name(), unit.version()).join();
+        } catch (Exception ignored) {
+            // ignored
+        }
+        await().until(
+                () -> entryNode.deployment().clusterStatusAsync(unit.name(), unit.version()),
+                willBe(nullValue())
+        );
+        deployJar(entryNode, unit.name(), unit.version(), "ignite-it-jobs-1.0-SNAPSHOT.jar");
     }
 
     @Override
@@ -111,8 +118,11 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 
-        assertPublicException(ex0, COMMON_ERR_GROUP, INTERNAL_ERR,
-                "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist");
+        assertComputeException(
+                ex0,
+                ClassNotFoundException.class,
+                "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
+        );
     }
 
     @Test
@@ -175,9 +185,11 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
                 .resultAsync();
 
         CompletionException ex0 = assertThrows(CompletionException.class, failedJob::join);
-        assertPublicException(ex0, COMMON_ERR_GROUP, INTERNAL_ERR,
-                "org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
-                + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]");
+        assertComputeException(
+                ex0,
+                ClassNotFoundException.class,
+                "Deployment unit jobs:1.0.0 can't be used: [clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]"
+        );
 
         assertThat(successJob, willCompleteSuccessfully());
     }

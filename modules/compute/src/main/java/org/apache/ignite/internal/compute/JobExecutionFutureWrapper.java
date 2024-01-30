@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -38,7 +39,7 @@ class JobExecutionFutureWrapper<R> implements JobExecution<R> {
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return convertToPublicFuture(delegate.thenCompose(JobExecution::resultAsync));
+        return convertToComputeFuture(delegate.thenCompose(JobExecution::resultAsync));
     }
 
     @Override

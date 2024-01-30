@@ -47,11 +47,9 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
-            + "  compute: {\n"
-            + "    threadPoolSize: 1\n"
-            + "  }\n"
-            + "}\n";
+            + "  rest.port: {},\n"
+            + "  compute.threadPoolSize: 1\n"
+            + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
     protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"

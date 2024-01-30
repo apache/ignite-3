@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_ERR_GROUP;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -37,6 +39,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
@@ -46,7 +49,10 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -81,18 +87,18 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @ParameterizedTest
     @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassLocally(String jobClassName, ErrorGroup errorGroup, int errorCode, String msg) {
+    void executesWrongJobClassLocally(String jobClassName, int errorCode, String msg) {
         IgniteImpl entryNode = node(0);
 
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(entryNode.node()), units(), jobClassName));
 
-        assertPublicException(ex, ComputeException.class, errorGroup, errorCode, msg);
+        assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
 
     @ParameterizedTest
     @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassLocallyAsync(String jobClassName, ErrorGroup errorGroup, int errorCode, String msg) {
+    void executesWrongJobClassLocallyAsync(String jobClassName, int errorCode, String msg) {
         IgniteImpl entryNode = node(0);
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
@@ -100,23 +106,23 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                 .resultAsync()
                 .get(1, TimeUnit.SECONDS));
 
-        assertPublicException(ex, ComputeException.class, errorGroup, errorCode, msg);
+        assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
 
     @ParameterizedTest
     @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassOnRemoteNodes(String jobClassName, ErrorGroup errorGroup, int errorCode, String msg) {
+    void executesWrongJobClassOnRemoteNodes(String jobClassName, int errorCode, String msg) {
         Ignite entryNode = node(0);
 
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(node(1).node(), node(2).node()), units(), jobClassName));
 
-        assertPublicException(ex, ComputeException.class, errorGroup, errorCode, msg);
+        assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
 
     @ParameterizedTest
     @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, ErrorGroup errorGroup, int errorCode, String msg) {
+    void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, int errorCode, String msg) {
         Ignite entryNode = node(0);
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
@@ -124,7 +130,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                 .resultAsync()
                 .get(1, TimeUnit.SECONDS));
 
-        assertPublicException(ex, ComputeException.class, errorGroup, errorCode, msg);
+        assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
 
     @Test
@@ -164,6 +170,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
+        assertThat(execution.cancelAsync(), willBe(true));
     }
 
     @Test
@@ -175,6 +182,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
+        assertThat(execution.cancelAsync(), willBe(true));
     }
 
     @Test
@@ -211,11 +219,12 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         // Tasks 1 and 3 completed successfully
         assertThat(execution1.resultAsync(), willCompleteSuccessfully());
         assertThat(execution3.resultAsync(), willCompleteSuccessfully());
-        assertThat(execution1.resultAsync().isDone(), is(true));
-        assertThat(execution3.resultAsync().isDone(), is(true));
 
         // Task 2 is not completed
         assertThat(execution2.resultAsync().isDone(), is(false));
+
+        // Finish task 2
+        assertThat(execution2.cancelAsync(), willBe(true));
     }
 
     @Test
@@ -254,8 +263,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         // Tasks 1 and 3 completed successfully
         assertThat(execution1.resultAsync(), willCompleteSuccessfully());
         assertThat(execution3.resultAsync(), willCompleteSuccessfully());
-        assertThat(execution1.resultAsync().isDone(), is(true));
-        assertThat(execution3.resultAsync().isDone(), is(true));
 
         // Task 3 should be executed 2 times
         assertEquals(2, WaitLatchThrowExceptionOnFirstExecutionJob.counter.get());
@@ -264,7 +271,51 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution2.resultAsync().isDone(), is(false));
 
         // Cancel task2
-        execution2.cancelAsync().join();
+        assertThat(execution2.cancelAsync(), willBe(true));
+    }
+
+    @Test
+    void shouldNotConvertIgniteException() {
+        IgniteImpl entryNode = node(0);
+
+        IgniteException exception = new IgniteException(INTERNAL_ERR, "Test exception");
+
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
+                .execute(Set.of(entryNode.node()), units(), CustomFailingJob.class.getName(), exception));
+
+        assertPublicException(ex, exception.code(), exception.getMessage());
+    }
+
+    @Test
+    void shouldNotConvertIgniteCheckedException() {
+        IgniteImpl entryNode = node(0);
+
+        IgniteCheckedException exception = new IgniteCheckedException(INTERNAL_ERR, "Test exception");
+
+        IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, () -> entryNode.compute()
+                .execute(Set.of(entryNode.node()), units(), CustomFailingJob.class.getName(), exception));
+
+        assertPublicCheckedException(ex, exception.code(), exception.getMessage());
+    }
+
+    private static Stream<Arguments> privateExceptions() {
+        return Stream.of(
+                Arguments.of(new IgniteInternalException(INTERNAL_ERR, "Test exception")),
+                Arguments.of(new IgniteInternalCheckedException(INTERNAL_ERR, "Test exception")),
+                Arguments.of(new RuntimeException("Test exception")),
+                Arguments.of(new Exception("Test exception"))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("privateExceptions")
+    void shouldConvertToComputeException(Throwable throwable) {
+        IgniteImpl entryNode = node(0);
+
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
+                .execute(Set.of(entryNode.node()), units(), CustomFailingJob.class.getName(), throwable));
+
+        assertComputeException(ex, throwable);
     }
 
     private static class ConcatJob implements ComputeJob<String> {
@@ -285,6 +336,14 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
+    private static class CustomFailingJob implements ComputeJob<String> {
+        /** {@inheritDoc} */
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            throw ExceptionUtils.sneakyThrow((Throwable) args[0]);
+        }
+    }
+
     private static class FailingJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
@@ -301,11 +360,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     private static List<Arguments> wrongJobClassArguments() {
         return List.of(
-                Arguments.of("org.example.NonExistentJob", COMPUTE_ERR_GROUP, CLASS_INITIALIZATION_ERR, "Cannot load job class by name"),
-                Arguments.of(NonComputeJob.class.getName(), COMPUTE_ERR_GROUP, CLASS_INITIALIZATION_ERR,
-                        "does not implement ComputeJob interface"),
-                Arguments.of(NonEmptyConstructorJob.class.getName(), COMPUTE_ERR_GROUP, CLASS_INITIALIZATION_ERR,
-                        "Cannot instantiate job")
+                Arguments.of("org.example.NonExistentJob", CLASS_INITIALIZATION_ERR, "Cannot load job class by name"),
+                Arguments.of(NonComputeJob.class.getName(), CLASS_INITIALIZATION_ERR, "does not implement ComputeJob interface"),
+                Arguments.of(NonEmptyConstructorJob.class.getName(), CLASS_INITIALIZATION_ERR, "Cannot instantiate job")
         );
     }
 
