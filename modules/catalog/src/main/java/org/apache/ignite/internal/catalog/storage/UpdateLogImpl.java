@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -34,6 +35,8 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -46,9 +49,12 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -156,6 +162,47 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
+    @Override
+    public CompletableFuture<Boolean> saveSnapshot(SnapshotEntry update) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteException(Common.NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
+
+        // Note: below, we optimistically get local snapshot version, then prepare list of outdated updates, then atomically replace
+        // old snapshot using relaxed condition (old snapshot version < new snapshot version) and cleanup the log.
+        // If someone bumps snapshot version to a intermediate version in-between, then it means some outdated versions were removed.
+        // So, some remove operations may become be no-op, which is ok and we no need to retry.
+        try {
+            int snapshotVersion = update.version();
+
+            Entry oldSnapshotEntry = metastore.getLocally(CatalogKey.snapshotVersion(), metastore.appliedRevision());
+            int oldSnapshotVersion = oldSnapshotEntry.empty() ? 1 : bytesToInt(Objects.requireNonNull(oldSnapshotEntry.value()));
+
+            if (oldSnapshotVersion >= snapshotVersion) {
+                // Nothing to do.
+                return CompletableFutures.trueCompletedFuture();
+            }
+
+            Condition versionIsRecent = or(
+                    notExists(CatalogKey.snapshotVersion()),
+                    value(CatalogKey.snapshotVersion()).lt(intToBytes(snapshotVersion))
+            );
+            Update saveSnapshotAndDropOutdatedUpdates = ops(Stream.concat(
+                    Stream.of(
+                            put(CatalogKey.snapshotVersion(), intToBytes(snapshotVersion)),
+                            put(CatalogKey.update(snapshotVersion), ByteUtils.toBytes(update))
+                    ),
+                    IntStream.range(oldSnapshotVersion, snapshotVersion).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
+            ).toArray(Operation[]::new)).yield(true);
+
+            Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
+
+            return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     private void recoveryStateFromMetastore(OnUpdateHandler handler) {
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
@@ -163,8 +210,14 @@ public class UpdateLogImpl implements UpdateLog {
 
         long recoveryRevision = recoveryFinishedFuture.join();
 
-        int ver = 1;
+        Entry earliestVersion = metastore.getLocally(CatalogKey.snapshotVersion(), recoveryRevision);
 
+        int ver = earliestVersion.empty() ? 1 : bytesToInt(Objects.requireNonNull(earliestVersion.value()));
+
+        recoverUpdates(handler, recoveryRevision, ver);
+    }
+
+    private void recoverUpdates(OnUpdateHandler handler, long recoveryRevision, int ver) {
         // TODO: IGNITE-19790 Read range from metastore
         while (true) {
             ByteArray key = CatalogKey.update(ver++);
@@ -174,7 +227,7 @@ public class UpdateLogImpl implements UpdateLog {
                 break;
             }
 
-            VersionedUpdate update = fromBytes(Objects.requireNonNull(entry.value()));
+            UpdateLogEvent update = fromBytes(Objects.requireNonNull(entry.value()));
 
             long revision = entry.revision();
 
@@ -198,6 +251,10 @@ public class UpdateLogImpl implements UpdateLog {
         static ByteArray updatePrefix() {
             return ByteArray.fromString("catalog.update.");
         }
+
+        static ByteArray snapshotVersion() {
+            return ByteArray.fromString("catalog.snapshot.version");
+        }
     }
 
     private static class UpdateListener implements WatchListener {
@@ -214,11 +271,15 @@ public class UpdateLogImpl implements UpdateLog {
             var handleFutures = new ArrayList<CompletableFuture<Void>>(entryEvents.size());
 
             for (EntryEvent eventEntry : entryEvents) {
+                if (eventEntry.newEntry().tombstone()) {
+                    continue;
+                }
+
                 byte[] payload = eventEntry.newEntry().value();
 
                 assert payload != null : eventEntry;
 
-                VersionedUpdate update = fromBytes(payload);
+                UpdateLogEvent update = fromBytes(payload);
 
                 handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
             }
