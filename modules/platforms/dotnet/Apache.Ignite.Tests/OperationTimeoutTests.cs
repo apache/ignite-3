@@ -15,13 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+namespace Apache.Ignite.Tests;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
+using System;
+using System.Threading.Tasks;
+using NUnit.Framework;
 
-/** Read-write replica request. */
-public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    UUID transactionId();
+/// <summary>
+/// Tests <see cref="IgniteClientConfiguration.OperationTimeout"/> behavior.
+/// </summary>
+public class OperationTimeoutTests
+{
+    [Test]
+    public async Task TestOperationTimeoutThrowsException()
+    {
+        using var server = new FakeServer
+        {
+            OperationDelay = TimeSpan.FromMilliseconds(100)
+        };
+
+        var cfg = new IgniteClientConfiguration
+        {
+            OperationTimeout = TimeSpan.FromMilliseconds(30)
+        };
+
+        using var client = await server.ConnectClientAsync(cfg);
+
+        Assert.ThrowsAsync<TimeoutException>(async () => await client.Tables.GetTablesAsync());
+    }
 }

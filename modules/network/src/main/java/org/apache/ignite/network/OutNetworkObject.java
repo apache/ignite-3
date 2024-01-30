@@ -63,6 +63,10 @@ public class OutNetworkObject {
         this.shouldBeSavedForRecovery = shouldBeSavedForRecovery;
     }
 
+    /**
+     * Returns {@code true} if this should be saved for recovery. As soon as it is added to the unacknowledged messages queue,
+     * this is changed to {@code false}.
+     */
     public boolean shouldBeSavedForRecovery() {
         return shouldBeSavedForRecovery;
     }

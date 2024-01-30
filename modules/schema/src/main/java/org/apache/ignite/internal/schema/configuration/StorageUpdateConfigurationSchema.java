@@ -15,13 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.schema.configuration;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
-/** Read-write replica request. */
-public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    UUID transactionId();
+/**
+ * Configuration schema for StorageUpdateHandler.
+ */
+@ConfigurationRoot(rootName = "storageUpdate", type = ConfigurationType.DISTRIBUTED)
+public class StorageUpdateConfigurationSchema {
+
+    /**
+     * Maximum allowed length (in bytes) of a batch to write into physical storage.
+     **/
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int batchByteLength = 8192;
 }

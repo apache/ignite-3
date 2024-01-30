@@ -17,19 +17,25 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.Collections.singletonMap;
-import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -43,25 +49,21 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
-import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
+import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
- * Base test for indexes. Sets up a table with (int, string) key and (int, string) value and three indexes: primary key, hash index over
- * value columns and sorted index over value columns.
+ * Test for {@link StorageUpdateHandler}.
  */
-public abstract class IndexBaseTest extends BaseMvStoragesTest {
-    protected static final int PARTITION_ID = 0;
+public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    protected static final int PARTITION_ID = 0;
 
     private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(SCHEMA_DESCRIPTOR);
 
@@ -74,26 +76,20 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
             SCHEMA_DESCRIPTOR.column("STRVAL").schemaIndex()
     };
 
-    @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
-
     private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
 
     private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
 
-    private static final UUID TX_ID = UUID.randomUUID();
+    private TestHashIndexStorage pkInnerStorage;
+    private TestSortedIndexStorage sortedInnerStorage;
+    private TestHashIndexStorage hashInnerStorage;
+    private TestMvPartitionStorage storage;
+    private StorageUpdateHandler storageUpdateHandler;
+    private IndexUpdateHandler indexUpdateHandler;
+    private LockByRowId lock;
 
-    TestHashIndexStorage pkInnerStorage;
-    TestSortedIndexStorage sortedInnerStorage;
-    TestHashIndexStorage hashInnerStorage;
-    TestMvPartitionStorage storage;
-    StorageUpdateHandler storageUpdateHandler;
-
-    GcUpdateHandler gcUpdateHandler;
-
-    public static UUID getTxId() {
-        return TX_ID;
-    }
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
     @BeforeEach
     void setUp() {
@@ -135,7 +131,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 USER_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        storage = new TestMvPartitionStorage(PARTITION_ID);
+        lock = spy(new LockByRowId());
+        storage = spy(new TestMvPartitionStorage(PARTITION_ID, lock));
 
         Map<Integer, TableSchemaAwareIndexStorage> indexes = Map.of(
                 pkIndexId, pkStorage,
@@ -145,13 +142,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
 
-        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes));
-
-        gcUpdateHandler = new GcUpdateHandler(
-                partitionDataStorage,
-                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
-                indexUpdateHandler
-        );
+        indexUpdateHandler = spy(new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes)));
 
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
@@ -161,111 +152,61 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         );
     }
 
-    List<ReadResult> getRowVersions(RowId rowId) {
-        try (Cursor<ReadResult> readResults = storage.scanVersions(rowId)) {
-            return readResults.stream().collect(toList());
-        }
-    }
+    @Test
+    void testUpdateAllBatchedTryLockFailed() {
 
-    static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-        addWrite(handler, rowUuid, row, null);
-    }
+        UUID txUuid = UUID.randomUUID();
 
-    static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
+        HybridTimestamp commitTs = CLOCK.now();
+
+        BinaryRow row1 = binaryRow(new TestKey(1, "foo1"), new TestValue(2, "bar"));
+        BinaryRow row2 = binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz"));
+        BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
+
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime);
+        TimedBinaryRow tb1 = new TimedBinaryRow(row1, null);
+        TimedBinaryRow tb2 = new TimedBinaryRow(row2, null);
+        TimedBinaryRow tb3 = new TimedBinaryRow(row3, null);
+
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        UUID id3 = UUID.randomUUID();
+
+        Map<UUID, TimedBinaryRow> rowsToUpdate = Map.of(
+                id1, tb1,
+                id2, tb2,
+                id3, tb3
+        );
+
+        doReturn(false).when(lock).tryLock(any());
+
+        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null);
+
+        assertEquals(3, storage.rowsCount());
+
+        // We have three writes to the storage.
+        verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
+
+        // First entry calls lock(). Second calls tryLock and fails, starts second batch, calls lock(). Same for third.
+        verify(lock, times(2)).tryLock(any());
+        verify(lock, times(3)).lock(any());
+
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
+
+        assertEquals(3, storage.rowsCount());
+
+        // Those writes resulted in three commits.
+        verify(storage, times(3)).commitWrite(any(), any());
+
+        ReadResult result1 = storage.read(new RowId(partitionId.partitionId(), id1), HybridTimestamp.MAX_VALUE);
+        assertEquals(row1, result1.binaryRow());
+
+        ReadResult result2 = storage.read(new RowId(partitionId.partitionId(), id2), HybridTimestamp.MAX_VALUE);
+        assertEquals(row2, result2.binaryRow());
+
+        ReadResult result3 = storage.read(new RowId(partitionId.partitionId(), id3), HybridTimestamp.MAX_VALUE);
+        assertEquals(row3, result3.binaryRow());
     }
 
-    static BinaryRow defaultRow() {
-        var key = new TestKey(1, "foo");
-        var value = new TestValue(2, "bar");
-
-        return binaryRow(key, value);
-    }
-
-    boolean inAllIndexes(BinaryRow row) {
-        return inIndexes(row, true, true);
-    }
-
-    boolean notInAnyIndex(BinaryRow row) {
-        return inIndexes(row, false, false);
-    }
-
-    boolean inIndexes(BinaryRow row, boolean mustBeInPk, boolean mustBeInUser) {
-        BinaryTuple pkIndexValue = PK_INDEX_BINARY_TUPLE_CONVERTER.extractColumns(row);
-        BinaryTuple userIndexValue = USER_INDEX_BINARY_TUPLE_CONVERTER.extractColumns(row);
-
-        assert pkIndexValue != null;
-        assert userIndexValue != null;
-
-        try (Cursor<RowId> pkCursor = pkInnerStorage.get(pkIndexValue)) {
-            if (pkCursor.hasNext() != mustBeInPk) {
-                return false;
-            }
-        }
-
-        try (Cursor<RowId> sortedIdxCursor = sortedInnerStorage.get(userIndexValue)) {
-            if (sortedIdxCursor.hasNext() != mustBeInUser) {
-                return false;
-            }
-        }
-
-        try (Cursor<RowId> hashIdxCursor = hashInnerStorage.get(userIndexValue)) {
-            return hashIdxCursor.hasNext() == mustBeInUser;
-        }
-    }
-
-    HybridTimestamp now() {
-        return clock.now();
-    }
-
-    void commitWrite(RowId rowId) {
-        storage.runConsistently(locker -> {
-            storage.commitWrite(rowId, now());
-
-            return null;
-        });
-    }
-
-    /** Enum that encapsulates update API. */
-    enum AddWrite {
-        /** Uses update api. */
-        USE_UPDATE {
-            @Override
-            void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                // TODO: perhaps need to pass last commit time as a param
-                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null);
-            }
-        },
-        /** Uses updateAll api. */
-        USE_UPDATE_ALL {
-            @Override
-            void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                BinaryRowMessage rowMessage = row == null
-                        ? null
-                        : MSG_FACTORY.binaryRowMessage()
-                                .binaryTuple(row.tupleSlice())
-                                .schemaVersion(row.schemaVersion())
-                                .build();
-
-                handler.handleUpdateAll(
-                        TX_ID,
-                        singletonMap(rowUuid, new TimedBinaryRow(rowMessage == null ? null : rowMessage.asBinaryRow(), null)),
-                        partitionId,
-                        true,
-                        null,
-                        null
-                );
-            }
-        };
-
-        void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-            TablePartitionId tablePartitionId = new TablePartitionId(444, PARTITION_ID);
-
-            addWrite(handler, tablePartitionId, rowUuid, row);
-        }
-
-        abstract void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row);
-    }
 }
