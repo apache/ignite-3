@@ -282,7 +282,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
         assertEquals(AVAILABLE, pkIndex.status());
-        assertEquals(manager.latestCatalogVersion(), pkIndex.creationVersion());
+        assertEquals(manager.latestCatalogVersion(), pkIndex.creationCatalogVersion());
 
         CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
         assertNotNull(desc);
@@ -1004,7 +1004,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
         assertEquals(REGISTERED, index.status());
-        assertEquals(manager.latestCatalogVersion(), index.creationVersion());
+        assertEquals(manager.latestCatalogVersion(), index.creationCatalogVersion());
     }
 
     @Test
@@ -1046,7 +1046,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
         assertEquals(REGISTERED, index.status());
-        assertEquals(manager.latestCatalogVersion(), index.creationVersion());
+        assertEquals(manager.latestCatalogVersion(), index.creationCatalogVersion());
     }
 
     @Test
@@ -2293,7 +2293,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
 
-        assertEquals(expCreationVersion, latestCatalog.index(indexId).creationVersion());
+        assertEquals(expCreationVersion, latestCatalog.index(indexId).creationCatalogVersion());
     }
 
     @ParameterizedTest(name = "hashIndex={0}, updateIndex={1}")
@@ -2321,14 +2321,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
 
-        assertEquals(expCreationVersion, latestCatalog.index(indexId).creationVersion());
+        assertEquals(expCreationVersion, latestCatalog.index(indexId).creationCatalogVersion());
     }
 
     private static Stream<Arguments> argumentsForCheckIndexCreationCatalogVersion() {
         return Stream.of(
-                Arguments.of(true, true), // Create hash index and update index.
+                Arguments.of(true, true), // Create hash index and update status index.
                 Arguments.of(true, false), // Create hash index and update catalog (create table).
-                Arguments.of(false, true), // Create sorted index and update index.
+                Arguments.of(false, true), // Create sorted index and update status index.
                 Arguments.of(false, false) // Create sorted index and update catalog (create table).
         );
     }

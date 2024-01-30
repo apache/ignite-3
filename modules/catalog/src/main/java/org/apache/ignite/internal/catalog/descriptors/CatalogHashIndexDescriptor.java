@@ -52,7 +52,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param creationVersion Catalog version in which the index was created.
+     * @param creationCatalogVersion Catalog version in which the index was created.
      * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
@@ -62,10 +62,10 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             int tableId,
             boolean unique,
             CatalogIndexStatus status,
-            int creationVersion,
+            int creationCatalogVersion,
             List<String> columns
     ) {
-        super(id, name, tableId, unique, status, creationVersion);
+        super(id, name, tableId, unique, status, creationCatalogVersion);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }

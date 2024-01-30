@@ -107,7 +107,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 index.tableId(),
                 index.unique(),
                 newStatus,
-                index.creationVersion(),
+                index.creationCatalogVersion(),
                 index.columns()
         );
     }
@@ -119,7 +119,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 index.tableId(),
                 index.unique(),
                 newStatus,
-                index.creationVersion(),
+                index.creationCatalogVersion(),
                 index.columns()
         );
     }

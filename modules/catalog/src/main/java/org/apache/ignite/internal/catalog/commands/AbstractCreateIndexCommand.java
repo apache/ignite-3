@@ -60,7 +60,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         this.columns = copyOrNull(columns);
     }
 
-    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, int creationVersion);
+    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, int creationCatalogVersion);
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
