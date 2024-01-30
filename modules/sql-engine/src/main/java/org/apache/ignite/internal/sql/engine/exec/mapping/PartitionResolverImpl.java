@@ -85,7 +85,7 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
     public int getPartition() {
         assert hashCalc != null;
         assert curColIdx == fields.length :
-                format("partially initialized: keys supplied={}, keys avoid={}", curColIdx, fields.length);
+                format("partially initialized: keys supplied={}, keys expected={}", curColIdx, fields.length);
         return IgniteUtils.safeAbs(calculate() % partitions);
     }
 

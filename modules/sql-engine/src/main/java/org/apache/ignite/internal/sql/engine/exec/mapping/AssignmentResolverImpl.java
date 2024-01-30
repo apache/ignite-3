@@ -53,9 +53,13 @@ public class AssignmentResolverImpl<RowT> implements AssignmentsResolver<RowT> {
     /** {@inheritDoc} */
     @Override
     public int getPartition() {
-        assert curColIdx == colocationKeysSize :
-                format("partially initialized: keys supplied={}, keys avoid={}", curColIdx, colocationKeysSize);
-        calculated = true;
+        complete();
         return IgniteUtils.safeAbs(hash % partitions);
+    }
+
+    private void complete() {
+        assert curColIdx == colocationKeysSize :
+                format("partially initialized: keys supplied={}, keys expected={}", curColIdx, colocationKeysSize);
+        calculated = true;
     }
 }
