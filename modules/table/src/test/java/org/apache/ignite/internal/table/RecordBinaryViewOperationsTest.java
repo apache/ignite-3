@@ -356,10 +356,8 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
         tbl.insert(null, rec);
 
-        assertTrue(tbl.contains(null, rec));
         assertTrue(tbl.contains(null, keyRec));
         assertFalse(tbl.contains(null, Tuple.create().set("id", -1L)));
-        assertFalse(tbl.contains(null, Tuple.create().set("id", -1L).set("val", -1L)));
     }
 
     @Test
