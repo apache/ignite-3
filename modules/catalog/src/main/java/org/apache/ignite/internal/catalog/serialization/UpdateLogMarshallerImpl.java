@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.serialization;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import com.jayway.jsonpath.internal.Utils;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -55,9 +54,7 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
     @Override
     public byte[] marshall(VersionedUpdate update) {
-        IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(256);
-
-        try {
+        try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(256)) {
             output.writeShort(protocolVersion);
 
             output.writeInt(update.version());
@@ -73,8 +70,6 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
             return output.array();
         } catch (Throwable t) {
             throw new MarshallerException(t);
-        } finally {
-            Utils.closeQuietly(output);
         }
     }
 
