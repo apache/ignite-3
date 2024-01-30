@@ -42,7 +42,7 @@ public interface DataStreamerItem<T> {
         return of(item, false);
     }
 
-    static <T> DataStreamerItem<T> ofRemoved(T item) {
+    static <T> DataStreamerItem<T> removed(T item) {
         return of(item, true);
     }
 
