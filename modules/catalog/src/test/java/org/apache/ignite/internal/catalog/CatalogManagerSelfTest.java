@@ -945,14 +945,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testDropTableWithIndex() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.execute(simpleIndex()), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
+        startBuildingIndex(indexId(INDEX_NAME));
+        makeIndexAvailable(indexId(INDEX_NAME));
 
         long beforeDropTimestamp = clock.nowLong();
+        int beforeDropVersion = manager.latestCatalogVersion();
 
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Validate catalog version from the past.
-        CatalogSchemaDescriptor schema = manager.schema(2);
+        CatalogSchemaDescriptor schema = manager.schema(beforeDropVersion);
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
         CatalogIndexDescriptor index = schema.index(INDEX_NAME);
 
@@ -967,7 +970,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(index, manager.index(index.id(), beforeDropTimestamp));
 
         // Validate actual catalog
-        schema = manager.schema(3);
+        schema = manager.schema(manager.latestCatalogVersion());
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
