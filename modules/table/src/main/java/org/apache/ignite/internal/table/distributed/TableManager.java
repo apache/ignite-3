@@ -97,6 +97,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -1829,10 +1830,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         RaftGroupService partGrpSvc = table.internalTable().partitionRaftGroupService(partId);
 
-        if (!partGrpSvc.peers().stream().anyMatch(this::isLocalPeer)) {
-            return nullCompletedFuture();
-        }
-
         return partGrpSvc.refreshAndGetLeaderWithTerm()
                 .thenCompose(leaderWithTerm -> {
                     if (!isLocalPeer(leaderWithTerm.leader())) {
@@ -1858,6 +1855,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                 return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
                             });
+                }).exceptionally(throwable -> {
+                    if (throwable instanceof TimeoutException) {
+                        LOG.info("The node could not wait for a replication group response [grp={}]", replicaGrpId);
+
+                        return null;
+                    }
+
+                    throw new IgniteInternalException(throwable);
                 });
     }
 
