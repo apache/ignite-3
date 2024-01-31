@@ -133,6 +133,7 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testWithMultipleIndexHints() throws Exception {
+        // TODO IGNITE-21404 Replace assertThrowsWithCause with assertThrowsSqlException.
         IgniteTestUtils.assertThrowsWithCause(
                 () -> physicalPlan("SELECT /*+ FORCE_INDEX(IDX_VAL3), NO_INDEX */ * FROM TBL1 WHERE val2='v' AND val3='v'", SCHEMA),
                 SqlException.class,
