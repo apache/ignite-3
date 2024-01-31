@@ -41,6 +41,8 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
  *     <li>If it is currently {@link CatalogIndexStatus#AVAILABLE}, moves it to {@link CatalogIndexStatus#STOPPING}</li>
  *     <li>If it is already {@link CatalogIndexStatus#STOPPING}, fails (as the index is already dropped).</li>
  * </ul>
+ *
+ * <p>Not to be confused with {@link RemoveIndexCommand}.
  */
 public class DropIndexCommand extends AbstractIndexCommand {
     /** Returns builder to create a command to drop index with specified name. */

@@ -17,82 +17,32 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.util.List;
-import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests to verify validation of {@link RemoveIndexCommand}. */
-public class RemoveIndexCommandValidationTest extends AbstractIndexByIdCommandValidationTest {
-    private static Stream<Arguments> indexStatuses() {
-        return Stream.of(CatalogIndexStatus.values()).map(Arguments::of);
-    }
-
+public class RemoveIndexCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
     @Override
-    public CatalogCommand createCommand(int indexId) {
+    CatalogCommand createCommand(int indexId) {
         return RemoveIndexCommand.builder().indexId(indexId).schemaName(CatalogManager.DEFAULT_SCHEMA_NAME).build();
     }
 
-    private boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
-        return indexStatus != REGISTERED && indexStatus != BUILDING && indexStatus != STOPPING;
+    @Override
+    boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
+        return indexStatus != STOPPING;
     }
 
-    @SuppressWarnings("ThrowableNotThrown")
-    @ParameterizedTest
-    @MethodSource("indexStatuses")
-    void exceptionIsThrownIfIndexHasInvalidPreviousStatus(CatalogIndexStatus invalidPreviousIndexStatus) {
-        assumeTrue(isInvalidPreviousIndexStatus(invalidPreviousIndexStatus), "Index status for command is valid.");
+    @Override
+    Class<? extends Exception> expectedExceptionClassForWrongStatus() {
+        return CatalogValidationException.class;
+    }
 
-        int id = 0;
-
-        int tableId = id++;
-        int indexId = id++;
-
-        String columnName = "c";
-
-        int version = 1;
-
-        Catalog catalog = catalog(
-                version,
-                new CatalogTableDescriptor[]{
-                        table(tableId, id++, id++, id++, columnName)
-                },
-                new CatalogIndexDescriptor[]{
-                        new CatalogHashIndexDescriptor(
-                                indexId,
-                                "TEST_INDEX",
-                                tableId,
-                                false,
-                                invalidPreviousIndexStatus,
-                                version,
-                                List.of(columnName)
-                        )
-                },
-                new CatalogSystemViewDescriptor[]{}
-        );
-
-        CatalogCommand command = createCommand(indexId);
-
-        assertThrowsWithCause(
-                () -> command.get(catalog),
-                CatalogValidationException.class,
-                "Cannot remove index"
-        );
+    @Override
+    String expectedExceptionMessageSubstringForWrongStatus() {
+        return "Cannot remove index";
     }
 }

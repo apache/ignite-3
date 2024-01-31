@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 
 import java.util.List;
@@ -38,6 +36,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
  * <p>This is always invoked as a reaction to an internal trigger, not directly by the end user.
  *
  * <p>For dropping an index, please refer to {@link DropIndexCommand}.
+ *
  * @see DropIndexCommand
  */
 public class RemoveIndexCommand implements CatalogCommand {
