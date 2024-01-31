@@ -33,21 +33,25 @@ public interface ScannableTable {
      * Performs a scan over table.
      *
      * @param ctx  Execution context.
-     * @param partWithToken  Partition.
+     * @param partWithConsistencyToken  Partition.
      * @param rowFactory  Row factory.
      * @param requiredColumns  Required columns.
      * @return  A publisher that produces rows.
      * @param <RowT>  A type of row.
      */
-    <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
-            RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns);
+    <RowT> Publisher<RowT> scan(
+            ExecutionContext<RowT> ctx,
+            PartitionWithConsistencyToken partWithConsistencyToken,
+            RowFactory<RowT> rowFactory,
+            @Nullable BitSet requiredColumns
+    );
 
     /**
      * Performs range scan using the given index.
      *
      * @param <RowT> A type of row.
      * @param ctx Execution context.
-     * @param partWithToken Partition.
+     * @param partWithConsistencyToken Partition.
      * @param rowFactory Row factory.
      * @param indexId Index id.
      * @param columns Index columns.
@@ -55,16 +59,22 @@ public interface ScannableTable {
      * @param requiredColumns Required columns.
      * @return A publisher that produces rows.
      */
-    <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
-            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
-            @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns);
+    <RowT> Publisher<RowT> indexRangeScan(
+            ExecutionContext<RowT> ctx,
+            PartitionWithConsistencyToken partWithConsistencyToken,
+            RowFactory<RowT> rowFactory,
+            int indexId,
+            List<String> columns,
+            @Nullable RangeCondition<RowT> cond,
+            @Nullable BitSet requiredColumns
+    );
 
     /**
      * Performs a lookup scan using the given index.
      *
      * @param <RowT> A type of row.
      * @param ctx Execution context.
-     * @param partWithToken Partition.
+     * @param partWithConsistencyToken Partition.
      * @param rowFactory Row factory.
      * @param indexId Index id.
      * @param columns Index columns.
@@ -72,7 +82,13 @@ public interface ScannableTable {
      * @param requiredColumns Required columns.
      * @return A publisher that produces rows.
      */
-    <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
-            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
-            RowT key, @Nullable BitSet requiredColumns);
+    <RowT> Publisher<RowT> indexLookup(
+            ExecutionContext<RowT> ctx,
+            PartitionWithConsistencyToken partWithConsistencyToken,
+            RowFactory<RowT> rowFactory,
+            int indexId,
+            List<String> columns,
+            RowT key,
+            @Nullable BitSet requiredColumns
+    );
 }

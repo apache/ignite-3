@@ -1000,7 +1000,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 public IgniteRel visit(IgniteTableModify rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    List<NodeWithEnlistmentToken> assignments = mappedFragment.groupsBySourceId()
+                    List<NodeWithConsistencyToken> assignments = mappedFragment.groupsBySourceId()
                             .get(UpdatableTableImpl.MODIFY_NODE_SOURCE_ID).assignments();
 
                     assert assignments != null : "Table assignments must be available";
@@ -1010,7 +1010,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, List<NodeWithEnlistmentToken> assignments) {
+                private void enlist(int tableId, List<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -1022,12 +1022,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     for (int p = 0; p < partsCnt; p++) {
                         TablePartitionId tablePartId = new TablePartitionId(tableId, p);
 
-                        NodeWithEnlistmentToken enlistmentToken = assignments.get(p);
+                        NodeWithConsistencyToken assignment = assignments.get(p);
 
                         tx.enlist(tablePartId,
                                 new IgniteBiTuple<>(
-                                        topSrvc.getByConsistentId(enlistmentToken.name()),
-                                        enlistmentToken.enlistmentConsistencyToken())
+                                        topSrvc.getByConsistentId(assignment.name()),
+                                        assignment.enlistmentConsistencyToken())
                         );
                     }
                 }
@@ -1035,7 +1035,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    List<NodeWithEnlistmentToken> assignments = mappedFragment.groupsBySourceId().get(rel.sourceId()).assignments();
+                    List<NodeWithConsistencyToken> assignments = mappedFragment.groupsBySourceId().get(rel.sourceId()).assignments();
 
                     enlist(tableId, assignments);
                 }

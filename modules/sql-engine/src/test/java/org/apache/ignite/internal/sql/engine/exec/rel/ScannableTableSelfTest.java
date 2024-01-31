@@ -60,7 +60,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithEnlistmentToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -118,9 +118,9 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester tester = new Tester(data);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
 
-        ResultCollector collector = tester.tableScan(partitionId, enlistmentToken, tx);
+        ResultCollector collector = tester.tableScan(partitionId, consistencyToken, tx);
 
         if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
@@ -134,7 +134,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     partitionId,
                     tx.id(),
                     tx.commitPartition(),
-                    new PrimaryReplica(clusterNode, enlistmentToken),
+                    new PrimaryReplica(clusterNode, consistencyToken),
                     null,
                     null,
                     null,
@@ -162,9 +162,9 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester tester = new Tester(input);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
 
-        ResultCollector collector = tester.tableScan(partitionId, enlistmentToken, tx);
+        ResultCollector collector = tester.tableScan(partitionId, consistencyToken, tx);
 
         input.sendRows();
 
@@ -187,7 +187,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester tester = new Tester(input);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
         int indexId = 3;
         Object[] lowerValue = lower == Bound.NONE ? null : new Object[]{1};
         Object[] upperValue = upper == Bound.NONE ? null : new Object[]{10};
@@ -197,7 +197,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int flags = condition.toFlags();
 
-        ResultCollector collector = tester.indexScan(partitionId, enlistmentToken, tx, indexId, condition);
+        ResultCollector collector = tester.indexScan(partitionId, consistencyToken, tx, indexId, condition);
 
         if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
@@ -214,7 +214,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     isNull()
             );
         } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), enlistmentToken);
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
 
             verify(internalTable).scan(
                     eq(partitionId),
@@ -263,14 +263,14 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         tester.requiredFields.set(1);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
         int indexId = 3;
 
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
         condition.setLower(Bound.INCLUSIVE, new Object[]{0});
 
-        ResultCollector collector = tester.indexScan(partitionId, enlistmentToken, tx, indexId, condition);
+        ResultCollector collector = tester.indexScan(partitionId, consistencyToken, tx, indexId, condition);
 
         if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
@@ -287,7 +287,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(tester.requiredFields)
             );
         } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), enlistmentToken);
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
 
             verify(internalTable).scan(
                     eq(partitionId),
@@ -323,13 +323,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         tester.requiredFields.set(1);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
         int indexId = 3;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
         condition.setLower(Bound.INCLUSIVE, new Object[]{0});
 
-        ResultCollector collector = tester.indexScan(partitionId, enlistmentToken, tx, indexId, condition);
+        ResultCollector collector = tester.indexScan(partitionId, consistencyToken, tx, indexId, condition);
 
         input.sendRows();
 
@@ -352,14 +352,14 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester tester = new Tester(input);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
         int indexId = 3;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Bound columns != input columns.
         condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
         AssertionError err = assertThrows(AssertionError.class,
-                () -> tester.indexScan(partitionId, enlistmentToken, tx, indexId, condition));
+                () -> tester.indexScan(partitionId, consistencyToken, tx, indexId, condition));
         assertEquals("Invalid range condition", err.getMessage());
 
         verifyNoInteractions(internalTable);
@@ -382,14 +382,14 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester tester = new Tester(input);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
         int indexId = 3;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
         ArgumentCaptor<BinaryTuplePrefix> prefix = ArgumentCaptor.forClass(BinaryTuplePrefix.class);
 
-        ResultCollector collector = tester.indexScan(partitionId, enlistmentToken, tx, indexId, condition);
+        ResultCollector collector = tester.indexScan(partitionId, consistencyToken, tx, indexId, condition);
 
         if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
@@ -406,7 +406,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(tester.requiredFields)
             );
         } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), enlistmentToken);
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
 
             verify(internalTable).scan(
                     eq(partitionId),
@@ -442,11 +442,11 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester tester = new Tester(input);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
         int indexId = 3;
         Object[] key = {1};
 
-        ResultCollector collector = tester.indexLookUp(partitionId, enlistmentToken, tx, indexId, key);
+        ResultCollector collector = tester.indexLookUp(partitionId, consistencyToken, tx, indexId, key);
 
         if (tx.isReadOnly()) {
             verify(internalTable).lookup(
@@ -458,7 +458,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     isNull()
             );
         } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), enlistmentToken);
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
 
             verify(internalTable).lookup(
                     eq(partitionId),
@@ -492,11 +492,11 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         tester.requiredFields.set(1);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
         int indexId = 3;
         Object[] key = {1};
 
-        ResultCollector collector = tester.indexLookUp(partitionId, enlistmentToken, tx, indexId, key);
+        ResultCollector collector = tester.indexLookUp(partitionId, consistencyToken, tx, indexId, key);
 
         if (tx.isReadOnly()) {
             verify(internalTable).lookup(
@@ -508,7 +508,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(null)
             );
         } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), enlistmentToken);
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
 
             verify(internalTable).lookup(
                     eq(partitionId),
@@ -540,11 +540,11 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester tester = new Tester(input);
 
         int partitionId = 1;
-        long enlistmentToken = 2;
+        long consistencyToken = 2;
         int indexId = 3;
         Object[] key = {1};
 
-        ResultCollector collector = tester.indexLookUp(partitionId, enlistmentToken, tx, indexId, key);
+        ResultCollector collector = tester.indexLookUp(partitionId, consistencyToken, tx, indexId, key);
 
         input.sendRows();
 
@@ -578,7 +578,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
         }
 
-        ResultCollector tableScan(int partitionId, long enlistmentToken, NoOpTransaction tx) {
+        ResultCollector tableScan(int partitionId, long consistencyToken, NoOpTransaction tx) {
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
 
@@ -604,7 +604,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             Publisher<Object[]> publisher = scannableTable.scan(
                     ctx,
-                    new PartitionWithEnlistmentToken(partitionId, enlistmentToken), rowFactory, null
+                    new PartitionWithConsistencyToken(partitionId, consistencyToken), rowFactory, null
             );
 
             return new ResultCollector(publisher, rowConverter);
@@ -612,7 +612,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         ResultCollector indexScan(
                 int partitionId,
-                long enlistmentToken,
+                long consistencyToken,
                 NoOpTransaction tx,
                 int indexId,
                 TestRangeCondition<Object[]> condition
@@ -651,7 +651,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             Publisher<Object[]> publisher = scannableTable.indexRangeScan(
                     ctx,
-                    new PartitionWithEnlistmentToken(partitionId, enlistmentToken),
+                    new PartitionWithConsistencyToken(partitionId, consistencyToken),
                     rowFactory,
                     indexId,
                     indexColumns,
@@ -662,7 +662,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             return new ResultCollector(publisher, rowConverter);
         }
 
-        ResultCollector indexLookUp(int partitionId, long enlistmentToken, NoOpTransaction tx,
+        ResultCollector indexLookUp(int partitionId, long consistencyToken, NoOpTransaction tx,
                 int indexId, Object[] key) {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
@@ -693,7 +693,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(
                     ctx,
-                    new PartitionWithEnlistmentToken(partitionId, enlistmentToken),
+                    new PartitionWithConsistencyToken(partitionId, consistencyToken),
                     rowFactory,
                     indexId,
                     indexColumns,

@@ -284,11 +284,11 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndToken = actualTx.enlistedNodeAndToken(partGroupId);
+        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = actualTx.enlistedNodeAndConsistencyToken(partGroupId);
 
         CompletableFuture<R> fut;
 
-        if (primaryReplicaAndToken != null) {
+        if (primaryReplicaAndConsistencyToken != null) {
             assert !implicit;
 
             fut = trackingInvoke(
@@ -296,7 +296,7 @@ public class InternalTableImpl implements InternalTable {
                     partId,
                     enlistmentConsistencyToken -> fac.apply(actualTx, partGroupId, enlistmentConsistencyToken),
                     false,
-                    primaryReplicaAndToken,
+                    primaryReplicaAndConsistencyToken,
                     noWriteChecker,
                     retryOnLockConflict
             );
@@ -361,11 +361,11 @@ public class InternalTableImpl implements InternalTable {
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
 
-            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndToken = actualTx.enlistedNodeAndToken(partGroupId);
+            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = actualTx.enlistedNodeAndConsistencyToken(partGroupId);
 
             CompletableFuture<T> fut;
 
-            if (primaryReplicaAndToken != null) {
+            if (primaryReplicaAndConsistencyToken != null) {
                 assert !implicit;
 
                 fut = trackingInvoke(
@@ -374,7 +374,7 @@ public class InternalTableImpl implements InternalTable {
                         enlistmentConsistencyToken ->
                                 fac.apply(rowBatch.requestedRows, actualTx, partGroupId, enlistmentConsistencyToken, false),
                         false,
-                        primaryReplicaAndToken,
+                        primaryReplicaAndConsistencyToken,
                         noOpChecker,
                         retryOnLockConflict
                 );
@@ -432,7 +432,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndToken = tx.enlistedNodeAndToken(partGroupId);
+        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = tx.enlistedNodeAndConsistencyToken(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
@@ -454,8 +454,8 @@ public class InternalTableImpl implements InternalTable {
                         .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                         .build();
 
-        if (primaryReplicaAndToken != null) {
-            fut = replicaSvc.invoke(primaryReplicaAndToken.get1(), mapFunc.apply(primaryReplicaAndToken.get2()));
+        if (primaryReplicaAndConsistencyToken != null) {
+            fut = replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), mapFunc.apply(primaryReplicaAndConsistencyToken.get2()));
         } else {
             fut = enlistWithRetry(tx, partId, mapFunc, false, null, false);
         }
@@ -494,8 +494,8 @@ public class InternalTableImpl implements InternalTable {
             boolean retryOnLockConflict
     ) {
         return (CompletableFuture<R>) enlist(partId, tx)
-                .thenCompose(primaryReplicaAndToken ->
-                        trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndToken, noWriteChecker, retryOnLockConflict))
+                .thenCompose(primaryReplicaAndConsistencyToken ->
+                        trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndConsistencyToken, noWriteChecker, retryOnLockConflict))
                 .handle((res0, e) -> {
                     if (e != null) {
                         // We can safely retry indefinitely on deadlock prevention.
@@ -517,7 +517,7 @@ public class InternalTableImpl implements InternalTable {
      * @param partId Partition id.
      * @param mapFunc Request factory.
      * @param full {@code True} for a full transaction.
-     * @param primaryReplicaAndToken Replica and enlistment consistency token.
+     * @param primaryReplicaAndConsistencyToken Replica and enlistment consistency token.
      * @param noWriteChecker Used to handle operations producing no updates.
      * @param retryOnLockConflict {@code True} to retry on lock conflics.
      * @return The future.
@@ -527,11 +527,11 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             Function<Long, ReplicaRequest> mapFunc,
             boolean full,
-            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndToken,
+            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
             boolean retryOnLockConflict
     ) {
-        ReplicaRequest request = mapFunc.apply(primaryReplicaAndToken.get2());
+        ReplicaRequest request = mapFunc.apply(primaryReplicaAndConsistencyToken.get2());
 
         boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
                 || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
@@ -552,7 +552,7 @@ public class InternalTableImpl implements InternalTable {
                         )));
             }
 
-            return replicaSvc.<R>invoke(primaryReplicaAndToken.get1(), request).thenApply(res -> {
+            return replicaSvc.<R>invoke(primaryReplicaAndConsistencyToken.get1(), request).thenApply(res -> {
                 assert noWriteChecker != null;
 
                 // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
@@ -570,7 +570,7 @@ public class InternalTableImpl implements InternalTable {
                 return null; // Unreachable.
             });
         } else {
-            return replicaSvc.invoke(primaryReplicaAndToken.get1(), request);
+            return replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), request);
         }
     }
 

@@ -38,7 +38,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithEnlistmentToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -205,7 +205,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
-        List<PartitionWithEnlistmentToken> partitions = scannableTable.getPartitions();
+        List<PartitionWithConsistencyToken> partitions = scannableTable.getPartitions();
 
         return new IndexScanNode<>(ctx, rowFactory, indexDescriptor, scannableTable, tableDescriptor, partitions,
                 comparator, conditions, null, null, null);
@@ -219,10 +219,10 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             partitionedData.put(partitionId, List.of(rows));
         }
 
-        List<PartitionWithEnlistmentToken> getPartitions() {
+        List<PartitionWithConsistencyToken> getPartitions() {
             return new TreeSet<>(partitionedData.keySet())
                     .stream()
-                    .map(k -> new PartitionWithEnlistmentToken(k, 2L))
+                    .map(k -> new PartitionWithConsistencyToken(k, 2L))
                     .collect(Collectors.toList());
         }
 
@@ -230,7 +230,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         @Override
         public <RowT> Publisher<RowT> scan(
                 ExecutionContext<RowT> ctx,
-                PartitionWithEnlistmentToken partWithToken,
+                PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
                 @Nullable BitSet requiredColumns
         ) {
@@ -240,23 +240,23 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns,
                 @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
 
-            List<T> list = partitionedData.get(partWithToken.partId());
+            List<T> list = partitionedData.get(partWithConsistencyToken.partId());
             return new ScanPublisher<>(list, ctx, rowFactory);
         }
 
         @Override
-        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns,
                 RowT key, @Nullable BitSet requiredColumns) {
 
-            return newPublisher(ctx, partWithToken, rowFactory);
+            return newPublisher(ctx, partWithConsistencyToken, rowFactory);
         }
 
-        private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+        private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithToken,
                 RowFactory<RowT> rowFactory) {
 
             int partId = partWithToken.partId();

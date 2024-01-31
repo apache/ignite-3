@@ -189,7 +189,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(tablePartitionId, new IgniteBiTuple<>(node, 1L));
 
-        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndToken(tablePartitionId));
+        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndConsistencyToken(tablePartitionId));
     }
 
     @Test

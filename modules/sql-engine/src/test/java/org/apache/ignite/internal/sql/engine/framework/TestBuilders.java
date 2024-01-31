@@ -62,8 +62,8 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithEnlistmentToken;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithEnlistmentToken;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -145,7 +145,7 @@ public class TestBuilders {
             @Override
             public <RowT> Publisher<RowT> scan(
                     ExecutionContext<RowT> ctx,
-                    PartitionWithEnlistmentToken partWithToken,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory,
                     @Nullable BitSet requiredColumns
             ) {
@@ -162,14 +162,14 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
@@ -185,7 +185,7 @@ public class TestBuilders {
             @Override
             public <RowT> Publisher<RowT> scan(
                     ExecutionContext<RowT> ctx,
-                    PartitionWithEnlistmentToken partWithToken,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory,
                     @Nullable BitSet requiredColumns
             ) {
@@ -193,7 +193,7 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
@@ -208,7 +208,7 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
@@ -224,7 +224,7 @@ public class TestBuilders {
             @Override
             public <RowT> Publisher<RowT> scan(
                     ExecutionContext<RowT> ctx,
-                    PartitionWithEnlistmentToken partWithToken,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory,
                     @Nullable BitSet requiredColumns
             ) {
@@ -232,14 +232,14 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
@@ -1355,7 +1355,7 @@ public class TestBuilders {
             }
 
             ExecutionTarget target = factory.partitioned(owningNodes.stream()
-                    .map(name -> new NodeWithEnlistmentToken(name, 1))
+                    .map(name -> new NodeWithConsistencyToken(name, 1))
                     .collect(Collectors.toList()));
 
             return CompletableFuture.completedFuture(target);

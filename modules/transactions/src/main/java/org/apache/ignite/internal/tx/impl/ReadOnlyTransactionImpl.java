@@ -79,13 +79,16 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndToken) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(
+            TablePartitionId tablePartitionId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    ) {
         // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
         return null;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndToken(TablePartitionId tablePartitionId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
         return null;
     }
 

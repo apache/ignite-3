@@ -43,7 +43,7 @@ public interface InternalTransaction extends Transaction {
      * @param tablePartitionId Table partition id.
      * @return Enlisted primary replica node and consistency token associated with given replication group.
      */
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndToken(TablePartitionId tablePartitionId);
+    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId);
 
     /**
      * Returns a transaction state.
@@ -71,10 +71,10 @@ public interface InternalTransaction extends Transaction {
      * Enlists a partition group into a transaction.
      *
      * @param tablePartitionId Table partition id to enlist.
-     * @param nodeAndToken Primary replica cluster node and consistency token to enlist for given replication group.
+     * @param nodeAndConsistencyToken Primary replica cluster node and consistency token to enlist for given replication group.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndToken);
+    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken);
 
     /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.

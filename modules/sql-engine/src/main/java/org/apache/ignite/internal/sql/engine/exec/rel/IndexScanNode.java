@@ -28,7 +28,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithEnlistmentToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
@@ -53,7 +53,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     private final RowHandler.RowFactory<RowT> factory;
 
     /** List of pairs containing the partition number to scan with the corresponding enlistment consistency token. */
-    private final Collection<PartitionWithEnlistmentToken> partsWithTokens;
+    private final Collection<PartitionWithConsistencyToken> partsWithConsistencyTokens;
 
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
@@ -70,7 +70,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param tableDescriptor Table descriptor.
-     * @param partsWithTokens List of pairs containing the partition number to scan with the corresponding enlistment consistency token.
+     * @param partsWithConsistencyTokens List of pairs containing the partition number to scan with the corresponding enlistment
+     *         consistency token.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
@@ -83,7 +84,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             IgniteIndex schemaIndex,
             ScannableTable table,
             TableDescriptor tableDescriptor,
-            Collection<PartitionWithEnlistmentToken> partsWithTokens,
+            Collection<PartitionWithConsistencyToken> partsWithConsistencyTokens,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -92,11 +93,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     ) {
         super(ctx, filters, rowTransformer);
 
-        assert partsWithTokens != null && !partsWithTokens.isEmpty();
+        assert partsWithConsistencyTokens != null && !partsWithConsistencyTokens.isEmpty();
 
         this.schemaIndex = schemaIndex;
         this.table = table;
-        this.partsWithTokens = partsWithTokens;
+        this.partsWithConsistencyTokens = partsWithConsistencyTokens;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
@@ -114,16 +115,19 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     protected Publisher<RowT> scan() {
         if (rangeConditions != null) {
             return SubscriptionUtils.concat(
-                    new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(partsWithTokens, cond)));
+                    new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(partsWithConsistencyTokens, cond)));
         } else {
-            return indexPublisher(partsWithTokens, null);
+            return indexPublisher(partsWithConsistencyTokens, null);
         }
     }
 
-    private Publisher<RowT> indexPublisher(Collection<PartitionWithEnlistmentToken> partsWithTokens, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> indexPublisher(
+            Collection<PartitionWithConsistencyToken> partsWithConsistencyTokens,
+            @Nullable RangeCondition<RowT> cond
+    ) {
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                partsWithTokens.iterator(),
-                partWithToken -> partitionPublisher(partWithToken, cond)
+                partsWithConsistencyTokens.iterator(),
+                partWithConsistencyToken -> partitionPublisher(partWithConsistencyToken, cond)
         );
 
         if (comp != null) {
@@ -133,17 +137,20 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         }
     }
 
-    private Publisher<RowT> partitionPublisher(PartitionWithEnlistmentToken partWithToken, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> partitionPublisher(
+            PartitionWithConsistencyToken partWithConsistencyToken,
+            @Nullable RangeCondition<RowT> cond
+    ) {
         int indexId = schemaIndex.id();
         ExecutionContext<RowT> ctx = context();
 
         switch (schemaIndex.type()) {
             case SORTED:
-                return table.indexRangeScan(ctx, partWithToken, factory, indexId,
+                return table.indexRangeScan(ctx, partWithConsistencyToken, factory, indexId,
                         columns, cond, requiredColumns);
 
             case HASH:
-                return table.indexLookup(ctx, partWithToken, factory, indexId,
+                return table.indexLookup(ctx, partWithConsistencyToken, factory, indexId,
                         columns, cond.lower(), requiredColumns);
 
             default:

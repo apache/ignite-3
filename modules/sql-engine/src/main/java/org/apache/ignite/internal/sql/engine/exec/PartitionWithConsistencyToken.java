@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 /**
  * Tuple representing the number of the partition with node enlistment consistency token.
  */
-public class PartitionWithEnlistmentToken {
+public class PartitionWithConsistencyToken {
     /** Partition number. */
     private final int partId;
 
@@ -33,7 +33,7 @@ public class PartitionWithEnlistmentToken {
      * @param partId partition number
      * @param enlistmentConsistencyToken Enlistment consistency token.
      */
-    public PartitionWithEnlistmentToken(int partId, Long enlistmentConsistencyToken) {
+    public PartitionWithConsistencyToken(int partId, Long enlistmentConsistencyToken) {
         this.partId = partId;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }

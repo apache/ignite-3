@@ -24,7 +24,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Tuple representing primary replica node name with node enlistment consistency token.
  */
-public class NodeWithEnlistmentToken implements Serializable {
+public class NodeWithConsistencyToken implements Serializable {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -40,7 +40,7 @@ public class NodeWithEnlistmentToken implements Serializable {
      * @param name Primary replica node name.
      * @param enlistmentConsistencyToken Enlistment consistency token.
      */
-    public NodeWithEnlistmentToken(String name, long enlistmentConsistencyToken) {
+    public NodeWithConsistencyToken(String name, long enlistmentConsistencyToken) {
         this.name = name;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }
@@ -72,7 +72,7 @@ public class NodeWithEnlistmentToken implements Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        NodeWithEnlistmentToken that = (NodeWithEnlistmentToken) o;
+        NodeWithConsistencyToken that = (NodeWithConsistencyToken) o;
         return enlistmentConsistencyToken == that.enlistmentConsistencyToken && Objects.equals(name, that.name);
     }
 
@@ -85,6 +85,6 @@ public class NodeWithEnlistmentToken implements Serializable {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(NodeWithEnlistmentToken.class, this);
+        return S.toString(NodeWithConsistencyToken.class, this);
     }
 }

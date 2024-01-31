@@ -52,7 +52,7 @@ public class ScannableTableImpl implements ScannableTable {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithEnlistmentToken partWithToken,
+    public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns) {
 
         Publisher<BinaryRow> pub;
@@ -63,12 +63,12 @@ public class ScannableTableImpl implements ScannableTable {
 
             assert readTime != null;
 
-            pub = internalTable.scan(partWithToken.partId(), readTime, ctx.localNode());
+            pub = internalTable.scan(partWithConsistencyToken.partId(), readTime, ctx.localNode());
         } else {
-            PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithToken.enlistmentConsistencyToken());
+            PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken());
 
             pub = internalTable.scan(
-                    partWithToken.partId(),
+                    partWithConsistencyToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
                     recipient,
@@ -89,7 +89,7 @@ public class ScannableTableImpl implements ScannableTable {
     @Override
     public <RowT> Publisher<RowT> indexRangeScan(
             ExecutionContext<RowT> ctx,
-            PartitionWithEnlistmentToken partWithToken,
+            PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory,
             int indexId,
             List<String> columns,
@@ -123,7 +123,7 @@ public class ScannableTableImpl implements ScannableTable {
             assert readTime != null;
 
             pub = internalTable.scan(
-                    partWithToken.partId(),
+                    partWithConsistencyToken.partId(),
                     readTime,
                     ctx.localNode(),
                     indexId,
@@ -134,10 +134,10 @@ public class ScannableTableImpl implements ScannableTable {
             );
         } else {
             pub = internalTable.scan(
-                    partWithToken.partId(),
+                    partWithConsistencyToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
-                    new PrimaryReplica(ctx.localNode(), partWithToken.enlistmentConsistencyToken()),
+                    new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken()),
                     indexId,
                     lower,
                     upper,
@@ -155,7 +155,7 @@ public class ScannableTableImpl implements ScannableTable {
     @Override
     public <RowT> Publisher<RowT> indexLookup(
             ExecutionContext<RowT> ctx,
-            PartitionWithEnlistmentToken partWithToken,
+            PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory,
             int indexId,
             List<String> columns,
@@ -177,7 +177,7 @@ public class ScannableTableImpl implements ScannableTable {
             assert readTime != null;
 
             pub = internalTable.lookup(
-                    partWithToken.partId(),
+                    partWithConsistencyToken.partId(),
                     readTime,
                     ctx.localNode(),
                     indexId,
@@ -186,10 +186,10 @@ public class ScannableTableImpl implements ScannableTable {
             );
         } else {
             pub = internalTable.lookup(
-                    partWithToken.partId(),
+                    partWithConsistencyToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
-                    new PrimaryReplica(ctx.localNode(), partWithToken.enlistmentConsistencyToken()),
+                    new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken()),
                     indexId,
                     keyTuple,
                     null

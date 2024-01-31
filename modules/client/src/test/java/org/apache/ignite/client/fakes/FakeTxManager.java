@@ -84,7 +84,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndToken(TablePartitionId tablePartitionId) {
+            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
                 return null;
             }
 
@@ -106,7 +106,7 @@ public class FakeTxManager implements TxManager {
             @Override
             public IgniteBiTuple<ClusterNode, Long> enlist(
                     TablePartitionId tablePartitionId,
-                    IgniteBiTuple<ClusterNode, Long> nodeAndToken) {
+                    IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
                 return null;
             }
 

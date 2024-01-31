@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithEnlistmentToken;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 
@@ -57,14 +57,14 @@ abstract class AbstractTarget implements ExecutionTarget {
         return result;
     }
 
-    List<NodeWithEnlistmentToken> assignments(List<String> nodeNames) {
+    List<NodeWithConsistencyToken> assignments(List<String> nodeNames) {
         if (!(this instanceof PartitionedTarget)) {
             return List.of();
         }
 
         PartitionedTarget partitionedTarget = (PartitionedTarget) this;
 
-        List<NodeWithEnlistmentToken> result = new ArrayList<>(partitionedTarget.partitionsNodes.length);
+        List<NodeWithConsistencyToken> result = new ArrayList<>(partitionedTarget.partitionsNodes.length);
 
         for (int partNo = 0; partNo < partitionedTarget.partitionsNodes.length; partNo++) {
             long partitionNodes = partitionedTarget.partitionsNodes[partNo];
@@ -73,7 +73,7 @@ abstract class AbstractTarget implements ExecutionTarget {
 
             int idx = Long.numberOfTrailingZeros(partitionNodes);
 
-            result.add(new NodeWithEnlistmentToken(
+            result.add(new NodeWithConsistencyToken(
                     nodeNames.get(idx),
                     partitionedTarget.enlistmentConsistencyTokens[partNo]
             ));

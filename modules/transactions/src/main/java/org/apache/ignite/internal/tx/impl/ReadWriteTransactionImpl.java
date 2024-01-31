@@ -89,13 +89,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndToken(TablePartitionId partGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndToken) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(
+            TablePartitionId tablePartitionId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    ) {
         checkEnlistPossibility();
 
         enlistPartitionLock.readLock().lock();
@@ -103,7 +106,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         try {
             checkEnlistPossibility();
 
-            return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndToken);
+            return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndConsistencyToken);
         } finally {
             enlistPartitionLock.readLock().unlock();
         }
