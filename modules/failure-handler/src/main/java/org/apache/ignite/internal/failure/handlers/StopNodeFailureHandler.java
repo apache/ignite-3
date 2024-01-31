@@ -19,6 +19,7 @@ package org.apache.ignite.internal.failure.handlers;
 
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Handler will stop node in case of critical error using {@code IgnitionManager.stop(nodeName)} call.
@@ -33,5 +34,11 @@ public class StopNodeFailureHandler implements FailureHandler {
         ).start();
 
         return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(StopNodeFailureHandler.class, this);
     }
 }

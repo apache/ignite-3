@@ -21,17 +21,29 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
  * General failure processing API.
  */
 public class FailureProcessor implements IgniteComponent {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(FailureProcessor.class);
+
+    /** Failure log message. */
+    static final String FAILURE_LOG_MSG = "Critical system error detected. "
+            + "Will be handled accordingly to configured handler ";
+
     /** Handler. */
     private final FailureHandler handler;
 
     /** Node name. */
     private final String nodeName;
+
+    /** Failure context. */
+    private volatile FailureContext failureCtx;
 
     /**
      * Creates a new instance of a failure processor.
@@ -56,6 +68,15 @@ public class FailureProcessor implements IgniteComponent {
     }
 
     /**
+     * Returns failure context.
+     *
+     * @return Failure context.
+     */
+    public FailureContext failureContext() {
+        return failureCtx;
+    }
+
+    /**
      * Processes failure accordingly to configured {@link FailureHandler}.
      *
      * @param failureCtx Failure context.
@@ -72,7 +93,23 @@ public class FailureProcessor implements IgniteComponent {
      * @param handler Failure handler.
      * @return {@code True} If this very call led to Ignite node invalidation.
      */
-    private boolean process(FailureContext failureCtx, FailureHandler handler) {
-        return handler.onFailure(nodeName, failureCtx);
+    private synchronized boolean process(FailureContext failureCtx, FailureHandler handler) {
+        assert failureCtx != null : "Failure context is not initialized.";
+        assert handler != null : "Failure handler is not initialized.";
+
+        // Node already terminating, no reason to process more errors.
+        if (this.failureCtx != null) {
+            return false;
+        }
+
+        LOG.error(FAILURE_LOG_MSG + "[hnd=" + handler + ", failureCtx=" + failureCtx + ']', failureCtx.error());
+
+        boolean invalidated = handler.onFailure(nodeName, failureCtx);
+
+        if (invalidated) {
+            this.failureCtx = failureCtx;
+        }
+
+        return invalidated;
     }
 }
