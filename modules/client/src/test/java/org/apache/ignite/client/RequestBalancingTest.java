@@ -19,7 +19,8 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getClient;
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -56,7 +57,7 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(server1, server2);
+        IgniteUtils.closeAll(server1, server2, server3);
     }
 
     @Test
@@ -64,18 +65,11 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1, server2, server3)) {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
-            // Execute on unknown node to fall back to balancing.
-            List<Object> res = IntStream.range(0, 5)
-                    .mapToObj(i -> client.compute().<String>executeAsync(getClusterNodes("s123"), List.of(), "job")
-                            .resultAsync().join())
+            List<String> res = IntStream.range(0, 5)
+                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s1", "s2", "s3"), List.of(), "job"))
                     .collect(Collectors.toList());
 
-            assertEquals(5, res.size());
-            assertEquals("s2", res.get(0));
-            assertEquals("s1", res.get(1));
-            assertEquals("s3", res.get(2));
-            assertEquals("s2", res.get(3));
-            assertEquals("s1", res.get(4));
+            assertThat(res, contains("s2", "s1", "s3", "s2", "s1"));
         }
     }
 }
