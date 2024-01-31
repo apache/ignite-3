@@ -45,6 +45,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
@@ -150,13 +151,7 @@ public class IndexManager implements IgniteComponent {
                 return failedFuture(exception);
             }
 
-            int indexId = ((DropIndexEventParameters) parameters).indexId();
-            catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).schemaName(CatalogManager.DEFAULT_SCHEMA_NAME).build())
-                    .whenComplete((res, ex) -> {
-                        if (ex != null) {
-                            LOG.error("Cannot remove a dropped index [indexId={}]", ex, indexId);
-                        }
-                    });
+            removeIndex(((DropIndexEventParameters) parameters).indexId());
 
             return falseCompletedFuture();
         });
@@ -164,6 +159,15 @@ public class IndexManager implements IgniteComponent {
         LOG.info("Index manager started");
 
         return nullCompletedFuture();
+    }
+
+    private CompletableFuture<Void> removeIndex(int indexId) {
+        return catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).schemaName(CatalogManager.DEFAULT_SCHEMA_NAME).build())
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        LOG.error("Cannot remove a dropped index [indexId={}]", ex, indexId);
+                    }
+                });
     }
 
     @Override
@@ -346,7 +350,12 @@ public class IndexManager implements IgniteComponent {
             CatalogTableDescriptor table = e.getKey();
 
             for (CatalogIndexDescriptor index : e.getValue()) {
-                startIndexFutures.add(startIndexAsync(table, index, causalityToken));
+                // TODO: IGNITE-21117 - start STOPPING indexes as well instead of removing them.
+                if (index.status() == CatalogIndexStatus.STOPPING) {
+                    startIndexFutures.add(removeIndex(index.id()));
+                } else {
+                    startIndexFutures.add(startIndexAsync(table, index, causalityToken));
+                }
             }
         }
 
