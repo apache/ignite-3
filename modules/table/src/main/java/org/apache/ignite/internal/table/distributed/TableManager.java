@@ -430,7 +430,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TopologyService topologyService = clusterService.topologyService();
 
-        TxMessageSender txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaSvc, clock);
+        TxMessageSender txMessageSender = new TxMessageSender(clusterService.messagingService(), topologyService, replicaSvc, clock);
 
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
@@ -1215,8 +1215,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableName,
                 tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterService.topologyService(), txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
+                partitions,
+                clusterService.topologyService(),
+                clusterService.topologyService().localMember(),
+                txManager,
+                tableStorage,
+                txStateStorage,
+                replicaSvc,
+                clock,
+                observableTimestampTracker,
+                placementDriver
+        );
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions, sql.get());
 

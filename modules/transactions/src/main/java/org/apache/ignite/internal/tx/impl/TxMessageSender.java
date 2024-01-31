@@ -33,6 +33,7 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,6 +49,9 @@ public class TxMessageSender {
     /** Messaging service. */
     private final MessagingService messagingService;
 
+    /** Topology service. */
+    private final TopologyService topologyService;
+
     /** Replica service. */
     private final ReplicaService replicaService;
 
@@ -58,11 +62,18 @@ public class TxMessageSender {
      * Constructor.
      *
      * @param messagingService Messaging service.
+     * @param topologyService Topology service.
      * @param replicaService Replica service.
      * @param clock A hybrid logical clock.
      */
-    public TxMessageSender(MessagingService messagingService, ReplicaService replicaService, HybridClock clock) {
+    public TxMessageSender(
+            MessagingService messagingService,
+            TopologyService topologyService,
+            ReplicaService replicaService,
+            HybridClock clock
+    ) {
         this.messagingService = messagingService;
+        this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.clock = clock;
     }
@@ -156,6 +167,7 @@ public class TxMessageSender {
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                         .enlistmentConsistencyToken(term)
+                        .txCoordinatorId(topologyService.localMember().id())
                         .build());
     }
 

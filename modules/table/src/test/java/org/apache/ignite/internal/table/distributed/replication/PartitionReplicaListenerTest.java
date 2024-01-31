@@ -503,7 +503,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clusterNodeResolver,
                 messagingService,
                 mock(PlacementDriver.class),
-                new TxMessageSender(messagingService, mock(ReplicaService.class), clock)
+                new TxMessageSender(messagingService, topologySrv, mock(ReplicaService.class), clock)
         );
 
         transactionStateResolver.start();
@@ -802,6 +802,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .indexToUse(sortedIndexId)
                         .batchSize(4)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .build(), localNode.id());
 
         List<BinaryRow> rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -819,6 +820,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexToUse(sortedIndexId)
                 .batchSize(4)
                 .commitPartitionId(commitPartitionId())
+                .txCoordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -839,6 +841,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .flags(SortedIndexStorage.LESS_OR_EQUAL)
                 .batchSize(5)
                 .commitPartitionId(commitPartitionId())
+                .txCoordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -857,6 +860,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .lowerBoundPrefix(toIndexBound(5))
                 .batchSize(5)
                 .commitPartitionId(commitPartitionId())
+                .txCoordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -875,6 +879,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .exactKey(toIndexKey(0))
                 .batchSize(5)
                 .commitPartitionId(commitPartitionId())
+                .txCoordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1194,6 +1199,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .binaryTuple(binaryRow.tupleSlice())
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .full(full)
                         .build(),
                 localNode.id()
@@ -1213,6 +1219,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .primaryKey(binaryRow.tupleSlice())
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .full(full)
                         .build(),
                 localNode.id()
@@ -1239,6 +1246,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .binaryTuples(binaryRowsToBuffers(binaryRows))
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .full(full)
                         .build(),
                 localNode.id()
@@ -1262,6 +1270,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .primaryKeys(binaryRowsToBuffers(binaryRows))
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .full(full)
                         .build(),
                 localNode.id()
@@ -1286,6 +1295,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                             .binaryTuple(binaryRow.tupleSlice())
                             .enlistmentConsistencyToken(1L)
                             .commitPartitionId(commitPartitionId())
+                            .txCoordinatorId(localNode.id())
                             .build();
                 },
                 () -> checkRowInMvStorage(binaryRow(0), true)
@@ -1314,6 +1324,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                             .binaryTuples(asList(binaryRow0.tupleSlice(), binaryRow1.tupleSlice()))
                             .enlistmentConsistencyToken(1L)
                             .commitPartitionId(commitPartitionId())
+                            .txCoordinatorId(localNode.id())
                             .build();
                 },
                 () -> checkRowInMvStorage(binaryRow(0), true)
@@ -1558,6 +1569,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groups(Set.of(grpId))
                 .commit(false)
                 .enlistmentConsistencyToken(1L)
+                .txCoordinatorId(localNode.id())
                 .build();
 
         return partitionReplicaListener.invoke(commitRequest, localNode.id());
@@ -1623,6 +1635,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                 .enlistmentConsistencyToken(1L)
+                .txCoordinatorId(localNode.id())
                 .build();
 
         return partitionReplicaListener.invoke(commitRequest, localNode.id());
@@ -1804,6 +1817,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .newBinaryTuple(newRow.tupleSlice())
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .full(full)
                         .build(),
                 localNode.id()
@@ -1823,6 +1837,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                                 .scanId(1)
                                 .batchSize(100)
                                 .commitPartitionId(commitPartitionId())
+                                .txCoordinatorId(localNode.id())
                                 .build(),
                         localNode.id()
                 )
@@ -1841,6 +1856,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                                 .scanId(1)
                                 .batchSize(100)
                                 .commitPartitionId(commitPartitionId())
+                                .txCoordinatorId(localNode.id())
                                 .build(),
                         localNode.id()
                 )
@@ -1864,6 +1880,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .batchSize(100)
                         .full(false)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .build(),
                 localNode.id()
         );
@@ -2349,6 +2366,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .enlistmentConsistencyToken(1L)
                         .commit(true)
                         .commitTimestampLong(clock.nowLong())
+                        .txCoordinatorId(localNode.id())
                         .build(),
                 localNode.id()
         );
@@ -2490,6 +2508,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .binaryTuple(row.tupleSlice())
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .build(),
                 localNode.id()
         ).join().result();
@@ -2504,6 +2523,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .primaryKey(row.tupleSlice())
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(commitPartitionId())
+                        .txCoordinatorId(localNode.id())
                         .build(),
                 localNode.id()
         ).join().result();

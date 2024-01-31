@@ -207,6 +207,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .binaryTuple(binaryRow.tupleSlice())
                 .requestType(RequestType.RW_GET)
                 .enlistmentConsistencyToken(1L)
+                .txCoordinatorId(clusterService.topologyService().localMember().id())
                 .build();
     }
 

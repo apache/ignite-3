@@ -131,6 +131,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .requestType(RequestType.RW_UPSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
+                    .txCoordinatorId(ectx.localNode().id())
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithConsistencyToken.name(), request);
@@ -203,6 +204,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .requestType(RequestType.RW_INSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
+                    .txCoordinatorId(ectx.localNode().id())
                     .build();
 
             rowBatch.resultFuture = replicaService.invoke(nodeWithConsistencyToken.name(), request);
@@ -270,6 +272,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .requestType(RequestType.RW_DELETE_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
+                    .txCoordinatorId(ectx.localNode().id())
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithConsistencyToken.name(), request);

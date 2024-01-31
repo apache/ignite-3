@@ -33,6 +33,13 @@ public interface CommittableTxRequest extends ReplicaRequest {
     boolean full();
 
     /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return the transaction coordinator inconsistent ID
+     */
+    String txCoordinatorId();
+
+    /**
      * Gets a commit partition id.
      *
      * @return Table partition id.

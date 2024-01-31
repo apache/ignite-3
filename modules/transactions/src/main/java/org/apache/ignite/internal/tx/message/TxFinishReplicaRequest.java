@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  *      <li>Send cleanup requests to all enlisted primary replicas.</li>
  *  </ol>
  */
-@Transferable(value = TxMessageGroup.TX_FINISH_REQUEST)
+@Transferable(TxMessageGroup.TX_FINISH_REQUEST)
 public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
@@ -58,6 +58,13 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
      * Transaction commit timestamp.
      */
     long commitTimestampLong();
+
+    /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return the transaction coordinator inconsistent ID
+     */
+    String txCoordinatorId();
 
     /**
      * Transaction commit timestamp.

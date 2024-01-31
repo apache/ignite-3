@@ -233,7 +233,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
 
-        txMessageSender = new TxMessageSender(messagingService, replicaService, clock);
+        txMessageSender = new TxMessageSender(messagingService, topologyService, replicaService, clock);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
