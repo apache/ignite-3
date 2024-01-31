@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -110,7 +111,7 @@ public class TableTestUtils {
         assertThat(indexId, is(notNullValue()));
 
         assertThat(
-                catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).build()),
+                catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).schemaName(DEFAULT_SCHEMA_NAME).build()),
                 willCompleteSuccessfully()
         );
     }

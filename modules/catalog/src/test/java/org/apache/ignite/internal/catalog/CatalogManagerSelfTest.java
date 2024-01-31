@@ -1203,7 +1203,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
 
         // Remove index.
-        assertThat(manager.execute(RemoveIndexCommand.builder().indexId(indexId(INDEX_NAME)).build()), willBe(nullValue()));
+        removeIndex(indexId(INDEX_NAME));
         verify(eventListener).notify(any(RemoveIndexEventParameters.class), isNull());
 
         clearInvocations(eventListener);
@@ -1915,7 +1915,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     private void removeIndex(int indexId) {
-        assertThat(manager.execute(RemoveIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+        assertThat(
+                manager.execute(RemoveIndexCommand.builder().indexId(indexId).schemaName(DEFAULT_SCHEMA_NAME).build()),
+                willCompleteSuccessfully()
+        );
     }
 
     private void dropIndex(String indexName) {

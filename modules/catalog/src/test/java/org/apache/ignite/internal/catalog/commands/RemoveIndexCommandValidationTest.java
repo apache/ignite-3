@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -45,7 +46,7 @@ public class RemoveIndexCommandValidationTest extends AbstractIndexByIdCommandVa
 
     @Override
     public CatalogCommand createCommand(int indexId) {
-        return RemoveIndexCommand.builder().indexId(indexId).build();
+        return RemoveIndexCommand.builder().indexId(indexId).schemaName(CatalogManager.DEFAULT_SCHEMA_NAME).build();
     }
 
     private boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {

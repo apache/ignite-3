@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -39,7 +41,9 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -84,8 +88,9 @@ public class IndexManager implements IgniteComponent {
     /** Table manager. */
     private final TableManager tableManager;
 
+    // TODO: IGNITE-21117 -change the field type to CatalogService again.
     /** Catalog service. */
-    private final CatalogService catalogService;
+    private final CatalogManager catalogManager;
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -107,18 +112,18 @@ public class IndexManager implements IgniteComponent {
      *
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
-     * @param catalogService Catalog manager.
+     * @param catalogManager Catalog manager.
      */
     public IndexManager(
             SchemaManager schemaManager,
             TableManager tableManager,
-            CatalogService catalogService,
+            CatalogManager catalogManager,
             MetaStorageManager metaStorageManager,
             Consumer<LongFunction<CompletableFuture<?>>> registry
     ) {
         this.schemaManager = schemaManager;
         this.tableManager = tableManager;
-        this.catalogService = catalogService;
+        this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;
 
         startVv = new IncrementalVersionedValue<>(registry);
@@ -131,12 +136,29 @@ public class IndexManager implements IgniteComponent {
 
         startIndexes();
 
-        catalogService.listen(INDEX_CREATE, (parameters, exception) -> {
+        catalogManager.listen(INDEX_CREATE, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
 
             return onIndexCreate((CreateIndexEventParameters) parameters);
+        });
+
+        // TODO: IGNITE-21117 - remove this.
+        catalogManager.listen(INDEX_DROP, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
+
+            int indexId = ((DropIndexEventParameters) parameters).indexId();
+            catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).schemaName(CatalogManager.DEFAULT_SCHEMA_NAME).build())
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            LOG.error("Cannot remove a dropped index [indexId={}]", ex, indexId);
+                        }
+                    });
+
+            return falseCompletedFuture();
         });
 
         LOG.info("Index manager started");
@@ -211,7 +233,7 @@ public class IndexManager implements IgniteComponent {
             long causalityToken = parameters.causalityToken();
             int catalogVersion = parameters.catalogVersion();
 
-            CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
+            CatalogTableDescriptor table = catalogManager.table(tableId, catalogVersion);
 
             assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
 
@@ -320,7 +342,7 @@ public class IndexManager implements IgniteComponent {
 
         List<CompletableFuture<?>> startIndexFutures = new ArrayList<>();
 
-        for (Entry<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> e : collectIndexesForRecovery(catalogService).entrySet()) {
+        for (Entry<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> e : collectIndexesForRecovery(catalogManager).entrySet()) {
             CatalogTableDescriptor table = e.getKey();
 
             for (CatalogIndexDescriptor index : e.getValue()) {

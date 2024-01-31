@@ -188,9 +188,7 @@ class IndexManagementUtils {
      * @param catalogVersion Catalog version.
      */
     static int getPartitionCountFromCatalog(CatalogService catalogService, int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
-
-        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
+        CatalogIndexDescriptor indexDescriptor = index(catalogService, indexId, catalogVersion);
 
         CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
 
@@ -201,6 +199,13 @@ class IndexManagementUtils {
         assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
 
         return zoneDescriptor.partitions();
+    }
+
+    static CatalogIndexDescriptor index(CatalogService catalogService, int indexId, int catalogVersion) {
+        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
+
+        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
+        return indexDescriptor;
     }
 
     /**

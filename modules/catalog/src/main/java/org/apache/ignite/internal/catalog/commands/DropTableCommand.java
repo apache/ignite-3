@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
+import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
@@ -57,7 +58,13 @@ public class DropTableCommand extends AbstractTableCommand {
         Arrays.stream(schema.indexes())
                 .filter(index -> index.tableId() == table.id())
                 .filter(index -> index.status() != CatalogIndexStatus.STOPPING)
-                .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
+                .forEach(index -> {
+                    if (index.status() == CatalogIndexStatus.AVAILABLE) {
+                        updateEntries.add(new DropIndexEntry(index.id(), index.tableId()));
+                    } else {
+                        updateEntries.add(new RemoveIndexEntry(index.id(), schemaName));
+                    }
+                });
 
         updateEntries.add(new DropTableEntry(table.id(), schemaName));
 

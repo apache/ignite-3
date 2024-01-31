@@ -73,7 +73,7 @@ public class DropIndexCommand extends AbstractIndexCommand {
             case STOPPING:
                 throw new CatalogValidationException("Dropping an already dropped index is not allowed");
             default:
-                return List.of(new RemoveIndexEntry(index.id()));
+                return List.of(new RemoveIndexEntry(index.id(), schemaName));
         }
     }
 

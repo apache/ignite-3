@@ -41,13 +41,17 @@ public class RemoveIndexCommand implements CatalogCommand {
 
     private final int indexId;
 
+    private final String schemaName;
+
     /**
      * Constructor.
      *
      * @param indexId ID of the index to remove.
+     * @param schemaName Name of the schema to which the index belongs.
      */
-    private RemoveIndexCommand(int indexId) {
+    private RemoveIndexCommand(int indexId, String schemaName) {
         this.indexId = indexId;
+        this.schemaName = schemaName;
     }
 
     @Override
@@ -58,11 +62,12 @@ public class RemoveIndexCommand implements CatalogCommand {
             throw new CatalogValidationException("Cannot remove index {} because its status is {}", indexId, index.status());
         }
 
-        return List.of(new RemoveIndexEntry(indexId));
+        return List.of(new RemoveIndexEntry(indexId, schemaName));
     }
 
     private static class Builder implements RemoveIndexCommandBuilder {
         private int indexId;
+        private String schemaName;
 
         @Override
         public Builder indexId(int indexId) {
@@ -72,8 +77,15 @@ public class RemoveIndexCommand implements CatalogCommand {
         }
 
         @Override
+        public RemoveIndexCommandBuilder schemaName(String schemaName) {
+            this.schemaName = schemaName;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
-            return new RemoveIndexCommand(indexId);
+            return new RemoveIndexCommand(indexId, schemaName);
         }
     }
 }
