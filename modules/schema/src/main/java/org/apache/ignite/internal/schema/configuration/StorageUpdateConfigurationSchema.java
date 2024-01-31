@@ -15,44 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.schema.configuration;
+
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Tuple representing the number of the partition with its current primary replica term.
+ * Configuration schema for StorageUpdateHandler.
  */
-public class PartitionWithTerm {
-    /** Partition number. */
-    private final int partId;
-
-    /** Primary replica term. */
-    private final long term;
+@ConfigurationRoot(rootName = "storageUpdate", type = ConfigurationType.DISTRIBUTED)
+public class StorageUpdateConfigurationSchema {
 
     /**
-     * Constructor.
-     *
-     * @param partId partition number
-     * @param term Primary replica term.
-     */
-    public PartitionWithTerm(int partId, Long term) {
-        this.partId = partId;
-        this.term = term;
-    }
-
-    /**
-     * Gets partition number.
-     *
-     * @return Partition number.
-     */
-    public int partId() {
-        return partId;
-    }
-
-    /**
-     * Gets primary replica term.
-     *
-     * @return Primary replica term.
-     */
-    public long term() {
-        return term;
-    }
+     * Maximum allowed length (in bytes) of a batch to write into physical storage.
+     **/
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int batchByteLength = 8192;
 }

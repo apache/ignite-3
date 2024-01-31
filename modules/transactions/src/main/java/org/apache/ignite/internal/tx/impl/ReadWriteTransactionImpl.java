@@ -45,7 +45,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
 
-    /** Enlisted partitions: partition id -> (primary replica node, raft term). */
+    /** Enlisted partitions: partition id -> (primary replica node, enlistment consistency token). */
     private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
 
     /** The tracker is used to track an observable timestamp. */
@@ -87,13 +87,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId partGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(
+            TablePartitionId tablePartitionId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    ) {
         checkEnlistPossibility();
 
         enlistPartitionLock.readLock().lock();
@@ -101,7 +104,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         try {
             checkEnlistPossibility();
 
-            return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndTerm);
+            return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndConsistencyToken);
         } finally {
             enlistPartitionLock.readLock().unlock();
         }

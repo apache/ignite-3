@@ -131,7 +131,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
         return tuple;
     }
 
@@ -152,8 +152,8 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        return nodeAndTerm;
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
+        return nodeAndConsistencyToken;
     }
 
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */

@@ -145,7 +145,9 @@ public class RecoveryDescriptor {
     public void add(OutNetworkObject msg) {
         msg.shouldBeSavedForRecovery(false);
         sentCount++;
-        unacknowledgedMessages.add(msg);
+
+        boolean added = unacknowledgedMessages.add(msg);
+        assert added : "Wasn't added as the queue is full: " + msg.networkMessage();
     }
 
     /**
@@ -227,7 +229,7 @@ public class RecoveryDescriptor {
         return channelHolder.get();
     }
 
-    @Nullable Channel holderChannel() {
+    @Nullable public Channel holderChannel() {
         DescriptorAcquiry acquiry = holder();
         return acquiry == null ? null : acquiry.channel();
     }

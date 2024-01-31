@@ -678,7 +678,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        IgniteBiTuple<ClusterNode, Long> primaryReplica = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+        IgniteBiTuple<ClusterNode, Long> primaryReplica = tx.enlistedNodeAndConsistencyToken(new TablePartitionId(table.tableId(), partId));
 
         return new PrimaryReplica(primaryReplica.get1(), primaryReplica.get2());
     }

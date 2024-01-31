@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.http.HttpResponse;
@@ -76,36 +75,6 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
     }
 
     @Test
-    @DisplayName("Cluster configuration is not available on not initialized cluster")
-    void clusterConfiguration() throws Exception {
-        // When GET /management/v1/configuration/cluster.
-        HttpResponse<String> response = send(get("/management/v1/configuration/cluster"));
-
-        // Expect cluster configuration is not available.
-        assertRespondsWithConflictNotInitializedCluster(response);
-    }
-
-    @Test
-    @DisplayName("Cluster configuration could not be updated on not initialized cluster")
-    void clusterConfigurationUpdate() throws Exception {
-        // When PATCH /management/v1/configuration/cluster.
-        HttpResponse<String> response = send(patch("/management/v1/configuration/cluster", "any.key=any-value"));
-
-        // Expect cluster configuration could not be updated.
-        assertRespondsWithConflictNotInitializedCluster(response);
-    }
-
-    @Test
-    @DisplayName("Logical topology is not available on not initialized cluster")
-    void logicalTopology() throws Exception {
-        // When GET /management/v1/cluster/topology/logical.
-        HttpResponse<String> response = send(get("/management/v1/cluster/topology/logical"));
-
-        // Then.
-        assertRespondsWithConflictNotInitializedCluster(response);
-    }
-
-    @Test
     @DisplayName("Physical topology is available on not initialized cluster")
     void physicalTopology() throws Exception {
         // When GET /management/v1/cluster/topology/physical.
@@ -136,16 +105,6 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(response.body(), hasJsonPath("$.name")),
                 () -> assertThat(response.body(), hasJsonPath("$.state", is(equalTo("STARTING"))))
         );
-    }
-
-    @Test
-    @DisplayName("Cluster state is not available on not initialized cluster")
-    void clusterState() throws Exception {
-        // When GET /management/v1/cluster/state.
-        HttpResponse<String> response = send(get("/management/v1/cluster/state"));
-
-        // Then
-        assertRespondsWithConflictNotInitializedCluster(response);
     }
 
     @Test
@@ -224,15 +183,5 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
         // And cluster is not initialized.
         startingNodes.forEach(it -> assertThat(it, willTimeoutFast()));
-    }
-
-    private void assertRespondsWithConflictNotInitializedCluster(HttpResponse<String> response) throws JsonProcessingException {
-        Problem problem = getProblem(response);
-        assertAll(
-                () -> assertThat(problem.status(), is(409)),
-                () -> assertThat(problem.title(), is("Cluster is not initialized")),
-                () -> assertThat(problem.detail(),
-                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
-        );
     }
 }

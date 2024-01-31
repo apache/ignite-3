@@ -106,4 +106,13 @@ public class CompletableFutures {
                     return result;
                 });
     }
+
+    /**
+     * Returns {@code true} if the future is completed successfully (so it's not failed or cancelled).
+     *
+     * @param future Future to inspect.
+     */
+    public static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
+        return future.isDone() && !future.isCompletedExceptionally() && !future.isCancelled();
+    }
 }

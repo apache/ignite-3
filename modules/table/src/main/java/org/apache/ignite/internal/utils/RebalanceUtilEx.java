@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.utils;
 
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -28,7 +32,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -45,134 +48,10 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 
 /**
- * Util class for methods needed for the rebalance process.
+ * Util class for methods needed for the rebalance process. "Ex" stands for "Excommunicado". This class should be removed in the future.
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-18857 All rebalance logic and thus given RebalanceUtil should be moved to zones one.
-public class RebalanceUtil {
-    /** Key prefix for pending assignments. */
-    public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
-
-    /** Key prefix for stable assignments. */
-    public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
-
-    /** Key prefix for switch reduce assignments. */
-    public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "assignments.switch.reduce.";
-
-    /** Key prefix for switch append assignments. */
-    public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
-
-    /**
-     * Key that is needed for the rebalance algorithm.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
-     */
-    public static ByteArray partChangeTriggerKey(TablePartitionId partId) {
-        return new ByteArray(partId + ".change.trigger");
-    }
-
-    /**
-     * Key that is needed for the rebalance algorithm.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
-     */
-    public static ByteArray pendingPartAssignmentsKey(TablePartitionId partId) {
-        return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
-    }
-
-    /**
-     * Key that is needed for the rebalance algorithm.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
-     */
-    public static ByteArray plannedPartAssignmentsKey(TablePartitionId partId) {
-        return new ByteArray("assignments.planned." + partId);
-    }
-
-    /**
-     * Key that is needed for the rebalance algorithm.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
-     */
-    public static ByteArray stablePartAssignmentsKey(TablePartitionId partId) {
-        return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
-    }
-
-    /**
-     * Key that is needed for the rebalance algorithm.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
-     */
-    public static ByteArray switchReduceKey(TablePartitionId partId) {
-        return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + partId);
-    }
-
-    /**
-     * Key that is needed for the rebalance algorithm.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
-     */
-    public static ByteArray switchAppendKey(TablePartitionId partId) {
-        return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
-    }
-
-    /**
-     * Extract table id from a metastorage key of partition.
-     *
-     * @param key Key.
-     * @return Table id.
-     */
-    public static int extractTableId(byte[] key) {
-        return extractTableId(key, "");
-    }
-
-    /**
-     * Extract table id from a metastorage key of partition.
-     *
-     * @param key Key.
-     * @param prefix Key prefix.
-     * @return Table id.
-     */
-    public static int extractTableId(byte[] key, String prefix) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
-    }
-
-    /**
-     * Extract partition number from the rebalance key of partition.
-     *
-     * @param key Key.
-     * @return Partition number.
-     */
-    public static int extractPartitionNumber(byte[] key) {
-        var strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
-    }
-
-    /**
-     * Checks if an error is recoverable, so we can retry a rebalance intent.
-     *
-     * @param t The throwable.
-     * @return {@code True} if this is a recoverable exception.
-     */
-    public static boolean recoverable(Throwable t) {
-        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
-        return true;
-    }
-
+public class RebalanceUtilEx {
     /**
      * Starts the process of removing peer from raft group if that peer has in-memory storage or if its
      * storage has been cleared.
@@ -291,20 +170,5 @@ public class RebalanceUtil {
         );
 
         return metaStorageMgr.invoke(resultingOperation).thenApply(unused -> null);
-    }
-
-    /**
-     * Adds nodes to the set of nodes.
-     *
-     * @param op1 First operand.
-     * @param op2 Second operand.
-     * @return Result of the addition.
-     */
-    public static <T> Set<T> union(Set<T> op1, Set<T> op2) {
-        var res = new HashSet<>(op1);
-
-        res.addAll(op2);
-
-        return res;
     }
 }
