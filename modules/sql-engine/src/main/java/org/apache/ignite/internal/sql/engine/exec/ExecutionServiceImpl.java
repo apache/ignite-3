@@ -72,6 +72,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
@@ -998,14 +999,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public IgniteRel visit(IgniteTableModify rel) {
-                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
-
-                    List<NodeWithConsistencyToken> assignments = mappedFragment.groupsBySourceId()
-                            .get(UpdatableTableImpl.MODIFY_NODE_SOURCE_ID).assignments();
-
-                    assert assignments != null : "Table assignments must be available";
-
-                    enlist(tableId, assignments);
+                    enlist(rel);
 
                     return super.visit(rel);
                 }
@@ -1035,7 +1029,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    List<NodeWithConsistencyToken> assignments = mappedFragment.groupsBySourceId().get(rel.sourceId()).assignments();
+                    ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
+                    List<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
                     enlist(tableId, assignments);
                 }

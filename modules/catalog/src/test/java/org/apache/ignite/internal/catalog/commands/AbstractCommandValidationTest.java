@@ -67,7 +67,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog emptyCatalog() {
-        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
+        return catalog(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithTable(String name) {
@@ -152,12 +152,13 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog catalog(
+            int version,
             CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
             CatalogSystemViewDescriptor[] systemViews
     ) {
         return new Catalog(
-                1,
+                version,
                 0L,
                 1,
                 List.of(DEFAULT_ZONE),

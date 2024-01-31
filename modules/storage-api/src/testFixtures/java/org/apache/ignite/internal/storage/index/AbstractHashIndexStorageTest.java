@@ -50,8 +50,9 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
                 name,
                 catalogTableDescriptor.id(),
                 false,
-                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList()),
-                AVAILABLE
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
         );
 
         when(catalogService.index(eq(name), anyLong())).thenReturn(catalogHashIndexDescriptor);

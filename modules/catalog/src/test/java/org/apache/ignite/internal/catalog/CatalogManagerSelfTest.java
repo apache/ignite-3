@@ -62,9 +62,9 @@ import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -97,7 +97,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -141,13 +141,17 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 /**
@@ -156,7 +160,6 @@ import org.mockito.ArgumentCaptor;
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
-    private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
     private static final int DFLT_TEST_PRECISION = 11;
@@ -279,6 +282,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
         assertEquals(AVAILABLE, pkIndex.status());
+        assertEquals(manager.latestCatalogVersion(), pkIndex.creationCatalogVersion());
 
         CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
         assertNotNull(desc);
@@ -1000,6 +1004,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
         assertEquals(REGISTERED, index.status());
+        assertEquals(manager.latestCatalogVersion(), index.creationCatalogVersion());
     }
 
     @Test
@@ -1041,6 +1046,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
         assertEquals(REGISTERED, index.status());
+        assertEquals(manager.latestCatalogVersion(), index.creationCatalogVersion());
     }
 
     @Test
@@ -2266,17 +2272,110 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
-    @Test
-    void testCatalogVersionsSnapshot() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testIndexCreationCatalogVersionAfterUpdateIndex(boolean hashIndex) {
         createSomeTable(TABLE_NAME);
-        createSomeIndex(TABLE_NAME, INDEX_NAME);
 
-        List<Catalog> expCatalogs = IntStream.rangeClosed(manager.earliestCatalogVersion(), manager.latestCatalogVersion())
-                .mapToObj(manager::catalog)
-                .collect(toList());
+        if (hashIndex) {
+            createSomeIndex(TABLE_NAME, INDEX_NAME);
+        } else {
+            createSomeSortedIndex(TABLE_NAME, INDEX_NAME);
+        }
 
-        assertThat(expCatalogs, hasSize(greaterThanOrEqualTo(2)));
-        assertThat(manager.catalogVersionsSnapshot(), equalTo(expCatalogs));
+        int expCreationVersion = manager.latestCatalogVersion();
+
+        int indexId = indexId(INDEX_NAME);
+
+        assertThat(manager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
+
+        Catalog latestCatalog = manager.catalog(manager.latestCatalogVersion());
+
+        assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
+
+        assertEquals(expCreationVersion, latestCatalog.index(indexId).creationCatalogVersion());
+    }
+
+    @ParameterizedTest(name = "hashIndex={0}, updateIndex={1}")
+    @MethodSource("argumentsForCheckIndexCreationCatalogVersion")
+    void testIndexCreationCatalogVersionAfterUpdateCatalog(boolean hashIndex, boolean updateIndex) {
+        createSomeTable(TABLE_NAME);
+
+        if (hashIndex) {
+            createSomeIndex(TABLE_NAME, INDEX_NAME);
+        } else {
+            createSomeSortedIndex(TABLE_NAME, INDEX_NAME);
+        }
+
+        int expCreationVersion = manager.latestCatalogVersion();
+
+        int indexId = indexId(INDEX_NAME);
+
+        if (updateIndex) {
+            assertThat(manager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
+        } else {
+            createSomeTable(TABLE_NAME + 1);
+        }
+
+        Catalog latestCatalog = manager.catalog(manager.latestCatalogVersion());
+
+        assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
+
+        assertEquals(expCreationVersion, latestCatalog.index(indexId).creationCatalogVersion());
+    }
+
+    private static Stream<Arguments> argumentsForCheckIndexCreationCatalogVersion() {
+        return Stream.of(
+                Arguments.of(true, true), // Create hash index and update index status..
+                Arguments.of(true, false), // Create hash index and update catalog (create table).
+                Arguments.of(false, true), // Create sorted index and update index status..
+                Arguments.of(false, false) // Create sorted index and update catalog (create table).
+        );
+    }
+
+    @Test
+    public void testCatalogCompaction() throws InterruptedException {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+
+        long timestamp = clock.nowLong();
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+
+        // Add more updates
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willBe(nullValue()));
+
+        assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
+
+        IgniteTestUtils.waitForCondition(() -> manager.earliestCatalogVersion() != 0, 2_000);
+
+        assertEquals(catalog.version(), manager.earliestCatalogVersion());
+
+        assertNull(manager.catalog(0));
+        assertNull(manager.catalog(catalog.version() - 1));
+        assertNotNull(manager.catalog(catalog.version()));
+
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(0));
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
+        assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
+        assertSame(catalog.version(), manager.activeCatalogVersion(timestamp));
+    }
+
+    @Test
+    public void testEmptyCatalogCompaction() {
+        assertEquals(0, manager.latestCatalogVersion());
+
+        long timestamp = clock.nowLong();
+
+        assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
+
+        assertEquals(0, manager.earliestCatalogVersion());
+        assertEquals(0, manager.latestCatalogVersion());
+
+        assertNotNull(manager.catalog(0));
+
+        assertEquals(0, manager.activeCatalogVersion(0));
+        assertEquals(0, manager.activeCatalogVersion(timestamp));
     }
 
     private CompletableFuture<Void> changeColumn(
@@ -2379,6 +2478,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private void createSomeIndex(String tableName, String indexName) {
         assertThat(
                 manager.execute(createHashIndexCommand(tableName, indexName, false, List.of("key1"))),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void createSomeSortedIndex(String tableName, String indexName) {
+        assertThat(
+                manager.execute(createSortedIndexCommand(tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST))),
                 willCompleteSuccessfully()
         );
     }

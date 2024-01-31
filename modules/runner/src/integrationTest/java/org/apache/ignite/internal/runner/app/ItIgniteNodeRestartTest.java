@@ -140,6 +140,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
@@ -225,6 +226,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private static StorageUpdateConfiguration storageUpdateConfiguration;
 
     @InjectConfiguration
     private CriticalWorkersConfiguration workersConfiguration;
@@ -493,6 +497,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 registry,
                 gcConfig,
+                storageUpdateConfiguration,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,

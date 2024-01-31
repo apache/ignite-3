@@ -21,7 +21,6 @@ import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -42,7 +41,6 @@ import static org.mockito.Mockito.when;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -51,6 +49,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -229,44 +228,43 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testCanReconnectAfterFail() throws Exception {
         String msgText = "test";
 
         int port1 = 4000;
         int port2 = 4001;
+        UUID launchId2 = UUID.randomUUID();
 
         ConnectionManagerWrapper manager1 = startManager(port1);
 
-        ConnectionManagerWrapper manager2 = startManager(port2);
+        ConnectionManagerWrapper manager2 = startManager(port2, launchId2);
 
-        NettySender sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+        NettySender sender = manager1.openChannelTo(manager2).get(300, TimeUnit.SECONDS);
         assertNotNull(sender);
 
         TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
         manager2.close();
 
-        assertThat(
-                sender.send(new OutNetworkObject(testMessage, emptyList())),
-                willThrowWithCauseOrSuppressed(ClosedChannelException.class)
-        );
+        sender.send(new OutNetworkObject(testMessage, emptyList()));
 
-        manager2 = startManager(port2);
+        manager2 = startManager(port2, launchId2);
 
-        var fut = new CompletableFuture<NetworkMessage>();
+        var latch = new CountDownLatch(2);
 
-        manager2.connectionManager.addListener((obj) -> fut.complete(obj.message()));
+        manager2.connectionManager.addListener((obj) -> {
+            if (testMessage.equals(obj.message())) {
+                latch.countDown();
+            }
+        });
 
         sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
         assertNotNull(sender);
 
         sender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
 
-        NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
-
-        assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+        assertTrue(latch.await(3, TimeUnit.SECONDS));
     }
 
     /**
@@ -477,6 +475,14 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         return startManager(port, defaultSerializationRegistry());
     }
 
+    private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) throws Exception {
+        return startManager(port, UUID.randomUUID(), registry);
+    }
+
+    private ConnectionManagerWrapper startManager(int port, UUID launchId) throws Exception {
+        return startManager(port, launchId, defaultSerializationRegistry());
+    }
+
     /**
      * Creates and starts a {@link ConnectionManager} listening on the given port, configured with the provided serialization registry.
      *
@@ -484,8 +490,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      * @param registry Serialization registry.
      * @return Connection manager.
      */
-    private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) throws Exception {
-        UUID launchId = UUID.randomUUID();
+    private ConnectionManagerWrapper startManager(int port, UUID launchId, MessageSerializationRegistry registry) throws Exception {
         String consistentId = testNodeName(testInfo, port);
 
         networkConfiguration.port().update(port).join();
