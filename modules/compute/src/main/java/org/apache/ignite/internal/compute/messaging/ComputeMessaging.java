@@ -267,8 +267,7 @@ public class ComputeMessaging {
 
     private void processJobStatusesRequest(JobStatusesRequest message, String senderConsistentId, long correlationId) {
         executionManager.localStatusesAsync()
-                .whenComplete((statuses, throwable) -> sendJobStatusesResponse(statuses, throwable, senderConsistentId, correlationId)
-                );
+                .whenComplete((statuses, throwable) -> sendJobStatusesResponse(statuses, throwable, senderConsistentId, correlationId));
     }
 
     private void sendJobStatusesResponse(
