@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -136,6 +138,13 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.STRING, EnumSet.of(ColumnType.STRING));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
+    }
+
+    public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
+
+    /** System schema names. */
+    static boolean isSystemSchema(String schemaName) {
+        return SYSTEM_SCHEMAS.contains(schemaName);
     }
 
     /**
@@ -494,5 +503,20 @@ public class CatalogUtils {
                 : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
 
         return indexByIdMap.values();
+    }
+
+    /**
+     * Returns the timestamp at which the catalog version is guaranteed to be activated on every node of the cluster. This takes into
+     * account possible clock skew between nodes.
+     *
+     * @param catalog Catalog version of interest.
+     */
+    public static HybridTimestamp clusterWideEnsuredActivationTimestamp(Catalog catalog) {
+        HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
+
+        return activationTs.addPhysicalTime(HybridTimestamp.maxClockSkew())
+                // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
+                // logical parts on different nodes of the cluster (see IGNITE-21084).
+                .roundUpToPhysicalTick();
     }
 }

@@ -23,7 +23,6 @@ import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
@@ -40,7 +39,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
 class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
     private PersistentPageMemoryStorageEngine engine;
 

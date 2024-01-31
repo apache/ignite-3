@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
@@ -32,6 +33,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.nullValue;
@@ -43,6 +46,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -58,7 +63,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,9 +80,10 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private final CatalogManager catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
+    private final ExecutorService executorService = newSingleThreadExecutor();
+
     private final IndexBuilder indexBuilder = new IndexBuilder(
-            NODE_NAME,
-            1,
+            executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture())
     );
 
@@ -106,11 +111,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 indexAvailabilityController::close,
                 indexBuilder::close,
                 catalogManager::stop,
-                metaStorageManager::stop
+                metaStorageManager::stop,
+                () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
         );
     }
 

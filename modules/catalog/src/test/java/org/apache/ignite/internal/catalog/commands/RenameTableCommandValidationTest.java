@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -127,6 +128,21 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
                 CatalogValidationException.class,
                 () -> command.get(catalog),
                 "Table with name 'PUBLIC.TEST2' already exists"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsThrownIfSchemaIsReserved(String schema) {
+        RenameTableCommandBuilder builder = RenameTableCommand.builder();
+
+        builder.schemaName(schema)
+                .tableName("t");
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Operations with reserved schemas are not allowed"
         );
     }
 }

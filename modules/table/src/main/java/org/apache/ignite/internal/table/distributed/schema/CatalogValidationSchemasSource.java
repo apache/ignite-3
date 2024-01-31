@@ -41,7 +41,6 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
 
     private final ConcurrentMap<CatalogVersionsSpan, List<FullTableSchema>> catalogVersionSpansCache = new ConcurrentHashMap<>();
 
-    // TODO: Remove entries from cache when compacting Catalog https://issues.apache.org/jira/browse/IGNITE-20790
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
     private final ConcurrentMap<CatalogVersionToTableVersionSpan, List<FullTableSchema>> catalogVersionToTableVersionSpansCache
             = new ConcurrentHashMap<>();

@@ -60,8 +60,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
     protected static final String TABLE_NAME = "test_table";
+    protected static final String TABLE_NAME_2 = "test_table_2";
 
     protected static final String INDEX_NAME = "myIndex";
+    protected static final String INDEX_NAME_2 = "myIndex2";
 
     final HybridClock clock = new HybridClockImpl();
 
@@ -142,9 +144,19 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             @Nullable List<String> indexColumns,
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
+        return createSortedIndexCommand(TABLE_NAME, indexName, unique, indexColumns, columnsCollations);
+    }
+
+    protected static CatalogCommand createSortedIndexCommand(
+            String tableName,
+            String indexName,
+            boolean unique,
+            @Nullable List<String> indexColumns,
+            @Nullable List<CatalogColumnCollation> columnsCollations
+    ) {
         return CreateSortedIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName(TABLE_NAME)
+                .tableName(tableName)
                 .indexName(indexName)
                 .unique(unique)
                 .columns(indexColumns)

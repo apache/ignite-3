@@ -213,7 +213,12 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.tables.add(table);
         }
 
-        return super.visit(rel);
+        IgniteRel cloned = rel.clone(idGenerator.nextId());
+        IgniteRel input = this.visit((IgniteRel) rel.getInput(0));
+
+        cloned.replaceInput(0, input);
+
+        return cloned;
     }
 
     /** {@inheritDoc} */

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.map
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -185,6 +186,11 @@ public class ComputeComponentImpl implements ComputeComponent {
 
         result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
         return result;
+    }
+
+    @Override
+    public CompletableFuture<Collection<JobStatus>> statusesAsync() {
+        return messaging.broadcastStatusesAsync();
     }
 
     @Override

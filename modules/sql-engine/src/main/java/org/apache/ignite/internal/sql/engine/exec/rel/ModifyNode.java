@@ -26,6 +26,7 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -79,6 +80,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private final int @Nullable [] mapping;
 
+    private final long sourceId;
+
     private List<RowT> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
     private long updatedRows;
@@ -100,12 +103,14 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public ModifyNode(
             ExecutionContext<RowT> ctx,
             UpdatableTable table,
+            long sourceId,
             TableModify.Operation op,
             @Nullable List<String> updateColumns
     ) {
         super(ctx);
 
         this.table = table;
+        this.sourceId = sourceId;
         this.modifyOp = op;
         this.updateColumns = updateColumns;
 
@@ -208,16 +213,18 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
         CompletableFuture<?> modifyResult;
+        ColocationGroup colocationGroup = context().group(sourceId);
+        assert colocationGroup != null : "No colocation group for sourceId#" + sourceId;
 
         switch (modifyOp) {
             case INSERT:
-                modifyResult = table.insertAll(context(), rows);
+                modifyResult = table.insertAll(context(), rows, colocationGroup);
 
                 break;
             case UPDATE:
                 inlineUpdates(0, rows);
 
-                modifyResult = table.upsertAll(context(), rows);
+                modifyResult = table.upsertAll(context(), rows, colocationGroup);
 
                 break;
             case MERGE:
@@ -229,11 +236,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                 List<CompletableFuture<?>> mergeParts = new ArrayList<>(2);
 
                 if (split.getFirst() != null) {
-                    mergeParts.add(table.insertAll(context(), split.getFirst()));
+                    mergeParts.add(table.insertAll(context(), split.getFirst(), colocationGroup));
                 }
 
                 if (split.getSecond() != null) {
-                    mergeParts.add(table.upsertAll(context(), split.getSecond()));
+                    mergeParts.add(table.upsertAll(context(), split.getSecond(), colocationGroup));
                 }
 
                 modifyResult = CompletableFuture.allOf(
@@ -242,7 +249,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                 break;
             case DELETE:
-                modifyResult = table.deleteAll(context(), rows);
+                modifyResult = table.deleteAll(context(), rows, colocationGroup);
 
                 break;
             default:

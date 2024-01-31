@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -310,7 +311,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         return connectionManager.channel(consistentId, type, addr)
-                .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)));
+                .thenComposeToCompletable(sender -> sender.send(
+                        new OutNetworkObject(message, descriptors),
+                        () -> triggerChannelCreation(consistentId, type, addr)
+                ));
+    }
+
+    private OrderingFuture<NettySender> triggerChannelCreation(@Nullable String consistentId, ChannelType type, InetSocketAddress addr) {
+        return connectionManager.channel(consistentId, type, addr);
     }
 
     private List<ClassDescriptorMessage> prepareMarshal(NetworkMessage msg) throws Exception {

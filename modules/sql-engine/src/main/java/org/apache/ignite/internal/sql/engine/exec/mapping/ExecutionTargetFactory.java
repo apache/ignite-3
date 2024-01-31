@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 
 /**
  * Factory to create execution target.
@@ -30,7 +30,7 @@ public interface ExecutionTargetFactory {
      * @param nodes List of partitions.
      * @return An execution target.
      */
-    ExecutionTarget partitioned(List<NodeWithTerm> nodes);
+    ExecutionTarget partitioned(List<NodeWithConsistencyToken> nodes);
 
     /**
      * Creates target from list of required nodes.
@@ -81,5 +81,5 @@ public interface ExecutionTargetFactory {
      * @param target A target to resolve assignments from.
      * @return The list of assignments the target represents. Never null.
      */
-    List<NodeWithTerm> resolveAssignments(ExecutionTarget target);
+    List<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target);
 }
