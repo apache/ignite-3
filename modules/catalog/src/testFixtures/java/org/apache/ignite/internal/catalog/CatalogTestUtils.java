@@ -47,6 +47,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /** Utilities for working with the catalog in tests. */
 public class CatalogTestUtils {
@@ -352,20 +353,35 @@ public class CatalogTestUtils {
     }
 
     /**
+     * Searches for an index by name in the requested version of the catalog. Throws if the index is not found.
+     *
+     * @param catalogService Catalog service.
+     * @param catalogVersion Catalog version in which to find the index.
+     * @param indexName Index name.
+     * @return Index (cannot be null).
+     */
+    public static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
+        CatalogIndexDescriptor indexDescriptor = indexOrNull(catalogService,
+                catalogVersion, indexName);
+
+        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
+
+        return indexDescriptor;
+    }
+
+    /**
      * Searches for an index by name in the requested version of the catalog.
      *
      * @param catalogService Catalog service.
      * @param catalogVersion Catalog version in which to find the index.
      * @param indexName Index name.
+     * @return Index or {@code null} if not found.
      */
-    public static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.indexes(catalogVersion).stream()
+    @Nullable
+    public static CatalogIndexDescriptor indexOrNull(CatalogService catalogService, int catalogVersion, String indexName) {
+        return catalogService.indexes(catalogVersion).stream()
                 .filter(index -> indexName.equals(index.name()))
                 .findFirst()
                 .orElse(null);
-
-        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
-
-        return indexDescriptor;
     }
 }

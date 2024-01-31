@@ -346,16 +346,18 @@ public class IndexManager implements IgniteComponent {
 
         List<CompletableFuture<?>> startIndexFutures = new ArrayList<>();
 
-        for (Entry<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> e : collectIndexesForRecovery(catalogManager).entrySet()) {
+        Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> indexesForRecovery = collectIndexesForRecovery(catalogManager);
+        for (Entry<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> e : indexesForRecovery.entrySet()) {
             CatalogTableDescriptor table = e.getKey();
 
             for (CatalogIndexDescriptor index : e.getValue()) {
-                // TODO: IGNITE-21117 - start STOPPING indexes as well instead of removing them.
-                if (index.status() == CatalogIndexStatus.STOPPING) {
+                // TODO: IGNITE-21117 - remove this.
+                if (index.status() == CatalogIndexStatus.STOPPING
+                        && catalogManager.index(index.id(), catalogManager.latestCatalogVersion()) != null) {
                     startIndexFutures.add(removeIndex(index.id()));
-                } else {
-                    startIndexFutures.add(startIndexAsync(table, index, causalityToken));
                 }
+
+                startIndexFutures.add(startIndexAsync(table, index, causalityToken));
             }
         }
 

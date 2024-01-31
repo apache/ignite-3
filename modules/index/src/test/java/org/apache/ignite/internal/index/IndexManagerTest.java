@@ -95,6 +95,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -264,16 +265,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         makeIndexesAvailable(indexName0, indexName2, indexNameOtherTable1, indexNameOtherTable3);
 
         List<CatalogIndexDescriptor> droppedIndexes = dropIndexes(indexName1, indexName2);
-        CatalogIndexDescriptor index1BeforeDrop = droppedIndexes.get(0);
-
-        List<CatalogIndexDescriptor> removedIndexes = removeIndexes(indexName2);
-        CatalogIndexDescriptor index2BeforeRemove = removedIndexes.get(0);
-
         List<CatalogIndexDescriptor> droppedIndexesOtherTable = dropIndexes(indexNameOtherTable0, indexNameOtherTable1);
-        CatalogIndexDescriptor index0OtherTableBeforeDrop = droppedIndexesOtherTable.get(0);
-
-        List<CatalogIndexDescriptor> removedIndexesOtherTable = removeIndexes(indexNameOtherTable1);
-        CatalogIndexDescriptor index1OtherTableBeforeRemove = removedIndexesOtherTable.get(0);
 
         Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectedIndexes = collectIndexesForRecovery();
 
@@ -292,8 +284,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                         index(latestCatalogVersion, indexName0),
                         index(latestCatalogVersion, indexName3),
                         index(latestCatalogVersion, indexName4),
-                        index1BeforeDrop,
-                        index2BeforeRemove
+                        droppedIndexes.get(0),
+                        droppedIndexes.get(1)
                 )
         );
 
@@ -304,8 +296,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                         index(latestCatalogVersion, indexNameOtherTable2),
                         index(latestCatalogVersion, indexNameOtherTable3),
                         index(latestCatalogVersion, indexNameOtherTable4),
-                        index0OtherTableBeforeDrop,
-                        index1OtherTableBeforeRemove
+                        droppedIndexesOtherTable.get(0),
+                        droppedIndexesOtherTable.get(1)
                 )
         );
     }
@@ -424,6 +416,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         return CatalogTestUtils.index(catalogManager, catalogVersion, indexName);
     }
 
+    @Nullable
+    private CatalogIndexDescriptor indexOrNull(int catalogVersion, String indexName) {
+        return CatalogTestUtils.indexOrNull(catalogManager, catalogVersion, indexName);
+    }
+
     private void createTable(String tableName) {
         TestIndexManagementUtils.createTable(catalogManager, tableName, COLUMN_NAME);
     }
@@ -452,10 +449,6 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
-    private void removeIndex(String indexName) {
-        TableTestUtils.removeIndex(catalogManager, indexName);
-    }
-
     private void createIndexes(String tableName, String... indexNames) {
         for (String indexName : indexNames) {
             createIndex(tableName, indexName);
@@ -478,21 +471,14 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         var res = new ArrayList<CatalogIndexDescriptor>(indexNames.length);
 
         for (String indexName : indexNames) {
-            res.add(index(catalogManager.latestCatalogVersion(), indexName));
+            int versionBeforeDrop = catalogManager.latestCatalogVersion();
+            CatalogIndexDescriptor indexBeforeDropping = index(versionBeforeDrop, indexName);
 
             dropIndex(indexName);
-        }
 
-        return res;
-    }
+            CatalogIndexDescriptor indexAfterDropping = indexOrNull(versionBeforeDrop + 1, indexName);
 
-    private List<CatalogIndexDescriptor> removeIndexes(String... indexNames) {
-        var res = new ArrayList<CatalogIndexDescriptor>(indexNames.length);
-
-        for (String indexName : indexNames) {
-            res.add(index(catalogManager.latestCatalogVersion(), indexName));
-
-            removeIndex(indexName);
+            res.add(indexAfterDropping != null ? indexAfterDropping : indexBeforeDropping);
         }
 
         return res;
