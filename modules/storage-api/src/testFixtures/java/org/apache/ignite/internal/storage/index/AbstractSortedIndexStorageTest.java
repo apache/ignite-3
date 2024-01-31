@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
@@ -119,8 +120,9 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 name,
                 catalogTableDescriptor.id(),
                 false,
-                List.of(columns),
-                true
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                List.of(columns)
         );
 
         when(catalogService.index(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);

@@ -72,13 +72,19 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile boolean rebalance;
 
-    private final LockByRowId lockByRowId = new LockByRowId();
+    private final LockByRowId lockByRowId;
 
     /** Amount of cursors that opened and still do not close. */
     private final AtomicInteger pendingCursors = new AtomicInteger();
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
+        this.lockByRowId = new LockByRowId();
+    }
+
+    public TestMvPartitionStorage(int partitionId, LockByRowId lockByRowId) {
+        this.partitionId = partitionId;
+        this.lockByRowId = lockByRowId;
     }
 
     private static class VersionChain implements GcEntry {

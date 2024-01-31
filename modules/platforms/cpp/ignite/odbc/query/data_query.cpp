@@ -27,69 +27,6 @@
 namespace {
 using namespace ignite;
 
-/**
- * Reads result set metadata.
- *
- * @param reader Reader.
- * @return Result set meta columns.
- */
-column_meta_vector read_meta(protocol::reader &reader) {
-    auto size = reader.read_int32();
-
-    column_meta_vector columns;
-    columns.reserve(size);
-
-    for (std::int32_t column_idx = 0; column_idx < size; ++column_idx) {
-        auto fields_cnt = reader.read_int32();
-
-        assert(fields_cnt >= 6); // Expect at least six fields.
-
-        auto name = reader.read_string();
-        auto nullable = reader.read_bool();
-        auto typ = ignite_type(reader.read_int32());
-        auto scale = reader.read_int32();
-        auto precision = reader.read_int32();
-
-        bool origin_present = reader.read_bool();
-
-        if (!origin_present) {
-            columns.emplace_back("", "", std::move(name), typ, precision, scale, nullable);
-            continue;
-        }
-
-        assert(fields_cnt >= 9); // Expect at least three more fields.
-        auto origin_name = reader.read_string_nullable();
-        auto origin_schema_id = reader.try_read_int32();
-        std::string origin_schema;
-        if (origin_schema_id) {
-            if (*origin_schema_id >= std::int32_t(columns.size())) {
-                throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id)
-                    + ", id=" + std::to_string(column_idx));
-            }
-            origin_schema = columns[*origin_schema_id].get_schema_name();
-        } else {
-            origin_schema = reader.read_string();
-        }
-
-        auto origin_table_id = reader.try_read_int32();
-        std::string origin_table;
-        if (origin_table_id) {
-            if (*origin_table_id >= std::int32_t(columns.size())) {
-                throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id)
-                    + ", id=" + std::to_string(column_idx));
-            }
-            origin_table = columns[*origin_table_id].get_table_name();
-        } else {
-            origin_table = reader.read_string();
-        }
-
-        columns.emplace_back(
-            std::move(origin_schema), std::move(origin_table), std::move(name), typ, precision, scale, nullable);
-    }
-
-    return columns;
-}
-
 // TODO: IGNITE-19968 Avoid storing row columns in primitives, read them directly from binary tuple.
 /**
  * Put a primitive into a buffer.
@@ -185,12 +122,20 @@ sql_result data_query::execute() {
 
 const column_meta_vector *data_query::get_meta() {
     if (!m_result_meta_available) {
-        make_request_resultset_meta();
+        update_meta();
+
         if (!m_result_meta_available)
             return nullptr;
     }
 
     return &m_result_meta;
+}
+
+const sql_parameter *data_query::get_sql_param(std::int16_t idx) {
+    if (idx > 0 && static_cast<std::size_t>(idx) <= m_params_meta.size())
+        return &m_params_meta.at(idx - 1);
+
+    return nullptr;
 }
 
 sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
@@ -351,8 +296,8 @@ sql_result data_query::make_request_execute() {
         m_rows_affected = reader->read_int64();
 
         if (m_has_rowset) {
-            auto columns = read_meta(*reader);
-            set_resultset_meta(columns);
+            auto columns = read_result_set_meta(*reader);
+            set_resultset_meta(std::move(columns));
             auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
             m_cursor = std::make_unique<cursor>(std::move(page));
         }
@@ -395,12 +340,54 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
-sql_result data_query::make_request_resultset_meta() {
-    // TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
-    m_diag.add_status_record(
-        sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Metadata for non-executed queries is not supported");
+sql_result data_query::update_meta() {
+    auto &schema = m_connection.get_schema();
 
-    return sql_result::AI_ERROR;
+    auto success = m_diag.catch_errors([&] {
+        auto tx = m_connection.get_transaction_id();
+        auto response =
+            m_connection.sync_request(protocol::client_operation::SQL_QUERY_META, [&](protocol::writer &writer) {
+                if (tx)
+                    writer.write(*tx);
+                else
+                    writer.write_nil();
+
+                writer.write(schema);
+                writer.write(m_query);
+            });
+
+        if (tx) {
+            m_connection.mark_transaction_non_empty();
+        }
+
+        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
+        auto num = reader->read_int32();
+
+        if (num < 0) {
+            throw odbc_error(
+                sql_state::SHY000_GENERAL_ERROR, "Unexpected number of parameters: " + std::to_string(num));
+        }
+
+        std::vector<sql_parameter> params;
+        params.reserve(num);
+
+        for (std::int32_t i = 0; i < num; ++i) {
+            sql_parameter param{};
+            param.nullable = reader->read_bool();
+            param.data_type = ignite_type(reader->read_int32());
+            param.scale = reader->read_int32();
+            param.precision = reader->read_int32();
+
+            params.emplace_back(param);
+        }
+
+        set_params_meta(std::move(params));
+
+        auto columns = read_result_set_meta(*reader);
+        set_resultset_meta(std::move(columns));
+    });
+
+    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
 sql_result data_query::process_conversion_result(
@@ -454,16 +441,29 @@ sql_result data_query::process_conversion_result(
     return sql_result::AI_ERROR;
 }
 
-void data_query::set_resultset_meta(const column_meta_vector &value) {
-    m_result_meta.assign(value.begin(), value.end());
+void data_query::set_resultset_meta(column_meta_vector value) {
+    m_result_meta = std::move(value);
     m_result_meta_available = true;
 
     for (size_t i = 0; i < m_result_meta.size(); ++i) {
         column_meta &meta = m_result_meta.at(i);
-        LOG_MSG("\n[" << i << "] SchemaName:     " << meta.get_schema_name() << "\n[" << i << "] TypeName:       "
-                      << meta.get_table_name() << "\n[" << i << "] ColumnName:     " << meta.get_column_name() << "\n["
-                      << i << "] ColumnType:     " << static_cast<int32_t>(meta.get_data_type()));
+        LOG_MSG("[" << i << "] SchemaName: " << meta.get_schema_name());
+        LOG_MSG("[" << i << "] TableName:  " << meta.get_table_name());
+        LOG_MSG("[" << i << "] ColumnName: " << meta.get_column_name());
+        LOG_MSG("[" << i << "] ColumnType: " << static_cast<int32_t>(meta.get_data_type()));
     }
 }
 
+void data_query::set_params_meta(std::vector<sql_parameter> value) {
+    m_params_meta = std::move(value);
+    m_params_meta_available = true;
+
+    for (size_t i = 0; i < m_params_meta.size(); ++i) {
+        sql_parameter &meta = m_params_meta.at(i);
+        LOG_MSG("[" << i << "] ParamType: " << meta.data_type);
+        LOG_MSG("[" << i << "] Scale:     " << meta.scale);
+        LOG_MSG("[" << i << "] Precision: " << meta.precision);
+        LOG_MSG("[" << i << "] Nullable:  " << (meta.nullable ? "true" : "false"));
+    }
+}
 } // namespace ignite

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.configuration;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @MicronautTest
 @ExtendWith(ConfigurationExtension.class)
+@Property(name = "ignite.endpoints.filter-non-initialized", value = "false")
 class ClusterConfigurationControllerTest extends ConfigurationControllerBaseTest {
     @InjectConfiguration
     SecurityConfiguration securityConfiguration;

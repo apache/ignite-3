@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 
@@ -63,17 +63,17 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     @Override
-    public ExecutionTarget partitioned(List<NodeWithTerm> nodes) {
+    public ExecutionTarget partitioned(List<NodeWithConsistencyToken> nodes) {
         long[] partitionNodes = new long[nodes.size()];
-        long[] terms = new long[nodes.size()];
+        long[] enlistmentConsistencyTokens = new long[nodes.size()];
 
         int idx = 0;
-        for (NodeWithTerm e : nodes) {
+        for (NodeWithConsistencyToken e : nodes) {
             partitionNodes[idx] = nodeNameToId.getOrDefault(e.name(), 0);
-            terms[idx++] = e.term();
+            enlistmentConsistencyTokens[idx++] = e.enlistmentConsistencyToken();
         }
 
-        return new PartitionedTarget(true, partitionNodes, terms);
+        return new PartitionedTarget(true, partitionNodes, enlistmentConsistencyTokens);
     }
 
     @Override
@@ -86,7 +86,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     @Override
-    public List<NodeWithTerm> resolveAssignments(ExecutionTarget target) {
+    public List<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
         target = target.finalise();
 
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();

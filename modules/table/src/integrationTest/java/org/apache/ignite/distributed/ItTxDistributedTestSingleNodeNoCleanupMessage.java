@@ -58,6 +58,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -95,6 +96,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                storageUpdateConfiguration,
                 workDir,
                 nodes(),
                 replicas(),
@@ -110,7 +112,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     ClusterNode node,
                     PlacementDriver placementDriver
             ) {
-                return new  TxManagerImpl(
+                return new TxManagerImpl(
                         txConfiguration,
                         clusterService,
                         replicaSvc,
@@ -118,7 +120,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         clock,
                         generator,
                         placementDriver,
-                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                        new TestLocalRwTxCounter()
                 ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {

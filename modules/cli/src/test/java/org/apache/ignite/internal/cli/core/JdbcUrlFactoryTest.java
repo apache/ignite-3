@@ -82,8 +82,8 @@ class JdbcUrlFactoryTest {
         // Then JDBC URL is constructed with basic authentication settings
         String jdbcUrl = factory.constructJdbcUrl("http://localhost:10300", 10800);
         String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
-                + "?basicAuthenticationUsername=admin"
-                + "&basicAuthenticationPassword=password";
+                + "?username=admin"
+                + "&password=password";
         assertEquals(expectedJdbcUrl, jdbcUrl);
     }
 
@@ -100,8 +100,8 @@ class JdbcUrlFactoryTest {
                 + "&trustStorePassword=changeit"
                 + "&keyStorePath=ssl/keystore.p12"
                 + "&keyStorePassword=changeit"
-                + "&basicAuthenticationUsername=usr"
-                + "&basicAuthenticationPassword=pwd";
+                + "&username=usr"
+                + "&password=pwd";
         assertEquals(expectedJdbcUrl, jdbcUrl);
     }
 

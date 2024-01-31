@@ -17,43 +17,152 @@
 
 package org.apache.ignite.internal.client.compute;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.client.PayloadInputChannel;
+import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 
 /**
  * Client job execution implementation.
  */
 class ClientJobExecution<R> implements JobExecution<R> {
-    private final CompletableFuture<R> result;
+    private static final JobState[] JOB_STATES = JobState.values();
 
-    ClientJobExecution(CompletableFuture<R> result) {
-        this.result = result;
+    private final ReliableChannel ch;
+
+    private final CompletableFuture<UUID> jobIdFuture;
+
+    private final CompletableFuture<R> resultAsync;
+
+    // Local status cache
+    private final CompletableFuture<@Nullable JobStatus> statusFuture = new CompletableFuture<>();
+
+    ClientJobExecution(ReliableChannel ch, CompletableFuture<PayloadInputChannel> reqFuture) {
+        this.ch = ch;
+
+        jobIdFuture = reqFuture.thenApply(r -> r.in().unpackUuid());
+
+        resultAsync = reqFuture
+                .thenCompose(PayloadInputChannel::notificationFuture)
+                .thenApply(r -> {
+                    // Notifications require explicit input close.
+                    try (r) {
+                        R result = (R) r.in().unpackObjectFromBinaryTuple();
+                        statusFuture.complete(unpackJobStatus(r));
+                        return result;
+                    }
+                });
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return result;
+        return resultAsync;
     }
 
     @Override
-    public CompletableFuture<JobStatus> statusAsync() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21148
-        return nullCompletedFuture();
+    public CompletableFuture<@Nullable JobStatus> statusAsync() {
+        if (statusFuture.isDone()) {
+            return statusFuture;
+        }
+        return jobIdFuture.thenCompose(this::getJobStatus);
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21148
-        return nullCompletedFuture();
+    public CompletableFuture<@Nullable Boolean> cancelAsync() {
+        if (statusFuture.isDone()) {
+            return falseCompletedFuture();
+        }
+        return jobIdFuture.thenCompose(this::cancelJob);
     }
 
     @Override
-    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21148
-        return nullCompletedFuture();
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+        if (statusFuture.isDone()) {
+            return falseCompletedFuture();
+        }
+        return jobIdFuture.thenCompose(jobId -> changePriority(jobId, newPriority));
+    }
+
+    private CompletableFuture<@Nullable JobStatus> getJobStatus(UUID jobId) {
+        // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
+        // especially in case of colocated execution.
+        return ch.serviceAsync(
+                ClientOp.COMPUTE_GET_STATUS,
+                w -> w.out().packUuid(jobId),
+                ClientJobExecution::unpackJobStatus,
+                null,
+                null,
+                false
+        );
+    }
+
+    private CompletableFuture<@Nullable Boolean> cancelJob(UUID jobId) {
+        // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
+        // especially in case of colocated execution.
+        return ch.serviceAsync(
+                ClientOp.COMPUTE_CANCEL,
+                w -> w.out().packUuid(jobId),
+                ClientJobExecution::unpackBooleanResult,
+                null,
+                null,
+                false
+        );
+    }
+
+    private CompletableFuture<@Nullable Boolean> changePriority(UUID jobId, int newPriority) {
+        // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
+        // especially in case of colocated execution.
+        return ch.serviceAsync(
+                ClientOp.COMPUTE_CHANGE_PRIORITY,
+                w -> {
+                    w.out().packUuid(jobId);
+                    w.out().packInt(newPriority);
+                },
+                ClientJobExecution::unpackBooleanResult,
+                null,
+                null,
+                false
+        );
+    }
+
+    private static @Nullable JobStatus unpackJobStatus(PayloadInputChannel payloadInputChannel) {
+        ClientMessageUnpacker unpacker = payloadInputChannel.in();
+        if (unpacker.tryUnpackNil()) {
+            return null;
+        }
+        return JobStatus.builder()
+                .id(unpacker.unpackUuid())
+                .state(unpackJobState(unpacker))
+                .createTime(unpacker.unpackInstant())
+                .startTime(unpacker.unpackInstantNullable())
+                .finishTime(unpacker.unpackInstantNullable())
+                .build();
+    }
+
+    private static @Nullable Boolean unpackBooleanResult(PayloadInputChannel payloadInputChannel) {
+        ClientMessageUnpacker unpacker = payloadInputChannel.in();
+        if (unpacker.tryUnpackNil()) {
+            return null;
+        }
+        return unpacker.unpackBoolean();
+    }
+
+    private static JobState unpackJobState(ClientMessageUnpacker unpacker) {
+        int id = unpacker.unpackInt();
+        if (id >= 0 && id < JOB_STATES.length) {
+            return JOB_STATES[id];
+        }
+        throw new IgniteException(PROTOCOL_ERR, "Invalid job state id: " + id);
     }
 }

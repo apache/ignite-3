@@ -22,11 +22,11 @@ package org.apache.ignite.internal.streamer;
  */
 public interface StreamerOptions {
     /**
-     * Gets the batch size (the number of entries that will be sent to the cluster in one network call).
+     * Gets the page size (the number of entries that will be sent to the cluster in one network call).
      *
      * @return Batch size.
      */
-    int batchSize();
+    int pageSize();
 
     /**
      * Gets the number of parallel operations per node (how many in-flight requests can be active for a given node).

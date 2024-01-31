@@ -27,7 +27,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
-import org.apache.ignite.internal.tostring.S;
 
 /**
  * Default implementation of the {@link RecoveryDescriptorProvider}.
@@ -49,7 +48,7 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
     @Override
     public Collection<RecoveryDescriptor> getRecoveryDescriptorsByLaunchId(UUID launchId) {
         return recoveryDescriptors.entrySet().stream()
-                .filter(entry -> entry.getKey().launchId.equals(launchId))
+                .filter(entry -> entry.getKey().launchId().equals(launchId))
                 .map(Entry::getValue)
                 .collect(toList());
     }
@@ -57,62 +56,5 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
     @Override
     public Collection<RecoveryDescriptor> getAllRecoveryDescriptors() {
         return List.copyOf(recoveryDescriptors.values());
-    }
-
-    /** Channel key. */
-    private static class ChannelKey {
-        /** Remote node's consistent id. */
-        private final String consistentId;
-
-        /** Remote node's launch id. */
-        private final UUID launchId;
-
-        /**
-         * Connection id. Every connection between this node and a remote node has a unique connection id,
-         * but connections with different nodes may have the same ids.
-         */
-        private final short connectionId;
-
-        private ChannelKey(String consistentId, UUID launchId, short connectionId) {
-            this.consistentId = consistentId;
-            this.launchId = launchId;
-            this.connectionId = connectionId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            ChannelKey that = (ChannelKey) o;
-
-            if (connectionId != that.connectionId) {
-                return false;
-            }
-            if (!consistentId.equals(that.consistentId)) {
-                return false;
-            }
-            return launchId.equals(that.launchId);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int hashCode() {
-            int result = consistentId.hashCode();
-            result = 31 * result + launchId.hashCode();
-            result = 31 * result + connectionId;
-            return result;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String toString() {
-            return S.toString(ChannelKey.class, this);
-        }
     }
 }

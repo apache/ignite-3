@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 
@@ -57,14 +57,14 @@ abstract class AbstractTarget implements ExecutionTarget {
         return result;
     }
 
-    List<NodeWithTerm> assignments(List<String> nodeNames) {
+    List<NodeWithConsistencyToken> assignments(List<String> nodeNames) {
         if (!(this instanceof PartitionedTarget)) {
             return List.of();
         }
 
         PartitionedTarget partitionedTarget = (PartitionedTarget) this;
 
-        List<NodeWithTerm> result = new ArrayList<>(partitionedTarget.partitionsNodes.length);
+        List<NodeWithConsistencyToken> result = new ArrayList<>(partitionedTarget.partitionsNodes.length);
 
         for (int partNo = 0; partNo < partitionedTarget.partitionsNodes.length; partNo++) {
             long partitionNodes = partitionedTarget.partitionsNodes[partNo];
@@ -73,9 +73,9 @@ abstract class AbstractTarget implements ExecutionTarget {
 
             int idx = Long.numberOfTrailingZeros(partitionNodes);
 
-            result.add(new NodeWithTerm(
+            result.add(new NodeWithConsistencyToken(
                     nodeNames.get(idx),
-                    partitionedTarget.terms[partNo]
+                    partitionedTarget.enlistmentConsistencyTokens[partNo]
             ));
         }
 
@@ -172,7 +172,7 @@ abstract class AbstractTarget implements ExecutionTarget {
                 throw new ColocationMappingException("Targets are not colocated");
             }
 
-            if (partitioned.terms[partNo] != otherPartitioned.terms[partNo]) {
+            if (partitioned.enlistmentConsistencyTokens[partNo] != otherPartitioned.enlistmentConsistencyTokens[partNo]) {
                 throw new ColocationMappingException("Partitioned targets have different terms");
             }
 
@@ -180,7 +180,7 @@ abstract class AbstractTarget implements ExecutionTarget {
             finalised = finalised && isPow2(newNodes);
         }
 
-        return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.terms);
+        return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);
     }
 
     static ExecutionTarget colocate(PartitionedTarget partitioned, SomeOfTarget someOf) throws ColocationMappingException {
@@ -197,7 +197,7 @@ abstract class AbstractTarget implements ExecutionTarget {
             finalised = finalised && isPow2(newNodes);
         }
 
-        return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.terms);
+        return new PartitionedTarget(finalised, newPartitionsNodes, partitioned.enlistmentConsistencyTokens);
     }
 
     static ExecutionTarget colocate(SomeOfTarget someOf, SomeOfTarget otherSomeOf) throws ColocationMappingException {

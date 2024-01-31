@@ -71,7 +71,7 @@ using namespace ignite;
  * @param reader Reader.
  * @return Result set meta columns.
  */
-std::vector<odbc_column_meta> read_meta(protocol::reader &reader) {
+std::vector<odbc_column_meta> read_column_meta(protocol::reader &reader) {
     auto size = reader.read_int32();
 
     std::vector<odbc_column_meta> columns;
@@ -298,7 +298,7 @@ sql_result column_metadata_query::make_request_get_columns_meta() {
             throw odbc_error(response_status_to_sql_state(status), *err_msg);
 
         if (m_has_result_set) {
-            m_meta = read_meta(reader);
+            m_meta = read_column_meta(reader);
         }
 
         m_executed = true;

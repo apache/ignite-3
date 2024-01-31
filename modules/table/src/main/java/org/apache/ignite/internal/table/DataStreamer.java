@@ -50,8 +50,8 @@ class DataStreamer {
 
         return new StreamerOptions() {
             @Override
-            public int batchSize() {
-                return options0.batchSize();
+            public int pageSize() {
+                return options0.pageSize();
             }
 
             @Override

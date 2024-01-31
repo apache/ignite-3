@@ -69,7 +69,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().batchSize(batchSize).build();
+            var options = DataStreamerOptions.builder().pageSize(batchSize).build();
             streamerFut = view.streamData(publisher, options);
 
             publisher.submit(tuple(1L, "foo"));
@@ -172,7 +172,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         var bufferSize = 2;
         try (var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize)) {
             var options = DataStreamerOptions.builder()
-                    .batchSize(bufferSize)
+                    .pageSize(bufferSize)
                     .perNodeParallelOperations(1)
                     .build();
 
@@ -209,7 +209,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().batchSize(2).build();
+            var options = DataStreamerOptions.builder().pageSize(2).build();
             streamFut = view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
@@ -241,7 +241,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().batchSize(2).retryLimit(3).build();
+            var options = DataStreamerOptions.builder().pageSize(2).retryLimit(3).build();
             streamFut = view.streamData(publisher, options);
 
             for (long i = 0; i < 100; i++) {

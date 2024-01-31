@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -49,8 +50,9 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
                 name,
                 catalogTableDescriptor.id(),
                 false,
-                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList()),
-                true
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
         );
 
         when(catalogService.index(eq(name), anyLong())).thenReturn(catalogHashIndexDescriptor);

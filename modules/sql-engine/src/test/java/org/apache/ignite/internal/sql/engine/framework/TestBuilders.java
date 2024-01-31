@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -60,8 +62,8 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -141,8 +143,12 @@ public class TestBuilders {
     public static ScannableTable tableScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
 
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
@@ -156,14 +162,14 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
@@ -177,13 +183,17 @@ public class TestBuilders {
     public static ScannableTable indexRangeScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
@@ -198,7 +208,7 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
@@ -212,20 +222,24 @@ public class TestBuilders {
     public static ScannableTable indexLookup(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
@@ -527,7 +541,8 @@ public class TestBuilders {
 
             var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(Map.of(), () -> "aipersist"), PLANNING_TIMEOUT, mock(MetricManager.class));
+                    new DdlSqlToCommandConverter(Map.of(), () -> "aipersist"), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
+                    mock(MetricManager.class));
 
             Map<String, List<String>> owningNodesByTableName = new HashMap<>();
             for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
@@ -650,10 +665,11 @@ public class TestBuilders {
                             .findAny()
                             .orElseThrow(() -> new AssertionError("IndexDescriptor does not exist: " + indexName));
 
-                    CatalogCommand command = MakeIndexAvailableCommand.builder()
-                            .indexId(index.id())
-                            .build();
-                    makeIndexesAvailable.add(command);
+                    CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
+                    CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(index.id()).build();
+
+                    makeIndexesAvailable.add(startBuildIndexCommand);
+                    makeIndexesAvailable.add(makeIndexAvailableCommand);
                 }
             }
 
@@ -1339,7 +1355,7 @@ public class TestBuilders {
             }
 
             ExecutionTarget target = factory.partitioned(owningNodes.stream()
-                    .map(name -> new NodeWithTerm(name, 1))
+                    .map(name -> new NodeWithConsistencyToken(name, 1))
                     .collect(Collectors.toList()));
 
             return CompletableFuture.completedFuture(target);

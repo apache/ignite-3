@@ -38,7 +38,7 @@ import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -64,7 +65,7 @@ import org.junit.jupiter.api.Test;
 public class PlannerTest extends AbstractPlannerTest {
     private static List<String> NODES;
 
-    private static List<NodeWithTerm> NODES_WITH_TERM;
+    private static List<NodeWithConsistencyToken> NODES_WITH_CONSISTENCY_TOKEN;
 
     /**
      * Init.
@@ -73,13 +74,13 @@ public class PlannerTest extends AbstractPlannerTest {
     @BeforeAll
     public static void init() {
         NODES = new ArrayList<>(4);
-        NODES_WITH_TERM = new ArrayList<>(4);
+        NODES_WITH_CONSISTENCY_TOKEN = new ArrayList<>(4);
 
         for (int i = 0; i < 4; i++) {
             String nodeName = Integer.toString(nextTableId());
 
             NODES.add(nodeName);
-            NODES_WITH_TERM.add(new NodeWithTerm(nodeName, 0L));
+            NODES_WITH_CONSISTENCY_TOKEN.add(new NodeWithConsistencyToken(nodeName, 0L));
         }
     }
 
@@ -105,6 +106,7 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testJoinPushExpressionRule() throws Exception {
         IgniteSchema publicSchema = createSchemaFrom(
                 employerTable(IgniteDistributions.broadcast()),

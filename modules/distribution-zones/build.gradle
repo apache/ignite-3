@@ -97,6 +97,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-distribution-zones'))
+    integrationTestImplementation testFixtures(project(':ignite-workers'))
 }
 
 description = 'ignite-distribution-zones'

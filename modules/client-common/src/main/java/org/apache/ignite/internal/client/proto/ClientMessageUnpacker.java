@@ -23,10 +23,12 @@ import io.netty.buffer.ByteBuf;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessageFormatException;
@@ -810,6 +812,29 @@ public class ClientMessageUnpacker implements AutoCloseable {
             default:
                 throw unexpected("String", code);
         }
+    }
+
+    /**
+     * Reads a nullable {@link Instant}.
+     *
+     * @return {@link Instant} value or {@code null}.
+     */
+    public @Nullable Instant unpackInstantNullable() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+        return unpackInstant();
+    }
+
+    /**
+     * Reads an {@link Instant}.
+     *
+     * @return {@link Instant} value.
+     */
+    public Instant unpackInstant() {
+        long seconds = unpackLong();
+        int nanos = unpackInt();
+        return Instant.ofEpochSecond(seconds, nanos);
     }
 
     private int readLength8() {

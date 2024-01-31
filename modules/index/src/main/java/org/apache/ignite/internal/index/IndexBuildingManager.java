@@ -19,32 +19,52 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
 
 /**
- * Component is responsible for building indexes and making them {@link CatalogIndexDescriptor#available() available}. Both in a running
- * cluster and when a node is being recovered.
+ * Component is responsible for building indexes and making them {@link CatalogIndexStatus#AVAILABLE available}. Both in a running cluster
+ * and when a node is being recovered.
+ *
+ * @see CatalogIndexDescriptor#status()
  */
 public class IndexBuildingManager implements IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingManager.class);
+
     private final MetaStorageManager metaStorageManager;
 
+    private final ThreadPoolExecutor executor;
+
     private final IndexBuilder indexBuilder;
+
+    private final IndexBuildingStarter indexBuildingStarter;
 
     private final IndexAvailabilityController indexAvailabilityController;
 
     private final IndexBuildController indexBuildController;
+
+    private final IndexBuildingStarterController indexBuildingStarterController;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -59,20 +79,52 @@ public class IndexBuildingManager implements IgniteComponent {
             IndexManager indexManager,
             PlacementDriver placementDriver,
             ClusterService clusterService,
-            HybridClock clock
+            LogicalTopologyService logicalTopologyService,
+            HybridClock clock,
+            ClockWaiter clockWaiter
     ) {
         this.metaStorageManager = metaStorageManager;
 
-        indexBuilder = new IndexBuilder(nodeName, Runtime.getRuntime().availableProcessors(), replicaService);
+        int threadCount = Runtime.getRuntime().availableProcessors();
+
+        executor = new ThreadPoolExecutor(
+                threadCount,
+                threadCount,
+                30,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "build-index", LOG)
+        );
+
+        executor.allowCoreThreadTimeOut(true);
+
+        indexBuilder = new IndexBuilder(executor, replicaService);
+
+        indexBuildingStarter = new IndexBuildingStarter(
+                catalogManager,
+                clusterService,
+                logicalTopologyService,
+                clock,
+                clockWaiter,
+                placementDriver,
+                executor
+        );
 
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
 
         indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
+
+        indexBuildingStarterController = new IndexBuildingStarterController(
+                catalogManager,
+                placementDriver,
+                clusterService,
+                indexBuildingStarter
+        );
     }
 
     @Override
     public CompletableFuture<Void> start() {
-        inBusyLock(busyLock, () -> {
+        return inBusyLockAsync(busyLock, () -> {
             CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
             assert recoveryFinishedFuture.isDone();
@@ -80,9 +132,9 @@ public class IndexBuildingManager implements IgniteComponent {
             long recoveryRevision = recoveryFinishedFuture.join();
 
             indexAvailabilityController.recover(recoveryRevision);
-        });
 
-        return nullCompletedFuture();
+            return nullCompletedFuture();
+        });
     }
 
     @Override
@@ -95,8 +147,12 @@ public class IndexBuildingManager implements IgniteComponent {
 
         closeAllManually(
                 indexBuilder,
+                indexBuildingStarter,
                 indexAvailabilityController,
-                indexBuildController
+                indexBuildController,
+                indexBuildingStarterController
         );
+
+        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 }

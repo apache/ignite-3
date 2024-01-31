@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -82,9 +84,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 
-/**
- * Tests for {@link SqlSchemaManagerImpl}.
- */
+/** Tests for {@link SqlSchemaManagerImpl}. */
 @ExtendWith(MockitoExtension.class)
 public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     private static final String PUBLIC_SCHEMA_NAME = "PUBLIC";
@@ -98,7 +98,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
         sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 200);
 
-        catalogManager.start();
+        assertThat(catalogManager.start(), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -527,11 +527,10 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         CatalogIndexDescriptor indexDescriptor = indices.get(name);
         assertNotNull(indexDescriptor, indices.toString());
 
-        CatalogCommand makeAvailable = MakeIndexAvailableCommand.builder()
-                .indexId(indexDescriptor.id())
-                .build();
+        CatalogCommand startBuilding = StartBuildingIndexCommand.builder().indexId(indexDescriptor.id()).build();
+        CatalogCommand makeAvailable = MakeIndexAvailableCommand.builder().indexId(indexDescriptor.id()).build();
 
-        await(catalogManager.execute(List.of(makeAvailable)));
+        await(catalogManager.execute(List.of(startBuilding, makeAvailable)));
     }
 
     @ParameterizedTest

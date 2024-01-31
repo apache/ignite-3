@@ -53,6 +53,7 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                storageUpdateConfiguration,
                 workDir,
                 nodes(),
                 replicas(),
