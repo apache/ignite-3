@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.serialization;
 
-import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 
 /**
  * Marshaller of update log entries.
@@ -29,7 +29,7 @@ public interface UpdateLogMarshaller {
      * @param update Versioned update to serialize.
      * @return Byte buffer with a serialized object.
      */
-    byte[] marshall(VersionedUpdate update);
+    byte[] marshall(UpdateLogEvent update);
 
     /**
      * Converts byte array into catalog versioned update.
@@ -37,5 +37,5 @@ public interface UpdateLogMarshaller {
      * @param bytes Byte array.
      * @return Catalog versioned update.
      */
-    VersionedUpdate unmarshall(byte[] bytes);
+    UpdateLogEvent unmarshall(byte[] bytes);
 }

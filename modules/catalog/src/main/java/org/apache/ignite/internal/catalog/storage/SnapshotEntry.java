@@ -17,18 +17,25 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * A catalog snapshot entry.
  */
 public class SnapshotEntry implements UpdateLogEvent {
+    public static final CatalogObjectSerializer<SnapshotEntry> SERIALIZER = new SnapshotEntrySerializer();
+
     private static final long serialVersionUID = 3676869450184989214L;
 
     private final int version;
@@ -43,11 +50,25 @@ public class SnapshotEntry implements UpdateLogEvent {
      * @param catalog Catalog instance.
      */
     public SnapshotEntry(Catalog catalog) {
-        version = catalog.version();
-        activationTime = catalog.time();
-        objectIdGenState = catalog.objectIdGenState();
-        zones = catalog.zones().toArray(CatalogZoneDescriptor[]::new);
-        schemas = catalog.schemas().toArray(CatalogSchemaDescriptor[]::new);
+        this(catalog.version(), catalog.time(), catalog.objectIdGenState(), catalog.zones().toArray(CatalogZoneDescriptor[]::new),
+                catalog.schemas().toArray(CatalogSchemaDescriptor[]::new));
+    }
+
+    /**
+     * Constructs the object.
+     */
+    private SnapshotEntry(
+            int version,
+            long activationTime,
+            int objectIdGenState,
+            CatalogZoneDescriptor[] zones,
+            CatalogSchemaDescriptor[] schemas
+    ) {
+        this.version = version;
+        this.activationTime = activationTime;
+        this.objectIdGenState = objectIdGenState;
+        this.zones = zones;
+        this.schemas = schemas;
     }
 
     /**
@@ -92,5 +113,33 @@ public class SnapshotEntry implements UpdateLogEvent {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /** Serializer for {@link SnapshotEntry}. */
+    private static class SnapshotEntrySerializer implements CatalogObjectSerializer<SnapshotEntry> {
+        @Override
+        public SnapshotEntry readFrom(int version, IgniteDataInput input) throws IOException {
+            int catalogVersion = input.readInt();
+            long activationTime = input.readLong();
+            int objectIdGenState  = input.readInt();
+
+            CatalogZoneDescriptor[] zones =
+                    CatalogSerializationUtils.readArray(version, CatalogZoneDescriptor.SERIALIZER, input, CatalogZoneDescriptor.class);
+
+            CatalogSchemaDescriptor[] schemas =
+                    CatalogSerializationUtils.readArray(version, CatalogSchemaDescriptor.SERIALIZER, input, CatalogSchemaDescriptor.class);
+
+            return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas);
+        }
+
+        @Override
+        public void writeTo(SnapshotEntry entry, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(entry.version);
+            output.writeLong(entry.activationTime);
+            output.writeInt(entry.objectIdGenState);
+
+            CatalogSerializationUtils.writeArray(entry.zones, version, CatalogZoneDescriptor.SERIALIZER, output);
+            CatalogSerializationUtils.writeArray(entry.schemas, version, CatalogSchemaDescriptor.SERIALIZER, output);
+        }
     }
 }

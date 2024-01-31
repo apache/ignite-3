@@ -156,12 +156,12 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     private UpdateLogImpl createUpdateLogImpl() {
         return new UpdateLogImpl(metastore, new UpdateLogMarshaller() {
             @Override
-            public byte[] marshall(VersionedUpdate update) {
+            public byte[] marshall(UpdateLogEvent update) {
                 return ByteUtils.toBytes(update);
             }
 
             @Override
-            public VersionedUpdate unmarshall(byte[] bytes) {
+            public UpdateLogEvent unmarshall(byte[] bytes) {
                 return ByteUtils.fromBytes(bytes);
             }
         });

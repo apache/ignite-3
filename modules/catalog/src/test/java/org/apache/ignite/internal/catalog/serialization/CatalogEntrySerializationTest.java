@@ -23,10 +23,10 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
@@ -54,13 +54,12 @@ import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.RenameTableEntry;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
-import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.sql.ColumnType;
 import org.assertj.core.api.BDDAssertions;
 import org.jetbrains.annotations.Nullable;
@@ -239,9 +238,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    // TODO IGNITE-20790 Check serialization of entire SnapshotEntry instead of CatalogSchemaDescriptor.
     @Test
-    public void schemaDescriptor() throws IOException {
+    public void snapshotEntry() {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
@@ -262,26 +260,18 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 new CatalogSystemViewDescriptor(1, "view2", columns, SystemViewType.CLUSTER)
         };
 
-        CatalogObjectSerializer<CatalogSchemaDescriptor> serializer = CatalogSchemaDescriptor.SERIALIZER;
+        SnapshotEntry entry = new SnapshotEntry(new Catalog(2, 0L, 1,
+                List.of(newCatalogZoneDescriptor("zone1", null)),
+                List.of(new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, 1))));
 
-        CatalogSchemaDescriptor descriptor = new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, 1);
+        SnapshotEntry deserialized = (SnapshotEntry) marshaller.unmarshall(marshaller.marshall(entry));
 
-        IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(32);
-
-        serializer.writeTo(descriptor, 1, output);
-
-        byte[] bytes = output.array();
-
-        IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes);
-
-        CatalogSchemaDescriptor deserialized = serializer.readFrom(1, input);
-
-        BDDAssertions.assertThat(deserialized).usingRecursiveComparison().isEqualTo(descriptor);
+        BDDAssertions.assertThat(deserialized).usingRecursiveComparison().isEqualTo(entry);
     }
 
     private VersionedUpdate serialize(VersionedUpdate update) {
         byte[] bytes = marshaller.marshall(update);
-        return marshaller.unmarshall(bytes);
+        return (VersionedUpdate) marshaller.unmarshall(bytes);
     }
 
     private static void assertVersionedUpdate(VersionedUpdate expected, VersionedUpdate update) {

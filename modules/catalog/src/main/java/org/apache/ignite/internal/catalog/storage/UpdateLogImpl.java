@@ -207,7 +207,7 @@ public class UpdateLogImpl implements UpdateLog {
             Update saveSnapshotAndDropOutdatedUpdates = ops(Stream.concat(
                     Stream.of(
                             put(CatalogKey.snapshotVersion(), intToBytes(snapshotVersion)),
-                            put(CatalogKey.update(snapshotVersion), ByteUtils.toBytes(update))
+                            put(CatalogKey.update(snapshotVersion), marshaller.marshall(update))
                     ),
                     IntStream.range(oldSnapshotVersion, snapshotVersion).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
             ).toArray(Operation[]::new)).yield(true);
@@ -215,6 +215,11 @@ public class UpdateLogImpl implements UpdateLog {
             Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
+        } catch (MarshallerException ex) {
+            LOG.warn("Failed to append update log.", ex);
+
+            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }

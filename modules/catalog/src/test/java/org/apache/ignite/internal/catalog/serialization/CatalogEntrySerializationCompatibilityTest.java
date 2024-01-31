@@ -65,12 +65,12 @@ public class CatalogEntrySerializationCompatibilityTest {
         byte[] bytesV1 = marshallerV1.marshall(update);
 
         // Ensures that marshaller version 1 can unmarshal a version 1 entry.
-        VersionedUpdate deserialized = marshallerV1.unmarshall(bytesV1);
+        VersionedUpdate deserialized = (VersionedUpdate) marshallerV1.unmarshall(bytesV1);
         assertThat(deserialized.entries(), equalTo(entries));
 
         // Ensures that marshaller version 2 can unmarshal a version 1 entry.
         UpdateLogMarshaller marshallerV2 = new UpdateLogMarshallerImpl(2, serializerProvider);
-        deserialized = marshallerV2.unmarshall(bytesV1);
+        deserialized = (VersionedUpdate) marshallerV2.unmarshall(bytesV1);
         assertThat(deserialized.entries(), equalTo(entries));
     }
 
@@ -88,7 +88,7 @@ public class CatalogEntrySerializationCompatibilityTest {
 
         byte[] bytesV1 = marshallerV1.marshall(update);
 
-        VersionedUpdate deserialized = marshallerV1.unmarshall(bytesV1);
+        VersionedUpdate deserialized = (VersionedUpdate) marshallerV1.unmarshall(bytesV1);
 
         TestUpdateEntry entryV1 = TestEntryFactory.create(1);
         assertThat(deserialized.entries(), equalTo(List.of(entryV1, entryV1)));
@@ -119,7 +119,8 @@ public class CatalogEntrySerializationCompatibilityTest {
         );
 
         // Ensures that marshaller version 2 can unmarshal a version 2 entry.
-        assertThat(entries, equalTo(marshallerV2.unmarshall(bytesV2).entries()));
+        VersionedUpdate versionedUpdate = (VersionedUpdate) marshallerV2.unmarshall(bytesV2);
+        assertThat(entries, equalTo(versionedUpdate.entries()));
     }
 
     static class TestEntryFactory {
