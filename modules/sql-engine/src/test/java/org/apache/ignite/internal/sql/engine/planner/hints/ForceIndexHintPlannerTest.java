@@ -134,21 +134,19 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
     @Test
     public void testWithMultipleIndexHints() throws Exception {
         IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan("SELECT /*+ FORCE_INDEX(IDX_VAL3), NO_INDEX */ * FROM TBL1 WHERE val1='v' AND val2='v' AND val3='v'",
-                        SCHEMA),
+                () -> physicalPlan("SELECT /*+ FORCE_INDEX(IDX_VAL3), NO_INDEX */ * FROM TBL1 WHERE val2='v' AND val3='v'", SCHEMA),
                 SqlException.class,
                 "Indexes [IDX_VAL3] of table 'TBL1' has already been forced to use by other hints before."
         );
 
         IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan("SELECT /*+ NO_INDEX, FORCE_INDEX(IDX_VAL3) */ * FROM TBL1 WHERE val1='v' AND val2='v' AND val3='v'",
-                        SCHEMA),
+                () -> physicalPlan("SELECT /*+ NO_INDEX, FORCE_INDEX(IDX_VAL3) */ * FROM TBL1 WHERE val2='v' AND val3='v'", SCHEMA),
                 SqlException.class,
                 "Index 'IDX_VAL3' of table 'TBL1' has already been disabled in other hints."
         );
 
-        assertCertainIndex("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL3), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE "
-                + "val1='v' AND val2='v' AND val3='v'", TBL1, "IDX_VAL3");
+        assertCertainIndex("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL3), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE  val1='v'"
+                + " AND val2='v' AND val3='v'", TBL1, "IDX_VAL3");
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> physicalPlan("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL1) */ * FROM TBL1 WHERE val1='v'", SCHEMA),
