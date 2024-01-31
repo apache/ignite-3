@@ -1175,7 +1175,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.INDEX_CREATE, eventListener);
         manager.listen(CatalogEvent.INDEX_BUILDING, eventListener);
         manager.listen(CatalogEvent.INDEX_AVAILABLE, eventListener);
-        manager.listen(CatalogEvent.INDEX_DROP, eventListener);
+        manager.listen(CatalogEvent.INDEX_STOPPING, eventListener);
         manager.listen(CatalogEvent.INDEX_REMOVED, eventListener);
 
         // Try to create index without table.
@@ -1600,7 +1600,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         doReturn(falseCompletedFuture()).when(eventListener).notify(captor.capture(), any());
 
-        manager.listen(CatalogEvent.INDEX_DROP, eventListener);
+        manager.listen(CatalogEvent.INDEX_STOPPING, eventListener);
 
         // Let's drop the index.
         assertThat(

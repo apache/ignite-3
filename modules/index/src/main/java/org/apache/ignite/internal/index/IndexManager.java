@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_STOPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -146,7 +146,7 @@ public class IndexManager implements IgniteComponent {
         });
 
         // TODO: IGNITE-21117 - remove this.
-        catalogManager.listen(INDEX_DROP, (parameters, exception) -> {
+        catalogManager.listen(INDEX_STOPPING, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }

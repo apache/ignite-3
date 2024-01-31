@@ -56,7 +56,7 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
 
     @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.INDEX_DROP;
+        return CatalogEvent.INDEX_STOPPING;
     }
 
     @Override

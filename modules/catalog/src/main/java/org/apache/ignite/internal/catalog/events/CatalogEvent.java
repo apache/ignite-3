@@ -43,12 +43,16 @@ public enum CatalogEvent implements Event {
     INDEX_AVAILABLE,
 
     /**
-     * This event is fired when an index was dropped in the Catalog (that is, it's switched to the {@link CatalogIndexStatus#STOPPING}
-     * state.
+     * This event is fired when an {@link CatalogIndexStatus#AVAILABLE} index was dropped in the Catalog (so it's switched to
+     * the {@link CatalogIndexStatus#STOPPING} state).
      */
-    INDEX_DROP,
+    INDEX_STOPPING,
 
-    /** Fired when an index is removed from the Catalog. */
+    /**
+     *  Fired when an index is removed from the Catalog. This happens when an index that never was {@link CatalogIndexStatus#AVAILABLE}
+     *  gets dropped, or when an index that is {@link CatalogIndexStatus#STOPPING} is finished with and we don't need to keep it in
+     *  the Catalog anymore.
+     */
     INDEX_REMOVED,
 
     /** This event is fired, when a distribution zone was created in Catalog. */
