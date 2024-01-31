@@ -134,15 +134,8 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
     @Test
     public void testWithMultipleIndexHints() throws Exception {
         IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan("SELECT /*+ FORCE_INDEX(IDX_VAL3), NO_INDEX */ * FROM TBL1"
-                        + " WHERE val1='v' AND val2='v' AND val3='v'", SCHEMA),
-                SqlException.class,
-                "Indexes [IDX_VAL3] of table 'TBL1' has already been forced to use by other hints before."
-        );
-
-        IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan("SELECT /*+ FORCE_INDEX(IDX_VAL3), NO_INDEX */ * FROM TBL1"
-                        + " WHERE val1='v' AND val2='v' AND val3='v'", SCHEMA),
+                () -> physicalPlan("SELECT /*+ FORCE_INDEX(IDX_VAL3), NO_INDEX */ * FROM TBL1 WHERE val1='v' AND val2='v' AND val3='v'",
+                        SCHEMA),
                 SqlException.class,
                 "Indexes [IDX_VAL3] of table 'TBL1' has already been forced to use by other hints before."
         );
