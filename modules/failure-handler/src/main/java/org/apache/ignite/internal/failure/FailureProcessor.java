@@ -53,7 +53,6 @@ public class FailureProcessor implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() {
-
     }
 
     /**

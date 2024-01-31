@@ -160,7 +160,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
      *
      * @return Count of nodes.
      */
-    protected static int nodes() {
+    protected int nodes() {
         return DEFAULT_NODES_COUNT;
     }
 
@@ -188,8 +188,9 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
         CLUSTER_NODE_NAMES.remove(nodeName);
     }
 
-    protected void startNode(String nodeName) {
-        TestIgnitionManager.start(nodeName, NODE_CONFIGS.get(nodeName), WORK_DIR.resolve(nodeName));
+    protected CompletableFuture<Ignite> startNode(String nodeName) {
+        CompletableFuture<Ignite> fut = TestIgnitionManager.start(nodeName, NODE_CONFIGS.get(nodeName), WORK_DIR.resolve(nodeName));
         CLUSTER_NODE_NAMES.add(nodeName);
+        return fut;
     }
 }

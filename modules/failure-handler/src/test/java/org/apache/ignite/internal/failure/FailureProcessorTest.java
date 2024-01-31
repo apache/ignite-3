@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.failure;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -37,8 +39,16 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
-        failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
+        assertThat(failureProcessor.start(), willSucceedFast());
 
-        verify(handler, times(1)).onFailure(anyString(), any());
+        try {
+
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
+
+            verify(handler, times(1)).onFailure(anyString(), any());
+        }
+        finally {
+            failureProcessor.stop();
+        }
     }
 }
