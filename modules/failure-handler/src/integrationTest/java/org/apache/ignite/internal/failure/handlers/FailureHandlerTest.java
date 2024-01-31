@@ -24,24 +24,24 @@ import static org.awaitility.Awaitility.await;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for failure handlers.
  */
-public class FailureHandlerTest extends IntegrationTestBase {
+public class FailureHandlerTest extends ClusterPerTestIntegrationTest {
     private static final int TIMEOUT_MILLIS = 30_000;
 
     @Override
-    protected int nodes() {
-        return 1;
+    protected int initialNodes() {
+        return 0;
     }
 
     @Test
@@ -57,7 +57,7 @@ public class FailureHandlerTest extends IntegrationTestBase {
     private void testFailureHandler(FailureHandler hnd, TestInfo testInfo) throws Exception {
         String nodeName = testNodeName(testInfo, 0);
 
-        CompletableFuture<Ignite> fut = startNode(nodeName);
+        CompletableFuture<IgniteImpl> fut = cluster.startNodeAsync(0);
 
         hnd.onFailure(
                 nodeName,

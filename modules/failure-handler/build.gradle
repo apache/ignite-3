@@ -27,14 +27,11 @@ dependencies {
 
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
-    testImplementation(testFixtures(project(':ignite-core')))
-
-    integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+    testImplementation testFixtures(project(':ignite-core'))
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.hamcrest.core
-    integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
