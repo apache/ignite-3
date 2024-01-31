@@ -36,17 +36,17 @@ public interface DataStreamerItem<T> {
      *
      * @return {@code true} if the item is deleted, {@code false} otherwise.
      */
-    boolean isRemoved();
+    DataStreamerOperationType operationType();
 
     static <T> DataStreamerItem<T> of(T item) {
-        return of(item, false);
+        return of(item, DataStreamerOperationType.PUT);
     }
 
     static <T> DataStreamerItem<T> removed(T item) {
-        return of(item, true);
+        return of(item, DataStreamerOperationType.REMOVE);
     }
 
-    static <T> DataStreamerItem<T> of(T item, boolean isRemoved) {
+    static <T> DataStreamerItem<T> of(T item, DataStreamerOperationType operationType) {
         return new DataStreamerItem<T>() {
             @Override
             public T get() {
@@ -54,8 +54,8 @@ public interface DataStreamerItem<T> {
             }
 
             @Override
-            public boolean isRemoved() {
-                return isRemoved;
+            public DataStreamerOperationType operationType() {
+                return operationType;
             }
         };
     }
