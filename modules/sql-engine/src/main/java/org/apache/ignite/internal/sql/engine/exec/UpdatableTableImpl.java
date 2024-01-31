@@ -119,7 +119,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
 
-            NodeWithTerm nodeWithTerm = colocationGroup.assignments().get(partToRows.getIntKey());
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -127,13 +127,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_UPSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+            futures[batchNum++] = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
         return CompletableFuture.allOf(futures);
@@ -191,7 +191,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
 
-            NodeWithTerm nodeWithTerm = colocationGroup.assignments().get(partitionId);
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partitionId);
 
             ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -199,13 +199,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_INSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
                     .build();
 
-            rowBatch.resultFuture = replicaService.invoke(nodeWithTerm.name(), request);
+            rowBatch.resultFuture = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
         return handleInsertResults(ectx, rowBatchByPartitionId.values());
@@ -258,7 +258,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
 
-            NodeWithTerm nodeWithTerm = colocationGroup.assignments().get(partToRows.getIntKey());
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
@@ -266,13 +266,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_DELETE_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+            futures[batchNum++] = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
         return CompletableFuture.allOf(futures);

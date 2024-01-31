@@ -93,7 +93,7 @@ class DestinationFactory<RowT> {
 
                 assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
 
-                List<String> assignments = Commons.transform(group.assignments(), NodeWithTerm::name);
+                List<String> assignments = Commons.transform(group.assignments(), NodeWithConsistencyToken::name);
 
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();
