@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -2231,7 +2232,19 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(threadNum, enlistExceptions.size());
 
         for (var e : enlistExceptions) {
-            assertInstanceOf(TransactionException.class, e);
+            try {
+                assertInstanceOf(TransactionException.class, e);
+                assertEquals(TX_FAILED_READ_WRITE_OPERATION_ERR, ((TransactionException) e).code());
+
+                var msg = e.getMessage();
+                var msgIsCorrect = msg.contains("Failed to enlist a write operation into a transaction, tx is locked for updates")
+                        || msg.contains("Transaction is already finished.");
+
+                assertTrue(msgIsCorrect);
+            } catch (AssertionError error) {
+                log.error("Unexpected exception", e);
+                throw error;
+            }
         }
 
         assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));

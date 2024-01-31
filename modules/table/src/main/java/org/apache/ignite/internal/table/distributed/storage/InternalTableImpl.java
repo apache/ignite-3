@@ -520,7 +520,7 @@ public class InternalTableImpl implements InternalTable {
             // Track only write requests from explicit transactions.
             if (!txManager.addInflight(tx.id())) {
                 return failedFuture(
-                        new TransactionException(TX_UNEXPECTED_STATE_ERR, format(
+                        new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, format(
                                 "Failed to enlist a write operation into a transaction, tx is locked for updates "
                                         + "[tableName={}, partId={}, txState={}].",
                                 tableName,
