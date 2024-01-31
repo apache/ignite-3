@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -374,7 +375,8 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<R, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeRecs(null, items, s, w, TuplePart.KEY_AND_VAL),
+                // TODO: Respect op type.
+                (s, w) -> ser.writeRecs(null, items.stream().map(x -> x.get()).collect(Collectors.toList()), s, w, TuplePart.KEY_AND_VAL),
                 r -> null,
                 PartitionAwarenessProvider.of(nodeId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));

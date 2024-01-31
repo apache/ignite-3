@@ -537,7 +537,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     w.out().packInt(items.size());
 
                     for (DataStreamerItem<Entry<K, V>> e : items) {
-                        w.out().packBoolean(e.isRemoved());
+                        // TODO: Send op type.
                         writeKeyValueRaw(s, w, e.get().getKey(), e.get().getValue());
                     }
                 },

@@ -375,7 +375,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                     w.out().packInt(items.size());
 
                     for (var tuple : items) {
-                        int opCode = tuple.isRemoved() ? 1 : 0;
+                        int opCode = tuple.operationType().ordinal();
                         w.out().packInt(opCode);
 
                         ClientTupleSerializer.writeTupleRaw(tuple.get(), s, w, false);

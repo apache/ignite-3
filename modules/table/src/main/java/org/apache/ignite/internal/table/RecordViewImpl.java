@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -534,7 +535,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> {
             return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.upsertAll(marshal(items, schemaVersion), partitionId);
+                // TODO: Respect op type
+                return this.tbl.upsertAll(marshal(items.stream().map(x -> x.get()).collect(Collectors.toList()), schemaVersion), partitionId);
             });
         };
 

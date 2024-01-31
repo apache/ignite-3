@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -456,7 +457,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<Entry<Tuple, Tuple>, String> batchSender = (nodeName, items) -> tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeKvTuples(null, items, s, w),
+                // TODO: Send op type
+                (s, w) -> ser.writeKvTuples(null, items.stream().map(x -> x.get()).collect(Collectors.toList()), s, w),
                 r -> null,
                 PartitionAwarenessProvider.of(nodeName),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
