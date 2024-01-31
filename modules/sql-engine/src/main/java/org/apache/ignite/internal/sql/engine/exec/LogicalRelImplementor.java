@@ -399,7 +399,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 idx,
                 scannableTable,
                 tbl.descriptor(),
-                group.partitionsWithTerms(ctx.localNode().name()),
+                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
                 comp,
                 ranges,
                 filters,
@@ -440,7 +440,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 rowFactory,
                 scannableTable,
-                group.partitionsWithTerms(ctx.localNode().name()),
+                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()

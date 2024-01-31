@@ -75,7 +75,7 @@ public class ColocationGroup implements Serializable {
      * @param nodeName Cluster node consistent ID.
      * @return List of pairs containing the partition number to scan on the given node with the corresponding enlistment consistency token.
      */
-    public List<PartitionWithConsistencyToken> partitionsWithTerms(String nodeName) {
+    public List<PartitionWithConsistencyToken> partitionsWithConsistencyTokens(String nodeName) {
         List<PartitionWithConsistencyToken> partsWithConsistencyTokens = new ArrayList<>();
 
         for (int p = 0; p < assignments.size(); p++) {
