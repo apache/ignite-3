@@ -307,8 +307,6 @@ public class TableImpl implements TableViewInternal {
         indexWrapperById.remove(indexId);
 
         completeWaitIndex(indexId);
-
-        // TODO: IGNITE-19150 Also need to destroy the index storages
     }
 
     private void awaitIndexes() {

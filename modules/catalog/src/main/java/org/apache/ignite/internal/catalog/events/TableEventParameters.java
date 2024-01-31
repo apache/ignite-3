@@ -30,7 +30,7 @@ public abstract class TableEventParameters extends CatalogEventParameters {
      * @param catalogVersion Catalog version.
      * @param tableId ID of the table to which the event relates.
      */
-    public TableEventParameters(long causalityToken, int catalogVersion, int tableId) {
+    TableEventParameters(long causalityToken, int catalogVersion, int tableId) {
         super(causalityToken, catalogVersion);
         this.tableId = tableId;
     }

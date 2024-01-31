@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -210,20 +212,21 @@ public class IndexManager implements IgniteComponent {
 
         long causalityToken = parameters.causalityToken();
 
-        CompletableFuture<TableViewInternal> tableFuture = tableManager.tableAsync(causalityToken, tableId);
+        // TODO: fix getting table ???
+        TableViewInternal table = tableManager.getTable(tableId);
 
         return inBusyLockAsync(busyLock, () -> mvTableStoragesByIdVv.update(
                 causalityToken,
-                updater(mvTableStorageById -> tableFuture.thenApply(table -> inBusyLock(busyLock, () -> {
+                updater(mvTableStorageById -> inBusyLockAsync(busyLock, () -> {
                     if (table != null) {
                         // In case of DROP TABLE the table will be removed first.
                         table.unregisterIndex(indexId);
 
-                        return mvTableStorageById;
+                        return completedFuture(mvTableStorageById);
                     } else {
-                        return removeMvTableStorageIfPresent(mvTableStorageById, tableId);
+                        return completedFuture(removeMvTableStorageIfPresent(mvTableStorageById, tableId));
                     }
-                })))
+                }))
         )).thenApply(unused -> false);
     }
 

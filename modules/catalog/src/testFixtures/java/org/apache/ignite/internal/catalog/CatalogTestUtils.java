@@ -19,8 +19,11 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
@@ -46,7 +49,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -291,6 +293,21 @@ public class CatalogTestUtils {
         return AlterZoneCommand.builder().zoneName(zoneName);
     }
 
+    /**
+     * Starts catalog compaction and waits it finished.
+     *
+     * @param catalogManager Catalog manager.
+     * @param timestamp Timestamp catalog should be compacted up to.
+     * @throws InterruptedException If awaiting failed.
+     */
+    public static void waitCatalogCompaction(CatalogManager catalogManager, long timestamp) throws InterruptedException {
+        int version = catalogManager.activeCatalogVersion(timestamp);
+
+        assertThat(((CatalogManagerImpl) catalogManager).compactCatalog(timestamp), willCompleteSuccessfully());
+
+        waitForCondition(() -> catalogManager.earliestCatalogVersion() == version, 3_000);
+    }
+
     private static class TestUpdateLog implements UpdateLog {
         private final HybridClock clock;
 
@@ -317,7 +334,7 @@ public class CatalogTestUtils {
         @Override
         public synchronized CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry) {
             snapshotVersion = snapshotEntry.version();
-            return CompletableFutures.trueCompletedFuture();
+            return onUpdateHandler.handle(snapshotEntry, clock.now(), snapshotEntry.version()).thenApply(ignored -> true);
         }
 
         @Override

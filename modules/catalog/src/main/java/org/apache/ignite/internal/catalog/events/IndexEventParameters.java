@@ -17,31 +17,26 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
-
 /**
- * Event parameters for the 'index has moved to the {@link CatalogIndexStatus#STOPPING} that contains an id of the dropped index.
- *
- * @see CatalogEvent#INDEX_STOPPING
+ * Event that is related to an index.
  */
-public class StoppingIndexEventParameters extends IndexEventParameters {
-    private final int tableId;
+public abstract class IndexEventParameters extends CatalogEventParameters {
+    private final int indexId;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
-     * @param indexId An id of dropped index.
-     * @param tableId Table ID for which the index was removed.
+     * @param indexId ID of the index to which the event relates.
      */
-    public StoppingIndexEventParameters(long causalityToken, int catalogVersion, int indexId, int tableId) {
-        super(causalityToken, catalogVersion, indexId);
-        this.tableId = tableId;
+    IndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
+        super(causalityToken, catalogVersion);
+        this.indexId = indexId;
     }
 
-    /** Returns table ID for which the index was removed. */
-    public int tableId() {
-        return tableId;
+    /** Returns an id of a modified index. */
+    public int indexId() {
+        return indexId;
     }
 }

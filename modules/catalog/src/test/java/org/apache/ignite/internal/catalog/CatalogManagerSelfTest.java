@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBu
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropTableCommand;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.waitCatalogCompaction;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -131,6 +132,8 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
@@ -146,7 +149,6 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -391,6 +393,33 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Validate schema wasn't changed.
         assertSame(schema, manager.activeSchema(clock.nowLong()));
+    }
+
+    @Test
+    void testReCreateTableWithSameName() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+
+        int catalogVersion = manager.latestCatalogVersion();
+        CatalogTableDescriptor table1 = manager.table(TABLE_NAME, clock.nowLong());
+        assertNotNull(table1);
+
+        // Drop table.
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
+        assertNull(manager.table(TABLE_NAME, clock.nowLong()));
+
+        // Re-create table with same name.
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+
+        CatalogTableDescriptor table2 = manager.table(TABLE_NAME, clock.nowLong());
+        assertNotNull(table2);
+
+        // Ensure these are different tables.
+        assertNotEquals(table1.id(), table2.id());
+
+        // Ensure table is available for historical queries.
+        manager.table(table1.id(), catalogVersion);
+
+        // assertThat(manager.managedTables(), hasItems(table1.id(), table2.id()));
     }
 
     @Test
@@ -1058,6 +1087,34 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    void testReCreateIndexWithSameName() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))), willBe(nullValue()));
+
+        int catalogVersion = manager.latestCatalogVersion();
+        CatalogIndexDescriptor index1 = manager.index(INDEX_NAME, clock.nowLong());
+        assertNotNull(index1);
+
+        // Drop index.
+        assertThat(manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()), willBe(nullValue()));
+        assertNull(manager.index(INDEX_NAME, clock.nowLong()));
+
+        // Re-create index with same name.
+        assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))), willBe(nullValue()));
+
+        CatalogIndexDescriptor index2 = manager.index(INDEX_NAME, clock.nowLong());
+        assertNotNull(index2);
+
+        // Ensure these are different indexes.
+        assertNotEquals(index1.id(), index2.id());
+
+        // Ensure index is available for historical queries.
+        manager.index(index1.id(), catalogVersion);
+
+        // assertThat(manager.managedIndexes(), hasItems(index1.id(), index2.id()));
+    }
+
+    @Test
     public void operationWillBeRetriedFiniteAmountOfTimes() {
         UpdateLog updateLogMock = mock(UpdateLog.class);
 
@@ -1140,12 +1197,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testTableEvents() {
+    public void testTableEvents() throws InterruptedException {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.TABLE_CREATE, eventListener);
         manager.listen(CatalogEvent.TABLE_DROP, eventListener);
+        manager.listen(CatalogEvent.TABLE_DESTROY, eventListener);
 
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(CreateTableEventParameters.class), isNull());
@@ -1154,10 +1212,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         verify(eventListener).notify(any(DropTableEventParameters.class), isNull());
 
         verifyNoMoreInteractions(eventListener);
+        clearInvocations(eventListener);
+
+        // Table destroyed after Catalog compaction.
+        waitCatalogCompaction(manager, clock.nowLong());
+        verify(eventListener).notify(any(DestroyTableEventParameters.class), isNull());
+
+        verifyNoMoreInteractions(eventListener);
     }
 
     @Test
-    public void testCreateIndexEvents() {
+    public void testIndexEvents() throws InterruptedException {
         CatalogCommand createIndexCmd = createHashIndexCommand(INDEX_NAME, List.of("ID"));
 
         CatalogCommand dropIndexCmd = DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build();
@@ -1170,6 +1235,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.INDEX_AVAILABLE, eventListener);
         manager.listen(CatalogEvent.INDEX_STOPPING, eventListener);
         manager.listen(CatalogEvent.INDEX_REMOVED, eventListener);
+        manager.listen(CatalogEvent.INDEX_DESTROY, eventListener);
 
         // Try to create index without table.
         assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundValidationException.class));
@@ -1201,6 +1267,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         removeIndex(indexId(INDEX_NAME));
         verify(eventListener).notify(any(RemoveIndexEventParameters.class), isNull());
 
+        verifyNoMoreInteractions(eventListener);
+        clearInvocations(eventListener);
+
+        // Index destroyed after Catalog compaction.
+        waitCatalogCompaction(manager, clock.nowLong());
+        verify(eventListener).notify(any(DestroyIndexEventParameters.class), isNull());
+
+        verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
 
         // Drop table with pk index.
@@ -2468,9 +2542,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
         assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willBe(nullValue()));
 
-        assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
-
-        IgniteTestUtils.waitForCondition(() -> manager.earliestCatalogVersion() != 0, 2_000);
+        waitCatalogCompaction(manager, timestamp);
 
         assertEquals(catalog.version(), manager.earliestCatalogVersion());
 
@@ -2485,12 +2557,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testEmptyCatalogCompaction() {
+    public void testEmptyCatalogCompaction() throws InterruptedException {
         assertEquals(0, manager.latestCatalogVersion());
 
         long timestamp = clock.nowLong();
 
-        assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
+        waitCatalogCompaction(manager, clock.nowLong());
 
         assertEquals(0, manager.earliestCatalogVersion());
         assertEquals(0, manager.latestCatalogVersion());

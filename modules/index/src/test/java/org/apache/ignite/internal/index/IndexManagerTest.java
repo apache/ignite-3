@@ -43,8 +43,11 @@ import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -68,6 +71,7 @@ import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -215,6 +219,33 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
 
         verify(tableViewInternal, never()).unregisterIndex(anyInt());
+    }
+
+    @Test
+    void testReCreateIndexWithSameName() {
+        createIndex(TABLE_NAME, INDEX_NAME);
+
+        CatalogIndexDescriptor index1 = catalogManager.index(INDEX_NAME, clock.nowLong());
+
+        assertNotNull(index1);
+        assertEquals(CatalogIndexStatus.REGISTERED, index1.status());
+
+        // Drop index.
+        dropIndex(INDEX_NAME);
+        CatalogIndexDescriptor droppedIndex = catalogManager.index(INDEX_NAME, clock.nowLong());
+
+        assertNull(droppedIndex);
+
+        // Re-create index with same name.
+        createIndex(TABLE_NAME, INDEX_NAME);
+
+        CatalogIndexDescriptor index2 = catalogManager.index(INDEX_NAME, clock.nowLong());
+
+        assertNotNull(index2);
+        assertEquals(CatalogIndexStatus.REGISTERED, index1.status());
+        assertNotEquals(index1.id(), index2.id());
+
+        //TODO: validate both storages are exists.
     }
 
     @Test

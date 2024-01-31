@@ -88,7 +88,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
@@ -542,10 +542,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return onTableCreate((CreateTableEventParameters) parameters).thenApply(unused -> false);
             });
 
-            catalogService.listen(CatalogEvent.TABLE_DROP, (parameters, exception) -> {
+            catalogService.listen(CatalogEvent.TABLE_DESTROY, (parameters, exception) -> {
                 assert exception == null : parameters;
 
-                return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
+                return onTableDestroy(((DestroyTableEventParameters) parameters)).thenApply(unused -> false);
             });
 
             catalogService.listen(CatalogEvent.TABLE_ALTER, (parameters, exception) -> {
@@ -692,17 +692,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<Void> onTableDelete(DropTableEventParameters parameters) {
+    private CompletableFuture<Void> onTableDestroy(DestroyTableEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            long causalityToken = parameters.causalityToken();
-            int catalogVersion = parameters.catalogVersion();
-
-            int tableId = parameters.tableId();
-
-            CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion - 1);
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion - 1);
-
-            dropTableLocally(causalityToken, tableDescriptor, zoneDescriptor);
+            dropTableLocally(parameters.causalityToken(), parameters);
 
             return nullCompletedFuture();
         });
@@ -1342,12 +1334,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Drops local structures for a table.
      *
      * @param causalityToken Causality token.
-     * @param tableDescriptor Catalog table descriptor.
-     * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param parameters Destroy table event parameters.
      */
-    private void dropTableLocally(long causalityToken, CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-        int tableId = tableDescriptor.id();
-        int partitions = zoneDescriptor.partitions();
+    private void dropTableLocally(long causalityToken, DestroyTableEventParameters parameters) {
+        int tableId = parameters.tableId();
+        int partitions = parameters.partitions();
 
         localPartsByTableIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {

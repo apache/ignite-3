@@ -33,6 +33,7 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -50,6 +51,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.internal.verification.VerificationModeFactory.atMost;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -341,13 +343,49 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         dropTable(DYNAMIC_TABLE_FOR_DROP_NAME);
 
-        verify(mvTableStorage).destroy();
-        verify(txStateTableStorage).destroy();
-        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
-
         assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
-
         assertEquals(0, tableManager.tables().size());
+
+        verify(mvTableStorage, atMost(0)).destroy();
+        verify(txStateTableStorage, atMost(0)).destroy();
+        verify(replicaMgr, atMost(0)).stopReplica(any());
+
+        CatalogTestUtils.waitCatalogCompaction(catalogManager, clock.nowLong());
+
+        verify(mvTableStorage, timeout(2_000)).destroy();
+        verify(txStateTableStorage, timeout(2_000)).destroy();
+        verify(replicaMgr, timeout(2_000).times(PARTITIONS)).stopReplica(any());
+    }
+
+    /**
+     * Tests create a table through public API right after another table with the same name was dropped.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testReCreateTableWithSameName() throws Exception {
+         mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
+
+        TableManager tableManager = tblManagerFut.join();
+
+        TableViewInternal table = (TableViewInternal) tableManager.table(DYNAMIC_TABLE_NAME);
+
+        assertNotNull(table);
+
+        int tableId = table.tableId();
+
+        dropTable(DYNAMIC_TABLE_NAME);
+
+        assertNull(tableManager.table(DYNAMIC_TABLE_NAME));
+        assertEquals(0, tableManager.tables().size());
+
+        createTable(DYNAMIC_TABLE_NAME);
+
+        table = tableManager.tableView(DYNAMIC_TABLE_NAME);
+
+        assertNotNull(table);
+
+        assertNotEquals(tableId, table.tableId());
     }
 
     /**

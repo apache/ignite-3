@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParam
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,6 +47,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyIndexEvent;
+import org.apache.ignite.internal.catalog.events.DestroyTableEvent;
 import org.apache.ignite.internal.catalog.storage.Fireable;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -437,21 +441,57 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         @Override
         public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             if (event instanceof SnapshotEntry) {
-                return handle((SnapshotEntry) event);
+                return handle((SnapshotEntry) event, causalityToken);
             }
 
             return handle((VersionedUpdate) event, metaStorageUpdateTimestamp, causalityToken);
         }
 
-        private CompletableFuture<Void> handle(SnapshotEntry event) {
+        private CompletableFuture<Void> handle(SnapshotEntry event, long causalityToken) {
             Catalog catalog = event.snapshot();
+
+            // Collect destroy events for dropped tables/indexes.
+            List<Fireable> events = new ArrayList<>();
+            IntSet managedTables = catalog.managedTables();
+            IntSet managedIndexes = catalog.managedIndexes();
+            Collection<Catalog> droppedCatalogVersions = catalogByVer.subMap(earliestCatalogVersion(), catalog.version()).values();
+
+            // Dropped indexes
+            droppedCatalogVersions.forEach(old -> {
+                old.managedIndexes().intStream()
+                        .filter(id -> !managedIndexes.contains(id))
+                        .filter(new IntOpenHashSet()::add) // unique
+                        .forEach(id -> events.add(new DestroyIndexEvent(id, old.index(id).tableId())));
+            });
+            // Dropped tables
+            droppedCatalogVersions.forEach(old -> {
+                old.managedTables().intStream()
+                        .filter(id -> !managedTables.contains(id))
+                        .filter(new IntOpenHashSet()::add) // unique
+                        .forEach(id -> events.add(new DestroyTableEvent(id, old.zone(old.table(id).zoneId()).partitions())));
+            });
 
             // On recovery phase, we must register catalog from the snapshot.
             // In other cases, it is ok to rewrite an existed version, because it's exactly the same.
             registerCatalog(catalog);
             truncateUpTo(catalog);
 
-            return nullCompletedFuture();
+            List<CompletableFuture<?>> eventFutures = new ArrayList<>(events.size());
+
+            for (Fireable fireEvent : events) {
+                eventFutures.add(fireEvent(
+                        fireEvent.eventType(),
+                        fireEvent.createEventParameters(causalityToken, catalog.version())
+                ));
+            }
+
+            return allOf(eventFutures.toArray(CompletableFuture[]::new))
+                    .whenComplete((ignore, err) -> {
+                        if (err != null) {
+                            LOG.warn("Failed to compact catalog.", err);
+                            //TODO: IGNITE-14611 Pass exception to an error handler?
+                        }
+                    });
         }
 
         private CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {

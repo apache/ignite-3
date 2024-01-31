@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NA
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleIndex;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleTable;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.startBuildingIndexCommand;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.waitCatalogCompaction;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -125,9 +125,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         long time1 = catalogManager.catalog(catalogVersion1).time();
 
         // Compact catalog.
-        assertThat(((CatalogManagerImpl) catalogManager).compactCatalog(time0), willCompleteSuccessfully());
-
-        IgniteTestUtils.waitForCondition(() -> catalogManager.earliestCatalogVersion() == catalogVersion0, 2_000);
+        waitCatalogCompaction(catalogManager, time0);
 
         // Let's check outdated versions are not reachable.
         assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(0));

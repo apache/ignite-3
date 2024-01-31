@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -168,6 +169,14 @@ public class Catalog {
 
     public Collection<CatalogZoneDescriptor> zones() {
         return zonesByName.values();
+    }
+
+    IntSet managedTables() {
+        return tablesById.keySet();
+    }
+
+    IntSet managedIndexes() {
+        return indexesById.keySet();
     }
 
     @Override
