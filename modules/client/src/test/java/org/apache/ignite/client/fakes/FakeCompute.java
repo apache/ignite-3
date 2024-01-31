@@ -24,6 +24,7 @@ import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.time.Instant;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -100,7 +102,20 @@ public class FakeCompute implements IgniteComputeInternal {
             throw err;
         }
 
-        return jobExecution(future != null ? future : completedFuture((R) nodeName));
+        // Mimic the IgniteComputeImpl algorithm which selects random node from the candidates and sends the request to it.
+        ClusterNode targetNode = randomNode(nodes);
+        return jobExecution(future != null ? future : completedFuture((R) targetNode.name()));
+    }
+
+    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
+        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
+
+        Iterator<ClusterNode> iterator = nodes.iterator();
+        for (int i = 0; i < nodesToSkip; i++) {
+            iterator.next();
+        }
+
+        return iterator.next();
     }
 
     /** {@inheritDoc} */

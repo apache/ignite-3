@@ -118,7 +118,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Object... args
     ) {
         Set<ClusterNode> candidates = new HashSet<>(nodes);
-        ClusterNode targetNode = selectTargetNode(candidates, topologyService.localMember());
+        ClusterNode targetNode = randomNode(candidates);
         candidates.remove(targetNode);
 
         NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
@@ -132,38 +132,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                         options,
                         args
                 ));
-    }
-
-    /**
-     * Selects a random node from the set of candidates, preferably not a local node.
-     *
-     * @param candidates Set of candidate nodes.
-     * @param localNode Local node.
-     *
-     * @return Target node to run a job on.
-     */
-    private ClusterNode selectTargetNode(Set<ClusterNode> candidates, ClusterNode localNode) {
-        if (candidates.size() == 1) {
-            return candidates.iterator().next();
-        }
-
-        // Since there are more than one candidate, we can safely exclude local node here.
-        // It will still be used as a failover candidate, if present.
-        Set<ClusterNode> nodes = new HashSet<>(candidates);
-        nodes.remove(localNode);
-
-        if (nodes.size() == 1) {
-            return nodes.iterator().next();
-        }
-
-        int nodesToSkip = random.nextInt(nodes.size());
-
-        Iterator<ClusterNode> iterator = nodes.iterator();
-        for (int i = 0; i < nodesToSkip; i++) {
-            iterator.next();
-        }
-
-        return iterator.next();
     }
 
     /** {@inheritDoc} */
@@ -180,6 +148,17 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
+    }
+
+    private ClusterNode randomNode(Set<ClusterNode> nodes) {
+        int nodesToSkip = random.nextInt(nodes.size());
+
+        Iterator<ClusterNode> iterator = nodes.iterator();
+        for (int i = 0; i < nodesToSkip; i++) {
+            iterator.next();
+        }
+
+        return iterator.next();
     }
 
     private <R> JobExecution<R> executeOnOneNodeWithFailover(

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -56,7 +54,6 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client compute implementation.
@@ -276,31 +273,9 @@ public class ClientCompute implements IgniteCompute {
                     packJob(w.out(), units, jobClassName, options, args);
                 },
                 ch -> ch,
-                selectPreferredNodeName(nodes),
+                null,
                 null,
                 true);
-    }
-
-    private @Nullable String selectPreferredNodeName(Set<ClusterNode> nodes) {
-        List<String> candidateNodeNames = new ArrayList<>(nodes.size());
-        Set<String> connectedNodeNames = ch.connectedNodeNames();
-
-        for (ClusterNode node : nodes) {
-            if (connectedNodeNames.contains(node.name())) {
-                candidateNodeNames.add(node.name());
-            }
-        }
-
-        if (candidateNodeNames.isEmpty()) {
-            return null;
-        }
-
-        if (candidateNodeNames.size() == 1) {
-            return candidateNodeNames.get(0);
-        }
-
-        int randomIdx = ThreadLocalRandom.current().nextInt(candidateNodeNames.size());
-        return candidateNodeNames.get(randomIdx);
     }
 
     private static <K> CompletableFuture<PayloadInputChannel> executeColocatedObjectKey(

@@ -98,7 +98,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist() throws Exception {
+    public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionToTargetDoesNotExist() throws Exception {
         initServers(reqId -> false);
 
         try (var client = getClient(server3)) {
@@ -106,8 +106,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             JobExecution<String> execution2 = client.compute().executeAsync(getClusterNodes("s2"), List.of(), "job");
             JobExecution<String> execution3 = client.compute().executeAsync(getClusterNodes("s3"), List.of(), "job");
 
-            assertThat(execution1.resultAsync(), willBe("s3"));
-            assertThat(execution2.resultAsync(), willBe("s3"));
+            assertThat(execution1.resultAsync(), willBe("s1"));
+            assertThat(execution2.resultAsync(), willBe("s2"));
             assertThat(execution3.resultAsync(), willBe("s3"));
 
             assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -128,7 +128,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 CompletableFuture<String> fut = client.compute()
                         .<String>executeAsync(getClusterNodes(nodeName), List.of(), "job").resultAsync();
 
-                assertThat(fut, willBe("s3"));
+                assertThat(fut, willBe(nodeName));
             }
         }
     }
