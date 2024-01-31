@@ -189,7 +189,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
 
-        removeIndex(indexName0);
+        dropIndex(indexName0);
 
         int catalogVersionBeforeDropIndex1 = catalogManager.latestCatalogVersion();
 
@@ -393,11 +393,6 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
-    }
-
-    private void dropAndRemoveIndex(String indexName) {
-        dropIndex(indexName);
-        removeIndex(indexName);
     }
 
     private void dropIndex(String indexName) {

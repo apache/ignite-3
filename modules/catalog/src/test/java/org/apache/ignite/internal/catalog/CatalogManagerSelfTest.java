@@ -94,7 +94,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -1868,15 +1867,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         return Stream.of(REGISTERED, BUILDING).map(Arguments::of);
     }
 
-    @ParameterizedTest
-    @MethodSource("nonAvailableIndexStatuses")
-    void removingNonAvailableIndexRemovesItFromCatalog(CatalogIndexStatus status) {
+    @Test
+    void removingStoppedIndexRemovesItFromCatalog() {
         createSomeTable(TABLE_NAME);
         createSomeIndex(TABLE_NAME, INDEX_NAME);
 
-        rollIndexStatusTo(status, indexId(INDEX_NAME));
+        rollIndexStatusTo(STOPPING, indexId(INDEX_NAME));
 
-        assertThat(index(manager.latestCatalogVersion(), INDEX_NAME).status(), is(status));
+        assertThat(index(manager.latestCatalogVersion(), INDEX_NAME).status(), is(STOPPING));
 
         removeIndex(indexId(INDEX_NAME));
 
@@ -1909,12 +1907,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                     break;
             }
         }
-    }
-
-    private static Stream<Arguments> nonAvailableIndexStatuses() {
-        return Arrays.stream(CatalogIndexStatus.values())
-                .filter(status -> status != AVAILABLE)
-                .map(Arguments::of);
     }
 
     private void removeIndex(int indexId) {

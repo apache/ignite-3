@@ -27,11 +27,18 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
- * A command that removes index with specified ID from the Catalog.
+ * A command that removes index with specified ID from the Catalog. Only makes sense for an index in the {@link CatalogIndexStatus#STOPPING}
+ * state (so it's about removing a dropped index from the Catalog when we don't need it anymore).
+ *
+ * <p>This is always invoked as a reaction to an internal trigger, not directly by the end user.
+ *
+ * <p>For dropping an index, please refer to {@link DropIndexCommand}.
+ * @see DropIndexCommand
  */
 public class RemoveIndexCommand implements CatalogCommand {
     /** Returns builder to create a command to remove index with specified name. */
@@ -58,7 +65,7 @@ public class RemoveIndexCommand implements CatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
 
-        if (index.status() != REGISTERED && index.status() != BUILDING && index.status() != STOPPING) {
+        if (index.status() != STOPPING) {
             throw new CatalogValidationException("Cannot remove index {} because its status is {}", indexId, index.status());
         }
 

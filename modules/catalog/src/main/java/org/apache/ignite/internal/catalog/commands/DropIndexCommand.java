@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
@@ -34,6 +35,12 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
  * A command that drops index with specified name.
+ *
+ * <ul>
+ *     <li>If the index never was {@link CatalogIndexStatus#AVAILABLE}, it removes it from the Catalog right away.</li>
+ *     <li>If it is currently {@link CatalogIndexStatus#AVAILABLE}, moves it to {@link CatalogIndexStatus#STOPPING}</li>
+ *     <li>If it is already {@link CatalogIndexStatus#STOPPING}, fails (as the index is already dropped).</li>
+ * </ul>
  */
 public class DropIndexCommand extends AbstractIndexCommand {
     /** Returns builder to create a command to drop index with specified name. */
