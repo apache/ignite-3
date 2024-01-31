@@ -32,7 +32,6 @@ import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
  */
 @Singleton
 @Requires(classes = {ComputeJobStateException.class, ExceptionHandler.class})
-
 public class ComputeJobStateExceptionHandler implements ExceptionHandler<ComputeJobStateException, HttpResponse<? extends Problem>> {
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, ComputeJobStateException exception) {
