@@ -2160,25 +2160,41 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @RepeatedTest(10)
     public void testTransactionMultiThreadedCommit() {
-        testTransactionMultiThreadedFinish(1);
+        testTransactionMultiThreadedFinish(1, false);
+    }
+
+    @RepeatedTest(10)
+    public void testTransactionMultiThreadedCommitEmpty() {
+        testTransactionMultiThreadedFinish(1, true);
     }
 
     @RepeatedTest(10)
     public void testTransactionMultiThreadedRollback() {
-        testTransactionMultiThreadedFinish(0);
+        testTransactionMultiThreadedFinish(0, false);
+    }
+
+    @RepeatedTest(10)
+    public void testTransactionMultiThreadedRollbackEmpty() {
+        testTransactionMultiThreadedFinish(0, true);
     }
 
     @RepeatedTest(10)
     public void testTransactionMultiThreadedMixed() {
-        testTransactionMultiThreadedFinish(-1);
+        testTransactionMultiThreadedFinish(-1, false);
+    }
+
+    @RepeatedTest(10)
+    public void testTransactionMultiThreadedMixedEmpty() {
+        testTransactionMultiThreadedFinish(-1, true);
     }
 
     /**
      * Test trying to finish a tx in multiple threads simultaneously, and enlist new operations right after the first finish.
      *
      * @param finishMode 1 is commit, 0 is rollback, otherwise random outcome.
+     * @param checkEmptyTx Whether the tx should be empty on finishing (no enlisted operations).
      */
-    private void testTransactionMultiThreadedFinish(int finishMode) {
+    private void testTransactionMultiThreadedFinish(int finishMode, boolean checkEmptyTx) {
         var rv = accounts.recordView();
 
         rv.upsert(null, makeValue(1, 1.));
@@ -2189,8 +2205,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         log.info("Started transaction {}", txId);
 
-        rv.upsert(tx, makeValue(1, 100.));
-        rv.upsert(tx, makeValue(2, 200.));
+        if (!checkEmptyTx) {
+            rv.upsert(tx, makeValue(1, 100.));
+            rv.upsert(tx, makeValue(2, 200.));
+        }
 
         int threadNum = Runtime.getRuntime().availableProcessors() * 5;
 
@@ -2238,7 +2256,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
                 var msg = e.getMessage();
                 var msgIsCorrect = msg.contains("Failed to enlist a write operation into a transaction, tx is locked for updates")
-                        || msg.contains("Transaction is already finished.");
+                        || msg.contains("Transaction is already finished");
 
                 assertTrue(msgIsCorrect);
             } catch (AssertionError error) {
@@ -2266,14 +2284,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         int threadNum = Runtime.getRuntime().availableProcessors();
 
         CyclicBarrier b = new CyclicBarrier(threadNum);
-        CountDownLatch finishLatch = new CountDownLatch(1);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21411 Check enlists are prohibited.
         var futFinishes = runMultiThreadedAsync(() -> {
             b.await();
 
             finishTx(tx, -1);
-
-            finishLatch.countDown();
 
             return null;
         }, threadNum, "txCommitTestThread");
