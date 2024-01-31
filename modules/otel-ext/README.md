@@ -10,3 +10,9 @@ and configured span exporter
 https://github.com/open-telemetry/opentelemetry-java/blob/main/sdk-extensions/autoconfigure/README.md#span-exporters
 For example Zipkin:
 `-Dotel.traces.exporter=zipkin -Dotel.exporter.zipkin.endpoint=http://localhost:9411/api/v2/spans`
+   
+# Exporting traces to the files in zipkin format
+
+To enable need to pass following system properties:
+`-Dotel.traces.exporter=file-zipkin -Dotel.exporter.file-zipkin.base-path=<work folder path>`
+All trace files will be placed into <work folder path> in JSON format with name `<traceId>.json`

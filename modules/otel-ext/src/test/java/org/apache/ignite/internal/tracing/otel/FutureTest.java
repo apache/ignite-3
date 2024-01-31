@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 /** Tests for CompletableFuture wrapper. */
 public class FutureTest {
     @Test
-    public void preserveContextInFutureHandler() {
+    public void preserveContextInFutureHandler() throws InterruptedException {
         var fut = new CompletableFuture<>();
 
         rootSpan("root", (parent) -> {

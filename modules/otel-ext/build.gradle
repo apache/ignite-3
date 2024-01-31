@@ -36,6 +36,7 @@ dependencies {
     implementation libs.opentelemetry.sdk.extension.autoconfigure.spi
     implementation libs.opentelemetry.javaagent.extension.api
     implementation libs.opentelemetry.exporter.otlp
+    implementation libs.opentelemetry.exporter.otlp.common
     implementation libs.opentelemetry.exporter.zipkin
     implementation libs.auto.service.annotations
 
