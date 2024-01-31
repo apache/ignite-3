@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntry;
 
 /**
  * Interface describing a particular change within the {@link VersionedUpdate group}.
  */
-public interface UpdateEntry {
+public interface UpdateEntry extends MarshallableEntry {
     /**
      * Applies own change to the catalog.
      *
@@ -31,11 +32,4 @@ public interface UpdateEntry {
      * @return New catalog.
      */
     Catalog applyUpdate(Catalog catalog, long causalityToken);
-
-    /**
-     * Returns the entry type used to serialize catalog entries.
-     *
-     * @return update entry type.
-     */
-    int typeId();
 }

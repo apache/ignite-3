@@ -31,13 +31,14 @@ import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.RenameTableEntry;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntry;
-import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 
 /**
  * Update entry serialization type.
  */
-public enum EntrySerializationType {
+public enum MarshallableEntryType {
     ALTER_COLUMN(0, AlterColumnEntry.SERIALIZER),
     ALTER_ZONE(1, AlterZoneEntry.SERIALIZER),
     NEW_ZONE(2, NewZoneEntry.SERIALIZER),
@@ -52,25 +53,27 @@ public enum EntrySerializationType {
     NEW_SYS_VIEW(11, NewSystemViewEntry.SERIALIZER),
     NEW_TABLE(12, NewTableEntry.SERIALIZER),
     RENAME_TABLE(13, RenameTableEntry.SERIALIZER),
-    ID_GENERATOR(14, ObjectIdGenUpdateEntry.SERIALIZER);
+    ID_GENERATOR(14, ObjectIdGenUpdateEntry.SERIALIZER),
+    SNAPSHOT(15, SnapshotEntry.SERIALIZER),
+    VERSIONED_UPDATE(16, VersionedUpdate.SERIALIZER);
 
     /** Type ID. */
     private final int id;
 
     /** Serializer for this entry type. */
-    private final CatalogObjectSerializer<? extends UpdateEntry> serializer;
+    private final CatalogObjectSerializer<? extends MarshallableEntry> serializer;
 
-    private static final EntrySerializationType[] VALS = new EntrySerializationType[values().length];
+    private static final MarshallableEntryType[] VALS = new MarshallableEntryType[values().length];
 
     static {
-        for (EntrySerializationType entryType : values()) {
+        for (MarshallableEntryType entryType : values()) {
             assert VALS[entryType.id] == null : "Found duplicate id " + entryType.id;
 
             VALS[entryType.id()] = entryType;
         }
     }
 
-    EntrySerializationType(int id, CatalogObjectSerializer<? extends UpdateEntry> serializer) {
+    MarshallableEntryType(int id, CatalogObjectSerializer<? extends MarshallableEntry> serializer) {
         this.id = id;
         this.serializer = serializer;
     }
@@ -81,12 +84,16 @@ public enum EntrySerializationType {
     }
 
     /** Returns serializer for this entry type. */
-    public <T extends UpdateEntry> CatalogObjectSerializer<T> serializer() {
+    public <T extends MarshallableEntry> CatalogObjectSerializer<T> serializer() {
         return (CatalogObjectSerializer<T>) serializer;
     }
 
+    static CatalogEntrySerializerProvider provider() {
+        return (id) -> (CatalogObjectSerializer<MarshallableEntry>) forId(id).serializer;
+    }
+
     /** Returns entry type by identifier. */
-    static EntrySerializationType forId(int id) {
+    static MarshallableEntryType forId(int id) {
         if (id >= 0 && id < VALS.length) {
             return VALS[id];
         }

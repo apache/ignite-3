@@ -18,18 +18,14 @@
 package org.apache.ignite.internal.catalog.serialization;
 
 /**
- * Catalog entry serializer provider.
+ * Typed update log entry that uses external serialization.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface CatalogEntrySerializerProvider {
+public interface MarshallableEntry {
     /**
-     * Gets a catalog entry serializer that supports serialization of the specified type.
+     * Returns the entry type used to serialize catalog entries.
      *
-     * @param typeId Type id.
-     * @return catalog update entry serializer.
+     * @return update entry type.
      */
-    CatalogObjectSerializer<MarshallableEntry> get(int typeId);
-
-    /** Default implementation. */
-    CatalogEntrySerializerProvider DEFAULT_PROVIDER = MarshallableEntryType.provider();
+    int typeId();
 }

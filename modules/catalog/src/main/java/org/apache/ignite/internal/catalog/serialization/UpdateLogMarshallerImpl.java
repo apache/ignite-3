@@ -19,56 +19,84 @@ package org.apache.ignite.internal.catalog.serialization;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
-import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.lang.MarshallerException;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Marshaller of update log entries that uses custom serializer.
+ *
+ *<p>External serialization was implemented for two reasons:
+ *<ul>
+ * <li>Minimize the size of the serialized update log entry.</li>
+ * <li>Backward compatibility support when changing existing or adding new entry.</li>
+ * </ul>
+ * At the moment, the serialization format is specified manually.
+ * Backward compatibility, when necessary, should be supported at the serializer level.
+ *
+ *<p>The starting point is version 1 (see {@link #PROTOCOL_VERSION}).
+ *
+ *<p>While backward compatibility is not required, entities can change arbitrarily without changing the version.
+ * However, every change to an entry's fields requires a change to the serializer that serializes that entry.
+ *
+ *<p>Basic format description:
+ *<pre>
+ * (size) | description
+ * ------------------------------
+ *     2  | data format version
+ *     1  | UpdateLogEvent type (0 - {@link VersionedUpdate}, 1 - {@link SnapshotEntry})
+ *
+ * [fields of the corresponding event follow (for example, {@link VersionedUpdate}]
+ *
+ *     4  | version
+ *     8  | delayDurationMs
+ *
+ * [list of entries follow]
+ *
+ *     4  | entries size
+ *     2  | entry type (see {@link MarshallableEntryType#id()})
+ *
+ * [entry fields follow]
+ *
+ *     ...
+ * </pre>
  */
 public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     /** Current data format version. */
     private static final int PROTOCOL_VERSION = 1;
 
-    /** Required data format version. */
-    private final int protocolVersion;
+    /** Initial capacity (in bytes) of the buffer used for data output. */
+    private static final int INITIAL_BUFFER_CAPACITY = 256;
 
-    private final CatalogObjectSerializer<VersionedUpdate> versionedUpdateSerializer;
+    /** Required data format version. */
+    private final int writeVersion;
+
+    /** Serializers provider. */
+    private final CatalogEntrySerializerProvider serializers;
 
     public UpdateLogMarshallerImpl() {
-        this(PROTOCOL_VERSION, CatalogEntrySerializerProvider.DEFAULT_PROVIDER);
+        this.writeVersion = PROTOCOL_VERSION;
+        this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
     }
 
-    UpdateLogMarshallerImpl(int protocolVersion, CatalogEntrySerializerProvider serializers) {
-        this.protocolVersion = protocolVersion;
-        this.versionedUpdateSerializer = new VersionedUpdateSerializer(serializers);
+    @TestOnly
+    public UpdateLogMarshallerImpl(int writeVersion, CatalogEntrySerializerProvider serializers) {
+        this.writeVersion = writeVersion;
+        this.serializers = serializers;
     }
 
     @Override
     public byte[] marshall(UpdateLogEvent update) {
-        try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(256)) {
-            output.writeShort(protocolVersion);
+        try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(INITIAL_BUFFER_CAPACITY)) {
+            output.writeShort(writeVersion);
 
-            if (update instanceof VersionedUpdate) {
-                output.writeByte(0);
+            output.writeShort(update.typeId());
 
-                versionedUpdateSerializer.writeTo((VersionedUpdate) update, protocolVersion, output);
-            } else {
-                assert update instanceof SnapshotEntry;
-
-                output.writeByte(1);
-
-                SnapshotEntry.SERIALIZER.writeTo((SnapshotEntry) update, protocolVersion, output);
-            }
+            serializers.get(update.typeId()).writeTo(update, writeVersion, output);
 
             return output.array();
         } catch (Throwable t) {
@@ -81,62 +109,16 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
         try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
             int entryVersion = input.readShort();
 
-            if (entryVersion > protocolVersion) {
+            if (entryVersion > writeVersion) {
                 throw new IllegalStateException(format("An object could not be deserialized because it was using "
-                        + "a newer version of the serialization protocol [objectVersion={}, supported={}]", entryVersion, protocolVersion));
+                        + "a newer version of the serialization protocol [objectVersion={}, supported={}]", entryVersion, writeVersion));
             }
 
-            int updateLogEventType = input.readByte();
+            int typeId = input.readShort();
 
-            assert updateLogEventType == 0 || updateLogEventType == 1 : "Unknown type: " + updateLogEventType;
-
-            if (updateLogEventType == 0) {
-                return versionedUpdateSerializer.readFrom(entryVersion, input);
-            } else {
-                return SnapshotEntry.SERIALIZER.readFrom(entryVersion, input);
-            }
+            return (UpdateLogEvent) serializers.get(typeId).readFrom(entryVersion, input);
         } catch (Throwable t) {
             throw new MarshallerException(t);
-        }
-    }
-
-    private static class VersionedUpdateSerializer implements CatalogObjectSerializer<VersionedUpdate> {
-        private final CatalogEntrySerializerProvider serializers;
-
-        private VersionedUpdateSerializer(CatalogEntrySerializerProvider provider) {
-            this.serializers = provider;
-        }
-
-        @Override
-        public VersionedUpdate readFrom(int version, IgniteDataInput input) throws IOException {
-            int ver = input.readInt();
-            long delayDurationMs = input.readLong();
-
-            int size = input.readInt();
-            List<UpdateEntry> entries = new ArrayList<>(size);
-
-            for (int i = 0; i < size; i++) {
-                short entryTypeId = input.readShort();
-
-                CatalogObjectSerializer<UpdateEntry> serializer = serializers.get(entryTypeId);
-
-                entries.add(serializer.readFrom(version, input));
-            }
-
-            return new VersionedUpdate(ver, delayDurationMs, entries);
-        }
-
-        @Override
-        public void writeTo(VersionedUpdate update, int version, IgniteDataOutput output) throws IOException {
-            output.writeInt(update.version());
-            output.writeLong(update.delayDurationMs());
-
-            output.writeInt(update.entries().size());
-            for (UpdateEntry entry : update.entries()) {
-                output.writeShort(entry.typeId());
-                CatalogObjectSerializer<? super UpdateEntry> serializer = serializers.get(entry.typeId());
-                serializer.writeTo(entry, version, output);
-            }
         }
     }
 }

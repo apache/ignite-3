@@ -28,7 +28,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -62,7 +62,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return EntrySerializationType.NEW_TABLE.id();
+        return MarshallableEntryType.NEW_TABLE.id();
     }
 
     @Override

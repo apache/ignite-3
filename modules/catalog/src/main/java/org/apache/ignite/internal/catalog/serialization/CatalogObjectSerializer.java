@@ -35,7 +35,7 @@ public interface CatalogObjectSerializer<T> {
     T readFrom(int version, IgniteDataInput input) throws IOException;
 
     /**
-     * Writes catalog щиоусе to data output.
+     * Writes catalog object to data output.
      *
      * @param value Catalog entry.
      * @param version Required data format version.

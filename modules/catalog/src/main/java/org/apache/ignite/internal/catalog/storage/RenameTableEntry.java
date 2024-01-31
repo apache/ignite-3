@@ -29,7 +29,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -48,7 +48,7 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return EntrySerializationType.RENAME_TABLE.id();
+        return MarshallableEntryType.RENAME_TABLE.id();
     }
 
     @Override

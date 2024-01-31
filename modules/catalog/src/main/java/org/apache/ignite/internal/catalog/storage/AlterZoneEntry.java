@@ -26,7 +26,7 @@ import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -55,7 +55,7 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return EntrySerializationType.ALTER_ZONE.id();
+        return MarshallableEntryType.ALTER_ZONE.id();
     }
 
     @Override

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -35,8 +36,6 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  */
 public class SnapshotEntry implements UpdateLogEvent {
     public static final CatalogObjectSerializer<SnapshotEntry> SERIALIZER = new SnapshotEntrySerializer();
-
-    private static final long serialVersionUID = 3676869450184989214L;
 
     private final int version;
     private final long activationTime;
@@ -89,6 +88,11 @@ public class SnapshotEntry implements UpdateLogEvent {
                 List.of(zones),
                 List.of(schemas)
         );
+    }
+
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.SNAPSHOT.id();
     }
 
     @Override

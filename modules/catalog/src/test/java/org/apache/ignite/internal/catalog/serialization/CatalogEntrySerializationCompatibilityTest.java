@@ -27,6 +27,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate.VersionedUpdateSerializer;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.lang.MarshallerException;
@@ -36,16 +37,30 @@ import org.junit.jupiter.api.Test;
  * Tests to verify catalog storage entries serialization compatibility.
  */
 public class CatalogEntrySerializationCompatibilityTest {
-    private final CatalogEntrySerializerProvider serializerProvider = (typeId) -> {
-        switch (typeId) {
-            case 0:
-                return TestUpdateEntrySerializerV1.INSTANCE;
+    private final CatalogEntrySerializerProvider serializerProvider = new CatalogEntrySerializerProvider() {
 
-            case 1:
-                return TestUpdateEntrySerializerV2.INSTANCE;
+        @Override
+        public CatalogObjectSerializer<MarshallableEntry> get(int typeId) {
+            CatalogObjectSerializer<? extends MarshallableEntry> serializer;
 
-            default:
-                throw new IllegalArgumentException("Unexpected type: " + typeId);
+            switch (typeId) {
+                case 0:
+                    serializer = TestUpdateEntrySerializerV1.INSTANCE;
+                    break;
+
+                case 1:
+                    serializer = TestUpdateEntrySerializerV2.INSTANCE;
+                    break;
+
+                case 2:
+                    serializer = new VersionedUpdateSerializer(this);
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Unexpected type: " + typeId);
+            }
+
+            return (CatalogObjectSerializer<MarshallableEntry>) serializer;
         }
     };
 
@@ -60,7 +75,7 @@ public class CatalogEntrySerializationCompatibilityTest {
 
         List<UpdateEntry> entries = List.of(entryV1, entryV1);
 
-        VersionedUpdate update = new VersionedUpdate(1, 2, entries);
+        VersionedUpdate update = new TestVersionedUpdate(1, 2, entries);
 
         byte[] bytesV1 = marshallerV1.marshall(update);
 
@@ -84,7 +99,7 @@ public class CatalogEntrySerializationCompatibilityTest {
         UpdateLogMarshaller marshallerV1 = new UpdateLogMarshallerImpl(1, serializerProvider);
 
         List<UpdateEntry> entries = List.of(entryV2, entryV2);
-        VersionedUpdate update = new VersionedUpdate(1, 2, entries);
+        VersionedUpdate update = new TestVersionedUpdate(1, 2, entries);
 
         byte[] bytesV1 = marshallerV1.marshall(update);
 
@@ -102,7 +117,7 @@ public class CatalogEntrySerializationCompatibilityTest {
         TestUpdateEntryV2 entryV2 = TestEntryFactory.create(2);
 
         List<UpdateEntry> entries = List.of(entryV2, entryV2);
-        VersionedUpdate update = new VersionedUpdate(1, 2, entries);
+        VersionedUpdate update = new TestVersionedUpdate(1, 2, entries);
 
         UpdateLogMarshaller marshallerV2 = new UpdateLogMarshallerImpl(2, serializerProvider);
 
@@ -291,9 +306,20 @@ public class CatalogEntrySerializationCompatibilityTest {
         }
     }
 
+    static class TestVersionedUpdate extends VersionedUpdate {
+        private TestVersionedUpdate(int version, long delayDurationMs, List<UpdateEntry> entries) {
+            super(version, delayDurationMs, entries);
+        }
+
+        @Override
+        public int typeId() {
+            return 2;
+        }
+    }
+
     private static class TestUpdateEntrySerializerV1<T extends TestUpdateEntry> implements CatalogObjectSerializer<T> {
         @SuppressWarnings({"unchecked", "rawtypes"})
-        private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializerV1();
+        private static final CatalogObjectSerializer<MarshallableEntry> INSTANCE = new TestUpdateEntrySerializerV1();
 
         @Override
         public T readFrom(int version, IgniteDataInput input) throws IOException {
@@ -312,7 +338,7 @@ public class CatalogEntrySerializationCompatibilityTest {
 
     private static class TestUpdateEntrySerializerV2<T extends TestUpdateEntry> extends TestUpdateEntrySerializerV1<T> {
         @SuppressWarnings({"unchecked", "rawtypes"})
-        private static final CatalogObjectSerializer<UpdateEntry> INSTANCE = new TestUpdateEntrySerializerV2();
+        private static final CatalogObjectSerializer<MarshallableEntry> INSTANCE = new TestUpdateEntrySerializerV2();
 
         @Override
         public T readFrom(int version, IgniteDataInput input) throws IOException {

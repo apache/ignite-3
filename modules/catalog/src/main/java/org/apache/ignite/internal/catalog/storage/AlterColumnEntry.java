@@ -32,7 +32,7 @@ import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -69,7 +69,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return EntrySerializationType.ALTER_COLUMN.id();
+        return MarshallableEntryType.ALTER_COLUMN.id();
     }
 
     @Override

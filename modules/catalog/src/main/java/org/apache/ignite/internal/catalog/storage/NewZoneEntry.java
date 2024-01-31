@@ -25,7 +25,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.serialization.EntrySerializationType;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -55,7 +55,7 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public int typeId() {
-        return EntrySerializationType.NEW_ZONE.id();
+        return MarshallableEntryType.NEW_ZONE.id();
     }
 
     @Override

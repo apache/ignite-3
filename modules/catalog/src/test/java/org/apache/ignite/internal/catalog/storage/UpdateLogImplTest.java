@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,8 +37,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.serialization.UpdateLogMarshaller;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate.VersionedUpdateSerializer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -47,6 +53,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -154,17 +162,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     }
 
     private UpdateLogImpl createUpdateLogImpl() {
-        return new UpdateLogImpl(metastore, new UpdateLogMarshaller() {
-            @Override
-            public byte[] marshall(UpdateLogEvent update) {
-                return ByteUtils.toBytes(update);
-            }
-
-            @Override
-            public UpdateLogEvent unmarshall(byte[] bytes) {
-                return ByteUtils.fromBytes(bytes);
-            }
-        });
+        return new UpdateLogImpl(metastore, new UpdateLogMarshallerImpl(1, new TestEntrySerializerProvider()));
     }
 
     private UpdateLogImpl createAndStartUpdateLogImpl(OnUpdateHandler onUpdateHandler) {
@@ -370,6 +368,37 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         @Override
         public String toString() {
             return S.toString(this);
+        }
+    }
+
+    private static class TestEntrySerializerProvider implements CatalogEntrySerializerProvider {
+        @Override
+        public CatalogObjectSerializer<MarshallableEntry> get(int id) {
+            CatalogObjectSerializer<? extends MarshallableEntry> serializer;
+
+            if (id == MarshallableEntryType.VERSIONED_UPDATE.id()) {
+                serializer = new VersionedUpdateSerializer(this);
+            } else {
+                serializer = new CatalogObjectSerializer<>() {
+                    @Override
+                    public MarshallableEntry readFrom(int version, IgniteDataInput input) throws IOException {
+                        int length = input.readInt();
+                        byte[] data = input.readByteArray(length);
+
+                        return ByteUtils.fromBytes(data);
+                    }
+
+                    @Override
+                    public void writeTo(MarshallableEntry value, int version, IgniteDataOutput output) throws IOException {
+                        byte[] bytes = ByteUtils.toBytes(value);
+
+                        output.writeInt(bytes.length);
+                        output.writeByteArray(bytes);
+                    }
+                };
+            }
+
+            return (CatalogObjectSerializer<MarshallableEntry>) serializer;
         }
     }
 }

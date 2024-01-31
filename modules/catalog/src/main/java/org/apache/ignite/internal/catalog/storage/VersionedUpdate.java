@@ -17,16 +17,24 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Group of changes that relates to specified version.
  */
 public class VersionedUpdate implements UpdateLogEvent {
-    private static final long serialVersionUID = 3799095274342596183L;
+    public static final CatalogObjectSerializer<VersionedUpdate> SERIALIZER = new VersionedUpdateSerializer();
 
     private final int version;
 
@@ -66,6 +74,11 @@ public class VersionedUpdate implements UpdateLogEvent {
         return entries;
     }
 
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.VERSIONED_UPDATE.id();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
@@ -88,6 +101,51 @@ public class VersionedUpdate implements UpdateLogEvent {
         int result = version;
         result = 31 * result + entries.hashCode();
         return result;
+    }
+
+    /** Serializer for {@link VersionedUpdate}. */
+    public static class VersionedUpdateSerializer implements CatalogObjectSerializer<VersionedUpdate> {
+        private final CatalogEntrySerializerProvider serializers;
+
+        public VersionedUpdateSerializer(CatalogEntrySerializerProvider serializers) {
+            this.serializers = serializers;
+        }
+
+        public VersionedUpdateSerializer() {
+            this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
+        }
+
+        @Override
+        public VersionedUpdate readFrom(int version, IgniteDataInput input) throws IOException {
+            int ver = input.readInt();
+            long delayDurationMs = input.readLong();
+
+            int size = input.readInt();
+            List<UpdateEntry> entries = new ArrayList<>(size);
+
+            for (int i = 0; i < size; i++) {
+                short entryTypeId = input.readShort();
+
+                CatalogObjectSerializer<MarshallableEntry> serializer = serializers.get(entryTypeId);
+
+                entries.add((UpdateEntry) serializer.readFrom(version, input));
+            }
+
+            return new VersionedUpdate(ver, delayDurationMs, entries);
+        }
+
+        @Override
+        public void writeTo(VersionedUpdate update, int version, IgniteDataOutput output) throws IOException {
+            output.writeInt(update.version());
+            output.writeLong(update.delayDurationMs());
+
+            output.writeInt(update.entries().size());
+            for (UpdateEntry entry : update.entries()) {
+                output.writeShort(entry.typeId());
+
+                serializers.get(entry.typeId()).writeTo(entry, version, output);
+            }
+        }
     }
 
     /** {@inheritDoc} */
