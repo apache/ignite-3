@@ -24,7 +24,8 @@ package org.apache.ignite.internal.catalog.descriptors;
  * <ul>
  *     <li>[not-existent] -> {@link #REGISTERED} -> {@link #BUILDING} -> {@link #AVAILABLE}.</li>
  *     <li>[not-existent] -> {@link #AVAILABLE} (PK index).</li>
- *     <li>{@link #AVAILABLE} -> {@link #STOPPING} -> [removed].</li>
+ *     <li>{@link #AVAILABLE} -> {@link #STOPPING} -> [removed]. (when dropping an index, but not its table)</li>
+ *     <li>{@link #AVAILABLE} -> [removed]. (when dropping the table of an index)</li>
  *     <li>{@link #REGISTERED} -> [removed].</li>
  *     <li>{@link #BUILDING} -> [removed].</li>
  * </ul>
