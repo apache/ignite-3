@@ -19,24 +19,7 @@
 #include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/compute/compute_impl.h"
 
-#include <random>
-
 namespace ignite {
-
-template<typename T>
-typename T::value_type get_random_element(const T &cont) {
-    static std::mutex randomMutex;
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-
-    assert(!cont.empty());
-
-    std::uniform_int_distribution<size_t> distrib(0, cont.size() - 1);
-
-    std::lock_guard<std::mutex> lock(randomMutex);
-
-    return cont[distrib(gen)];
-}
 
 void compute::execute_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
     std::string_view job_class_name, const std::vector<primitive> &args,
