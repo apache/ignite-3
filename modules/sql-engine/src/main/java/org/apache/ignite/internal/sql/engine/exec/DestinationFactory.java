@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.exec.mapping.PartitionResolverImpl;
-import org.apache.ignite.internal.sql.engine.exec.mapping.RowAwareAssignmentResolverImpl;
+import org.apache.ignite.internal.sql.engine.exec.mapping.RowPartitionExtractorImpl;
+import org.apache.ignite.internal.sql.engine.exec.mapping.TypeAwareRowPartitionExtractor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
@@ -98,14 +98,14 @@ class DestinationFactory<RowT> {
 
                     TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
 
-                    var resolver = new PartitionResolverImpl<>(assignments.size(), keys.toIntArray(), tableDescriptor, rowHandler);
+                    var resolver = new TypeAwareRowPartitionExtractor<>(assignments.size(), keys.toIntArray(), tableDescriptor, rowHandler);
 
                     return new Partitioned<>(assignments, resolver);
                 }
 
-                var resolver = new RowAwareAssignmentResolverImpl<>(assignments.size(), keys.toIntArray(), rowHandler);
+                var resolver = new RowPartitionExtractorImpl<>(group.nodeNames().size(), keys.toIntArray(), rowHandler);
 
-                return new Partitioned<>(assignments, resolver);
+                return new Partitioned<>(group.nodeNames(), resolver);
             }
             default:
                 throw new IllegalStateException("Unsupported distribution function.");

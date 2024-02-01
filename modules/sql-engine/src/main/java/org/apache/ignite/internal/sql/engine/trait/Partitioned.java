@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.trait;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.sql.engine.exec.mapping.RowAwareAssignmentResolver;
+import org.apache.ignite.internal.sql.engine.exec.mapping.RowPartitionExtractor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -30,13 +30,13 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public final class Partitioned<RowT> implements Destination<RowT> {
     private final List<List<String>> assignments;
 
-    private final RowAwareAssignmentResolver<RowT> calc;
+    private final RowPartitionExtractor<RowT> calc;
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public Partitioned(List<String> assignments, RowAwareAssignmentResolver<RowT> calc) {
+    public Partitioned(List<String> assignments, RowPartitionExtractor<RowT> calc) {
         this.calc = calc;
         this.assignments = Commons.transform(assignments, List::of);
     }

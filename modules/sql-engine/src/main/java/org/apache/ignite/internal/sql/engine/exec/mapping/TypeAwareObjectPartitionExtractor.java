@@ -24,20 +24,18 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
-/** Partition assignments resolver. */
-public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<RowT>, AssignmentsResolver<RowT> {
-    private final RowHandler<RowT> rowHandler;
-    private final int partitions;
+/** Resolve partition, according colocation fields and it`s types. */
+public class TypeAwareObjectPartitionExtractor<RowT> implements ObjectPartitionExtractor {
+    protected final RowHandler<RowT> rowHandler;
+    protected final int partitions;
     protected final int[] fields;
-    private final NativeType[] fieldTypes;
+    protected final NativeType[] fieldTypes;
 
     private HashCalculator hashCalc;
     private int curColIdx;
@@ -45,7 +43,7 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
     private boolean calculated;
 
     /** Constructor. */
-    public PartitionResolverImpl(int partitions, int[] fields, TableDescriptor tableDescriptor, RowHandler<RowT> rowHandler) {
+    public TypeAwareObjectPartitionExtractor(int partitions, int[] fields, TableDescriptor tableDescriptor, RowHandler<RowT> rowHandler) {
         this.rowHandler = Objects.requireNonNull(rowHandler, "rowHandler");
         this.partitions = partitions;
         this.fields = fields;
@@ -74,14 +72,6 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
 
     /** {@inheritDoc} */
     @Override
-    public int getPartition(RowT row) {
-        initCalculator();
-
-        return IgniteUtils.safeAbs(hashOf(row) % partitions);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public int getPartition() {
         assert hashCalc != null;
         assert curColIdx == fields.length :
@@ -89,20 +79,7 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
         return IgniteUtils.safeAbs(calculate() % partitions);
     }
 
-    private int hashOf(RowT row) {
-        for (int i = 0; i < fields.length; i++) {
-            Object value = rowHandler.get(fields[i], row);
-            NativeTypeSpec nativeTypeSpec = fieldTypes[i].spec();
-            Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
-
-            value = TypeUtils.fromInternal(value, storageType);
-            append(value);
-        }
-
-        return calculate();
-    }
-
-    private HashCalculator initCalculator() {
+    HashCalculator initCalculator() {
         if (hashCalc == null || calculated) {
             hashCalc = new HashCalculator();
             calculated = false;
@@ -111,7 +88,7 @@ public class PartitionResolverImpl<RowT> implements RowAwareAssignmentResolver<R
         return hashCalc;
     }
 
-    private int calculate() {
+    int calculate() {
         assert curColIdx == fields.length :
                 format("partially initialized: keys supplied={}, keys avoid={}", curColIdx, fields.length);
         calculated = true;

@@ -19,10 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
@@ -43,16 +39,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/** Assignments resolution test. */
+/** Partition resolution test. */
 @ExtendWith(MockitoExtension.class)
 class AssignmentsResolutionTest extends BaseIgniteAbstractTest {
     @Test
     public void assignmentsResolver() {
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
         int[] colocationKeys = {0, 2};
-        RowAwareAssignmentResolverImpl<RowWrapper> rowAssignments =
-                new RowAwareAssignmentResolverImpl<>(100, colocationKeys, rowHandler);
-        AssignmentResolverImpl<RowWrapper> assignments = new AssignmentResolverImpl<>(100, colocationKeys.length);
+        RowPartitionExtractorImpl<RowWrapper> rowAssignments =
+                new RowPartitionExtractorImpl<>(100, colocationKeys, rowHandler);
+        AssignmentExtractorImpl<RowWrapper> assignments = new AssignmentExtractorImpl<>(100, colocationKeys.length);
 
         RowFactory<RowWrapper> factory = rowHandler.factory(rowSchema);
         RowWrapper row = factory.create("1", 1, 2);
@@ -60,13 +56,13 @@ class AssignmentsResolutionTest extends BaseIgniteAbstractTest {
         int assignment1 = rowAssignments.getPartition(row);
         assignments.append("1");
         assignments.append(2);
-        int assignment2 = assignments.getPartition();
+        int assignment2 = assignments.getAssignment();
 
         assertEquals(assignment1, assignment2);
 
         assignments.append("1");
         assignments.append(2);
-        assignment2 = assignments.getPartition();
+        assignment2 = assignments.getAssignment();
 
         assertEquals(assignment1, assignment2);
 
@@ -82,9 +78,13 @@ class AssignmentsResolutionTest extends BaseIgniteAbstractTest {
         RowWrapper row = factory.create("1", 1, 2);
         int[] colocationKeys = {0, 2};
 
-        PartitionResolverImpl<RowWrapper> partResolver = new PartitionResolverImpl<>(100, colocationKeys, desc, rowHandler);
+        TypeAwareObjectPartitionExtractor<RowWrapper> partResolver =
+                new TypeAwareObjectPartitionExtractor<>(100, colocationKeys, desc, rowHandler);
 
-        int part1 = partResolver.getPartition(row);
+        TypeAwareRowPartitionExtractor<RowWrapper> rowPartResolver =
+                new TypeAwareRowPartitionExtractor<>(100, colocationKeys, desc, rowHandler);
+
+        int part1 = rowPartResolver.getPartition(row);
         partResolver.append("1");
         partResolver.append(2);
         int part2 = partResolver.getPartition();
@@ -98,23 +98,8 @@ class AssignmentsResolutionTest extends BaseIgniteAbstractTest {
 
         assertEquals(part1, part2);
 
-        part1 = partResolver.getPartition(row);
+        part1 = rowPartResolver.getPartition(row);
         assertEquals(part1, part2);
-    }
-
-    @Test
-    public void partitionResolverInvoke() {
-        TableDescriptor desc = createTableDescriptor();
-        RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> factory = rowHandler.factory(rowSchema);
-        RowWrapper row = factory.create("1", 1, 2);
-        int[] colocationKeys = {0, 2};
-
-        PartitionResolverImpl<RowWrapper> partResolver = new PartitionResolverImpl<>(100, colocationKeys, desc, rowHandler);
-        PartitionResolverImpl<RowWrapper> partResolverMock = spy(partResolver);
-
-        partResolverMock.getPartition(row);
-        verify(partResolverMock, times(desc.distribution().getKeys().size())).append(any());
     }
 
     private final RowSchema rowSchema = RowSchema.builder()

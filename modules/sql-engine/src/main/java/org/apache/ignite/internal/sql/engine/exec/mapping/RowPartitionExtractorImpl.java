@@ -17,13 +17,29 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-/** Calculate assignments according to supplied row. */
-@FunctionalInterface
-public interface RowAwareAssignmentResolver<RowT> {
-    /**
-     * Calculate partition based on supplied row.
-     *
-     * @return Resolved partition.
-     */
-    int getPartition(RowT row);
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+
+/** Resolves partition according to incoming row, only colocation columns are used. */
+public class RowPartitionExtractorImpl<RowT> implements RowPartitionExtractor<RowT> {
+    private final RowHandler<RowT> rowHandler;
+    private final AssignmentExtractorImpl<RowT> resolver;
+    private final int[] keys;
+
+    /** Constructor. */
+    public RowPartitionExtractorImpl(int partitions, int[] keys, RowHandler<RowT> rowHandler) {
+        resolver = new AssignmentExtractorImpl<>(partitions, keys.length);
+
+        this.rowHandler = rowHandler;
+        this.keys = keys;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int getPartition(RowT row) {
+        for (int idx : keys) {
+            resolver.append(rowHandler.get(idx, row));
+        }
+
+        return resolver.getAssignment();
+    }
 }

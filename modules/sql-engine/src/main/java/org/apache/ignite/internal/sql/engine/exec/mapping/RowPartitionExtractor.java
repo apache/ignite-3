@@ -17,21 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import org.jetbrains.annotations.Nullable;
-
-/** Calculate assignments according to supplied data. */
-interface AssignmentsResolver<RowT> {
+/** Calculate assignments according to supplied row. */
+@FunctionalInterface
+public interface RowPartitionExtractor<RowT> {
     /**
-     * Append object assignments to be calculated for.
+     * Calculate partition based on supplied row.
      *
-     * @param value The object  for which assignments will be calculated.
+     * @return Resolved partition.
      */
-    void append(@Nullable Object value);
-
-    /**
-     * Calculate assignment based on appending objects.
-     *
-     * @return Resolved assignment.
-     */
-    int getPartition();
+    int getPartition(RowT row);
 }

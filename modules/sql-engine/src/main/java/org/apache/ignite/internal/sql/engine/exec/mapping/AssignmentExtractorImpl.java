@@ -23,47 +23,53 @@ import java.util.Objects;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
-/** Resolves assignments according to incoming data. */
-public class AssignmentResolverImpl<RowT> implements AssignmentsResolver<RowT> {
+/** Resolves assignment according to incoming data. */
+public class AssignmentExtractorImpl<RowT> {
     private final int partitions;
-    private final int colocationKeysSize;
+    private final int keys;
 
     private int hash;
     private boolean calculated;
-    private int curColIdx;
+    private int processedIdx;
 
-    public AssignmentResolverImpl(int partitions, int colocationKeysSize) {
+    public AssignmentExtractorImpl(int partitions, int keys) {
         this.partitions = partitions;
-        this.colocationKeysSize = colocationKeysSize;
+        this.keys = keys;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Append object assignment to be calculated for.
+     *
+     * @param value The object for which assignment will be calculated.
+     */
     public void append(@Nullable Object value) {
         if (calculated) {
             reset();
         }
-        assert curColIdx < colocationKeysSize : "extra keys supplied";
-        curColIdx++;
+        assert processedIdx < keys : "extra keys supplied";
+        processedIdx++;
         hash = 31 * hash + Objects.hashCode(value);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public int getPartition() {
+    /**
+     * Calculate assignment based on appending objects.
+     *
+     * @return Resolved assignment.
+     */
+    public int getAssignment() {
         complete();
         return IgniteUtils.safeAbs(hash % partitions);
     }
 
     private void complete() {
-        assert curColIdx == colocationKeysSize :
-                format("partially initialized: keys supplied={}, keys expected={}", curColIdx, colocationKeysSize);
+        assert processedIdx == keys :
+                format("partially initialized: keys supplied={}, keys expected={}", processedIdx, keys);
         calculated = true;
     }
 
     private void reset() {
         hash = 0;
-        curColIdx = 0;
+        processedIdx = 0;
         calculated = false;
     }
 }
