@@ -201,6 +201,13 @@ class IndexManagementUtils {
         return zoneDescriptor.partitions();
     }
 
+    /**
+     * Finds an index by ID in the requested catalog version. Throws if it does not exist.
+     *
+     * @param catalogService Catalog service to be used to find the index.
+     * @param indexId ID of the index to find.
+     * @param catalogVersion Version of the catalog in which to look for the index.
+     */
     static CatalogIndexDescriptor index(CatalogService catalogService, int indexId, int catalogVersion) {
         CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
 
