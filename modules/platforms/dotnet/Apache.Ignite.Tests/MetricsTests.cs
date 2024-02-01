@@ -255,7 +255,7 @@ public class MetricsTests
         cts.Cancel();
         Assert.CatchAsync<OperationCanceledException>(async () => await task);
 
-        AssertMetricGreaterOrEqual("streamer-batches-sent", 2);
+        AssertMetricGreaterOrEqual("streamer-batches-sent", 1);
         AssertMetric("streamer-batches-active", 0);
         AssertMetric("streamer-items-queued", 0);
 

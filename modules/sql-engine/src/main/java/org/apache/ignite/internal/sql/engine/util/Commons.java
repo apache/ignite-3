@@ -94,6 +94,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
@@ -155,6 +156,8 @@ public final class Commons {
                                     .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), HintPredicates.JOIN)
                                     .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
                                     .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
+                                    .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
+                                    .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .build()
                     )
             )
@@ -838,7 +841,7 @@ public final class Commons {
 
     /**
      * Returns a {@link SqlQueryType} for the given {@link SqlNode}.
-     * 
+     *
      * <p>If the given node is neither {@code QUERY}, nor {@code DDL}, nor {@code DML}, this method returns {@code null}.
      *
      * @param sqlNode An SQL node.
