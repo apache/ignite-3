@@ -37,6 +37,8 @@ import org.jetbrains.annotations.TestOnly;
 public class VersionedUpdate implements UpdateLogEvent {
     public static final CatalogObjectSerializer<VersionedUpdate> SERIALIZER = new VersionedUpdateSerializer();
 
+    private static final long serialVersionUID = 8189081952066692697L;
+
     private final int version;
 
     private final long delayDurationMs;
