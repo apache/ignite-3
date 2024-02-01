@@ -2340,13 +2340,13 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(ex.getMessage().contains("Transaction is already finished."));
 
         ex = assertThrows(TransactionException.class, () -> accountsRv.delete(tx, makeKey(1)));
-        assertTrue(ex.getMessage().contains("Failed to enlist"));
+        assertTrue(ex.getMessage().contains("Transaction is already finished"));
 
         ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(2)));
         assertTrue(ex.getMessage().contains("Transaction is already finished."));
 
         ex = assertThrows(TransactionException.class, () -> accountsRv.upsert(tx, makeValue(2, 300.)));
-        assertTrue(ex.getMessage().contains("Failed to enlist"));
+        assertTrue(ex.getMessage().contains("Transaction is already finished"));
 
         if (checkLocks) {
             assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
