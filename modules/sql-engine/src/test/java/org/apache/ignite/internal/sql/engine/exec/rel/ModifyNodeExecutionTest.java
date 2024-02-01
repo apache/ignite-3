@@ -44,7 +44,9 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -71,6 +73,15 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     @Mock
     private UpdatableTable updatableTable;
+
+    @Mock
+    private TableDescriptor descriptors;
+
+    @BeforeEach
+    void setUpMock() {
+        when(descriptors.columnsCount()).thenReturn(2);
+        when(updatableTable.descriptor()).thenReturn(descriptors);
+    }
 
 
     @ParameterizedTest
@@ -102,7 +113,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).insertAll(any(), any(), any());
-        verify(updatableTable).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -135,7 +146,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).upsertAll(any(), any(), any());
-        verify(updatableTable).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -168,7 +179,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).deleteAll(any(), any(), any());
-        verify(updatableTable).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -196,7 +207,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).insertAll(any(), any(), any());
-        verify(updatableTable).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -224,7 +235,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).upsertAll(any(), any(), any());
-        verify(updatableTable).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -252,7 +263,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).deleteAll(any(), any(), any());
-        verify(updatableTable).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 

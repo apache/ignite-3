@@ -57,6 +57,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private final IgniteDistribution distribution;
 
+    private final RelDataType rowType;
+
     /**
      * Constructor.
      *
@@ -71,6 +73,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         Map<String, ColumnDescriptor> descriptorsMap = new HashMap<>(columnDescriptors.size());
         boolean implicitKeyFound = false;
 
+        RelDataTypeFactory factory = Commons.typeFactory();
+        RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
         ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
         for (ColumnDescriptor descriptor : columnDescriptors) {
             if (descriptor.key()) {
@@ -87,6 +91,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
             }
 
             descriptorsMap.put(descriptor.name(), descriptor);
+            typeBuilder.add(descriptor.name(), deriveLogicalType(factory, descriptor));
         }
 
         if (implicitKeyFound) {
@@ -95,6 +100,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         this.descriptors = columnDescriptors.toArray(DUMMY);
         this.descriptorsMap = descriptorsMap;
+
+        this.rowType = typeBuilder.build();
 
         insertFields = builder.build();
         keyFields = keyFieldsBuilder.build();
@@ -188,19 +195,13 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns) {
-        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(factory);
-
-        if (usedColumns == null) {
-            for (int i = 0; i < descriptors.length; i++) {
-                b.add(descriptors[i].name(), deriveLogicalType(factory, descriptors[i]));
-            }
+        if (usedColumns == null || usedColumns.cardinality() == descriptors.length) {
+            return rowType;
         } else {
-            for (int i = usedColumns.nextSetBit(0); i != -1; i = usedColumns.nextSetBit(i + 1)) {
-                b.add(descriptors[i].name(), deriveLogicalType(factory, descriptors[i]));
-            }
+            return new RelDataTypeFactory.Builder(factory).addAll(rowType.getFieldList().stream()
+                    .filter(field -> usedColumns.get(field.getIndex()))
+                    .collect(Collectors.toList())).build();
         }
-
-        return b.build();
     }
 
     /** {@inheritDoc} */
