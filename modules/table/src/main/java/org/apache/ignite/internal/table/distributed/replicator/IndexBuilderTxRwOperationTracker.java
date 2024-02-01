@@ -23,11 +23,14 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Collection;
 import java.util.NavigableMap;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -69,6 +72,8 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
         closeFuture.completeExceptionally(new NodeStoppingException());
     }
 
+    public final Queue<IgniteBiTuple<Integer, Throwable>> q = new ConcurrentLinkedDeque<>();
+
     /**
      * Updating the minimum available catalog version on which new RW transaction operations can be started.
      *
@@ -85,6 +90,8 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
 
                 return catalogVersion;
             });
+            
+            q.add(new IgniteBiTuple<>(catalogVersion, new Exception()));
 
             Collection<CompletableFuture<Void>> futures = minAllowedVersionRaiseFutures.headMap(catalogVersion, true)
                     .values();
