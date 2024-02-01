@@ -30,6 +30,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -75,7 +76,29 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionToTargetDoesNotExist() throws Exception {
+    public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionExists() throws Exception {
+        initServers(reqId -> false);
+
+        // Provide same node multiple times to check this case as well.
+        try (var client = getClient(server1, server2, server3, server1, server2)) {
+            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
+
+            JobExecution<String> execution1 = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+            JobExecution<String> execution2 = client.compute().executeAsync(getClusterNodes("s2"), List.of(), "job");
+            JobExecution<String> execution3 = client.compute().executeAsync(getClusterNodes("s3"), List.of(), "job");
+
+            assertThat(execution1.resultAsync(), willBe("s1"));
+            assertThat(execution2.resultAsync(), willBe("s2"));
+            assertThat(execution3.resultAsync(), willBe("s3"));
+
+            assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution3.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        }
+    }
+
+    @Test
+    public void testClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist() throws Exception {
         initServers(reqId -> false);
 
         try (var client = getClient(server3)) {

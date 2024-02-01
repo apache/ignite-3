@@ -69,7 +69,10 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(nodes);
             IgniteArgumentCheck.NotNull(jobClassName);
 
-            return await ExecuteOnNodes<T>(GetRandomNode(nodes), nodes, units, jobClassName, args).ConfigureAwait(false);
+            var nodesCol = GetNodesCollection(nodes);
+            IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
+
+            return await ExecuteOnNodes<T>(nodesCol, units, jobClassName, args).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -121,7 +124,7 @@ namespace Apache.Ignite.Internal.Compute
 
             foreach (var node in nodes)
             {
-                var task = ExecuteOnNodes<T>(node, new[] { node }, units0, jobClassName, args);
+                var task = ExecuteOnNodes<T>(new[] { node }, units0, jobClassName, args);
 
                 res[node] = task;
             }
@@ -133,21 +136,17 @@ namespace Apache.Ignite.Internal.Compute
         public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
         [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
-        private static IClusterNode GetRandomNode(IEnumerable<IClusterNode> nodes)
+        private static IClusterNode GetRandomNode(ICollection<IClusterNode> nodes)
         {
-            var nodesCol = GetNodesCollection(nodes);
+            var idx = Random.Shared.Next(0, nodes.Count);
 
-            IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
-
-            var idx = Random.Shared.Next(0, nodesCol.Count);
-
-            return nodesCol.ElementAt(idx);
+            return nodes.ElementAt(idx);
         }
 
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T, PooledArrayBuffer> writerFunc)
+        private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T> writerFunc)
         {
             var w = buf.MessageWriter;
 
@@ -156,7 +155,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(count);
                 foreach (var item in items)
                 {
-                    writerFunc(item, buf);
+                    writerFunc(item);
                 }
 
                 return;
@@ -170,7 +169,7 @@ namespace Apache.Ignite.Internal.Compute
             foreach (var item in items)
             {
                 count++;
-                writerFunc(item, buf);
+                writerFunc(item);
             }
 
             countSpan[0] = MsgPackCode.Array32;
@@ -179,7 +178,7 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
         {
-            WriteEnumerable(units, buf, writerFunc: (unit, buf) =>
+            WriteEnumerable(units, buf, writerFunc: unit =>
             {
                 IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
                 IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
@@ -192,7 +191,7 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf)
         {
-            WriteEnumerable(nodes, buf, writerFunc: (node, buf) =>
+            WriteEnumerable(nodes, buf, writerFunc: node =>
             {
                 var w = buf.MessageWriter;
                 w.Write(node.Name);
@@ -200,13 +199,12 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         private async Task<T> ExecuteOnNodes<T>(
-            IClusterNode node,
-            IEnumerable<IClusterNode> nodes,
+            ICollection<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
             object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(node);
+            IClusterNode node = GetRandomNode(nodes);
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();

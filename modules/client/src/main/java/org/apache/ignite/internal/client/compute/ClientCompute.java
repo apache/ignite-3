@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,6 +29,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -266,6 +268,8 @@ public class ClientCompute implements IgniteCompute {
             JobExecutionOptions options,
             Object[] args
     ) {
+        ClusterNode node = randomNode(nodes);
+
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
@@ -273,9 +277,24 @@ public class ClientCompute implements IgniteCompute {
                     packJob(w.out(), units, jobClassName, options, args);
                 },
                 ch -> ch,
-                null,
+                node.name(),
                 null,
                 true);
+    }
+
+    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
+        if (nodes.size() == 1) {
+            return nodes.iterator().next();
+        }
+
+        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
+
+        Iterator<ClusterNode> iterator = nodes.iterator();
+        for (int i = 0; i < nodesToSkip; i++) {
+            iterator.next();
+        }
+
+        return iterator.next();
     }
 
     private static <K> CompletableFuture<PayloadInputChannel> executeColocatedObjectKey(
