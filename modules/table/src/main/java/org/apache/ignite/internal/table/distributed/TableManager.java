@@ -46,6 +46,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
@@ -1834,15 +1835,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return partGrpSvc.refreshAndGetLeaderWithTerm()
                 .exceptionally(throwable -> {
                     if (throwable instanceof TimeoutException) {
-                        LOG.info("Node couldn't get the leader within timeout so change peer is skipped [grp={}].", replicaGrpId);
+                        LOG.info("Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].", replicaGrpId);
 
                         return LeaderWithTerm.NO_LEADER;
                     }
 
-                    throw new IgniteInternalException(throwable);
+                    throw new IgniteInternalException(
+                            INTERNAL_ERR,
+                            "Failed to get a leader for the RAFT replication group [get=" + replicaGrpId + "].",
+                            throwable
+                    );
                 })
                 .thenCompose(leaderWithTerm -> {
-                    if (leaderWithTerm.leader() == null || !isLocalPeer(leaderWithTerm.leader())) {
+                    if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
                         return nullCompletedFuture();
                     }
 

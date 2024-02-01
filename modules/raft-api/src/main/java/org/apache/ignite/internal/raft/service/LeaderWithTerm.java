@@ -37,6 +37,17 @@ public class LeaderWithTerm {
         this.term = term;
     }
 
+    /**
+     * Checks if there is any useful information.
+     *
+     * @return True if the instance does not contain useful data, false otherwise.
+     */
+    public boolean isEmpty() {
+        assert term == -1 : "The term is not expected [term=" + term + ']';
+
+        return leader == null;
+    }
+
     public @Nullable Peer leader() {
         return leader;
     }
