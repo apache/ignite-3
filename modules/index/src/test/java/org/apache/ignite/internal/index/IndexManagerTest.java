@@ -415,6 +415,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     private CatalogIndexDescriptor index(int catalogVersion, String indexName) {
         return CatalogTestUtils.index(catalogManager, catalogVersion, indexName);
     }
+
     private @Nullable CatalogIndexDescriptor indexOrNull(int catalogVersion, String indexName) {
         return CatalogTestUtils.indexOrNull(catalogManager, catalogVersion, indexName);
     }
