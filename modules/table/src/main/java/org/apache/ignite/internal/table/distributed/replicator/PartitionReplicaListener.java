@@ -1643,6 +1643,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     try {
                         closeAllTransactionCursors(request.txId());
                     } catch (Exception e) {
+                        // TODO: IGNITE-21293 Should we stop write intent switch handling if closing cursors failed?
                         return failedFuture(e);
                     }
 
