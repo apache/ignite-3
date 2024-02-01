@@ -24,9 +24,6 @@ public interface RemoveIndexCommandBuilder {
     /** Index ID. */
     RemoveIndexCommandBuilder indexId(int indexId);
 
-    /** Schema name. */
-    RemoveIndexCommandBuilder schemaName(String schemaName);
-
     /** Builds a new command with specified parameters. */
     CatalogCommand build();
 }

@@ -59,7 +59,7 @@ public class DropTableCommand extends AbstractTableCommand {
                     // We can remove AVAILABLE/STOPPED index right away as the only reason to have an index in the STOPPING state is to
                     // allow RW transactions started before the index drop to write to it, but as the table is already dropped,
                     // the writes are not possible in any case.
-                    updateEntries.add(new RemoveIndexEntry(index.id(), schemaName));
+                    updateEntries.add(new RemoveIndexEntry(index.id()));
                 });
 
         updateEntries.add(new DropTableEntry(table.id(), schemaName));

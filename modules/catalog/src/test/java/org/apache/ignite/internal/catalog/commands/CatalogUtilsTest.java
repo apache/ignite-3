@@ -411,7 +411,6 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         CatalogCommand catalogCommand = RemoveIndexCommand.builder()
                 .indexId(indexDescriptor.id())
-                .schemaName(DEFAULT_SCHEMA_NAME)
                 .build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());

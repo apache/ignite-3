@@ -384,7 +384,6 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
     private CatalogCommand toRemoveIndexCommand(String indexName) {
         return RemoveIndexCommand.builder()
                 .indexId(indexId(catalogManager, indexName, clock))
-                .schemaName(DEFAULT_SCHEMA_NAME)
                 .build();
     }
 }

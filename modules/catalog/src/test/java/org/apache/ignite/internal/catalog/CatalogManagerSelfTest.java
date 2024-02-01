@@ -1907,7 +1907,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     private void removeIndex(int indexId) {
         assertThat(
-                manager.execute(RemoveIndexCommand.builder().indexId(indexId).schemaName(DEFAULT_SCHEMA_NAME).build()),
+                manager.execute(RemoveIndexCommand.builder().indexId(indexId).build()),
                 willCompleteSuccessfully()
         );
     }

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
@@ -28,7 +27,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 public class RemoveIndexCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
     @Override
     CatalogCommand createCommand(int indexId) {
-        return RemoveIndexCommand.builder().indexId(indexId).schemaName(CatalogManager.DEFAULT_SCHEMA_NAME).build();
+        return RemoveIndexCommand.builder().indexId(indexId).build();
     }
 
     @Override

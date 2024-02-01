@@ -162,7 +162,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     private CompletableFuture<Void> removeIndex(int indexId) {
-        return catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).schemaName(CatalogManager.DEFAULT_SCHEMA_NAME).build())
+        return catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).build())
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         LOG.error("Cannot remove a dropped index [indexId={}]", ex, indexId);

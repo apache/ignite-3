@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.storage.AbstractChangeIndexStatusEntry.schemaByIndexId;
 
 import java.util.Arrays;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -37,17 +37,13 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
 
     private final int indexId;
 
-    private final String schemaName;
-
     /**
      * Constructs the object.
      *
      * @param indexId An id of an index to drop.
-     * @param schemaName Name of the schema to which the index belongs.
      */
-    public RemoveIndexEntry(int indexId, String schemaName) {
+    public RemoveIndexEntry(int indexId) {
         this.indexId = indexId;
-        this.schemaName = schemaName;
     }
 
     @Override
@@ -62,7 +58,7 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+        CatalogSchemaDescriptor schema = schemaByIndexId(catalog, indexId);
 
         return new Catalog(
                 catalog.version(),
