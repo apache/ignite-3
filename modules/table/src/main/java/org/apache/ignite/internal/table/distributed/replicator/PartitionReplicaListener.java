@@ -3860,7 +3860,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
 
-            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+            if (indexDescriptor.tableId() == tableId()) {
+                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+            }
 
             return falseCompletedFuture();
         } catch (Throwable t) {
