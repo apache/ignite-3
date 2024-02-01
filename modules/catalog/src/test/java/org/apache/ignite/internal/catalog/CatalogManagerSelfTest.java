@@ -132,7 +132,7 @@ import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -1195,7 +1195,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Drop index.
         assertThat(manager.execute(dropIndexCmd), willBe(nullValue()));
-        verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(StoppingIndexEventParameters.class), isNull());
 
         // Remove index.
         removeIndex(indexId(INDEX_NAME));
@@ -1587,10 +1587,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotEquals(tableId, indexId);
 
-        EventListener<DropIndexEventParameters> stoppingListener = mock(EventListener.class);
+        EventListener<StoppingIndexEventParameters> stoppingListener = mock(EventListener.class);
         EventListener<RemoveIndexEventParameters> removedListener = mock(EventListener.class);
 
-        ArgumentCaptor<DropIndexEventParameters> stoppingCaptor = ArgumentCaptor.forClass(DropIndexEventParameters.class);
+        ArgumentCaptor<StoppingIndexEventParameters> stoppingCaptor = ArgumentCaptor.forClass(StoppingIndexEventParameters.class);
         ArgumentCaptor<RemoveIndexEventParameters> removingCaptor = ArgumentCaptor.forClass(RemoveIndexEventParameters.class);
 
         doReturn(falseCompletedFuture()).when(stoppingListener).notify(stoppingCaptor.capture(), any());
@@ -1605,7 +1605,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 willBe(nullValue())
         );
 
-        DropIndexEventParameters stoppingEventParameters = stoppingCaptor.getValue();
+        StoppingIndexEventParameters stoppingEventParameters = stoppingCaptor.getValue();
 
         assertEquals(indexId, stoppingEventParameters.indexId());
         assertEquals(tableId, stoppingEventParameters.tableId());

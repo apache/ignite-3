@@ -49,7 +49,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -151,7 +151,7 @@ public class IndexManager implements IgniteComponent {
                 return failedFuture(exception);
             }
 
-            removeIndex(((DropIndexEventParameters) parameters).indexId());
+            removeIndex(((StoppingIndexEventParameters) parameters).indexId());
 
             return falseCompletedFuture();
         });
@@ -204,7 +204,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     // TODO: IGNITE-20121 Unregister index only before we physically start deleting the index before truncate catalog
-    private CompletableFuture<Boolean> onIndexDrop(DropIndexEventParameters parameters) {
+    private CompletableFuture<Boolean> onIndexDrop(StoppingIndexEventParameters parameters) {
         int indexId = parameters.indexId();
         int tableId = parameters.tableId();
 

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.storage;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -61,7 +61,7 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
+        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
     }
 
     @Override
