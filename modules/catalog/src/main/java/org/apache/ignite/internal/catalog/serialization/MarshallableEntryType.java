@@ -68,6 +68,6 @@ public enum MarshallableEntryType {
             return VALS[id];
         }
 
-        throw new IllegalArgumentException("Unknown entry type identifier: " + id);
+        throw new IllegalArgumentException("Unknown entry type ID: " + id);
     }
 }

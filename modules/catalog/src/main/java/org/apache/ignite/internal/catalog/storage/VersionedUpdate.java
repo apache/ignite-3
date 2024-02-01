@@ -29,14 +29,11 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Group of changes that relates to specified version.
  */
 public class VersionedUpdate implements UpdateLogEvent {
-    public static final CatalogObjectSerializer<VersionedUpdate> SERIALIZER = new VersionedUpdateSerializer();
-
     private static final long serialVersionUID = 8189081952066692697L;
 
     private final int version;
@@ -110,13 +107,8 @@ public class VersionedUpdate implements UpdateLogEvent {
     public static class VersionedUpdateSerializer implements CatalogObjectSerializer<VersionedUpdate> {
         private final CatalogEntrySerializerProvider serializers;
 
-        @TestOnly
         public VersionedUpdateSerializer(CatalogEntrySerializerProvider serializers) {
             this.serializers = serializers;
-        }
-
-        private VersionedUpdateSerializer() {
-            this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
         }
 
         @Override
