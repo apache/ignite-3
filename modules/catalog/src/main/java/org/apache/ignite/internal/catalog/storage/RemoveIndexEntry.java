@@ -52,13 +52,13 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEvent eventType() {
-        return CatalogEvent.INDEX_REMOVED;
+    public int typeId() {
+        return MarshallableEntryType.REMOVE_INDEX.id();
     }
 
     @Override
-    public int typeId() {
-        return MarshallableEntryType.DROP_INDEX.id();
+    public CatalogEvent eventType() {
+        return CatalogEvent.INDEX_REMOVED;
     }
 
     @Override

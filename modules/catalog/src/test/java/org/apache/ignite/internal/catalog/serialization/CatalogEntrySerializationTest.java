@@ -53,6 +53,7 @@ import org.apache.ignite.internal.catalog.storage.NewSystemViewEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
+import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
 import org.apache.ignite.internal.catalog.storage.RenameTableEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntry;
@@ -125,6 +126,15 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     @Test
     public void dropIndexEntry() {
         DropIndexEntry entry = new DropIndexEntry(231, 23);
+
+        VersionedUpdate update = newVersionedUpdate(entry);
+
+        assertVersionedUpdate(update, serialize(update));
+    }
+
+    @Test
+    public void removeIndexEntry() {
+        RemoveIndexEntry entry = new RemoveIndexEntry(231);
 
         VersionedUpdate update = newVersionedUpdate(entry);
 
