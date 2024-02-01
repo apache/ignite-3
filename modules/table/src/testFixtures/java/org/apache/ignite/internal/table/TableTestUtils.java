@@ -20,8 +20,6 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
@@ -106,9 +104,7 @@ public class TableTestUtils {
      * @param indexName Index name.
      */
     public static void removeIndex(CatalogManager catalogManager, String indexName) {
-        Integer indexId = getIndexId(catalogManager, indexName, Long.MAX_VALUE);
-
-        assertThat(indexId, is(notNullValue()));
+        int indexId = getIndexIdStrict(catalogManager, indexName, Long.MAX_VALUE);
 
         assertThat(
                 catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).schemaName(DEFAULT_SCHEMA_NAME).build()),
