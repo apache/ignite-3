@@ -379,9 +379,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.table(TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table1.id(), clock.nowLong()));
 
-        assertThat(schema.index(pkIndexName(TABLE_NAME)).status(), is(STOPPING));
-        assertThat(manager.index(pkIndexName(TABLE_NAME), clock.nowLong()).status(), is(STOPPING));
-        assertThat(manager.index(pkIndex1.id(), clock.nowLong()).status(), is(STOPPING));
+        assertThat(schema.index(pkIndexName(TABLE_NAME)), is(nullValue()));
+        assertThat(manager.index(pkIndexName(TABLE_NAME), clock.nowLong()), is(nullValue()));
+        assertThat(manager.index(pkIndex1.id(), clock.nowLong()), is(nullValue()));
 
         assertSame(table2, manager.table(TABLE_NAME_2, clock.nowLong()));
         assertSame(table2, manager.table(table2.id(), clock.nowLong()));
@@ -979,16 +979,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.table(TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table.id(), clock.nowLong()));
 
-        CatalogIndexStatus indexFromSchema = schema.index(INDEX_NAME).status();
-        assertThat(indexFromSchema, is(notNullValue()));
-        assertThat(indexFromSchema, is(STOPPING));
-
-        CatalogIndexDescriptor indexFromManagerByName = manager.index(INDEX_NAME, clock.nowLong());
-        assertThat(indexFromManagerByName.status(), is(STOPPING));
-
-        CatalogIndexDescriptor indexFromManagerById = manager.index(index.id(), clock.nowLong());
-        assertThat(indexFromManagerById, is(notNullValue()));
-        assertThat(indexFromManagerById.status(), is(STOPPING));
+        assertThat(schema.index(INDEX_NAME), is(nullValue()));
+        assertThat(manager.index(INDEX_NAME, clock.nowLong()), is(nullValue()));
+        assertThat(manager.index(index.id(), clock.nowLong()), is(nullValue()));
     }
 
     @Test
@@ -1216,7 +1209,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // Try drop index once again.
         assertThat(manager.execute(dropIndexCmd), willThrow(IndexNotFoundValidationException.class));
 
-        verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(RemoveIndexEventParameters.class), isNull());
     }
 
     @Test
@@ -1594,13 +1587,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotEquals(tableId, indexId);
 
-        EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
+        EventListener<DropIndexEventParameters> stoppingListener = mock(EventListener.class);
+        EventListener<RemoveIndexEventParameters> removedListener = mock(EventListener.class);
 
-        ArgumentCaptor<DropIndexEventParameters> captor = ArgumentCaptor.forClass(DropIndexEventParameters.class);
+        ArgumentCaptor<DropIndexEventParameters> stoppingCaptor = ArgumentCaptor.forClass(DropIndexEventParameters.class);
+        ArgumentCaptor<RemoveIndexEventParameters> removingCaptor = ArgumentCaptor.forClass(RemoveIndexEventParameters.class);
 
-        doReturn(falseCompletedFuture()).when(eventListener).notify(captor.capture(), any());
+        doReturn(falseCompletedFuture()).when(stoppingListener).notify(stoppingCaptor.capture(), any());
+        doReturn(falseCompletedFuture()).when(removedListener).notify(removingCaptor.capture(), any());
 
-        manager.listen(CatalogEvent.INDEX_STOPPING, eventListener);
+        manager.listen(CatalogEvent.INDEX_STOPPING, stoppingListener);
+        manager.listen(CatalogEvent.INDEX_REMOVED, removedListener);
 
         // Let's drop the index.
         assertThat(
@@ -1608,19 +1605,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 willBe(nullValue())
         );
 
-        DropIndexEventParameters eventParameters = captor.getValue();
+        DropIndexEventParameters stoppingEventParameters = stoppingCaptor.getValue();
 
-        assertEquals(indexId, eventParameters.indexId());
-        assertEquals(tableId, eventParameters.tableId());
+        assertEquals(indexId, stoppingEventParameters.indexId());
+        assertEquals(tableId, stoppingEventParameters.tableId());
 
         // Let's drop the table.
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
-        // Let's make sure that the PK index has been dropped.
-        eventParameters = captor.getValue();
+        // Let's make sure that the PK index has been removed.
+        RemoveIndexEventParameters pkRemovedEventParameters = removingCaptor.getAllValues().get(0);
 
-        assertEquals(pkIndexId, eventParameters.indexId());
-        assertEquals(tableId, eventParameters.tableId());
+        assertEquals(pkIndexId, pkRemovedEventParameters.indexId());
     }
 
     @Test

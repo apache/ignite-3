@@ -26,10 +26,8 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -57,13 +55,11 @@ public class DropTableCommand extends AbstractTableCommand {
 
         Arrays.stream(schema.indexes())
                 .filter(index -> index.tableId() == table.id())
-                .filter(index -> index.status() != CatalogIndexStatus.STOPPING)
                 .forEach(index -> {
-                    if (index.status() == CatalogIndexStatus.AVAILABLE) {
-                        updateEntries.add(new DropIndexEntry(index.id(), index.tableId()));
-                    } else {
-                        updateEntries.add(new RemoveIndexEntry(index.id(), schemaName));
-                    }
+                    // We can remove AVAILABLE/STOPPED index right away as the only reason to have an index in the STOPPING state is to
+                    // allow RW transactions started before the index drop to write to it, but as the table is already dropped,
+                    // the writes are not possible in any case.
+                    updateEntries.add(new RemoveIndexEntry(index.id(), schemaName));
                 });
 
         updateEntries.add(new DropTableEntry(table.id(), schemaName));
