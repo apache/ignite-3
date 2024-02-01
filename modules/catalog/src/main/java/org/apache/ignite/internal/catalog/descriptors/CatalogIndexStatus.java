@@ -56,7 +56,7 @@ public enum CatalogIndexStatus {
      * to finish. After the wait is finished, the index will automatically be removed from the Catalog.
      *
      * <p>New RW transactions cannot read the index, but they write to it. RO transactions can still read from it if the readTimestamp
-     * corresponds to a moment when the index was still {@link #AVAILABLE}</p>
+     * corresponds to a moment when the index was still {@link #AVAILABLE}.</p>
      */
     STOPPING
 }
