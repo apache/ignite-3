@@ -21,11 +21,12 @@ import static java.util.Collections.synchronizedList;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertExceptionIsExpected;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -2250,19 +2251,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(threadNum, enlistExceptions.size());
 
         for (var e : enlistExceptions) {
-            try {
-                assertInstanceOf(TransactionException.class, e);
-                assertEquals(TX_FAILED_READ_WRITE_OPERATION_ERR, ((TransactionException) e).code());
-
-                var msg = e.getMessage();
-                var msgIsCorrect = msg.contains("Failed to enlist a write operation into a transaction, tx is locked for updates")
-                        || msg.contains("Transaction is already finished");
-
-                assertTrue(msgIsCorrect);
-            } catch (AssertionError error) {
-                log.error("Unexpected exception", e);
-                throw error;
-            }
+            assertExceptionIsExpected(TransactionException.class, TX_ALREADY_FINISHED_ERR, "Transaction is already finished", e);
         }
 
         assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));

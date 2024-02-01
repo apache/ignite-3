@@ -40,8 +40,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 
@@ -1944,7 +1944,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
 
         if (cleanupReadyFut.isCompletedExceptionally()) {
-            return failedFuture(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
+            return failedFuture(new TransactionException(TX_ALREADY_FINISHED_ERR, "Transaction is already finished."));
         }
 
         CompletableFuture<T> fut = op.get();

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -115,7 +115,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private void checkEnlistPossibility() {
         if (hasTxFinalizationBegun()) {
             throw new TransactionException(
-                    TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    TX_ALREADY_FINISHED_ERR,
                     format("Transaction is already finished [id={}, state={}].", id(), state()));
         }
     }

@@ -22,6 +22,9 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -62,6 +65,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -320,6 +324,35 @@ public final class IgniteTestUtils {
         }
 
         throw new AssertionError("Exception has not been thrown.");
+    }
+
+    /**
+     * Checks the given {@link IgniteException} that it is the instance of the correct class, has the correct code and message.
+     * If the exception is incorrect, {@link AssertionError} is thrown and the incorrect exception is added to suppressed exceptions.
+     *
+     * @param expectedClass Expected class of the exception.
+     * @param expectedErrorCode Expected error code of the {@link IgniteException}.
+     * @param expectedMessageSubstring A substring that must be contained in the error message of the exception.
+     * @param exception Exception to check.
+     */
+    public static void assertExceptionIsExpected(
+            Class<? extends IgniteException> expectedClass,
+            int expectedErrorCode,
+            String expectedMessageSubstring,
+            Exception exception
+    ) {
+        try {
+            assertInstanceOf(expectedClass, exception);
+
+            IgniteException igniteException = (IgniteException) exception;
+            assertEquals(expectedErrorCode, igniteException.code());
+
+            assertTrue(exception.getMessage().contains(expectedMessageSubstring));
+        } catch (AssertionError error) {
+            error.addSuppressed(exception);
+
+            throw error;
+        }
     }
 
     /**
