@@ -43,8 +43,6 @@ public class LeaderWithTerm {
      * @return True if the instance does not contain useful data, false otherwise.
      */
     public boolean isEmpty() {
-        assert term == -1 : "The term is not expected [term=" + term + ']';
-
         return leader == null;
     }
 
