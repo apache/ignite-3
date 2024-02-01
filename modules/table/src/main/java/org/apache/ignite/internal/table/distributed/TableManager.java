@@ -26,6 +26,7 @@ import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
@@ -71,7 +72,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -122,6 +122,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
@@ -1509,7 +1510,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
-                .thenApply(Function.identity());
+                .thenApply(identity());
     }
 
     /**
@@ -1766,7 +1767,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         busyLock.leaveBusy();
                     }
                 })
-                .thenCompose(Function.identity());
+                .thenCompose(identity());
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
@@ -1831,8 +1832,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         RaftGroupService partGrpSvc = table.internalTable().partitionRaftGroupService(partId);
 
         return partGrpSvc.refreshAndGetLeaderWithTerm()
+                .exceptionally(throwable -> {
+                    if (throwable instanceof TimeoutException) {
+                        LOG.info("Node couldn't get the leader within timeout so change peer is skipped [grp={}].", replicaGrpId);
+
+                        return LeaderWithTerm.NO_LEADER;
+                    }
+
+                    throw new IgniteInternalException(throwable);
+                })
                 .thenCompose(leaderWithTerm -> {
-                    if (!isLocalPeer(leaderWithTerm.leader())) {
+                    if (leaderWithTerm.leader() == null || !isLocalPeer(leaderWithTerm.leader())) {
                         return nullCompletedFuture();
                     }
 
@@ -1855,14 +1865,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                 return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
                             });
-                }).exceptionally(throwable -> {
-                    if (throwable instanceof TimeoutException) {
-                        LOG.info("The node could not wait for a replication group response [grp={}]", replicaGrpId);
-
-                        return null;
-                    }
-
-                    throw new IgniteInternalException(throwable);
                 });
     }
 
