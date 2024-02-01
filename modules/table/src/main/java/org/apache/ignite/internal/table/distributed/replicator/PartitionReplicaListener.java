@@ -3853,12 +3853,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             return trueCompletedFuture();
         }
 
-        CatalogIndexDescriptor indexDescriptor = null;
-
         try {
             int indexId = ((StartBuildingIndexEventParameters) parameters).indexId();
 
-            indexDescriptor = catalogService.index(indexId, parameters.catalogVersion());
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, parameters.catalogVersion());
 
             assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
 
@@ -3868,15 +3866,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return falseCompletedFuture();
         } catch (Throwable t) {
-            LOG.error(
-                    ">>>>> Strange error: [groupId={}, indexInfo=[id={}, tableId={}], q={}]",
-                    t,
-                    replicationGroupId,
-                    indexDescriptor == null ? null : indexDescriptor.id(),
-                    indexDescriptor == null ? null : indexDescriptor.tableId(),
-                    txRwOperationTracker.q
-            );
-
             return failedFuture(t);
         } finally {
             busyLock.leaveBusy();
