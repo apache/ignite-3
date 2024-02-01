@@ -24,5 +24,6 @@ public interface MakeIndexAvailableCommandBuilder {
     /** Index ID. */
     MakeIndexAvailableCommandBuilder indexId(int indexId);
 
+    /** Returns a command with specified parameters. */
     CatalogCommand build();
 }

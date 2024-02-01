@@ -47,9 +47,10 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -104,8 +106,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
-        List<PartitionWithTerm> partsWithTerms = IntStream.range(0, TestInternalTableImpl.PART_CNT)
-                .mapToObj(p -> new PartitionWithTerm(p, -1L))
+        List<PartitionWithConsistencyToken> partsWithConsistencyTokens = IntStream.range(0, TestInternalTableImpl.PART_CNT)
+                .mapToObj(p -> new PartitionWithConsistencyToken(p, -1L))
                 .collect(Collectors.toList());
 
         int probingCnt = 50;
@@ -146,7 +148,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef),
                     new TestPlacementDriver(leaseholder, leaseholder),
-                    () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                    () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                    new TestLocalRwTxCounter()
             );
 
             txManager.start();
@@ -157,13 +160,18 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             TableRowConverter rowConverter = new TableRowConverter() {
                 @Override
+                public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
                 public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
             ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
-                    partsWithTerms, null, null, null);
+                    partsWithConsistencyTokens, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 
@@ -177,7 +185,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             }
 
             internalTable.scanComplete.await();
-            assertEquals(sizes[i++] * partsWithTerms.size(), cnt);
+            assertEquals(sizes[i++] * partsWithConsistencyTokens.size(), cnt);
         }
     }
 

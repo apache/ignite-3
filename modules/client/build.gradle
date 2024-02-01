@@ -53,6 +53,7 @@ dependencies {
     testImplementation project(':ignite-metrics')
     testImplementation project(':ignite-catalog')
     testImplementation project(':ignite-placement-driver-api')
+    testImplementation project(':ignite-compute')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-sql-engine')))

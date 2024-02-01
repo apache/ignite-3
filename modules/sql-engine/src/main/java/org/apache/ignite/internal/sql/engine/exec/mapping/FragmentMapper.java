@@ -29,7 +29,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.SetOp;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -64,7 +64,6 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
@@ -395,13 +394,13 @@ class FragmentMapper {
                 return mapping;
             }
 
-            IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
+            IgniteDataSource igniteDataSource = rel.getTable().unwrapOrThrow(IgniteDataSource.class);
 
-            ExecutionTarget target = targets.get(igniteTable.id());
-            assert target != null : "No colocation group for " + igniteTable.id();
+            ExecutionTarget target = targets.get(igniteDataSource.id());
+            assert target != null : "No colocation group for " + igniteDataSource.id();
 
             try {
-                return newMapping(-1, target).colocate(mapping);
+                return newMapping(rel.sourceId(), target).colocate(mapping);
             } catch (ColocationMappingException e) {
                 return new FailedMapping(new FragmentMappingException(e.getMessage(), input, e));
             }
@@ -545,7 +544,7 @@ class FragmentMapper {
             ExecutionTarget finalised = target.finalise();
 
             List<String> nodes = context.targetFactory().resolveNodes(finalised);
-            List<NodeWithTerm> assignments = context.targetFactory().resolveAssignments(finalised);
+            List<NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(finalised);
 
             return List.of(
                     new ColocationGroup(

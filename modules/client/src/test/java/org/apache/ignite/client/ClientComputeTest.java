@@ -19,8 +19,11 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getClient;
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
+import static org.apache.ignite.compute.JobState.COMPLETED;
+import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -39,6 +42,7 @@ import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -79,18 +83,17 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1, server2, server3, server1, server2)) {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
-            CompletableFuture<String> fut1 = client.compute()
-                    .<String>executeAsync(getClusterNodes("s1"), List.of(), "job", new Object[]{}).resultAsync();
+            JobExecution<String> execution1 = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+            JobExecution<String> execution2 = client.compute().executeAsync(getClusterNodes("s2"), List.of(), "job");
+            JobExecution<String> execution3 = client.compute().executeAsync(getClusterNodes("s3"), List.of(), "job");
 
-            CompletableFuture<String> fut2 = client.compute()
-                    .<String>executeAsync(getClusterNodes("s2"), List.of(), "job", new Object[]{}).resultAsync();
+            assertThat(execution1.resultAsync(), willBe("s1"));
+            assertThat(execution2.resultAsync(), willBe("s2"));
+            assertThat(execution3.resultAsync(), willBe("s3"));
 
-            CompletableFuture<String> fut3 = client.compute()
-                    .<String>executeAsync(getClusterNodes("s3"), List.of(), "job", new Object[]{}).resultAsync();
-
-            assertThat(fut1, willBe("s1"));
-            assertThat(fut2, willBe("s2"));
-            assertThat(fut3, willBe("s3"));
+            assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution3.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         }
     }
 
@@ -99,18 +102,17 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server3)) {
-            CompletableFuture<String> fut1 = client.compute()
-                    .<String>executeAsync(getClusterNodes("s1"), List.of(), "job", new Object[]{}).resultAsync();
+            JobExecution<String> execution1 = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+            JobExecution<String> execution2 = client.compute().executeAsync(getClusterNodes("s2"), List.of(), "job");
+            JobExecution<String> execution3 = client.compute().executeAsync(getClusterNodes("s3"), List.of(), "job");
 
-            CompletableFuture<String> fut2 = client.compute()
-                    .<String>executeAsync(getClusterNodes("s2"), List.of(), "job", new Object[]{}).resultAsync();
+            assertThat(execution1.resultAsync(), willBe("s3"));
+            assertThat(execution2.resultAsync(), willBe("s3"));
+            assertThat(execution3.resultAsync(), willBe("s3"));
 
-            CompletableFuture<String> fut3 = client.compute()
-                    .<String>executeAsync(getClusterNodes("s3"), List.of(), "job", new Object[]{}).resultAsync();
-
-            assertThat(fut1, willBe("s3"));
-            assertThat(fut2, willBe("s3"));
-            assertThat(fut3, willBe("s3"));
+            assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution3.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         }
     }
 
@@ -124,7 +126,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 var nodeName = "s" + nodeId;
 
                 CompletableFuture<String> fut = client.compute()
-                        .<String>executeAsync(getClusterNodes(nodeName), List.of(), "job", new Object[]{}).resultAsync();
+                        .<String>executeAsync(getClusterNodes(nodeName), List.of(), "job").resultAsync();
 
                 assertThat(fut, willBe("s3"));
             }
@@ -153,14 +155,17 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server2)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            CompletableFuture<String> fut1 = client.compute()
-                    .<String>executeColocatedAsync(TABLE_NAME, key, List.of(), "job").resultAsync();
+            JobExecution<String> execution1 = client.compute()
+                    .executeColocatedAsync(TABLE_NAME, key, List.of(), "job");
 
-            CompletableFuture<String> fut2 = client.compute()
-                    .<Long, String>executeColocatedAsync(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job").resultAsync();
+            JobExecution<String> execution2 = client.compute()
+                    .executeColocatedAsync(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
 
-            assertThat(fut1, willBe("s2"));
-            assertThat(fut2, willBe("s2"));
+            assertThat(execution1.resultAsync(), willBe("s2"));
+            assertThat(execution2.resultAsync(), willBe("s2"));
+
+            assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         }
     }
 
@@ -230,7 +235,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
     private static CompletableFuture<String> getUnits(IgniteClient client, List<DeploymentUnit> units) {
         return client.compute()
-                .<String>executeAsync(getClusterNodes("s1"), units, FakeCompute.GET_UNITS, new Object[]{}).resultAsync();
+                .<String>executeAsync(getClusterNodes("s1"), units, FakeCompute.GET_UNITS).resultAsync();
     }
 
     @Test
@@ -240,12 +245,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1)) {
             FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
 
-            CompletableFuture<Object> fut = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job").resultAsync();
+            JobExecution<String> execution = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
 
-            assertThat(
-                    fut,
-                    willThrowFast(IgniteException.class)
-            );
+            assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
         }
     }
 

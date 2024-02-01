@@ -274,6 +274,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final ClusterNodeResolver clusterNodeResolver;
 
+    /** Read-write transaction operation tracker for building indexes. */
+    private final IndexBuilderTxRwOperationTracker txRwOperationTracker = new IndexBuilderTxRwOperationTracker();
+
     /**
      * The constructor.
      *
@@ -458,7 +461,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return validateTableExistence(request, opTsIfDirectRo)
                 .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
-                .thenCompose(opStartTimestamp -> processOperationRequest(request, isPrimary, senderId, opTsIfDirectRo));
+                .thenCompose(unused -> processOperationRequestWithTxRwCounter(request, isPrimary, senderId, opTsIfDirectRo));
     }
 
     /**
@@ -630,7 +633,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp txStartTimestamp;
 
         if (request instanceof ReadWriteReplicaRequest) {
-            txStartTimestamp = TransactionIds.beginTimestamp(((ReadWriteReplicaRequest) request).transactionId());
+            txStartTimestamp = beginRwTxTs((ReadWriteReplicaRequest) request);
         } else if (request instanceof ReadOnlyReplicaRequest) {
             txStartTimestamp = ((ReadOnlyReplicaRequest) request).readTimestamp();
         } else {
@@ -740,12 +743,30 @@ public class PartitionReplicaListener implements ReplicaListener {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(replicaMeta -> {
                     if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
-                        return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, null, null, null));
+                        return failedFuture(
+                                new PrimaryReplicaMissException(
+                                        localNode.name(),
+                                        null,
+                                        localNode.id(),
+                                        null,
+                                        null,
+                                        null,
+                                        null
+                                )
+                        );
                     }
 
-                    if (!isLocalPeer(replicaMeta.getLeaseholder())) {
+                    if (!isLocalPeer(replicaMeta.getLeaseholderId())) {
                         return failedFuture(
-                                new PrimaryReplicaMissException(localNode.name(), replicaMeta.getLeaseholder(), null, null, null)
+                                new PrimaryReplicaMissException(
+                                        localNode.name(),
+                                        replicaMeta.getLeaseholder(),
+                                        localNode.id(),
+                                        replicaMeta.getLeaseholderId(),
+                                        null,
+                                        null,
+                                        null
+                                )
                         );
                     }
 
@@ -3362,34 +3383,42 @@ public class PartitionReplicaListener implements ReplicaListener {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplicaMeta -> {
                         if (primaryReplicaMeta == null) {
-                            return failedFuture(new PrimaryReplicaMissException(
-                                    localNode.name(),
-                                    null,
-                                    enlistmentConsistencyToken,
-                                    null,
-                                    null
-                            ));
+                            return failedFuture(
+                                    new PrimaryReplicaMissException(
+                                            localNode.name(),
+                                            null,
+                                            localNode.id(),
+                                            primaryReplicaMeta.getLeaseholderId(),
+                                            enlistmentConsistencyToken,
+                                            null,
+                                            null
+                                    )
+                            );
                         }
 
                         long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
                         if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
-                                || primaryReplicaMeta.getExpirationTime().before(now)) {
-                            return failedFuture(new PrimaryReplicaMissException(
-                                    localNode.name(),
-                                    primaryReplicaMeta.getLeaseholder(),
-                                    enlistmentConsistencyToken,
-                                    currentEnlistmentConsistencyToken,
-                                    null
-                            ));
+                                || primaryReplicaMeta.getExpirationTime().before(now)
+                                || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
+                        ) {
+                            return failedFuture(
+                                    new PrimaryReplicaMissException(
+                                            localNode.name(),
+                                            primaryReplicaMeta.getLeaseholder(),
+                                            localNode.id(),
+                                            primaryReplicaMeta.getLeaseholderId(),
+                                            enlistmentConsistencyToken,
+                                            currentEnlistmentConsistencyToken,
+                                            null)
+                            );
                         }
 
                         return nullCompletedFuture();
                     });
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
-                    .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
+                    .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId())));
         } else {
             return nullCompletedFuture();
         }
@@ -3693,6 +3722,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         busyLock.block();
+
+        txRwOperationTracker.close();
     }
 
     private int partId() {
@@ -3703,8 +3734,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         return replicationGroupId.tableId();
     }
 
-    private boolean isLocalPeer(String nodeName) {
-        return localNode.name().equals(nodeName);
+    private boolean isLocalPeer(String nodeId) {
+        return localNode.id().equals(nodeId);
     }
 
     /**
@@ -3763,5 +3794,35 @@ public class PartitionReplicaListener implements ReplicaListener {
         public boolean hadUpdateFutures() {
             return hadUpdateFutures;
         }
+    }
+
+    private CompletableFuture<?> processOperationRequestWithTxRwCounter(
+            ReplicaRequest request,
+            @Nullable Boolean isPrimary,
+            String senderId,
+            @Nullable HybridTimestamp opStartTsIfDirectRo
+    ) {
+        if (request instanceof ReadWriteReplicaRequest) {
+            // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
+            // otherwise there may be races/errors and the index will not be able to start building.
+            txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion((ReadWriteReplicaRequest) request));
+        }
+
+        return processOperationRequest(request, isPrimary, senderId, opStartTsIfDirectRo)
+                .whenComplete((unused, throwable) -> {
+                    if (request instanceof ReadWriteReplicaRequest) {
+                        txRwOperationTracker.decrementOperationCount(rwTxActiveCatalogVersion((ReadWriteReplicaRequest) request));
+                    }
+                });
+    }
+
+    private static HybridTimestamp beginRwTxTs(ReadWriteReplicaRequest request) {
+        return TransactionIds.beginTimestamp(request.transactionId());
+    }
+
+    private int rwTxActiveCatalogVersion(ReadWriteReplicaRequest request) {
+        HybridTimestamp beginRwTxTs = beginRwTxTs(request);
+
+        return catalogService.activeCatalogVersion(beginRwTxTs.longValue());
     }
 }

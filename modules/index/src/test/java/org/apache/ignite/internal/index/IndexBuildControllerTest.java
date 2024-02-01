@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
@@ -43,23 +44,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
-import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -104,8 +97,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> LOCAL_NODE));
 
-        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
-        catalogManager.start();
+        catalogManager = createTestCatalogManager(NODE_NAME, clock);
+        assertThat(catalogManager.start(), willCompleteSuccessfully());
 
         indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
 
@@ -128,6 +121,27 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         createIndex(INDEX_NAME);
 
+        verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
+                eq(LOCAL_NODE),
+                anyLong()
+        );
+    }
+
+    @Test
+    void testStartBuildIndexesOnIndexBuilding() {
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
+
+        clearInvocations(indexBuilder);
+
+        createIndex(INDEX_NAME);
+
+        startBuildingIndex(indexId(INDEX_NAME));
+
         verify(indexBuilder).scheduleBuildIndex(
                 eq(tableId()),
                 eq(PARTITION_ID),
@@ -142,6 +156,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     @Test
     void testStartBuildIndexesOnPrimaryReplicaElected() {
         createIndex(INDEX_NAME);
+
+        startBuildingIndex(indexId(INDEX_NAME));
 
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
@@ -210,19 +226,21 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testStartBuildIndexesOnPrimaryReplicaElectedOnlyForRegisteredIndexes() {
-        createIndex(INDEX_NAME);
+    void testStartBuildIndexesOnPrimaryReplicaElectedOnlyForBuildingIndexes() {
+        createIndex(INDEX_NAME + 0);
+        createIndex(INDEX_NAME + 1);
 
-        int indexId = indexId(INDEX_NAME);
+        int indexId0 = indexId(INDEX_NAME + 0);
 
-        makeIndexAvailable(indexId);
+        startBuildingIndex(indexId0);
+        makeIndexAvailable(indexId0);
 
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder, never()).scheduleBuildIndex(
                 eq(tableId()),
                 eq(PARTITION_ID),
-                eq(indexId(INDEX_NAME)),
+                anyInt(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -232,6 +250,10 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     private void createIndex(String indexName) {
         createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
+    }
+
+    private void startBuildingIndex(int indexId) {
+        assertThat(catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }
 
     private void makeIndexAvailable(int indexId) {
@@ -273,54 +295,5 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 startTime.addPhysicalTime(1_000),
                 new TablePartitionId(tableId(), PARTITION_ID)
         );
-    }
-
-    private static class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
-            PlacementDriver {
-        private final Map<ReplicationGroupId, CompletableFuture<ReplicaMeta>> primaryReplicaMetaFutureById = new ConcurrentHashMap<>();
-
-        @Override
-        public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
-                ReplicationGroupId groupId,
-                HybridTimestamp timestamp,
-                long timeout,
-                TimeUnit unit
-        ) {
-            return primaryReplicaMetaFutureById.get(groupId);
-        }
-
-        @Override
-        public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-            return primaryReplicaMetaFutureById.get(replicationGroupId);
-        }
-
-        @Override
-        public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ReplicaMeta currentLease(ReplicationGroupId groupId) {
-            return primaryReplicaMetaFutureById.get(groupId).join();
-        }
-
-        CompletableFuture<Void> setPrimaryReplicaMeta(
-                long causalityToken,
-                TablePartitionId replicaId,
-                CompletableFuture<ReplicaMeta> replicaMetaFuture
-        ) {
-            primaryReplicaMetaFutureById.put(replicaId, replicaMetaFuture);
-
-            return replicaMetaFuture.thenCompose(replicaMeta -> fireEvent(
-                    PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
-                    new PrimaryReplicaEventParameters(
-                            causalityToken,
-                            replicaId,
-                            replicaMeta.getLeaseholderId(),
-                            replicaMeta.getLeaseholder(),
-                            replicaMeta.getStartTime()
-                    )
-            ));
-        }
     }
 }

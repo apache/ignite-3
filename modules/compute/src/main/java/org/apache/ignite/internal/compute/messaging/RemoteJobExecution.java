@@ -23,6 +23,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Remote job execution implementation.
@@ -69,21 +70,21 @@ public class RemoteJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> statusAsync() {
+    public CompletableFuture<@Nullable JobStatus> statusAsync() {
         return inFlightFutures.registerFuture(
                 jobIdFuture.thenCompose(jobId -> messaging.remoteStatusAsync(remoteNode, jobId))
         );
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
+    public CompletableFuture<@Nullable Boolean> cancelAsync() {
         return inFlightFutures.registerFuture(
                 jobIdFuture.thenCompose(jobId -> messaging.remoteCancelAsync(remoteNode, jobId))
         );
     }
 
     @Override
-    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return inFlightFutures.registerFuture(
                 jobIdFuture.thenCompose(jobId -> messaging.remoteChangePriorityAsync(remoteNode, jobId, newPriority))
         );

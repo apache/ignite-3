@@ -39,7 +39,11 @@ public class ExecutorInclinedRaftCommandRunner implements RaftCommandRunner {
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
-        return commandRunner.<R>run(cmd)
-                .thenApplyAsync(identity(), completionExecutor);
+        CompletableFuture<R> future = commandRunner.run(cmd);
+        if (future.isDone()) {
+            return future;
+        }
+
+        return future.thenApplyAsync(identity(), completionExecutor);
     }
 }

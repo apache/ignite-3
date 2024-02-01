@@ -116,19 +116,19 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final BooleanProperty sslEnabled = new BooleanProperty("sslEnabled",
             "Enable ssl", false, null, false, null);
 
-    /** Basic authentication username. */
-    private final StringProperty basicAuthenticationUsername = new StringProperty("basicAuthenticationUsername",
-            "Basic authentication username", null, null, false, null);
+    /** Username. */
+    private final StringProperty username = new StringProperty("username",
+            "Username", null, null, false, null);
 
-    /** Basic authentication password. */
-    private final StringProperty basicAuthenticationPassword = new StringProperty("basicAuthenticationPassword",
-            "Basic authentication password", null, null, false, null);
+    /** Password. */
+    private final StringProperty password = new StringProperty("password",
+            "Password", null, null, false, null);
 
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword,
-            basicAuthenticationUsername, basicAuthenticationPassword
+            username, password
     };
 
     /** {@inheritDoc} */
@@ -325,23 +325,23 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     @Override
-    public String getBasicAuthenticationUsername() {
-        return basicAuthenticationUsername.value();
+    public String getUsername() {
+        return username.value();
     }
 
     @Override
-    public void setBasicAuthenticationUsername(String username) {
-        basicAuthenticationUsername.setValue(username);
+    public void setUsername(String username) {
+        this.username.setValue(username);
     }
 
     @Override
-    public String getBasicAuthenticationPassword() {
-        return basicAuthenticationPassword.value();
+    public String getPassword() {
+        return password.value();
     }
 
     @Override
-    public void setBasicAuthenticationPassword(String password) {
-        basicAuthenticationPassword.setValue(password);
+    public void setPassword(String password) {
+        this.password.setValue(password);
     }
 
     /**

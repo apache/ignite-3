@@ -122,5 +122,6 @@ CREATE INDEX l_sk ON lineitem (l_suppkey ASC);
 CREATE INDEX l_sd ON lineitem (l_shipdate ASC);
 CREATE INDEX l_cd ON lineitem (l_commitdate ASC);
 CREATE INDEX l_rd ON lineitem (l_receiptdate ASC);
+CREATE INDEX l_ok ON lineitem (l_orderkey ASC);
 CREATE INDEX l_pk_sk ON lineitem (l_partkey ASC, l_suppkey ASC);
 CREATE INDEX l_sk_pk ON lineitem (l_suppkey ASC, l_partkey ASC);

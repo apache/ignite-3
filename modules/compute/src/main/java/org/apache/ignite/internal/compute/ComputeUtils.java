@@ -19,10 +19,10 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 
 import java.lang.reflect.Constructor;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -38,6 +38,8 @@ import org.apache.ignite.internal.compute.message.JobCancelResponse;
 import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
+import org.apache.ignite.internal.compute.message.JobStatusesResponse;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for compute.
@@ -142,12 +144,27 @@ public class ComputeUtils {
     }
 
     /**
+     * Extract compute job statuses from statuses response.
+     *
+     * @param jobStatusesResponse Job statuses result message response.
+     * @return Completable future with result.
+     */
+    public static CompletableFuture<Collection<JobStatus>> statusesFromJobStatusesResponse(JobStatusesResponse jobStatusesResponse) {
+        Throwable throwable = jobStatusesResponse.throwable();
+        if (throwable != null) {
+            return failedFuture(throwable);
+        }
+
+        return completedFuture(jobStatusesResponse.statuses());
+    }
+
+    /**
      * Extract compute job status from status response.
      *
      * @param jobStatusResponse Job status result message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<JobStatus> statusFromJobStatusResponse(JobStatusResponse jobStatusResponse) {
+    public static CompletableFuture<@Nullable JobStatus> statusFromJobStatusResponse(JobStatusResponse jobStatusResponse) {
         Throwable throwable = jobStatusResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
@@ -162,13 +179,13 @@ public class ComputeUtils {
      * @param jobCancelResponse Job cancel message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<Void> cancelFromJobCancelResponse(JobCancelResponse jobCancelResponse) {
+    public static CompletableFuture<@Nullable Boolean> cancelFromJobCancelResponse(JobCancelResponse jobCancelResponse) {
         Throwable throwable = jobCancelResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return nullCompletedFuture();
+        return completedFuture(jobCancelResponse.result());
     }
 
     /**
@@ -177,13 +194,15 @@ public class ComputeUtils {
      * @param jobChangePriorityResponse Job change priority message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<Void> changePriorityFromJobChangePriorityResponse(JobChangePriorityResponse jobChangePriorityResponse) {
+    public static CompletableFuture<@Nullable Boolean> changePriorityFromJobChangePriorityResponse(
+            JobChangePriorityResponse jobChangePriorityResponse
+    ) {
         Throwable throwable = jobChangePriorityResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return nullCompletedFuture();
+        return completedFuture(jobChangePriorityResponse.result());
     }
 
     /**

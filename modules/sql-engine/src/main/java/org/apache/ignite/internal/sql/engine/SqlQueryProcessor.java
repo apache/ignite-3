@@ -74,6 +74,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -81,7 +83,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
@@ -138,9 +140,6 @@ import org.jetbrains.annotations.TestOnly;
 public class SqlQueryProcessor implements QueryProcessor {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
-
-    /** Size of the cache for query plans. */
-    private static final int PLAN_CACHE_SIZE = 1024;
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
 
@@ -214,6 +213,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
 
+    /** Cluster SQL configuration. */
+    private final SqlDistributedConfiguration clusterCfg;
+
+    /** Node SQL configuration. */
+    private final SqlLocalConfiguration nodeCfg;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -229,7 +234,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             CatalogManager catalogManager,
             MetricManager metricManager,
             SystemViewManager systemViewManager,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            SqlDistributedConfiguration clusterCfg,
+            SqlLocalConfiguration nodeCfg
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -244,6 +251,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
         this.placementDriver = placementDriver;
+        this.clusterCfg = clusterCfg;
+        this.nodeCfg = nodeCfg;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -257,7 +266,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value()));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
@@ -265,11 +274,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
-                PLAN_CACHE_SIZE,
                 CACHE_FACTORY,
                 dataStorageManager,
                 dataStorageFieldsSupplier.get(),
-                metricManager
+                metricManager,
+                clusterCfg,
+                nodeCfg
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
@@ -324,7 +334,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         };
 
         var mappingService = new MappingServiceImpl(
-                nodeName, executionTargetProvider, CACHE_FACTORY, PLAN_CACHE_SIZE, taskExecutor
+                nodeName,
+                executionTargetProvider,
+                CACHE_FACTORY,
+                clusterCfg.planner().estimatedNumberOfQueries().value(),
+                taskExecutor
         );
 
         logicalTopologyService.addEventListener(mappingService);
@@ -356,7 +370,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
-    private CompletableFuture<List<NodeWithTerm>> primaryReplicas(int tableId) {
+    private CompletableFuture<List<NodeWithConsistencyToken>> primaryReplicas(int tableId) {
         int catalogVersion = catalogManager.latestCatalogVersion();
 
         Catalog catalog = catalogManager.catalog(catalogVersion);
@@ -367,7 +381,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         int partitions = zoneDesc.partitions();
 
-        List<CompletableFuture<NodeWithTerm>> result = new ArrayList<>(partitions);
+        List<CompletableFuture<NodeWithConsistencyToken>> result = new ArrayList<>(partitions);
 
         HybridTimestamp clockNow = clock.now();
 
@@ -394,7 +408,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     assert holder != null : "Unable to map query, nothing holds the lease";
 
-                    return new NodeWithTerm(holder, primaryReplica.getStartTime().longValue());
+                    return new NodeWithConsistencyToken(holder, primaryReplica.getStartTime().longValue());
                 }
             }));
         }

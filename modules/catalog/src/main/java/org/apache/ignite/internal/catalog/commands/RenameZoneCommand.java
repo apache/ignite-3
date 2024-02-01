@@ -30,7 +30,6 @@ import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationExcept
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 
 /**
  * A command that renames a zone with specified name.
@@ -85,7 +84,7 @@ public class RenameZoneCommand extends AbstractZoneCommand {
         validateIdentifier(newZoneName, "New zone name");
 
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            throw new CatalogValidationException(DistributionZones.ZONE_RENAME_ERR, "Default distribution zone can't be renamed");
+            throw new CatalogValidationException("Default distribution zone can't be renamed");
         }
     }
 

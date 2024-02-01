@@ -43,7 +43,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestBasicStreamingRecordBinaryView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 10 };
+        var options = DataStreamerOptions.Default with { PageSize = 10 };
         var data = Enumerable.Range(0, Count).Select(x => GetTuple(x, "t" + x)).ToList();
 
         await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
@@ -53,7 +53,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestBasicStreamingRecordView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 5 };
+        var options = DataStreamerOptions.Default with { PageSize = 5 };
         var data = Enumerable.Range(0, Count).Select(x => GetPoco(x, "t" + x)).ToList();
 
         await Table.GetRecordView<Poco>().StreamDataAsync(data.ToAsyncEnumerable(), options);
@@ -63,7 +63,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestBasicStreamingKeyValueBinaryView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 10_000 };
+        var options = DataStreamerOptions.Default with { PageSize = 10_000 };
         var data = Enumerable.Range(0, Count)
             .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple("t" + x)))
             .ToList();
@@ -75,7 +75,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestBasicStreamingKeyValueView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 1 };
+        var options = DataStreamerOptions.Default with { PageSize = 1 };
         var data = Enumerable.Range(0, Count)
             .Select(x => new KeyValuePair<long, Poco>(x, GetPoco(x, "t" + x)))
             .ToList();
@@ -130,7 +130,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestOptionsValidation()
     {
-        AssertException(DataStreamerOptions.Default with { BatchSize = -10 }, "BatchSize should be positive.");
+        AssertException(DataStreamerOptions.Default with { PageSize = -10 }, "PageSize should be positive.");
         AssertException(DataStreamerOptions.Default with { RetryLimit = -1 }, "RetryLimit should be non-negative.");
         AssertException(
             DataStreamerOptions.Default with { AutoFlushFrequency = TimeSpan.FromDays(-1) },
@@ -179,7 +179,7 @@ public class DataStreamerTests : IgniteTestsBase
         await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(count));
 
         Assert.AreEqual(count, server.UpsertAllRowCount);
-        Assert.That(server.DroppedConnectionCount, Is.GreaterThanOrEqualTo(count / DataStreamerOptions.Default.BatchSize));
+        Assert.That(server.DroppedConnectionCount, Is.GreaterThanOrEqualTo(count / DataStreamerOptions.Default.PageSize));
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)

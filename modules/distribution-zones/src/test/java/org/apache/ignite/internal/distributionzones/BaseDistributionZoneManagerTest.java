@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
@@ -31,7 +34,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -52,9 +54,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/**
- * Base class for {@link DistributionZoneManager} unit tests.
- */
+/** Base class for {@link DistributionZoneManager} unit tests. */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
     protected static final String ZONE_NAME = "zone1";
@@ -80,7 +80,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     private final List<IgniteComponent> components = new ArrayList<>();
 
     @BeforeEach
-    void setUp() throws InterruptedException {
+    void setUp() throws Exception {
         String nodeName = "test";
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
@@ -102,7 +102,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
-        catalogManager = CatalogTestUtils.createTestCatalogManager(nodeName, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
         components.add(catalogManager);
 
         distributionZoneManager = new DistributionZoneManager(
@@ -114,7 +114,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        components.forEach(IgniteComponent::start);
+        assertThat(
+                allOf(components.stream().map(IgniteComponent::start).collect(toList()).toArray(CompletableFuture[]::new)),
+                willCompleteSuccessfully()
+        );
     }
 
     @AfterEach
@@ -130,8 +133,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     void startDistributionZoneManager() {
-        distributionZoneManager.start();
-
+        assertThat(allOf(distributionZoneManager.start()), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 

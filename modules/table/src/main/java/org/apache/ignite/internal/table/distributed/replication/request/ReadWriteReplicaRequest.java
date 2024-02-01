@@ -21,9 +21,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 
-/**
- * Read-write replica request.
- */
+/** Read-write replica request. */
 public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     UUID transactionId();
 }

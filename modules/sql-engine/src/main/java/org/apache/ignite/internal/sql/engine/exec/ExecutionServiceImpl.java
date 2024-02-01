@@ -72,6 +72,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
@@ -998,19 +999,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public IgniteRel visit(IgniteTableModify rel) {
-                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
-
-                    List<NodeWithTerm> assignments = mappedFragment.groupsBySourceId()
-                            .get(UpdatableTableImpl.MODIFY_NODE_SOURCE_ID).assignments();
-
-                    assert assignments != null : "Table assignments must be available";
-
-                    enlist(tableId, assignments);
+                    enlist(rel);
 
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, List<NodeWithTerm> assignments) {
+                private void enlist(int tableId, List<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -1022,17 +1016,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     for (int p = 0; p < partsCnt; p++) {
                         TablePartitionId tablePartId = new TablePartitionId(tableId, p);
 
-                        NodeWithTerm enlistmentToken = assignments.get(p);
+                        NodeWithConsistencyToken assignment = assignments.get(p);
 
                         tx.enlist(tablePartId,
-                                new IgniteBiTuple<>(topSrvc.getByConsistentId(enlistmentToken.name()), enlistmentToken.term()));
+                                new IgniteBiTuple<>(
+                                        topSrvc.getByConsistentId(assignment.name()),
+                                        assignment.enlistmentConsistencyToken())
+                        );
                     }
                 }
 
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    List<NodeWithTerm> assignments = mappedFragment.groupsBySourceId().get(rel.sourceId()).assignments();
+                    ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
+                    List<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
                     enlist(tableId, assignments);
                 }

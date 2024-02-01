@@ -17,13 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.compute.JobState.CANCELED;
-import static org.apache.ignite.compute.JobState.COMPLETED;
-import static org.apache.ignite.compute.JobState.EXECUTING;
-import static org.apache.ignite.compute.JobState.FAILED;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
-import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -31,106 +24,51 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.notNullValue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.compute.utils.InteractiveJobs;
+import org.apache.ignite.internal.compute.utils.InteractiveJobs.AllInteractiveJobsApi;
+import org.apache.ignite.internal.compute.utils.TestingJobExecution;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for worker node shutdown failover.
  *
- * <p>The logic is that if we run the job on remote node and this node has left the topology then we should restart a job on
+ * <p>The logic is that if we run the job on the remote node and this node has left the logical topology then we should restart a job on
  * another node. This is not true for broadcast and local jobs. They should not be restarted.
  */
 @SuppressWarnings("resource")
-class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
-    /**
-     * ACK for {@link Signal#CONTINUE}. Returned by a job that has received the signal. Used to check that the job is alive.
-     */
-    private static final Object ack = new Object();
-
+public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
     /**
      * Map from node name to node index in {@link super#cluster}.
      */
     private static final Map<String, Integer> NODES_NAMES_TO_INDEXES = new HashMap<>();
 
-    /**
-     * Class-wide queue that is used as a communication channel between {@link GlobalInteractiveJob} and test code. You can send a signal to
-     * the job via this channel and get a response from the job via {@link #GLOBAL_CHANNEL}.
-     */
-    private static BlockingQueue<Signal> GLOBAL_SIGNALS = new LinkedBlockingQueue<>();
+    private static final String TABLE_NAME = "test";
 
     /**
-     * Class-wide queue that is used as a communication channel between {@link GlobalInteractiveJob} and test code. You can send a signal to
-     * the job via {@link #GLOBAL_SIGNALS} and get a response from the job via this channel.
+     * CMG == number of nodes in cluster. We wont lose the leader in tests then.
      */
-    private static BlockingQueue<Object> GLOBAL_CHANNEL = new LinkedBlockingQueue<>();
-
-    /**
-     * Node-specific queues that are used as a communication channel between {@link InteractiveJob} and test code. The semantics are the
-     * same as for {@link #GLOBAL_SIGNALS} except that each node has its own queue. So, test code can communicate with a
-     * {@link InteractiveJob} that is running on specific node.
-     */
-    private static Map<String, BlockingQueue<Signal>> NODE_SIGNALS = new ConcurrentHashMap<>();
-
-    /**
-     * Node-specific queues that are used as a communication channel between {@link InteractiveJob} and test code. The semantics are the
-     * same as for {@link #GLOBAL_CHANNEL} except that each node has its own queue. So, test code can communicate with a
-     * {@link InteractiveJob} that is running on specific node.
-     */
-    private static Map<String, BlockingQueue<Object>> NODE_CHANNELS = new ConcurrentHashMap<>();
-
-    /**
-     * Node-specific counters that are used to count how many times {@link InteractiveJob} has been run on specific node.
-     */
-    private static Map<String, Integer> INTERACTIVE_JOB_RUN_TIMES = new ConcurrentHashMap<>();
-
-    private static void checkAllInteractiveJobsCalledOnce() {
-        INTERACTIVE_JOB_RUN_TIMES.forEach((nodeName, runTimes) -> assertThat(runTimes, equalTo(1)));
-    }
-
-    private static void finishAllInteractiveJobs() {
-        NODE_SIGNALS.forEach((nodeName, channel) -> {
-            try {
-                channel.offer(Signal.RETURN, 10, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
-    private static void initChannels(List<String> nodes) {
-        for (String nodeName : nodes) {
-            NODE_CHANNELS.put(nodeName, new LinkedBlockingQueue<>());
-            NODE_SIGNALS.put(nodeName, new LinkedBlockingQueue<>());
-            INTERACTIVE_JOB_RUN_TIMES.put(nodeName, 0);
-        }
+    @Override
+    protected int[] cmgMetastoreNodes() {
+        return new int[]{0, 1, 2};
     }
 
     private static Set<String> workerCandidates(IgniteImpl... nodes) {
@@ -138,37 +76,6 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
                 .map(IgniteImpl::node)
                 .map(ClusterNode::name)
                 .collect(Collectors.toSet());
-    }
-
-    private static void finishGlobalJob() {
-        GLOBAL_SIGNALS.offer(Signal.RETURN);
-    }
-
-    private static void checkGlobalInteractiveJobAlive(JobExecution<?> execution)
-            throws InterruptedException, ExecutionException, TimeoutException {
-        GLOBAL_SIGNALS.offer(Signal.CONTINUE);
-        assertThat(GLOBAL_CHANNEL.poll(10, TimeUnit.SECONDS), equalTo(ack));
-
-        assertThat(execution.resultAsync().isDone(), equalTo(false));
-        assertThat(idSync(execution), notNullValue());
-
-        // During the fob failover we might get a job that is restarted, the state will be not EXECUTING for some short time.
-        await().until(() -> execution.statusAsync().get(10, TimeUnit.SECONDS).state() == EXECUTING);
-    }
-
-    private static void checkInteractiveJobAlive(ClusterNode clusterNode, JobExecution<?> execution) {
-        NODE_SIGNALS.get(clusterNode.name()).offer(Signal.CONTINUE);
-        try {
-            assertThat(NODE_CHANNELS.get(clusterNode.name()).poll(10, TimeUnit.SECONDS), equalTo(ack));
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        assertThat(execution.resultAsync().isDone(), equalTo(false));
-    }
-
-    private static JobStatus statusSync(JobExecution<String> execution) throws InterruptedException, ExecutionException, TimeoutException {
-        return execution.statusAsync().get(10, TimeUnit.SECONDS);
     }
 
     private Set<ClusterNode> clusterNodesByNames(Set<String> nodes) {
@@ -179,22 +86,14 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
                 .collect(Collectors.toSet());
     }
 
-    private static UUID idSync(JobExecution<?> execution) throws InterruptedException, ExecutionException, TimeoutException {
-        return execution.idAsync().get(10, TimeUnit.SECONDS);
-    }
-
     /**
      * Initializes channels. Assumption: there is no any running job on the cluster.
      */
     @BeforeEach
     void setUp() {
-        GLOBAL_SIGNALS.clear();
-        GLOBAL_CHANNEL.clear();
-        NODE_SIGNALS.clear();
-        NODE_CHANNELS.clear();
-        INTERACTIVE_JOB_RUN_TIMES.clear();
-        NODES_NAMES_TO_INDEXES.clear();
+        InteractiveJobs.clearState();
 
+        NODES_NAMES_TO_INDEXES.clear();
         for (int i = 0; i < 3; i++) {
             NODES_NAMES_TO_INDEXES.put(node(i).name(), i);
         }
@@ -210,50 +109,49 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
         // When execute job.
-        JobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
 
         // Then one of candidates became a worker and run the job.
-        String workerNodeName = getWorkerNodeNameFromGlobalInteractiveJob();
+        String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         // And job is running.
-        checkGlobalInteractiveJobAlive(execution);
+        InteractiveJobs.globalJob().assertAlive();
+        // And.
+        execution.assertExecuting();
 
         // And save state BEFORE worker has failed.
-        long createTimeBeforeFail = statusSync(execution).createTime().toEpochMilli();
-        long startTimeBeforeFail = statusSync(execution).startTime().toEpochMilli();
-        UUID jobIdBeforeFail = idSync(execution);
+        long createTimeBeforeFail = execution.createTimeMillis();
+        long startTimeBeforeFail = execution.startTimeMillis();
+        UUID jobIdBeforeFail = execution.idSync();
 
         // When stop worker node.
-        stopNodeByName(workerNodeName);
+        stopNode(workerNodeName);
         // And remove it from candidates.
         remoteWorkerCandidates.remove(workerNodeName);
 
         // Then the job is alive: it has been restarted on another candidate.
-        checkGlobalInteractiveJobAlive(execution);
+        InteractiveJobs.globalJob().assertAlive();
+        // And.
+        execution.assertExecuting();
         // And remaining candidate was chosen as a failover worker.
-        String failoverWorker = getWorkerNodeNameFromGlobalInteractiveJob();
+        String failoverWorker = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
 
         // And check create time was not changed but start time changed.
-        long createTimeAfterFail = statusSync(execution).createTime().toEpochMilli();
-        long startTimeAfterFail = statusSync(execution).startTime().toEpochMilli();
-        assertThat(createTimeAfterFail, equalTo(createTimeBeforeFail));
-        assertThat(startTimeAfterFail, greaterThan(startTimeBeforeFail));
-        // And id was not changed
-        assertThat(idSync(execution), equalTo(jobIdBeforeFail));
+        assertThat(execution.createTimeMillis(), equalTo(createTimeBeforeFail));
+        assertThat(execution.startTimeMillis(), greaterThan(startTimeBeforeFail));
+        // And id was not changed.
+        assertThat(execution.idSync(), equalTo(jobIdBeforeFail));
 
         // When finish job.
-        finishGlobalJob();
+        InteractiveJobs.globalJob().finish();
 
         // Then it is successfully finished.
-        assertThat(execution.resultAsync().get(10, TimeUnit.SECONDS), equalTo("Done"));
-        // And.
-        assertThat(execution.statusAsync().get().state(), is(COMPLETED));
+        execution.assertCompleted();
         // And finish time is greater then create time and start time.
-        long finishTime = execution.statusAsync().get().finishTime().toEpochMilli();
-        assertThat(finishTime, greaterThan(createTimeAfterFail));
-        assertThat(finishTime, greaterThan(startTimeAfterFail));
-        // And job id the same
-        assertThat(idSync(execution), equalTo(jobIdBeforeFail));
+        assertThat(execution.finishTimeMillis(), greaterThan(execution.createTimeMillis()));
+        assertThat(execution.finishTimeMillis(), greaterThan(execution.startTimeMillis()));
+        // And job id the same.
+        assertThat(execution.idSync(), equalTo(jobIdBeforeFail));
     }
 
     @Test
@@ -264,20 +162,20 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         Set<String> remoteWorkerCandidates = workerCandidates(node(1));
 
         // When execute job.
-        JobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
 
         // Then the job is running on worker node.
-        String workerNodeName = getWorkerNodeNameFromGlobalInteractiveJob();
+        String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(remoteWorkerCandidates, hasItem(workerNodeName));
         // And.
-        checkGlobalInteractiveJobAlive(execution);
+        InteractiveJobs.globalJob().assertAlive();
+        execution.assertExecuting();
 
         // When stop worker node.
-        stopNodeByName(workerNodeName);
+        stopNode(workerNodeName);
 
         // Then the job is failed, because there is no any failover worker.
-        assertThat(execution.resultAsync(), willThrow(IgniteException.class));
-        assertThat(execution.statusAsync().isCompletedExceptionally(), equalTo(true));
+        execution.assertFailed();
     }
 
     @Test
@@ -286,20 +184,20 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         // When execute job locally.
-        JobExecution<String> execution = executeGlobalInteractiveJob(entryNode, Set.of(entryNode.name()));
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, Set.of(entryNode.name()));
 
         // Then the job is running.
-        checkGlobalInteractiveJobAlive(execution);
+        InteractiveJobs.globalJob().assertAlive();
+        execution.assertExecuting();
 
         // And it is running on entry node.
-        assertThat(getWorkerNodeNameFromGlobalInteractiveJob(), equalTo(entryNode.name()));
+        assertThat(InteractiveJobs.globalJob().currentWorkerName(), equalTo(entryNode.name()));
 
         // When stop entry node.
-        stopNodeByName(entryNode.name());
+        stopNode(entryNode.name());
 
         // Then the job is failed, because there is no any failover worker.
         assertThat(execution.resultAsync().isCompletedExceptionally(), equalTo(true));
-        assertThat(execution.statusAsync().get().state(), is(FAILED));
     }
 
     @Test
@@ -307,36 +205,41 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         // Given entry node.
         IgniteImpl entryNode = node(0);
         // And prepare communication channels.
-        initChannels(allNodeNames());
+        InteractiveJobs.initChannels(allNodeNames());
 
         // When start broadcast job.
         Map<ClusterNode, JobExecution<Object>> executions = entryNode.compute().broadcastAsync(
                 clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
                 List.of(),
-                InteractiveJob.class.getName()
+                InteractiveJobs.interactiveJobName()
         );
 
         // Then all three jobs are alive.
         assertThat(executions.size(), is(3));
-        executions.forEach(ItWorkerShutdownTest::checkInteractiveJobAlive);
+        executions.forEach((node, execution) -> {
+            InteractiveJobs.byNode(node).assertAlive();
+            new TestingJobExecution<>(execution).assertExecuting();
+        });
 
         // When stop one of workers.
-        stopNodeByName(node(1).name());
+        String stoppedNodeName = node(1).name();
+        stopNode(node(1));
 
         // Then two jobs are alive.
         executions.forEach((node, execution) -> {
-            if (node.name().equals(node(1).name())) {
-                assertThat(execution.resultAsync(), willThrow(IgniteException.class));
+            if (node.name().equals(stoppedNodeName)) {
+                new TestingJobExecution<>(execution).assertFailed();
             } else {
-                checkInteractiveJobAlive(node, execution);
+                InteractiveJobs.byNode(node).assertAlive();
+                new TestingJobExecution<>(execution).assertExecuting();
             }
         });
 
         // When.
-        finishAllInteractiveJobs();
+        InteractiveJobs.all().finish();
 
         // Then every job ran once because broadcast execution does not require failover.
-        checkAllInteractiveJobsCalledOnce();
+        AllInteractiveJobsApi.assertEachCalledOnce();
     }
 
     @Test
@@ -347,82 +250,98 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
         // When execute job.
-        JobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
 
         // Then one of candidates became a worker and run the job.
-        String workerNodeName = getWorkerNodeNameFromGlobalInteractiveJob();
+        String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         // And job is running.
-        checkGlobalInteractiveJobAlive(execution);
+        InteractiveJobs.globalJob().assertAlive();
+        execution.assertExecuting();
 
         // When stop worker node.
-        stopNodeByName(workerNodeName);
+        stopNode(workerNodeName);
         // And remove it from candidates.
         remoteWorkerCandidates.remove(workerNodeName);
 
         // Then the job is alive: it has been restarted on another candidate.
-        checkGlobalInteractiveJobAlive(execution);
+        InteractiveJobs.globalJob().assertAlive();
+        execution.assertExecuting();
         // And remaining candidate was chosen as a failover worker.
-        String failoverWorker = getWorkerNodeNameFromGlobalInteractiveJob();
+        String failoverWorker = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
 
         // When cancel job.
-        execution.cancelAsync().get(10, TimeUnit.SECONDS);
+        execution.cancelSync();
 
         // Then it is cancelled.
-        assertThat(execution.resultAsync(), willThrow(IgniteException.class));
-        // And.
-        assertThat(statusSync(execution).state(), is(CANCELED));
+        execution.assertCancelled();
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20864")
     void colocatedExecutionWorkerShutdown() throws Exception {
-        // Given table.
-        initChannels(allNodeNames());
-        createTestTableWithOneRow();
-        TableImpl table = (TableImpl) node(0).tables().table("test");
+        // Given table with replicas == 3 and partitions == 1.
+        createReplicatedTestTableWithOneRow();
         // And partition leader for K=1.
-        ClusterNode leader = table.leaderAssignment(table.partition(Tuple.create(1).set("K", 1)));
+        ClusterNode primaryReplica = getPrimaryReplica(cluster.node(0));
 
-        // When start colocated job on node that is not leader.
-        IgniteImpl entryNode = anyNodeExcept(leader);
-        JobExecution<Object> execution = entryNode.compute().executeColocatedAsync(
-                "test",
+        // When start colocated job on node that is not primary replica.
+        IgniteImpl entryNode = anyNodeExcept(primaryReplica);
+        TestingJobExecution<Object> execution = new TestingJobExecution<>(entryNode.compute().executeColocatedAsync(
+                TABLE_NAME,
                 Tuple.create(1).set("K", 1),
                 List.of(),
-                GlobalInteractiveJob.class.getName()
-        );
+                InteractiveJobs.globalJob().name()
+        ));
 
         // Then the job is alive.
-        checkGlobalInteractiveJobAlive(execution);
+        InteractiveJobs.globalJob().assertAlive();
+        execution.assertExecuting();
 
-        // And it is running on leader node.
-        String firstWorkerNodeName = getWorkerNodeNameFromGlobalInteractiveJob();
-        assertThat(firstWorkerNodeName, equalTo(leader.name()));
-        // And leader node is NOT an entry node, it is remote.
-        assertThat(entryNode.name(), not(equalTo(firstWorkerNodeName)));
+        // And it is running on primary replica node.
+        String firstWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
+        assertThat(firstWorkerNodeName, equalTo(primaryReplica.name()));
 
         // When stop worker node.
-        stopNode(nodeByName(firstWorkerNodeName));
+        stopNode(primaryReplica);
 
         // Then the job is restarted on another node.
-        checkGlobalInteractiveJobAlive(execution);
+        InteractiveJobs.globalJob().assertAlive();
+        execution.assertExecuting();
 
         // And it is running on another node.
-        String failoverNodeName = getWorkerNodeNameFromGlobalInteractiveJob();
+        String failoverNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(failoverNodeName, in(allNodeNames()));
-        // But.
+        // And this node is the primary replica for K=1.
+        primaryReplica = getPrimaryReplica(entryNode);
+        assertThat(failoverNodeName, equalTo(primaryReplica.name()));
+        // But this is not the same node as before.
         assertThat(failoverNodeName, not(equalTo(firstWorkerNodeName)));
+    }
 
+    private ClusterNode getPrimaryReplica(IgniteImpl node) {
+        try {
+            var clock = node.clock();
+            TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partition(Tuple.create(1).set("K", 1)));
+
+            ReplicaMeta replicaMeta = node.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();
+            if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
+                throw new RuntimeException("Can not find primary replica for partition.");
+            }
+
+            return nodeByName(replicaMeta.getLeaseholder()).node();
+
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void stopNode(ClusterNode clusterNode) {
+        stopNode(clusterNode.name());
     }
 
     private void stopNode(IgniteImpl ignite) {
-        stopNodeByName(ignite.name());
-    }
-
-    private void stopNodeByName(String name) {
-        int ind = NODES_NAMES_TO_INDEXES.get(name);
-        node(ind).stop();
+        stopNode(ignite.name());
     }
 
     private IgniteImpl anyNodeExcept(ClusterNode except) {
@@ -439,124 +358,21 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         return cluster.runningNodes().filter(node -> node.name().equals(candidateName)).findFirst().orElseThrow();
     }
 
-    private String getWorkerNodeNameFromGlobalInteractiveJob() throws InterruptedException {
-        GLOBAL_SIGNALS.offer(Signal.GET_WORKER_NAME);
-        return (String) GLOBAL_CHANNEL.poll(10, TimeUnit.SECONDS);
+    private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
+        return new TestingJobExecution<>(
+                entryNode.compute().executeAsync(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
+        );
     }
 
-    private JobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
-        return entryNode.compute().executeAsync(clusterNodesByNames(nodes), List.of(), GlobalInteractiveJob.class.getName());
-    }
-
-    private void createTestTableWithOneRow() {
-        executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
+    private void createReplicatedTestTableWithOneRow() {
+        // Number of replicas == number of nodes and number of partitions == 1. This gives us the majority on primary replica stop.
+        // After the primary replica is stopped we still be able to select new primary replica selected.
+        executeSql("CREATE ZONE TEST_ZONE WITH REPLICAS=3, PARTITIONS=1");
+        executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='TEST_ZONE'");
         executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
     }
 
     private List<String> allNodeNames() {
-        return IntStream.range(0, initialNodes())
-                .mapToObj(this::node)
-                .map(Ignite::name)
-                .collect(toList());
-    }
-
-    /**
-     * Signals that are sent by test code to the jobs.
-     */
-    enum Signal {
-        /**
-         * Signal to the job to continue running and send ACK as a response.
-         */
-        CONTINUE,
-        /**
-         * Ask job to throw an exception.
-         */
-        THROW,
-        /**
-         * Ask job to return result.
-         */
-        RETURN,
-        /**
-         * Signal to the job to continue running and send current worker name to the response channel.
-         */
-        GET_WORKER_NAME
-    }
-
-    /**
-     * Interactive job that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
-     */
-    static class GlobalInteractiveJob implements ComputeJob<String> {
-        private static Signal listenSignal() {
-            Signal recievedSignal;
-            try {
-                recievedSignal = GLOBAL_SIGNALS.take();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            return recievedSignal;
-        }
-
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            while (true) {
-                Signal recievedSignal = listenSignal();
-                switch (recievedSignal) {
-                    case THROW:
-                        throw new RuntimeException();
-                    case CONTINUE:
-                        GLOBAL_CHANNEL.offer(ack);
-                        break;
-                    case RETURN:
-                        return "Done";
-                    case GET_WORKER_NAME:
-                        GLOBAL_CHANNEL.add(context.ignite().name());
-                        break;
-                    default:
-                        throw new IllegalStateException("Unexpected value: " + recievedSignal);
-                }
-            }
-        }
-    }
-
-    /**
-     * Interactive job that communicates via {@link #NODE_CHANNELS} and {@link #NODE_SIGNALS}. Also, keeps track of how many times it was
-     * executed via {@link #INTERACTIVE_JOB_RUN_TIMES}.
-     */
-    static class InteractiveJob implements ComputeJob<String> {
-        private static Signal listenSignal(BlockingQueue<Signal> channel) {
-            Signal recievedSignal = null;
-            try {
-                recievedSignal = channel.take();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            return recievedSignal;
-        }
-
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            String workerNodeName = context.ignite().name();
-
-            INTERACTIVE_JOB_RUN_TIMES.put(workerNodeName, INTERACTIVE_JOB_RUN_TIMES.get(workerNodeName) + 1);
-            BlockingQueue<Signal> channel = NODE_SIGNALS.get(workerNodeName);
-
-            while (true) {
-                Signal recievedSignal = listenSignal(channel);
-                switch (recievedSignal) {
-                    case THROW:
-                        throw new RuntimeException();
-                    case CONTINUE:
-                        NODE_CHANNELS.get(workerNodeName).offer(ack);
-                        break;
-                    case RETURN:
-                        return "Done";
-                    case GET_WORKER_NAME:
-                        NODE_CHANNELS.get(workerNodeName).add(context.ignite().name());
-                        break;
-                    default:
-                        throw new IllegalStateException("Unexpected value: " + recievedSignal);
-                }
-            }
-        }
+        return new ArrayList<>(NODES_NAMES_TO_INDEXES.keySet());
     }
 }

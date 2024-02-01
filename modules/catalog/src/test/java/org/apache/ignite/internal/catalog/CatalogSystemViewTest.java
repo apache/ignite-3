@@ -20,19 +20,15 @@ package org.apache.ignite.internal.catalog;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -45,16 +41,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommandBuilder;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -66,9 +55,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 
@@ -293,126 +280,5 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         // Event listener should not have been called.
         verify(eventListener, never()).notify(any(), any());
-    }
-
-    @ParameterizedTest
-    @EnumSource(SystemViewType.class)
-    public void testCreateSystemViewFailsWhenTableWithTheSameNameExistsInTheSystemSchema(SystemViewType type) {
-        CatalogCommand createTable = createTableCommandBuilder(TABLE_NAME,
-                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
-                List.of("key1"),
-                List.of("key1"))
-                .schemaName(SYSTEM_SCHEMA_NAME)
-                .build();
-
-        assertThat(manager.execute(createTable), willCompleteSuccessfully());
-
-        CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
-                .name(TABLE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).length(1 << 5).build()
-                ))
-                .type(type)
-                .build();
-
-        expectAsyncValidationError(() -> manager.execute(createView), "Table with name 'SYSTEM.test_table' already exists");
-    }
-
-    @ParameterizedTest
-    @EnumSource(SystemViewType.class)
-    public void createTableFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema(SystemViewType type) {
-        CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
-                .name(SYS_VIEW_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).length(1 << 5).build()
-                ))
-                .type(type)
-                .build();
-
-        assertThat(manager.execute(createView), willCompleteSuccessfully());
-
-        CatalogCommand createTable = createTableCommandBuilder(SYS_VIEW_NAME,
-                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
-                List.of("key1"),
-                List.of("key1"))
-                .schemaName(SYSTEM_SCHEMA_NAME)
-                .build();
-
-        expectAsyncValidationError(() -> manager.execute(createTable), "System view with name 'SYSTEM.test_view' already exists");
-    }
-
-    @ParameterizedTest
-    @MethodSource("indexViewType")
-    public void createIndexFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema(
-            SystemViewType type,
-            IndexCommandType indexCommandType) {
-
-        CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
-                .name(SYS_VIEW_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).length(1 << 5).build()
-                ))
-                .type(type)
-                .build();
-
-        assertThat(manager.execute(createView), willCompleteSuccessfully());
-
-        CatalogCommand createTable = createTableCommandBuilder(TABLE_NAME,
-                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
-                List.of("key1"),
-                List.of("key1"))
-                .schemaName(SYSTEM_SCHEMA_NAME)
-                .build();
-
-        assertThat(manager.execute(createTable), willCompleteSuccessfully());
-
-        CatalogCommand createIndex = indexCommandType.createIndexCommand();
-
-        expectAsyncValidationError(() -> manager.execute(createIndex), "System view with name 'SYSTEM.test_view' already exists");
-    }
-
-    private static Stream<Arguments> indexViewType() {
-        return Stream.of(SystemViewType.values())
-                .flatMap(type -> Arrays.stream(IndexCommandType.values()).map(idx -> Arguments.of(type, idx)));
-    }
-
-    /**
-     * Index commands that may fail if a system view with the same name already exists.
-     */
-    public enum IndexCommandType {
-        CREATE_HASH_INDEX,
-        CREATE_SORTED_INDEX;
-
-        CatalogCommand createIndexCommand() {
-            switch (this) {
-                case CREATE_HASH_INDEX:
-                    return CreateHashIndexCommand.builder()
-                           .indexName(SYS_VIEW_NAME)
-                           .tableName(TABLE_NAME)
-                           .columns(List.of("val1"))
-                           .schemaName(SYSTEM_SCHEMA_NAME)
-                           .build();
-                case CREATE_SORTED_INDEX:
-                    return CreateSortedIndexCommand.builder()
-                            .indexName(SYS_VIEW_NAME)
-                            .tableName(TABLE_NAME)
-                            .columns(List.of("val1"))
-                            .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST))
-                            .schemaName(SYSTEM_SCHEMA_NAME)
-                            .build();
-                default:
-                    throw new IllegalArgumentException("Unexpected index type " +  this);
-            }
-        }
-    }
-
-    private static void expectAsyncValidationError(Supplier<CompletableFuture<Void>> action, String message) {
-        CompletionException ex = assertThrows(CompletionException.class, () -> action.get().join());
-        CatalogValidationException cause = assertInstanceOf(CatalogValidationException.class, ex.getCause());
-
-        assertThat(cause.getMessage(), containsString(message));
     }
 }

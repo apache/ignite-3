@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb.engine;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -31,7 +30,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Implementation of the {@link AbstractStorageEngineTest} for the {@link RocksDbStorageEngine#ENGINE_NAME} engine.
  */
-@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
     @InjectConfiguration("mock.flushDelayMillis = 0")

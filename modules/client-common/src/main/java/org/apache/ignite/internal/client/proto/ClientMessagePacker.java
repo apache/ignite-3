@@ -23,6 +23,7 @@ import static org.msgpack.core.MessagePack.Code;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -315,7 +316,11 @@ public class ClientMessagePacker implements AutoCloseable {
         int headerSize = getStringHeaderSize(maxBytes);
         int headerPos = buf.writerIndex();
 
-        buf.writerIndex(headerPos + headerSize);
+        int index = headerPos + headerSize;
+        if (index > buf.capacity()) {
+            buf.capacity(buf.capacity() * 2);
+        }
+        buf.writerIndex(index);
 
         int bytesWritten = ByteBufUtil.writeUtf8(buf, s);
         int endPos = buf.writerIndex();
@@ -626,6 +631,20 @@ public class ClientMessagePacker implements AutoCloseable {
 
         packBinaryHeader(buf.limit() - buf.position());
         writePayload(buf);
+    }
+
+    /**
+     * Packs an {@link Instant}.
+     *
+     * @param instant Instant object.
+     */
+    public void packInstant(@Nullable Instant instant) {
+        if (instant == null) {
+            packNil();
+        } else {
+            packLong(instant.getEpochSecond());
+            packInt(instant.getNano());
+        }
     }
 
     /**

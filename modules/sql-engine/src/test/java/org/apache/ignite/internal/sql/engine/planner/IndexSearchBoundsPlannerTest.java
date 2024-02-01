@@ -41,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -346,10 +345,11 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     @Test
     public void testBoundsDynamicParams() throws Exception {
         // Cannot optimize dynamic parameters to SEARCH/SARG, query is splitted by or-to-union rule.
-        assertPlan("SELECT * FROM TEST WHERE C1 IN (?, ?)", publicSchema, isInstanceOf(IgniteUnionAll.class)
-                .and(input(0, isIndexScan("TEST", "C1C2C3")))
-                .and(input(1, isIndexScan("TEST", "C1C2C3"))), List.of(1, 1)
-        );
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21287
+        // assertPlan("SELECT * FROM TEST WHERE C1 IN (?, ?)", publicSchema, isInstanceOf(IgniteUnionAll.class)
+        //         .and(input(0, isIndexScan("TEST", "C1C2C3")))
+        //         .and(input(1, isIndexScan("TEST", "C1C2C3"))), List.of(1, 1)
+        // );
 
         assertBounds("SELECT * FROM TEST WHERE C1 = ? AND C2 IN ('a', 'b')", List.of(1), publicSchema,
                 exact("?0"),

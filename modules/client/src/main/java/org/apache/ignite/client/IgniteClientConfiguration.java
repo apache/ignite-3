@@ -48,6 +48,9 @@ public interface IgniteClientConfiguration {
     /** Default reconnect interval, in milliseconds. */
     long DFLT_RECONNECT_INTERVAL = 30_000L;
 
+    /** Default operation timeout, in milliseconds. */
+    int DFLT_OPERATION_TIMEOUT = 0;
+
     /**
      * Gets the address finder.
      *
@@ -182,4 +185,11 @@ public interface IgniteClientConfiguration {
      * @return Authenticator.
      */
     @Nullable IgniteClientAuthenticator authenticator();
+
+    /**
+     * Gets the operation timeout, in milliseconds. Default is {@code 0} (no timeout).
+     *
+     * @return Operation timeout, in milliseconds.
+     */
+    long operationTimeout();
 }

@@ -24,6 +24,8 @@ package org.apache.ignite.internal.catalog;
  * <p>This exception is used to properly handle IF NOT EXISTS flag in ddl command handler.
  */
 public class IndexExistsValidationException extends CatalogValidationException {
+    private static final long serialVersionUID = 4680962492129806371L;
+
     IndexExistsValidationException(String message) {
         super(message);
     }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -28,7 +29,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +36,9 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -66,7 +68,9 @@ class TestIndexManagementUtils {
 
     static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
-    static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(NODE_ID, NODE_NAME, mock(NetworkAddress.class));
+    static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888));
+
+    static final LogicalNode LOGICAL_LOCAL_NODE = new LogicalNode(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888));
 
     static void createTable(CatalogManager catalogManager, String tableName, String columnName) {
         TableTestUtils.createTable(
@@ -131,5 +135,13 @@ class TestIndexManagementUtils {
             HybridTimestamp expirationTime
     ) {
         return new Lease(clusterNode.name(), clusterNode.id(), startTime, expirationTime, replicaGroupId);
+    }
+
+    static boolean isIndexAvailable(CatalogService catalogService, String indexName, HybridClock clock) {
+        return TableTestUtils.getIndexStrict(catalogService, indexName, clock.nowLong()).status() == AVAILABLE;
+    }
+
+    static void startBuildingIndex(CatalogManager catalogManager, int indexId) {
+        assertThat(catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }
 }

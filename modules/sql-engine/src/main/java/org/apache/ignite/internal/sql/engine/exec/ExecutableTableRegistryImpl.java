@@ -80,14 +80,15 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
                     SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
                     TableRowConverterFactory converterFactory = requiredColumns -> new TableRowConverterImpl(
-                            schemaRegistry, schemaDescriptor, tableDescriptor, requiredColumns
+                            schemaRegistry, schemaDescriptor, requiredColumns
                     );
 
                     InternalTable internalTable = table.internalTable();
                     ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory);
+                    TableRowConverter rowConverter = converterFactory.create(null);
 
                     UpdatableTableImpl updatableTable = new UpdatableTableImpl(sqlTable.id(), tableDescriptor, internalTable.partitions(),
-                            replicaService, clock, converterFactory.create(null), schemaDescriptor);
+                            replicaService, clock, rowConverter);
 
                     return new ExecutableTableImpl(scannableTable, updatableTable);
                 });

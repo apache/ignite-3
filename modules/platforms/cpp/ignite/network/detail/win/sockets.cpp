@@ -142,7 +142,7 @@ void init_wsa() {
 
             if (!network_inited)
                 throw ignite_error(
-                    status_code::NETWORK, "Networking initialisation failed: " + get_last_socket_error_message());
+                    error::code::CONNECTION, "Networking initialisation failed: " + get_last_socket_error_message());
         }
     }
 }

@@ -22,12 +22,12 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
