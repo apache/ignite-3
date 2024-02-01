@@ -1008,7 +1008,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static UnaryOperator<TableBuilder> addSortIndex(String... columns) {
         return tableBuilder -> {
             SortedIndexBuilder indexBuilder = tableBuilder.sortedIndex();
-            StringBuilder nameBuilder = new StringBuilder("idx");
+            StringBuilder nameBuilder = new StringBuilder("IDX");
 
             for (String colName : columns) {
                 indexBuilder.addColumn(colName.toUpperCase(), Collation.ASC_NULLS_LAST);
@@ -1023,7 +1023,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static UnaryOperator<TableBuilder> addHashIndex(String... columns) {
         return tableBuilder -> {
             HashIndexBuilder indexBuilder = tableBuilder.hashIndex();
-            StringBuilder nameBuilder = new StringBuilder("idx");
+            StringBuilder nameBuilder = new StringBuilder("IDX");
 
             for (String colName : columns) {
                 indexBuilder.addColumn(colName.toUpperCase());

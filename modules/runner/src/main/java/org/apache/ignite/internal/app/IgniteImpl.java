@@ -127,6 +127,7 @@ import org.apache.ignite.internal.rest.RestManager;
 import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
+import org.apache.ignite.internal.rest.compute.ComputeRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
@@ -767,6 +768,8 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
+        Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(computeComponent);
+
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
 
         return new RestComponent(
@@ -776,7 +779,9 @@ public class IgniteImpl implements Ignite {
                         nodeMetricRestFactory,
                         deploymentCodeRestFactory,
                         authProviderFactory,
-                        restManagerFactory),
+                        restManagerFactory,
+                        computeRestFactory
+                ),
                 restManager,
                 restConfiguration
         );

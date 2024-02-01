@@ -141,6 +141,7 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -159,7 +160,6 @@ import org.mockito.ArgumentCaptor;
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
-    private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
     private static final int DFLT_TEST_PRECISION = 11;
@@ -2331,6 +2331,51 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 Arguments.of(false, true), // Create sorted index and update index status..
                 Arguments.of(false, false) // Create sorted index and update catalog (create table).
         );
+    }
+
+    @Test
+    public void testCatalogCompaction() throws InterruptedException {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+
+        long timestamp = clock.nowLong();
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+
+        // Add more updates
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willBe(nullValue()));
+
+        assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
+
+        IgniteTestUtils.waitForCondition(() -> manager.earliestCatalogVersion() != 0, 2_000);
+
+        assertEquals(catalog.version(), manager.earliestCatalogVersion());
+
+        assertNull(manager.catalog(0));
+        assertNull(manager.catalog(catalog.version() - 1));
+        assertNotNull(manager.catalog(catalog.version()));
+
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(0));
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
+        assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
+        assertSame(catalog.version(), manager.activeCatalogVersion(timestamp));
+    }
+
+    @Test
+    public void testEmptyCatalogCompaction() {
+        assertEquals(0, manager.latestCatalogVersion());
+
+        long timestamp = clock.nowLong();
+
+        assertThat(manager.compactCatalog(timestamp), willCompleteSuccessfully());
+
+        assertEquals(0, manager.earliestCatalogVersion());
+        assertEquals(0, manager.latestCatalogVersion());
+
+        assertNotNull(manager.catalog(0));
+
+        assertEquals(0, manager.activeCatalogVersion(0));
+        assertEquals(0, manager.activeCatalogVersion(timestamp));
     }
 
     private CompletableFuture<Void> changeColumn(

@@ -15,44 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.rest.compute.exception;
+
+import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.rest.api.compute.JobState;
 
 /**
- * Tuple representing the number of the partition with its current primary replica term.
+ * Thrown when compute job is in illegal state.
  */
-public class PartitionWithTerm {
-    /** Partition number. */
-    private final int partId;
-
-    /** Primary replica term. */
-    private final long term;
-
+public class ComputeJobStateException extends IgniteInternalException {
     /**
      * Constructor.
      *
-     * @param partId partition number
-     * @param term Primary replica term.
+     * @param jobId Job ID.
      */
-    public PartitionWithTerm(int partId, Long term) {
-        this.partId = partId;
-        this.term = term;
-    }
-
-    /**
-     * Gets partition number.
-     *
-     * @return Partition number.
-     */
-    public int partId() {
-        return partId;
-    }
-
-    /**
-     * Gets primary replica term.
-     *
-     * @return Primary replica term.
-     */
-    public long term() {
-        return term;
+    public ComputeJobStateException(String jobId, JobState state) {
+        super(ILLEGAL_ARGUMENT_ERR, "Compute job is in illegal state [jobId=" + jobId + ", state=" + state + ']');
     }
 }
