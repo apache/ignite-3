@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -477,7 +479,18 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void upsertAllDeleteTest() {
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
-        internalTable.upsertAll(Collections.singletonList(createKeyValueRow(1, 1, "some string row" + 1)), null).join();
+        RecordView<Tuple> view = table.recordView();
+        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
+        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
+
+        // Update, insert, delete.
+        Collection<BinaryRowEx> rows = List.of(
+                createKeyValueRow(1, 11, "val11"),
+                createKeyValueRow(2, 2, "val2"),
+                createKeyRow(3)
+        );
+
+        internalTable.upsertAll(rows, null).join();
     }
 
     private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
