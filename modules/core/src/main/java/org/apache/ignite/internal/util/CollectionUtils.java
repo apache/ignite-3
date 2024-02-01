@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.util.Collections.addAll;
 import static java.util.Collections.emptyIterator;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toSet;
 
@@ -29,6 +30,7 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
 import java.util.AbstractCollection;
 import java.util.AbstractList;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -591,5 +593,53 @@ public final class CollectionUtils {
                 };
             }
         };
+    }
+
+    /**
+     * Appends the specified element to the end of copy of list.
+     *
+     * @param <T> Type of elements of the list.
+     * @param list List.
+     * @param t Element to append.
+     * @return Immutable list with an appended element.
+     */
+    public static <T> List<T> addWithCopyList(List<? extends T> list, T t) {
+        if (list.isEmpty()) {
+            return List.of(t);
+        }
+
+        var newList = new ArrayList<T>(list.size() + 1);
+
+        newList.addAll(list);
+        newList.add(t);
+
+        return unmodifiableList(newList);
+    }
+
+    /**
+     * Removes the element at the specified position in copy of list.
+     *
+     * @param <T> Type of elements of the list.
+     * @param list List.
+     * @param index Index of the list element to be removed.
+     * @return Immutable list with an removed element.
+     */
+    public static <T> List<T> removeWithCopyList(List<? extends T> list, int index) {
+        if (index == 0 && list.size() == 1) {
+            return List.of();
+        }
+
+        var newList = new ArrayList<T>(list.size() - 1);
+
+        if (index == 0) {
+            newList.addAll(list.subList(1, list.size()));
+        } else if (index == list.size() - 1) {
+            newList.addAll(list.subList(0, list.size() - 1));
+        } else {
+            newList.addAll(list.subList(0, index));
+            newList.addAll(list.subList(index + 1, list.size()));
+        }
+
+        return unmodifiableList(newList);
     }
 }

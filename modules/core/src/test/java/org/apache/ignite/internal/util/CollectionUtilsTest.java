@@ -21,20 +21,24 @@ import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CollectionUtils.addWithCopyList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
+import static org.apache.ignite.internal.util.CollectionUtils.removeWithCopyList;
 import static org.apache.ignite.internal.util.CollectionUtils.setOf;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -352,5 +356,71 @@ public class CollectionUtilsTest {
         );
 
         assertThrows(UnsupportedOperationException.class, () -> mapIterable(List.of(1), null, null).iterator().remove());
+    }
+
+    @Test
+    void testAddWithCopyListEmpty() {
+        List<Integer> list = List.of();
+
+        List<Integer> newList = addWithCopyList(list, 1);
+
+        assertNotSame(list, newList);
+        assertThat(newList, contains(1));
+        assertThrows(UnsupportedOperationException.class, () -> newList.add(2));
+    }
+
+    @Test
+    void testAddWithCopyListNotEmpty() {
+        List<Integer> list = List.of(1);
+
+        List<Integer> newList = addWithCopyList(list, 2);
+
+        assertNotSame(list, newList);
+        assertThat(newList, contains(1, 2));
+        assertThrows(UnsupportedOperationException.class, () -> newList.add(3));
+    }
+
+    @Test
+    void testRemoveWithCopyListFirstAndSingle() {
+        List<Integer> list = List.of(1);
+
+        List<Integer> newList = removeWithCopyList(list, 0);
+
+        assertNotSame(list, newList);
+        assertThat(newList, empty());
+        assertThrows(UnsupportedOperationException.class, () -> newList.add(1));
+    }
+
+    @Test
+    void testRemoveWithCopyListHead() {
+        List<Integer> list = List.of(1, 2);
+
+        List<Integer> newList = removeWithCopyList(list, 0);
+
+        assertNotSame(list, newList);
+        assertThat(newList, contains(2));
+        assertThrows(UnsupportedOperationException.class, () -> newList.add(1));
+    }
+
+    @Test
+    void testRemoveWithCopyListTail() {
+        List<Integer> list = List.of(1, 2);
+
+        List<Integer> newList = removeWithCopyList(list, 1);
+
+        assertNotSame(list, newList);
+        assertThat(newList, contains(1));
+        assertThrows(UnsupportedOperationException.class, () -> newList.add(1));
+    }
+
+    @Test
+    void testRemoveWithCopyListMiddle() {
+        List<Integer> list = List.of(1, 2, 3);
+
+        List<Integer> newList = removeWithCopyList(list, 1);
+
+        assertNotSame(list, newList);
+        assertThat(newList, contains(1, 3));
+        assertThrows(UnsupportedOperationException.class, () -> newList.add(1));
     }
 }

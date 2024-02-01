@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.event;
 
-import static java.util.Collections.unmodifiableList;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.util.CollectionUtils.addWithCopyList;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CollectionUtils.removeWithCopyList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -39,30 +41,24 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
     @Override
     public void listen(T evt, EventListener<? extends P> listener) {
         listenersByEvent.compute(evt, (evt0, listeners) -> {
-            List<EventListener<P>> newListeners;
-
-            if (listeners == null) {
-                newListeners = new ArrayList<>(1);
-            } else {
-                newListeners = new ArrayList<>(listeners.size() + 1);
-
-                newListeners.addAll(listeners);
+            if (nullOrEmpty(listeners)) {
+                return List.of((EventListener<P>) listener);
             }
 
-            newListeners.add((EventListener<P>) listener);
-
-            return unmodifiableList(newListeners);
+            return addWithCopyList(listeners, (EventListener<P>) listener);
         });
     }
 
     @Override
     public void removeListener(T evt, EventListener<? extends P> listener) {
         listenersByEvent.computeIfPresent(evt, (evt0, listeners) -> {
-            var newListeners = new ArrayList<>(listeners);
+            if (nullOrEmpty(listeners)) {
+                return null;
+            }
 
-            newListeners.remove(listener);
+            int indexOf = listeners.indexOf(listener);
 
-            return newListeners.isEmpty() ? null : unmodifiableList(newListeners);
+            return indexOf < 0 ? listeners : removeWithCopyList(listeners, indexOf);
         });
     }
 
