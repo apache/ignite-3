@@ -107,6 +107,8 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
     private final UUID launchId;
 
+    private final NettyBootstrapFactory bootstrapFactory;
+
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
 
@@ -182,6 +184,7 @@ public class ConnectionManager implements ChannelCreationListener {
         this.serializationService = serializationService;
         this.launchId = launchId;
         this.consistentId = consistentId;
+        this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.networkConfiguration = networkConfiguration;
@@ -481,6 +484,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     consistentId,
                     connectionId,
                     descriptorProvider,
+                    bootstrapFactory,
                     staleIdDetector,
                     this,
                     stopping::get
@@ -501,6 +505,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 consistentId,
                 FACTORY,
                 descriptorProvider,
+                bootstrapFactory,
                 staleIdDetector,
                 this,
                 stopping::get
