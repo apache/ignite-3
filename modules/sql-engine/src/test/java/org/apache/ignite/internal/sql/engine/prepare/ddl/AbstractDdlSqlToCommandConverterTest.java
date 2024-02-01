@@ -39,7 +39,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
  */
 class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     /** DDL SQL to command converter. */
-    DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(Map.of(), () -> "default");
+    DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
 
     /**
      * Parses a given statement and returns a resulting AST.

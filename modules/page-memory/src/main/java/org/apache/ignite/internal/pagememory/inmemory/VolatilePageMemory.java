@@ -312,7 +312,7 @@ public class VolatilePageMemory implements PageMemory {
                     + ", initSize=" + IgniteUtils.readableSize(storageProfileView.initSize(), false)
                     + ", maxSize=" + IgniteUtils.readableSize(storageProfileView.maxSize(), false)
                     + ", persistence=false] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (VolatilePageMemoryDataRegionConfigurationSchema.maxSize)"
+                    + "  ^-- Increase maximum off-heap memory size (VolatilePageMemoryProfileConfigurationSchema.maxSize)"
                     + lineSeparator()
                     + "  ^-- Use persistence" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"

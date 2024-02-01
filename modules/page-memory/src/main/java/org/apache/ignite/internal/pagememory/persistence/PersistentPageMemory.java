@@ -19,9 +19,9 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.pagememory.FullPageId.NULL_PAGE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.CLOCK_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
@@ -569,7 +569,7 @@ public class PersistentPageMemory implements PageMemory {
                     + "name=" + storageProfileView.name()
                     + ", size=" + readableSize(storageProfileView.size(), false)
                     + ", persistence=true] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (PersistentPageMemoryDataRegionConfigurationSchema.size)"
+                    + "  ^-- Increase maximum off-heap memory size (PersistentPageMemoryProfileConfigurationSchema.size)"
                     + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
@@ -1597,7 +1597,7 @@ public class PersistentPageMemory implements PageMemory {
                     + "name=" + storageProfileView.name()
                     + ", size=" + readableSize(storageProfileView.size(), false)
                     + ", persistence=true] Try the following:" + lineSeparator()
-                    + "  ^-- Increase off-heap memory size (PersistentPageMemoryDataRegionConfigurationSchema.size)" + lineSeparator()
+                    + "  ^-- Increase off-heap memory size (PersistentPageMemoryProfileConfigurationSchema.size)" + lineSeparator()
             );
         }
 

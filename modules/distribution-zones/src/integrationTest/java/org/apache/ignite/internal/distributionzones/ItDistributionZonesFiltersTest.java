@@ -462,10 +462,9 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 + "\"DATA_NODES_FILTER\" = '%s', "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %s, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %s, "
-                + "\"DATAREGION\" = '%s', "
                 + "\"STORAGE_PROFILES\" = %s";
 
-        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, "default_aipersist", storageProfiles);
+        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, storageProfiles);
     }
 
     private static String alterZoneSql(String filter) {

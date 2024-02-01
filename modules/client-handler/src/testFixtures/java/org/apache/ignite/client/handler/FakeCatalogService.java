@@ -118,7 +118,7 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
-        return new CatalogZoneDescriptor(zoneId, "zone", partitions, 0, 0, 0, 0, "", null, fromParams(Collections.emptyList()));
+        return new CatalogZoneDescriptor(zoneId, "zone", partitions, 0, 0, 0, 0, "", fromParams(Collections.emptyList()));
     }
 
     @Override

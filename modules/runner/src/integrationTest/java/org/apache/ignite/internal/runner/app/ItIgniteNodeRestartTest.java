@@ -344,7 +344,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+                new NodeAttributesCollector(nodeAttributes,
+                        nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY))
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
@@ -447,7 +448,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
+        DataStorageModules dataStorageModules = new DataStorageModules(
+                ServiceLoader.load(DataStorageModule.class)
+        );
 
         Path storagePath = getPartitionsStorePath(dir);
 
@@ -458,7 +461,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         storagePath,
                         null,
                         failureProcessor
-                )
+                ),
+                nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)
         );
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
@@ -548,7 +552,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 tableManager,
                 schemaManager,
                 dataStorageManager,
-                () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 hybridClock,
                 schemaSyncService,

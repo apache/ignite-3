@@ -37,7 +37,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 
 /**
@@ -53,7 +53,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private final StorageConfiguration storageConfiguration;
 
-    private final VolatilePageMemoryProfileStorageEngineConfiguration engineConfig;
+    private final VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
     private final PageIoRegistry ioRegistry;
 
@@ -72,7 +72,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
-            VolatilePageMemoryProfileStorageEngineConfiguration engineConfig,
+            VolatilePageMemoryStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfiguration,
             PageIoRegistry ioRegistry,
             PageEvictionTracker pageEvictionTracker) {
@@ -128,9 +128,9 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        VolatilePageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
+        VolatilePageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getStorageProfile());
 
-        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getDataRegion();
+        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
         return new VolatilePageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, dataRegion, destructionExecutor);
     }

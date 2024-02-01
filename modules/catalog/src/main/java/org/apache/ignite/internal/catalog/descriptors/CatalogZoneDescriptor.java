@@ -49,9 +49,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     /** Nodes filer. */
     private final String filter;
 
-    /** Data storage descriptor. */
-    private final CatalogDataStorageDescriptor dataStorage;
-
     /** Storage profiles descriptor. */
     private final CatalogStorageProfilesDescriptor storageProfiles;
 
@@ -66,7 +63,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
-     * @param dataStorage Data storage descriptor.
      * @param storageProfiles Storage profiles descriptor.
      */
     public CatalogZoneDescriptor(
@@ -78,11 +74,10 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
-            CatalogDataStorageDescriptor dataStorage,
             CatalogStorageProfilesDescriptor storageProfiles
     ) {
         this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
-                filter, dataStorage, storageProfiles, INITIAL_CAUSALITY_TOKEN);
+                filter, storageProfiles, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -96,7 +91,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
-     * @param dataStorage Data storage descriptor.
      * @param causalityToken Token of the update of the descriptor.
      */
     private CatalogZoneDescriptor(
@@ -108,7 +102,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
-            CatalogDataStorageDescriptor dataStorage,
             CatalogStorageProfilesDescriptor storageProfiles,
             long causalityToken
     ) {
@@ -120,7 +113,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
-        this.dataStorage = dataStorage;
         this.storageProfiles = storageProfiles;
     }
 
@@ -173,14 +165,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Returns the data storage descriptor.
-     */
-    // TODO: IGNITE-19719 Must be storage engine specific
-    public CatalogDataStorageDescriptor dataStorage() {
-        return dataStorage;
-    }
-
-    /**
      * Returns the storage profiles descriptor.
      */
     public CatalogStorageProfilesDescriptor storageProfiles() {
@@ -202,7 +186,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             String name = input.readUTF();
             long updateToken = input.readLong();
 
-            CatalogDataStorageDescriptor dataStorageDescriptor = CatalogDataStorageDescriptor.SERIALIZER.readFrom(input);
             CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = CatalogStorageProfilesDescriptor.SERIALIZER.readFrom(input);
 
             int partitions = input.readInt();
@@ -221,7 +204,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
-                    dataStorageDescriptor,
                     catalogStorageProfilesDescriptor,
                     updateToken
             );
@@ -233,7 +215,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
 
-            CatalogDataStorageDescriptor.SERIALIZER.writeTo(descriptor.dataStorage(), output);
             CatalogStorageProfilesDescriptor.SERIALIZER.writeTo(descriptor.storageProfiles(), output);
 
             output.writeInt(descriptor.partitions());

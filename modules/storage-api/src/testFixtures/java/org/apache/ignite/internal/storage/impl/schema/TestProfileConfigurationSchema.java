@@ -15,23 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.storage.impl.schema;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
 
-import org.junit.jupiter.api.Test;
-
-class CatalogDataStorageDescriptorTest {
-    @Test
-    void toStringContainsTypeAndFields() {
-        var descriptor = new CatalogDataStorageDescriptor("the-engine", "the-region");
-
-        String toString = descriptor.toString();
-
-        assertThat(toString, startsWith("CatalogDataStorageDescriptor ["));
-        assertThat(toString, containsString("engine=the-engine"));
-        assertThat(toString, containsString("dataRegion=the-region"));
-    }
+@PolymorphicConfigInstance("test")
+public class TestProfileConfigurationSchema extends StorageProfileConfigurationSchema {
+    public static final String TEST_PROFILE_NAME = "test";
 }

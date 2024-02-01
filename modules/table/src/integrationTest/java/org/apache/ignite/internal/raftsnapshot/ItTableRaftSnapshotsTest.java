@@ -277,9 +277,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private void createTestTableWith3Replicas(String storageEngine) {
         String storageProfile =
                 DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? DEFAULT_STORAGE_PROFILE : "default_" + storageEngine.toLowerCase();
-        String zoneSql = "create zone test_zone"
-                + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
-                + " with partitions=1, replicas=3, storage_profiles='" + storageProfile + "', dataregion='" + storageProfile + "';";
+
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + storageProfile + "';";
+
         String sql = "create table test (key int primary key, val varchar(20))"
                 + " with primary_zone='TEST_ZONE', storage_profile='" + storageProfile + "';";
 

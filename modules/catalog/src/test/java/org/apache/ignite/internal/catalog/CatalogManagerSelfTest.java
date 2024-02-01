@@ -31,13 +31,11 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBu
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropTableCommand;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
@@ -201,8 +199,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
         assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
-        assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
-        assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
 
         // System schema should exist.
 
@@ -1224,7 +1220,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
                 .filter("expression")
-                .dataStorageParams(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
@@ -1252,8 +1247,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("expression", zone.filter());
-        assertEquals("test_engine", zone.dataStorage().engine());
-        assertEquals("test_region", zone.dataStorage().dataRegion());
         assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
     }
 
@@ -1375,7 +1368,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
-                .dataStorageParams(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
@@ -1394,8 +1386,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(3, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(4, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("newExpression", zone.filter());
-        assertEquals("test_engine", zone.dataStorage().engine());
-        assertEquals("test_region", zone.dataStorage().dataRegion());
         assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
     }
 
@@ -1771,8 +1761,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals(DEFAULT_FILTER, zone.filter());
-        assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
-        assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
         assertEquals(DEFAULT_STORAGE_PROFILE, zone.storageProfiles().defaultProfile().storageProfile());
     }
 

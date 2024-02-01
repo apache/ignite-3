@@ -54,7 +54,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static final String ZONE_NAME = "Default";
 
     private static final CatalogZoneDescriptor DEFAULT_ZONE = new CatalogZoneDescriptor(
-            0, ZONE_NAME, 1, -1, -1, -1, -1, "", null,
+            0, ZONE_NAME, 1, -1, -1, -1, -1, "",
             fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
     );
 

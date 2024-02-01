@@ -176,8 +176,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final DataStorageManager dataStorageManager;
 
-    private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
-
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -223,7 +221,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             TableManager tableManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
             SchemaSyncService schemaSyncService,
@@ -239,7 +236,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
-        this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
@@ -272,7 +268,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 nodeName,
                 CACHE_FACTORY,
                 dataStorageManager,
-                dataStorageFieldsSupplier.get(),
                 metricManager,
                 clusterCfg,
                 nodeCfg

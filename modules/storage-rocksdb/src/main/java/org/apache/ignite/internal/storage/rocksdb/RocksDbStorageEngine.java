@@ -46,7 +46,8 @@ import org.rocksdb.RocksDB;
  */
 public class RocksDbStorageEngine implements StorageEngine {
     /** Engine name. */
-    public static final String ENGINE_NAME = "rocksdb";
+    // TODO: KKK db vs Db
+    public static final String ENGINE_NAME = "rocksDb";
 
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
 
@@ -170,13 +171,13 @@ public class RocksDbStorageEngine implements StorageEngine {
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        RocksDbDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
+        RocksDbDataRegion dataRegion = regions.get(tableDescriptor.getStorageProfile());
 
         int tableId = tableDescriptor.getId();
 
-        assert dataRegion != null : "tableId=" + tableId + ", dataRegion=" + tableDescriptor.getDataRegion();
+        assert dataRegion != null : "tableId=" + tableId + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        SharedRocksDbInstance sharedInstance = sharedInstances.computeIfAbsent(tableDescriptor.getDataRegion(), name -> {
+        SharedRocksDbInstance sharedInstance = sharedInstances.computeIfAbsent(tableDescriptor.getStorageProfile(), name -> {
             try {
                 return new SharedRocksDbInstanceCreator().create(
                         this,

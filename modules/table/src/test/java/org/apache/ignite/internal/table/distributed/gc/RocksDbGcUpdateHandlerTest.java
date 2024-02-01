@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -57,7 +57,7 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
         engine.start();
 
         table = engine.createMvTable(
-                new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_PROFILE_NAME),
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 

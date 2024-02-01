@@ -77,14 +77,6 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     AlterZoneCommandBuilder filter(@Nullable String filter);
 
     /**
-     * Sets the data storage.
-     *
-     * @param params Optional data storage params.
-     * @return This instance.
-     */
-    AlterZoneCommandBuilder dataStorageParams(@Nullable DataStorageParams params);
-
-    /**
      * Sets storage profiles.
      *
      * @param params Optional storage profiles params.

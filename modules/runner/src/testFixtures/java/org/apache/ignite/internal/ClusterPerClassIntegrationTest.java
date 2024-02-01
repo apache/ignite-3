@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -39,7 +37,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -76,6 +73,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "    }\n"
             + "  },\n"
             + "  storage.profiles: {"
+            + "        test.engine: test, "
             + "        default_aipersist.engine: aipersist, "
             + "        default_aimem.engine: aimem, "
             + "        default_rocksdb.engine: rocksDb"
@@ -192,12 +190,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param zoneName Zone name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageProfile Storage profile.
      */
-    protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, @Nullable String storageEngine) {
+    protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, String storageProfile) {
         sql(format(
-                "CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
-                zoneName, Objects.requireNonNullElse(storageEngine, DEFAULT_STORAGE_ENGINE), replicas, partitions, DEFAULT_STORAGE_PROFILE
+                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
+                zoneName, replicas, partitions, storageProfile
         ));
     }
 
@@ -210,7 +208,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
-        createZoneOnlyIfNotExists(zoneName, replicas, partitions, null);
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, "default");
 
         return createTableOnly(tableName, zoneName);
     }
