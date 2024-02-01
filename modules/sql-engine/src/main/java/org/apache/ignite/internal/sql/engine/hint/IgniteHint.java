@@ -30,7 +30,11 @@ public enum IgniteHint {
     /** Disable commute joins and keeps the join order defined by the user in a query. */
     ENFORCE_JOIN_ORDER,
     /** Force expanding distinct aggregates to join. */
-    EXPAND_DISTINCT_AGG;
+    EXPAND_DISTINCT_AGG,
+    /** Disables index usage. **/
+    NO_INDEX(true),
+    /** Forces index usage. */
+    FORCE_INDEX(true);
 
     private final boolean paramSupport;
 

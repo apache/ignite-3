@@ -572,17 +572,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             String primaryConsistentId,
-            Long term,
+            Long enlistmentConsistencyToken,
             boolean commit,
             Collection<ReplicationGroupId> replicationGroupIds,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        LOG.debug("Finish [partition={}, node={}, term={} commit={}, txId={}, groups={}",
-                commitPartition, primaryConsistentId, term, commit, txId, replicationGroupIds);
+        LOG.debug("Finish [partition={}, node={}, enlistmentConsistencyToken={} commit={}, txId={}, groups={}",
+                commitPartition, primaryConsistentId, enlistmentConsistencyToken, commit, txId, replicationGroupIds);
 
-        return txMessageSender.finish(primaryConsistentId, commitPartition, replicationGroupIds, txId, term, commit, commitTimestamp)
+        return txMessageSender.finish(
+                        primaryConsistentId,
+                        commitPartition,
+                        replicationGroupIds,
+                        txId,
+                        enlistmentConsistencyToken,
+                        commit,
+                        commitTimestamp
+                )
                 .thenAccept(txResult -> {
                     validateTxFinishedAsExpected(commit, txId, txResult);
 

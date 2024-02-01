@@ -124,7 +124,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void dropIndexEntry() {
-        DropIndexEntry entry = new DropIndexEntry(231, 23, "PUBLIC");
+        DropIndexEntry entry = new DropIndexEntry(231, 23);
 
         VersionedUpdate update = newVersionedUpdate(entry);
 

@@ -83,7 +83,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
@@ -354,6 +354,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
+                executableTableRegistry,
                 dependencyResolver,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
@@ -370,7 +371,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
-    private CompletableFuture<List<NodeWithTerm>> primaryReplicas(int tableId) {
+    private CompletableFuture<List<NodeWithConsistencyToken>> primaryReplicas(int tableId) {
         int catalogVersion = catalogManager.latestCatalogVersion();
 
         Catalog catalog = catalogManager.catalog(catalogVersion);
@@ -381,7 +382,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         int partitions = zoneDesc.partitions();
 
-        List<CompletableFuture<NodeWithTerm>> result = new ArrayList<>(partitions);
+        List<CompletableFuture<NodeWithConsistencyToken>> result = new ArrayList<>(partitions);
 
         HybridTimestamp clockNow = clock.now();
 
@@ -408,7 +409,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     assert holder != null : "Unable to map query, nothing holds the lease";
 
-                    return new NodeWithTerm(holder, primaryReplica.getStartTime().longValue());
+                    return new NodeWithConsistencyToken(holder, primaryReplica.getStartTime().longValue());
                 }
             }));
         }
@@ -514,7 +515,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<QueryMetadata> start = new CompletableFuture<>();
+        CompletableFuture<Void> start = new CompletableFuture<>();
 
         CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
@@ -551,7 +552,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> start = new CompletableFuture<>();
+        CompletableFuture<Void> start = new CompletableFuture<>();
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);

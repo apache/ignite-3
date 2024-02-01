@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.storage.NewSystemViewEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
+import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
 import org.apache.ignite.internal.catalog.storage.RenameTableEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntry;
@@ -47,15 +48,16 @@ public enum MarshallableEntryType {
     DROP_TABLE(5, DropTableEntry.SERIALIZER),
     DROP_ZONE(6, DropZoneEntry.SERIALIZER),
     MAKE_INDEX_AVAILABLE(7, MakeIndexAvailableEntry.SERIALIZER),
-    START_BUILDING_INDEX(8, StartBuildingIndexEntry.SERIALIZER),
-    NEW_COLUMN(9, NewColumnsEntry.SERIALIZER),
-    NEW_INDEX(10, NewIndexEntry.SERIALIZER),
-    NEW_SYS_VIEW(11, NewSystemViewEntry.SERIALIZER),
-    NEW_TABLE(12, NewTableEntry.SERIALIZER),
-    RENAME_TABLE(13, RenameTableEntry.SERIALIZER),
-    ID_GENERATOR(14, ObjectIdGenUpdateEntry.SERIALIZER),
-    SNAPSHOT(15, SnapshotEntry.SERIALIZER),
-    VERSIONED_UPDATE(16, VersionedUpdate.SERIALIZER);
+    REMOVE_INDEX(8, RemoveIndexEntry.SERIALIZER),
+    START_BUILDING_INDEX(9, StartBuildingIndexEntry.SERIALIZER),
+    NEW_COLUMN(10, NewColumnsEntry.SERIALIZER),
+    NEW_INDEX(11, NewIndexEntry.SERIALIZER),
+    NEW_SYS_VIEW(12, NewSystemViewEntry.SERIALIZER),
+    NEW_TABLE(13, NewTableEntry.SERIALIZER),
+    RENAME_TABLE(14, RenameTableEntry.SERIALIZER),
+    ID_GENERATOR(15, ObjectIdGenUpdateEntry.SERIALIZER),
+    SNAPSHOT(16, SnapshotEntry.SERIALIZER),
+    VERSIONED_UPDATE(17, VersionedUpdate.SERIALIZER);
 
     /** Type ID. */
     private final int id;
@@ -88,7 +90,8 @@ public enum MarshallableEntryType {
         return (CatalogObjectSerializer<T>) serializer;
     }
 
-    static CatalogEntrySerializerProvider provider() {
+    // TODO Remove
+    public static CatalogEntrySerializerProvider provider() {
         return (id) -> (CatalogObjectSerializer<MarshallableEntry>) forId(id).serializer;
     }
 

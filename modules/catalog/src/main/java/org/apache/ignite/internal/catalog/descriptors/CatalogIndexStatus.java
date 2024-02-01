@@ -22,8 +22,12 @@ package org.apache.ignite.internal.catalog.descriptors;
  *
  * <p>Possible status transitions:</p>
  * <ul>
- *     <li>{@link #REGISTERED} -> {@link #BUILDING} -> {@link #AVAILABLE}.</li>
- *     <li>{@link #AVAILABLE} (PK index).</li>
+ *     <li>[not-existent] -> {@link #REGISTERED} -> {@link #BUILDING} -> {@link #AVAILABLE}.</li>
+ *     <li>[not-existent] -> {@link #AVAILABLE} (PK index).</li>
+ *     <li>{@link #AVAILABLE} -> {@link #STOPPING} -> [removed]. (when dropping an index, but not its table)</li>
+ *     <li>{@link #AVAILABLE} -> [removed]. (when dropping the table of an index)</li>
+ *     <li>{@link #REGISTERED} -> [removed].</li>
+ *     <li>{@link #BUILDING} -> [removed].</li>
  * </ul>
  */
 public enum CatalogIndexStatus {
@@ -46,7 +50,16 @@ public enum CatalogIndexStatus {
      *
      * <p>Readable and writable.</p>
      */
-    AVAILABLE(2);
+    AVAILABLE(2),
+
+    /**
+     * DROP INDEX command has been executed, the index is waiting for RW transactions started when the index was {@link #AVAILABLE}
+     * to finish. After the wait is finished, the index will automatically be removed from the Catalog.
+     *
+     * <p>New RW transactions cannot read the index, but they write to it. RO transactions can still read from it if the readTimestamp
+     * corresponds to a moment when the index was still {@link #AVAILABLE}.</p>
+     */
+    STOPPING(3);
 
     private static final CatalogIndexStatus[] VALS = new CatalogIndexStatus[values().length];
 

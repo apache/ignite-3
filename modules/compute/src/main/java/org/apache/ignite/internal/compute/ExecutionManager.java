@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.RESULT_NOT_FOUND_ERR;
 
+import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +33,7 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
@@ -88,6 +93,23 @@ public class ExecutionManager {
             return execution.resultAsync();
         }
         return failedFuture(new ComputeException(RESULT_NOT_FOUND_ERR, "Job result not found for the job with ID: " + jobId));
+    }
+
+    /**
+     * Retrieves the current status of all jobs in the local node.
+     *
+     * @return The set of all job statuses.
+     */
+    public CompletableFuture<Set<JobStatus>> localStatusesAsync() {
+        CompletableFuture<JobStatus>[] statuses = executions.values().stream()
+                .filter(it -> !(it instanceof RemoteJobExecution))
+                .map(JobExecution::statusAsync)
+                .toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(statuses)
+                .thenApply(ignored -> Arrays.stream(statuses).map(CompletableFuture::join)
+                        .filter(Objects::nonNull)
+                        .collect(toSet()));
     }
 
     /**

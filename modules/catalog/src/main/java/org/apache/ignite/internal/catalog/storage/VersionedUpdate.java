@@ -29,6 +29,7 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Group of changes that relates to specified version.
@@ -107,12 +108,13 @@ public class VersionedUpdate implements UpdateLogEvent {
     public static class VersionedUpdateSerializer implements CatalogObjectSerializer<VersionedUpdate> {
         private final CatalogEntrySerializerProvider serializers;
 
+        @TestOnly
         public VersionedUpdateSerializer(CatalogEntrySerializerProvider serializers) {
             this.serializers = serializers;
         }
 
-        public VersionedUpdateSerializer() {
-            this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
+        private VersionedUpdateSerializer() {
+            this.serializers = MarshallableEntryType.provider();
         }
 
         @Override
