@@ -34,7 +34,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -190,7 +189,8 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlIterate(ThinClientState)} , {@link #criteriaIterate(ThinClientState)}.
+     * Benchmark state for {@link #kvGet(ThinClientState)}, {@link #sqlGet(ThinClientState)}, {@link #criteriaGet(ThinClientState)},
+     *      {@link #sqlIterate(ThinClientState)}, {@link #criteriaIterate(ThinClientState)}.
      *
      * <p>Holds {@link IgniteClient} and {@link Session}.
      */
@@ -240,6 +240,13 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
         }
     }
 
+    /**
+     * Benchmark state for {@link #kvGetNonNullTxDisablesPartitionAwareness(NoPartitionAwarenessState)},
+     *      {@link #sqlGetNonNullTxDisablesPartitionAwareness(NoPartitionAwarenessState)},
+     *      {@link #criteriaGetNonNullTxDisablesPartitionAwareness(NoPartitionAwarenessState)}
+     *
+     * <p>Holds {@link IgniteClient}, {@link Session} and {@link Transaction}.
+     */
     @State(Scope.Benchmark)
     public static class NoPartitionAwarenessState extends ThinClientState {
         /**
