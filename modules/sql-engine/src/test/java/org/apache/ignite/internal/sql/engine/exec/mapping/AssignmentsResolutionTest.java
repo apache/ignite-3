@@ -44,7 +44,7 @@ class AssignmentsResolutionTest {
         int[] colocationKeys = {0, 2};
         RowPartitionExtractorImpl<RowWrapper> rowAssignments =
                 new RowPartitionExtractorImpl<>(100, colocationKeys, rowHandler);
-        AssignmentExtractorImpl assignments = new AssignmentExtractorImpl(100, colocationKeys.length);
+        AssignmentExtractor assignments = new AssignmentExtractor(100, colocationKeys.length);
 
         RowFactory<RowWrapper> factory = rowHandler.factory(rowSchema);
         RowWrapper row = factory.create("1", 1, 2);

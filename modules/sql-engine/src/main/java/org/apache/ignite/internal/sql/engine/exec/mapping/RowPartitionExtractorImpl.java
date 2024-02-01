@@ -22,12 +22,12 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 /** Resolves partition according to incoming row, only colocation columns are used. */
 public class RowPartitionExtractorImpl<RowT> implements RowPartitionExtractor<RowT> {
     private final RowHandler<RowT> rowHandler;
-    private final AssignmentExtractorImpl resolver;
+    private final AssignmentExtractor resolver;
     private final int[] keys;
 
     /** Constructor. */
     public RowPartitionExtractorImpl(int partitions, int[] keys, RowHandler<RowT> rowHandler) {
-        resolver = new AssignmentExtractorImpl(partitions, keys.length);
+        resolver = new AssignmentExtractor(partitions, keys.length);
 
         this.rowHandler = rowHandler;
         this.keys = keys;
