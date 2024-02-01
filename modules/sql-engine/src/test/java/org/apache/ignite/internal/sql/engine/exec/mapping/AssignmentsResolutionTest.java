@@ -33,22 +33,18 @@ import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTab
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /** Partition resolution test. */
-@ExtendWith(MockitoExtension.class)
-class AssignmentsResolutionTest extends BaseIgniteAbstractTest {
+class AssignmentsResolutionTest {
     @Test
     public void assignmentsResolver() {
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
         int[] colocationKeys = {0, 2};
         RowPartitionExtractorImpl<RowWrapper> rowAssignments =
                 new RowPartitionExtractorImpl<>(100, colocationKeys, rowHandler);
-        AssignmentExtractorImpl<RowWrapper> assignments = new AssignmentExtractorImpl<>(100, colocationKeys.length);
+        AssignmentExtractorImpl assignments = new AssignmentExtractorImpl(100, colocationKeys.length);
 
         RowFactory<RowWrapper> factory = rowHandler.factory(rowSchema);
         RowWrapper row = factory.create("1", 1, 2);

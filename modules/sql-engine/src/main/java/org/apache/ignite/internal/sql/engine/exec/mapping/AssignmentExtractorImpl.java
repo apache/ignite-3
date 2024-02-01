@@ -24,7 +24,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Resolves assignment according to incoming data. */
-public class AssignmentExtractorImpl<RowT> {
+public class AssignmentExtractorImpl {
     private final int partitions;
     private final int keys;
 
