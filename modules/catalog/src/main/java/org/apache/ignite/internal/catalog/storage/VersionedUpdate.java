@@ -116,7 +116,7 @@ public class VersionedUpdate implements UpdateLogEvent {
         }
 
         private VersionedUpdateSerializer() {
-            this.serializers = MarshallableEntryType.provider();
+            this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
         }
 
         @Override

@@ -17,6 +17,25 @@
 
 package org.apache.ignite.internal.catalog.serialization;
 
+import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
+import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
+import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
+import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
+import org.apache.ignite.internal.catalog.storage.DropTableEntry;
+import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
+import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
+import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
+import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
+import org.apache.ignite.internal.catalog.storage.NewSystemViewEntry;
+import org.apache.ignite.internal.catalog.storage.NewTableEntry;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
+import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
+import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
+import org.apache.ignite.internal.catalog.storage.RenameTableEntry;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
+import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntry;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+
 /**
  * Catalog entry serializer provider.
  */
@@ -31,5 +50,90 @@ public interface CatalogEntrySerializerProvider {
     CatalogObjectSerializer<MarshallableEntry> get(int typeId);
 
     /** Default implementation. */
-    CatalogEntrySerializerProvider DEFAULT_PROVIDER = MarshallableEntryType.provider();
+    CatalogEntrySerializerProvider DEFAULT_PROVIDER = new CatalogEntrySerializerProvider() {
+        @Override
+        public CatalogObjectSerializer<MarshallableEntry> get(int typeId) {
+            CatalogObjectSerializer<? extends MarshallableEntry> serializer;
+            MarshallableEntryType type = MarshallableEntryType.forId(typeId);
+
+            switch (type) {
+                case ALTER_COLUMN:
+                    serializer = AlterColumnEntry.SERIALIZER;
+                    break;
+
+                case ALTER_ZONE:
+                    serializer = AlterZoneEntry.SERIALIZER;
+                    break;
+
+                case NEW_ZONE:
+                    serializer = NewZoneEntry.SERIALIZER;
+                    break;
+
+                case DROP_COLUMN:
+                    serializer = DropColumnsEntry.SERIALIZER;
+                    break;
+
+                case DROP_INDEX:
+                    serializer = DropIndexEntry.SERIALIZER;
+                    break;
+
+                case DROP_TABLE:
+                    serializer = DropTableEntry.SERIALIZER;
+                    break;
+
+                case DROP_ZONE:
+                    serializer = DropZoneEntry.SERIALIZER;
+                    break;
+
+                case MAKE_INDEX_AVAILABLE:
+                    serializer = MakeIndexAvailableEntry.SERIALIZER;
+                    break;
+
+                case REMOVE_INDEX:
+                    serializer = RemoveIndexEntry.SERIALIZER;
+                    break;
+
+                case START_BUILDING_INDEX:
+                    serializer = StartBuildingIndexEntry.SERIALIZER;
+                    break;
+
+                case NEW_COLUMN:
+                    serializer = NewColumnsEntry.SERIALIZER;
+                    break;
+
+                case NEW_INDEX:
+                    serializer = NewIndexEntry.SERIALIZER;
+                    break;
+
+                case NEW_SYS_VIEW:
+                    serializer = NewSystemViewEntry.SERIALIZER;
+                    break;
+
+                case NEW_TABLE:
+                    serializer = NewTableEntry.SERIALIZER;
+                    break;
+
+                case RENAME_TABLE:
+                    serializer = RenameTableEntry.SERIALIZER;
+                    break;
+
+                case ID_GENERATOR:
+                    serializer = ObjectIdGenUpdateEntry.SERIALIZER;
+                    break;
+
+                case SNAPSHOT:
+                    serializer = SnapshotEntry.SERIALIZER;
+                    break;
+
+                case VERSIONED_UPDATE:
+                    serializer = VersionedUpdate.SERIALIZER;
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + type);
+            }
+
+            return (CatalogObjectSerializer<MarshallableEntry>) serializer;
+        }
+    };
 }
