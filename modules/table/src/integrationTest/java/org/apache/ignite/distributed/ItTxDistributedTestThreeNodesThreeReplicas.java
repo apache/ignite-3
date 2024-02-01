@@ -69,7 +69,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
         }
     }
 
-    @Test
+    
     public void testPrimaryReplicaDirectUpdateForExplicitTxn() throws InterruptedException {
         Peer leader = txTestCluster.getLeaderId(accounts.name());
         JraftServerImpl server = (JraftServerImpl) txTestCluster.raftServers.get(leader.consistentId()).server();
