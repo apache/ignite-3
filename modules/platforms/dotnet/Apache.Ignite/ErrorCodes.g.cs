@@ -47,6 +47,7 @@ namespace Apache.Ignite
             Compute.GroupCode => Compute.GroupName,
             Catalog.GroupCode => Catalog.GroupName,
             PlacementDriver.GroupCode => PlacementDriver.GroupName,
+            CriticalWorkers.GroupCode => CriticalWorkers.GroupName,
 
             _ => UnknownGroupName
         };
@@ -538,6 +539,22 @@ namespace Apache.Ignite
 
             /// <summary> PrimaryReplicaAwait error. </summary>
             public const int PrimaryReplicaAwait = (GroupCode << 16) | (2 & 0xFFFF);
+        }
+
+        /// <summary> CriticalWorkers errors. </summary>
+        public static class CriticalWorkers
+        {
+            /// <summary> CriticalWorkers group code. </summary>
+            public const short GroupCode = 19;
+
+            /// <summary> CriticalWorkers group name. </summary>
+            public const String GroupName = "WORKERS";
+
+            /// <summary> SystemWorkerBlocked error. </summary>
+            public const int SystemWorkerBlocked = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> SystemCriticalOperationTimeout error. </summary>
+            public const int SystemCriticalOperationTimeout = (GroupCode << 16) | (2 & 0xFFFF);
         }
     }
 }

@@ -106,6 +106,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -296,7 +297,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var threadPools = new ThreadPoolsManager(name);
 
-        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler());
+        var failureProcessor = new FailureProcessor(name);
+
+        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler(), failureProcessor);
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         var nettyWorkersRegistrar = new NettyWorkersRegistrar(
@@ -562,6 +565,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
                 threadPools,
+                failureProcessor,
                 workerRegistry,
                 nettyBootstrapFactory,
                 nettyWorkersRegistrar,

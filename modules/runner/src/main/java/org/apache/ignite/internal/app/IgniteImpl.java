@@ -394,15 +394,16 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20450
+        failureProcessor = new FailureProcessor(name);
+
         CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
 
         criticalWorkerRegistry = new CriticalWorkerWatchdog(
                 criticalWorkersConfiguration,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                failureProcessor
         );
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20450
-        failureProcessor = new FailureProcessor(name);
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         nettyWorkersRegistrar = new NettyWorkersRegistrar(

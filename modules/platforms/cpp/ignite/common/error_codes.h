@@ -48,7 +48,8 @@ enum class group : underlying_t {
     AUTHENTICATION = 0xf,
     COMPUTE = 0x10,
     CATALOG = 0x11,
-    PLACEMENTDRIVER = 0x12
+    PLACEMENTDRIVER = 0x12,
+    WORKERS = 0x13
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -194,7 +195,11 @@ enum class code : underlying_t {
 
     // PlacementDriver group. Group code: 18
     PRIMARY_REPLICA_AWAIT_TIMEOUT = 0x120001,
-    PRIMARY_REPLICA_AWAIT = 0x120002
+    PRIMARY_REPLICA_AWAIT = 0x120002,
+
+    // CriticalWorkers group. Group code: 19
+    SYSTEM_WORKER_BLOCKED = 0x130001,
+    SYSTEM_CRITICAL_OPERATION_TIMEOUT = 0x130002
 };
 
 } // namespace error
