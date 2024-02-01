@@ -2276,6 +2276,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     BinaryRow searchRow = searchRows.get(i);
 
                     rowIdFuts[i] = resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
+                        // TODO: Detect delete by row.tupleSliceLength().
                         boolean insert = rowId == null;
 
                         RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
