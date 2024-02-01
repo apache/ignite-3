@@ -80,5 +80,3 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
         return S.toString(this);
     }
 }
-
-
