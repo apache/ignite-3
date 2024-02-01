@@ -30,14 +30,14 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
 class PartitionedTarget extends AbstractTarget {
     private final boolean finalised;
     final long[] partitionsNodes;
-    final long[] terms;
+    final long[] enlistmentConsistencyTokens;
 
-    PartitionedTarget(boolean finalised, long[] partitionsNodes, long[] terms) {
+    PartitionedTarget(boolean finalised, long[] partitionsNodes, long[] enlistmentConsistencyTokens) {
         super(computeNodes(partitionsNodes));
 
         this.finalised = finalised;
         this.partitionsNodes = partitionsNodes;
-        this.terms = terms;
+        this.enlistmentConsistencyTokens = enlistmentConsistencyTokens;
     }
 
     @Override
@@ -57,7 +57,7 @@ class PartitionedTarget extends AbstractTarget {
             newPartitionsNodes[partNo] = pickOne(partitionsNodes[partNo]);
         }
 
-        return new PartitionedTarget(true, newPartitionsNodes, terms);
+        return new PartitionedTarget(true, newPartitionsNodes, enlistmentConsistencyTokens);
     }
 
     @Override

@@ -189,7 +189,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(tablePartitionId, new IgniteBiTuple<>(node, 1L));
 
-        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndTerm(tablePartitionId));
+        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndConsistencyToken(tablePartitionId));
     }
 
     @Test
@@ -527,6 +527,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 .thenReturn(
                         failedFuture(new PrimaryReplicaMissException(
                                 LOCAL_NODE.name(),
+                                null,
+                                LOCAL_NODE.id(),
                                 null,
                                 10L,
                                 null,

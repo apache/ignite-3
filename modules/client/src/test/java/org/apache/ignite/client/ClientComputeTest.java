@@ -73,7 +73,6 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     void tearDown() throws Exception {
         IgniteUtils.closeAll(server1, server2, server3);
         FakeCompute.future = null;
-        FakeCompute.status = null;
     }
 
     @Test

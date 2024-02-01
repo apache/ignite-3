@@ -92,6 +92,9 @@ namespace Apache.Ignite.Internal
         /** Socket timeout for handshakes and heartbeats. */
         private readonly TimeSpan _socketTimeout;
 
+        /** Operation timeout for user-initiated requests. */
+        private readonly TimeSpan _operationTimeout;
+
         /** Logger. */
         private readonly ILogger _logger;
 
@@ -127,6 +130,7 @@ namespace Apache.Ignite.Internal
             _listener = listener;
             _logger = logger;
             _socketTimeout = configuration.SocketTimeout;
+            _operationTimeout = configuration.OperationTimeout;
 
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
@@ -262,69 +266,12 @@ namespace Apache.Ignite.Internal
         /// <param name="request">Request data.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <returns>Response data.</returns>
-        public async Task<PooledBuffer> DoOutInOpAsync(
+        public Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            bool expectNotifications = false)
-        {
-            var ex = _exception;
-
-            if (ex != null)
-            {
-                throw new IgniteClientConnectionException(
-                    ErrorGroups.Client.Connection,
-                    "Socket is closed due to an error, examine inner exception for details.",
-                    ex);
-            }
-
-            if (_disposeTokenSource.IsCancellationRequested)
-            {
-                throw new IgniteClientConnectionException(
-                    ErrorGroups.Client.Connection,
-                    "Socket is disposed.",
-                    new ObjectDisposedException(nameof(ClientSocket)));
-            }
-
-            var requestId = Interlocked.Increment(ref _requestId);
-            var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
-            _requests[requestId] = taskCompletionSource;
-
-            NotificationHandler? notificationHandler = null;
-            if (expectNotifications)
-            {
-                notificationHandler = new NotificationHandler();
-                _notificationHandlers[requestId] = notificationHandler;
-            }
-
-            Metrics.RequestsActiveIncrement();
-
-            try
-            {
-                await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
-                PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
-                resBuf.Metadata = notificationHandler;
-
-                return resBuf;
-            }
-            catch (Exception e)
-            {
-                if (_requests.TryRemove(requestId, out _))
-                {
-                    Metrics.RequestsFailed.Add(1);
-                    Metrics.RequestsActiveDecrement();
-                }
-
-                _notificationHandlers.TryRemove(requestId, out _);
-
-                if (e is OperationCanceledException or ObjectDisposedException)
-                {
-                    // Canceled task means Dispose was called.
-                    throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.", e);
-                }
-
-                throw;
-            }
-        }
+            bool expectNotifications = false) =>
+            DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
+                .WaitAsync(_operationTimeout);
 
         /// <inheritdoc/>
         public void Dispose()
@@ -600,6 +547,70 @@ namespace Apache.Ignite.Internal
                     sslStream.SslProtocol)
                 : null;
 
+        private async Task<PooledBuffer> DoOutInOpAsyncInternal(
+            ClientOp clientOp,
+            PooledArrayBuffer? request = null,
+            bool expectNotifications = false)
+        {
+            var ex = _exception;
+
+            if (ex != null)
+            {
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.Connection,
+                    "Socket is closed due to an error, examine inner exception for details.",
+                    ex);
+            }
+
+            if (_disposeTokenSource.IsCancellationRequested)
+            {
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.Connection,
+                    "Socket is disposed.",
+                    new ObjectDisposedException(nameof(ClientSocket)));
+            }
+
+            var requestId = Interlocked.Increment(ref _requestId);
+            var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
+            _requests[requestId] = taskCompletionSource;
+
+            NotificationHandler? notificationHandler = null;
+            if (expectNotifications)
+            {
+                notificationHandler = new NotificationHandler();
+                _notificationHandlers[requestId] = notificationHandler;
+            }
+
+            Metrics.RequestsActiveIncrement();
+
+            try
+            {
+                await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
+                PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
+                resBuf.Metadata = notificationHandler;
+
+                return resBuf;
+            }
+            catch (Exception e)
+            {
+                if (_requests.TryRemove(requestId, out _))
+                {
+                    Metrics.RequestsFailed.Add(1);
+                    Metrics.RequestsActiveDecrement();
+                }
+
+                _notificationHandlers.TryRemove(requestId, out _);
+
+                if (e is OperationCanceledException or ObjectDisposedException)
+                {
+                    // Canceled task means Dispose was called.
+                    throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.", e);
+                }
+
+                throw;
+            }
+        }
+
         [SuppressMessage(
             "Microsoft.Design",
             "CA1031:DoNotCatchGeneralExceptionTypes",
@@ -862,13 +873,11 @@ namespace Apache.Ignite.Internal
                 {
                     _logger.LogConnectionClosedWithErrorWarn(ex, ConnectionContext.ClusterNode.Address, ex.Message);
 
+                    Metrics.ConnectionsLost.Add(1);
+
                     if (ex.GetBaseException() is TimeoutException)
                     {
                         Metrics.ConnectionsLostTimeout.Add(1);
-                    }
-                    else
-                    {
-                        Metrics.ConnectionsLost.Add(1);
                     }
                 }
                 else

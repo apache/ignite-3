@@ -12,18 +12,18 @@ Fragment#0 root
 Fragment#1
   targetNodes: [N0]
   executionNodes: [N1]
-  remoteFragments: [2]
+  remoteFragments: [3]
   tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableModify(name=PUBLIC.T1_N1, source=-1, distribution=affinity[table: T1_N1, columns: [ID]])
-        IgniteReceiver(sourceFragment=2, exchange=2, distribution=affinity[table: T1_N1, columns: [ID]])
+      IgniteTableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+        IgniteReceiver(sourceFragment=3, exchange=3, distribution=affinity[table: T1_N1, columns: [ID]])
 
-Fragment#2
+Fragment#3
   targetNodes: [N1]
   executionNodes: [N0]
   tree:
-    IgniteSender(targetFragment=1, exchange=2, distribution=affinity[table: T1_N1, columns: [ID]])
+    IgniteSender(targetFragment=1, exchange=3, distribution=affinity[table: T1_N1, columns: [ID]])
       IgniteValues
 ---
 
@@ -44,8 +44,8 @@ Fragment#1
   tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableModify(name=PUBLIC.T1_N1, source=-1, distribution=affinity[table: T1_N1, columns: [ID]])
-        IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+      IgniteTableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T1_N1, source=3, distribution=affinity[table: T1_N1, columns: [ID]])
 ---
 
 N2
@@ -65,8 +65,8 @@ Fragment#1
   tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableModify(name=PUBLIC.T1_N1, source=-1, distribution=affinity[table: T1_N1, columns: [ID]])
-        IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+      IgniteTableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T1_N1, source=3, distribution=affinity[table: T1_N1, columns: [ID]])
 ---
 
 N1
@@ -86,6 +86,6 @@ Fragment#1
   tables: [T2_N2N3]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableModify(name=PUBLIC.T2_N2N3, source=-1, distribution=affinity[table: T2_N2N3, columns: [ID]])
-        IgniteTableScan(name=PUBLIC.T2_N2N3, source=2, distribution=affinity[table: T2_N2N3, columns: [ID]])
+      IgniteTableModify(name=PUBLIC.T2_N2N3, source=2, distribution=affinity[table: T2_N2N3, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T2_N2N3, source=3, distribution=affinity[table: T2_N2N3, columns: [ID]])
 ---
