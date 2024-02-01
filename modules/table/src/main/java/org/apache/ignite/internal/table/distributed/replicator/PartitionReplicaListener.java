@@ -2275,14 +2275,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
 
-                    rowIdFuts[i] = resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
-                        // TODO: Detect delete by row.tupleSliceLength().
+                    BinaryTuple pk = extractPk(searchRow);
+                    boolean isDelete = pk.size() == searchRow.tupleSliceLength();
+
+                    rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
                         boolean insert = rowId == null;
 
                         RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
 
                         if (lastCommitTime != null) {
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
+                        }
+
+                        if (isDelete) {
+                            return takeLocksForDelete(searchRow, rowId0, txId)
+                                    .thenApply(id -> new IgniteBiTuple<>(id, null));
                         }
 
                         return insert

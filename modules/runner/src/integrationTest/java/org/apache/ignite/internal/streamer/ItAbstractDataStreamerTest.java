@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -64,6 +65,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @BeforeEach
     public void clearTable() {
         sql("DELETE FROM " + TABLE_NAME);
+    }
+
+    @Test
+    public void tempTest(){
+        RecordView<Tuple> view = defaultTable().recordView();
+        // view.upsertAll(null, List.of(tuple(123, "AAAAA")));
+        view.deleteAll(null, List.of(tupleKey(123)));
     }
 
     @ParameterizedTest
