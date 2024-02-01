@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +30,10 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -69,6 +73,15 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
         }
     }
 
+    @RepeatedTest(1000)
+    public void testDeleteUpsertAllRollback() throws TransactionException {
+        deleteUpsertAll().rollback();
+
+        Tuple object1 = accounts.recordView().get(null, makeKey(1));
+        assertEquals(100., object1.doubleValue("balance"));
+        Tuple object2 = accounts.recordView().get(null, makeKey(2));
+        assertEquals(100., object2.doubleValue("balance"));
+    }
     
     public void testPrimaryReplicaDirectUpdateForExplicitTxn() throws InterruptedException {
         Peer leader = txTestCluster.getLeaderId(accounts.name());

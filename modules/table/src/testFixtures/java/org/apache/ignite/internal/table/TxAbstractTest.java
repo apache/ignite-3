@@ -227,27 +227,19 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(200., accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
     }
 
-    @RepeatedTest(1000)
-    public void testDeleteUpsertAllRollback() throws TransactionException {
-        deleteUpsertAll().rollback();
 
-        Tuple object1 = accounts.recordView().get(null, makeKey(1));
-        assertEquals(100., object1.doubleValue("balance"));
-        Tuple object2 = accounts.recordView().get(null, makeKey(2));
-        assertEquals(100., object2.doubleValue("balance"));
-    }
 
-    private InternalTransaction deleteUpsertAll() {
+    public InternalTransaction deleteUpsertAll() {
         List<Tuple> tuples = new ArrayList<>();
         tuples.add(makeValue(1, 100.));
         tuples.add(makeValue(2, 100.));
 
         accounts.recordView().upsertAll(null, tuples);
-//
-//        Tuple object1 = accounts.recordView().get(null, makeKey(1));
-//        assertEquals(100., object1.doubleValue("balance"));
-//        Tuple object2 = accounts.recordView().get(null, makeKey(2));
-//        assertEquals(100., object2.doubleValue("balance"));
+
+        Tuple object1 = accounts.recordView().get(null, makeKey(1));
+        assertEquals(100., object1.doubleValue("balance"));
+        Tuple object2 = accounts.recordView().get(null, makeKey(2));
+        assertEquals(100., object2.doubleValue("balance"));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
@@ -256,12 +248,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tuples.add(makeKey(2));
 
         accounts.recordView().deleteAll(tx, tuples);
-//
-//        tuples.clear();
-//        tuples.add(makeValue(1, 200.));
-//        tuples.add(makeValue(2, 200.));
-//
-//        accounts.recordView().upsertAll(tx, tuples);
+
+        tuples.clear();
+        tuples.add(makeValue(1, 200.));
+        tuples.add(makeValue(2, 200.));
+
+        accounts.recordView().upsertAll(tx, tuples);
 
         return tx;
     }
