@@ -54,6 +54,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ChannelType;
@@ -79,10 +80,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for {@link ConnectionManager}.
  */
+@ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     /** Started connection managers. */
@@ -98,6 +102,9 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     private NetworkConfiguration networkConfiguration;
 
     private TestInfo testInfo;
+
+    @Mock
+    private FailureProcessor failureProcessor;
 
     @BeforeEach
     void setTestInfo(TestInfo testInfo) {
@@ -508,7 +515,8 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     launchId,
                     consistentId,
                     bootstrapFactory,
-                    new AllIdsAreFresh()
+                    new AllIdsAreFresh(),
+                    failureProcessor
             );
 
             manager.start();

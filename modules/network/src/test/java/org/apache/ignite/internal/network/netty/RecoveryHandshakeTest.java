@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -36,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -721,7 +723,8 @@ public class RecoveryHandshakeTest {
                 () -> List.of(serverSideChannel.eventLoop()),
                 staleIdDetector,
                 channel -> {},
-                () -> false
+                () -> false,
+                mock(FailureProcessor.class)
         );
     }
 

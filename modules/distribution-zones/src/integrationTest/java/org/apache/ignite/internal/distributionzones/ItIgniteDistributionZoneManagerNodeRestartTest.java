@@ -90,6 +90,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -195,7 +196,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
                 new VaultStaleIds(vault),
-                new NoOpCriticalWorkerRegistry()
+                new NoOpCriticalWorkerRegistry(),
+                mock(FailureProcessor.class)
         );
 
         var clusterStateStorage = new TestClusterStateStorage();

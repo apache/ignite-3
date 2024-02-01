@@ -48,6 +48,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -100,6 +102,9 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Mock
     private CriticalWorkerRegistry criticalWorkerRegistry;
+
+    @Mock
+    private FailureProcessor failureProcessor;
 
     @InjectConfiguration("mock.port=" + SENDER_PORT)
     private NetworkConfiguration senderNetworkConfig;
@@ -485,6 +490,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 bootstrapFactory,
                 staleIdDetector,
                 clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector)
+                failureProcessor
         );
         connectionManager.start();
 

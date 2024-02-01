@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -80,6 +81,7 @@ public class ScaleCubeClusterServiceFactory {
      * @param serializationRegistry Registry used for serialization.
      * @param staleIds Used to update/detect whether a node has left the physical topology.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @return New cluster service.
      */
     public ClusterService createClusterService(
@@ -88,7 +90,8 @@ public class ScaleCubeClusterServiceFactory {
             NettyBootstrapFactory nettyBootstrapFactory,
             MessageSerializationRegistry serializationRegistry,
             StaleIds staleIds,
-            CriticalWorkerRegistry criticalWorkerRegistry
+            CriticalWorkerRegistry criticalWorkerRegistry,
+            FailureProcessor failureProcessor
     ) {
         var topologyService = new ScaleCubeTopologyService();
 
@@ -137,7 +140,8 @@ public class ScaleCubeClusterServiceFactory {
                         launchId,
                         consistentId,
                         nettyBootstrapFactory,
-                        staleIds
+                        staleIds,
+                        failureProcessor
                 );
                 this.connectionMgr = connectionMgr;
 
