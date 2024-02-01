@@ -91,6 +91,7 @@ class ComputeJobFailover<T> {
      * @param logicalTopologyService logical topology service.
      * @param topologyService physical topology service.
      * @param workerNode the node to execute the job on.
+     * @param nextWorkerSelector the selector that returns the next worker to execute job on.
      * @param executor the thread pool where the failover should run on.
      * @param units deployment units.
      * @param jobClassName the name of the job class.
