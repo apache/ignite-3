@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -470,6 +471,13 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
                 assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
             }
         }
+    }
+
+    @Test
+    public void upsertAllDeleteTest() {
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+
+        internalTable.upsertAll(Collections.singletonList(createKeyValueRow(1, 1, "some string row" + 1)), null).join();
     }
 
     private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
