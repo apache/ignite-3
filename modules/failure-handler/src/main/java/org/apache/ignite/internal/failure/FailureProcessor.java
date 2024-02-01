@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
+import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -29,7 +30,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
  * General failure processing API.
  */
 public class FailureProcessor implements IgniteComponent {
-    /** The logger. */
+    /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(FailureProcessor.class);
 
     /** Failure log message. */
@@ -56,9 +57,21 @@ public class FailureProcessor implements IgniteComponent {
         this.handler = handler;
     }
 
+    /**
+     * Creates a new instance of a failure processor.
+     * The {@link StopNodeFailureHandler} will be used as a handler.
+     *
+     * @param nodeName Node name.
+     */
+    public FailureProcessor(String nodeName) {
+        this.nodeName = nodeName;
+        this.handler = new StopNodeFailureHandler();
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> start() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20450
         return nullCompletedFuture();
     }
 

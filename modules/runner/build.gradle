@@ -80,6 +80,7 @@ dependencies {
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-system-view')
     implementation project(':ignite-workers')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation

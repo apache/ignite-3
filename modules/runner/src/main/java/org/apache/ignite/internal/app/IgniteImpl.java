@@ -92,6 +92,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexBuildingManager;
@@ -246,6 +247,9 @@ public class IgniteImpl implements Ignite {
 
     private final CriticalWorkerWatchdog criticalWorkerRegistry;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
 
@@ -396,6 +400,9 @@ public class IgniteImpl implements Ignite {
                 criticalWorkersConfiguration,
                 threadPoolsManager.commonScheduler()
         );
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20450
+        failureProcessor = new FailureProcessor(name);
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         nettyWorkersRegistrar = new NettyWorkersRegistrar(

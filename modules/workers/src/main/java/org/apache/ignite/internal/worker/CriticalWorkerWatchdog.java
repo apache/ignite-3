@@ -51,7 +51,7 @@ import org.jetbrains.annotations.Nullable;
  * NOT_MONITORED state, then a logging is triggered.
  */
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
-    private final IgniteLogger log = Loggers.forClass(CriticalWorkerWatchdog.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CriticalWorkerWatchdog.class);
 
     private final CriticalWorkersConfiguration configuration;
 
@@ -105,7 +105,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         ThreadInfo[] threadInfos = threadMxBean.getThreadInfo(delayedThreadIdsToDelays.keySet().toLongArray(), true, true);
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
-                log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
+                LOG.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
                         delayedThreadIdsToDelays.get(threadInfo.getThreadId()), maxAllowedLag, toString(threadInfo));
 
                 // TODO: IGNITE-16899 - invoke failure handler.
