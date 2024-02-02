@@ -36,9 +36,9 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkResponse;
-import org.apache.ignite.network.MessagingService;
 
 /**
  * A class that sends files to a node. It uses a rate limiter to limit the bandwidth used. It also uses a thread pool to send the files in

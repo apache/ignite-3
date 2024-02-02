@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Read only direct node single row replica request.

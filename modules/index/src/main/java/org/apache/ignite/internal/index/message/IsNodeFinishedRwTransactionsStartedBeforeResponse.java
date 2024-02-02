@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.index.message;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /** Response to {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}. */
 @Transferable(IndexMessageGroup.IS_NODE_FINISHED_RW_TRANSACTIONS_STARTED_BEFORE_RESPONSE)

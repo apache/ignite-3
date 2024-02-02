@@ -27,11 +27,11 @@ import static org.mockito.Mockito.when;
 import org.apache.ignite.internal.network.messages.SerializationOrderMessage;
 import org.apache.ignite.internal.network.messages.SerializationOrderMessageSerializationFactory;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageSerializer;
-import org.apache.ignite.network.serialization.MessageWriter;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 

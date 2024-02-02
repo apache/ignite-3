@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.replicator.command;
 
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Write command to synchronize safe time periodically.

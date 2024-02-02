@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * File transfer error.
