@@ -1284,6 +1284,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return createPartsFut.thenApply(ignore -> null);
     }
 
+    /**
+     * Creates a string representation of the given assignments list to use it for logging.
+     *
+     * @param assignments List of assignments.
+     * @return String representation of the given assignments list to use it for logging.
+     */
     private static String assignmentListToString(List<Set<Assignment>> assignments) {
         StringBuilder sb = new StringBuilder("[");
 

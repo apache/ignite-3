@@ -53,6 +53,8 @@ import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -384,7 +386,7 @@ public class LeaseUpdater {
             ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
 
             boolean shouldLogLeaseStatistics = leaseUpdateStatistics.shouldLogLeaseStatistics();
-            LeaseUpdateStatisticsParameters leasesUpdatedInCurrentIteration = leaseUpdateStatistics.leasesUpdatedInCurrentIteration();
+            LeaseStats leasesUpdatedInCurrentIteration = leaseUpdateStatistics.leasesUpdatedInCurrentIteration();
 
             msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
@@ -403,7 +405,7 @@ public class LeaseUpdater {
                     return;
                 }
 
-                LeaseUpdateStatisticsParameters totalLeases = leaseUpdateStatistics.onSuccessfulIteration(leasesUpdatedInCurrentIteration);
+                LeaseStats totalLeases = leaseUpdateStatistics.onSuccessfulIteration(leasesUpdatedInCurrentIteration);
 
                 if (shouldLogLeaseStatistics) {
                     LOG.info("Leases updated (printed once per " + LeaseUpdateStatistics.PRINT_ONCE_PER_ITERATIONS + " iterations): ["
@@ -493,15 +495,15 @@ public class LeaseUpdater {
     }
 
     private static class LeaseUpdateStatistics {
-        static final int PRINT_ONCE_PER_ITERATIONS = 10;
+        static final int PRINT_ONCE_PER_ITERATIONS = IgniteSystemProperties.getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 10);
 
         /** This field should be accessed only from updater thread. */
         private int statisticsLogCounter;
 
         /** This field is iteration-local and should be accessed only from updater thread. */
-        private LeaseUpdateStatisticsParameters iteration = new LeaseUpdateStatisticsParameters(0, 0, 0);
+        private LeaseStats iteration = new LeaseStats(0, 0, 0);
 
-        private final LeaseUpdateStatisticsParameters total = new LeaseUpdateStatisticsParameters(0, 0, 0);
+        private final LeaseStats total = new LeaseStats(0, 0, 0);
 
         /**
          * Should be called only from the updater thread.
@@ -527,8 +529,8 @@ public class LeaseUpdater {
         /**
          * Should be called only from the updater thread.
          */
-        private LeaseUpdateStatisticsParameters leasesUpdatedInCurrentIteration() {
-            return new LeaseUpdateStatisticsParameters(iteration.leasesCreated, iteration.leasesPublished, iteration.leasesProlonged);
+        private LeaseStats leasesUpdatedInCurrentIteration() {
+            return new LeaseStats(iteration.leasesCreated, iteration.leasesPublished, iteration.leasesProlonged);
         }
 
         /**
@@ -548,7 +550,7 @@ public class LeaseUpdater {
          * Should be called only from the updater thread.
          */
         private void onNewIteration() {
-            iteration = new LeaseUpdateStatisticsParameters(0, 0, 0);
+            iteration = new LeaseStats(0, 0, 0);
         }
 
         /**
@@ -557,7 +559,7 @@ public class LeaseUpdater {
          * @param iterationParameters Leases updated in current iteration.
          * @return Updated value of total updated leases.
          */
-        private synchronized LeaseUpdateStatisticsParameters onSuccessfulIteration(LeaseUpdateStatisticsParameters iterationParameters) {
+        private synchronized LeaseStats onSuccessfulIteration(LeaseStats iterationParameters) {
             total.leasesCreated += iterationParameters.leasesCreated;
             total.leasesPublished += iterationParameters.leasesPublished;
             total.leasesProlonged += iterationParameters.leasesProlonged;
@@ -566,12 +568,17 @@ public class LeaseUpdater {
         }
     }
 
-    private static class LeaseUpdateStatisticsParameters {
+    private static class LeaseStats {
+        @IgniteToStringInclude
         long leasesCreated;
+
+        @IgniteToStringInclude
         long leasesPublished;
+
+        @IgniteToStringInclude
         long leasesProlonged;
 
-        public LeaseUpdateStatisticsParameters(long leasesCreated, long leasesPublished, long leasesProlonged) {
+        public LeaseStats(long leasesCreated, long leasesPublished, long leasesProlonged) {
             this.leasesCreated = leasesCreated;
             this.leasesPublished = leasesPublished;
             this.leasesProlonged = leasesProlonged;
@@ -579,9 +586,7 @@ public class LeaseUpdater {
 
         @Override
         public String toString() {
-            return "[leasesCreated=" + leasesCreated
-                    + ", leasesPublished=" + leasesPublished
-                    + ", leasesProlonged=" + leasesProlonged + ']';
+            return S.toString(this);
         }
     }
 
