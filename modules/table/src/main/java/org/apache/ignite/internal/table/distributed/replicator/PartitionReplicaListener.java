@@ -2291,9 +2291,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     boolean isDelete = opTypes != null && opTypes[i] == ReadWriteMultiRowReplicaRequest.OP_DELETE;
 
-                    // TODO: Where can I get elementCount?
                     BinaryTuple pk = isDelete
-                            ? new BinaryTuple(1, searchRow.tupleSlice())
+                            ? resolvePk(searchRow.tupleSlice())
                             : extractPk(searchRow);
 
                     rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
