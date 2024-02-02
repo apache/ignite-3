@@ -25,6 +25,9 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
+import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
+import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -36,6 +39,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyCollection
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -68,6 +72,11 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -153,7 +162,6 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
-import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -277,6 +285,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Read-write transaction operation tracker for building indexes. */
     private final IndexBuilderTxRwOperationTracker txRwOperationTracker = new IndexBuilderTxRwOperationTracker();
 
+    /** Listener for {@link CatalogEvent#INDEX_BUILDING}. */
+    private final EventListener<CatalogEventParameters> indexBuildingCatalogEventListener = this::onIndexBuilding;
+
     /**
      * The constructor.
      *
@@ -345,6 +356,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+
+        prepareIndexBuilderTxRwOperationTracker();
     }
 
     private CompletableFuture<?> durableCleanup(UUID txId, TxMeta txMeta) {
@@ -3731,6 +3744,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         busyLock.block();
 
+        catalogService.removeListener(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
+
         txRwOperationTracker.close();
     }
 
@@ -3813,24 +3828,55 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request instanceof ReadWriteReplicaRequest) {
             // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
             // otherwise there may be races/errors and the index will not be able to start building.
-            txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion((ReadWriteReplicaRequest) request));
+            txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request));
         }
 
         return processOperationRequest(request, isPrimary, senderId, opStartTsIfDirectRo)
                 .whenComplete((unused, throwable) -> {
                     if (request instanceof ReadWriteReplicaRequest) {
-                        txRwOperationTracker.decrementOperationCount(rwTxActiveCatalogVersion((ReadWriteReplicaRequest) request));
+                        txRwOperationTracker.decrementOperationCount(
+                                rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request)
+                        );
                     }
                 });
     }
 
-    private static HybridTimestamp beginRwTxTs(ReadWriteReplicaRequest request) {
-        return TransactionIds.beginTimestamp(request.transactionId());
+    private void prepareIndexBuilderTxRwOperationTracker() {
+        // Expected to be executed on the metastore thread.
+        CatalogIndexDescriptor indexDescriptor = latestIndexDescriptorInBuildingStatus(catalogService, tableId());
+
+        if (indexDescriptor != null) {
+            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+        }
+
+        catalogService.listen(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
     }
 
-    private int rwTxActiveCatalogVersion(ReadWriteReplicaRequest request) {
-        HybridTimestamp beginRwTxTs = beginRwTxTs(request);
+    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters, @Nullable Throwable exception) {
+        if (exception != null) {
+            return failedFuture(exception);
+        }
 
-        return catalogService.activeCatalogVersion(beginRwTxTs.longValue());
+        if (!busyLock.enterBusy()) {
+            return trueCompletedFuture();
+        }
+
+        try {
+            int indexId = ((StartBuildingIndexEventParameters) parameters).indexId();
+
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, parameters.catalogVersion());
+
+            assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
+
+            if (indexDescriptor.tableId() == tableId()) {
+                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+            }
+
+            return falseCompletedFuture();
+        } catch (Throwable t) {
+            return failedFuture(t);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

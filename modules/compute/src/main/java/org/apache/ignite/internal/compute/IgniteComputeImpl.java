@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -347,6 +348,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                         // if worker node has left the cluster.
                         node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
                                 CompletableFutures::nullCompletedFuture, units, jobClassName, options, args))));
+    }
+
+    @Override
+    public CompletableFuture<Collection<JobStatus>> statusesAsync() {
+        return computeComponent.statusesAsync();
     }
 
     @Override

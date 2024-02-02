@@ -769,7 +769,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
-        Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(computeComponent);
+        Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
 
