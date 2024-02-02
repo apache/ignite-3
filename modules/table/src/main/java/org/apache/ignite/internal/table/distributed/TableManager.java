@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -654,7 +653,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             CompletableFuture<Map<ByteArray, Entry>> resFuture = metaStorageMgr.getAll(partKeys);
 
                             return resFuture.thenApply(metaStorageAssignments -> {
-                                Set<Assignment>[] realAssignments = new Set[newAssignments.size()];
+                                List<Set<Assignment>> realAssignments = new ArrayList<>();
 
                                 for (int p = 0; p < newAssignments.size(); p++) {
                                     var partId = new TablePartitionId(tableId, p);
@@ -665,15 +664,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                     Set<Assignment> real = ByteUtils.fromBytes(assignmentsEntry.value());
 
-                                    realAssignments[p] = real;
+                                    realAssignments.add(real);
                                 }
 
-                                List<Set<Assignment>> realAssignmentsList = asList(realAssignments);
-
                                 LOG.info(IgniteStringFormatter.format("Assignments picked up from meta storage [tableId={}, "
-                                        + "assignments={}]", tableId, assignmentListToString(realAssignmentsList)));
+                                        + "assignments={}]", tableId, assignmentListToString(realAssignments)));
 
-                                return realAssignmentsList;
+                                return realAssignments;
                             });
                         }
                     })
