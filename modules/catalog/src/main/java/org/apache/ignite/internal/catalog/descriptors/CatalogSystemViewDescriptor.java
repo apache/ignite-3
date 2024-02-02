@@ -88,7 +88,13 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(CatalogSystemViewDescriptor.class, this, "id", id(), "columns", columns, "systemViewType", systemViewType());
+        return S.toString(
+                CatalogSystemViewDescriptor.class, this,
+                "id", id(),
+                "name", name(),
+                "columns", columns,
+                "systemViewType", systemViewType()
+        );
     }
 
     /**
