@@ -52,8 +52,4 @@ public interface FinishTxCommand extends PartitionCommand {
      */
     List<TablePartitionIdMessage> tablePartitionIds();
 
-    /**
-     * Transaction coordinator id.
-     */
-    String txCoordinatorId();
 }

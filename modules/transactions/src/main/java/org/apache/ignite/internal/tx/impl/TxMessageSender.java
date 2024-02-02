@@ -129,7 +129,6 @@ public class TxMessageSender {
      * Send a transactions finish request.
      *
      * @param primaryConsistentId Node consistent id to send the request to.
-     * @param coordinatorId Node id of the transaction coordinator.
      * @param commitPartition Partition to store a transaction state.
      * @param replicationGroupIds Enlisted partition groups.
      * @param txId Transaction id.
@@ -140,7 +139,6 @@ public class TxMessageSender {
      */
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
-            String coordinatorId,
             TablePartitionId commitPartition,
             Collection<ReplicationGroupId> replicationGroupIds,
             UUID txId,
@@ -158,7 +156,6 @@ public class TxMessageSender {
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                         .enlistmentConsistencyToken(consistencyToken)
-                        .coordinatorId(coordinatorId)
                         .build());
     }
 

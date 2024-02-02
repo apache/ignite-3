@@ -60,13 +60,6 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
     long commitTimestampLong();
 
     /**
-     * Get the transaction coordinator inconsistent ID.
-     *
-     * @return Transaction coordinator inconsistent ID
-     */
-    String coordinatorId();
-
-    /**
      * Transaction commit timestamp.
      */
     default @Nullable HybridTimestamp commitTimestamp() {

@@ -584,7 +584,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         return txMessageSender.finish(
                         primaryConsistentId,
-                        localNodeId,
                         commitPartition,
                         replicationGroupIds,
                         txId,

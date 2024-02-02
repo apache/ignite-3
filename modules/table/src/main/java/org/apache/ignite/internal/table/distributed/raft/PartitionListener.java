@@ -348,7 +348,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 commandTerm
         );
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
@@ -596,10 +596,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         ));
     }
 
-    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, String txCoordinatorId) {
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, @Nullable String txCoordinatorId) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 commit ? COMMITTED : ABORTED,
-                txCoordinatorId,
+                old == null ? txCoordinatorId : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
         ));

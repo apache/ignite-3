@@ -227,7 +227,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
                 .tablePartitionIds(grps)
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         FinishTxCommand readCmd = copyCommand(cmd);
@@ -249,7 +248,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .commit(finishTxCommand.commit())
                     .tablePartitionIds(finishTxCommand.tablePartitionIds())
                     .commitTimestampLong(finishTxCommand.commitTimestampLong())
-                    .txCoordinatorId(finishTxCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof WriteIntentSwitchCommand) {
             WriteIntentSwitchCommand writeIntentSwitchCommand = (WriteIntentSwitchCommand) cmd;

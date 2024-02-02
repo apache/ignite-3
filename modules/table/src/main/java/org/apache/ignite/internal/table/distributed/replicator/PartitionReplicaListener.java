@@ -1530,15 +1530,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     enlistedGroups,
                                     validationResult.isSuccessful(),
                                     validationResult.isSuccessful() ? commitTimestamp : null,
-                                    txId,
-                                    request.coordinatorId()
+                                    txId
                             ).thenApply(txResult -> {
                                 throwIfSchemaValidationOnCommitFailed(validationResult, txResult);
                                 return txResult;
                             }));
         } else {
             // Aborting.
-            return finishAndCleanup(enlistedGroups, false, null, txId, request.coordinatorId());
+            return finishAndCleanup(enlistedGroups, false, null, txId);
         }
     }
 
@@ -1566,8 +1565,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             Collection<TablePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
-            UUID txId,
-            String txCoordinatorId
+            UUID txId
     ) {
         // Read TX state from the storage, we will need this state to check if the locks are released.
         // Since this state is written only on the transaction finish (see PartitionListener.handleFinishTxCommand),
@@ -1615,7 +1613,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
         }
 
-        return finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId)
+        return finishTransaction(enlistedPartitions, txId, commit, commitTimestamp)
                 .thenCompose(txResult ->
                         txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
                                 .thenApply(v -> txResult)
@@ -1629,15 +1627,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
      * @param commitTimestamp Commit timestamp, if applicable.
-     * @param txCoordinatorId Transaction coordinator id.
      * @return Future to wait of the finish.
      */
     private CompletableFuture<TransactionResult> finishTransaction(
             Collection<TablePartitionId> aggregatedGroupIds,
             UUID txId,
             boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            String txCoordinatorId
+            @Nullable HybridTimestamp commitTimestamp
     ) {
         assert !(commit && commitTimestamp == null) : "Cannot commit without the timestamp.";
 
@@ -1648,7 +1644,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 txId,
                                 commit,
                                 commitTimestamp,
-                                txCoordinatorId,
                                 catalogVersion,
                                 aggregatedGroupIds.stream()
                                         .map(PartitionReplicaListener::tablePartitionId)
@@ -1683,7 +1678,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
-            String txCoordinatorId,
             int catalogVersion,
             List<TablePartitionIdMessage> tablePartitionIds
     ) {
@@ -1692,7 +1686,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .txId(transactionId)
                     .commit(commit)
                     .safeTimeLong(hybridClock.nowLong())
-                    .txCoordinatorId(txCoordinatorId)
                     .requiredCatalogVersion(catalogVersion)
                     .tablePartitionIds(tablePartitionIds);
 

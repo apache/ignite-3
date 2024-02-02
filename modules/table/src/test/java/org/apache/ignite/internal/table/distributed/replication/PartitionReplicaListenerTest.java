@@ -1569,7 +1569,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groups(Set.of(grpId))
                 .commit(false)
                 .enlistmentConsistencyToken(1L)
-                .coordinatorId(localNode.id())
                 .build();
 
         return partitionReplicaListener.invoke(commitRequest, localNode.id());
@@ -1635,7 +1634,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                 .enlistmentConsistencyToken(1L)
-                .coordinatorId(localNode.id())
                 .build();
 
         return partitionReplicaListener.invoke(commitRequest, localNode.id());
@@ -2369,7 +2367,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .enlistmentConsistencyToken(1L)
                         .commit(true)
                         .commitTimestampLong(clock.nowLong())
-                        .coordinatorId(localNode.id())
                         .build(),
                 localNode.id()
         );
