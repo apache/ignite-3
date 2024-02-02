@@ -23,8 +23,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_STOPPING;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -52,7 +50,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -146,17 +143,6 @@ public class IndexManager implements IgniteComponent {
             }
 
             return onIndexCreate((CreateIndexEventParameters) parameters);
-        });
-
-        // TODO: IGNITE-21117 - remove this.
-        catalogManager.listen(INDEX_STOPPING, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            removeIndex(((StoppingIndexEventParameters) parameters).indexId());
-
-            return falseCompletedFuture();
         });
 
         catalogManager.listen(INDEX_REMOVED, (parameters, exception) -> {
@@ -366,7 +352,7 @@ public class IndexManager implements IgniteComponent {
                 // TODO: IGNITE-21117 - remove this.
                 if (index.status() == CatalogIndexStatus.STOPPING
                         && catalogManager.index(index.id(), catalogManager.latestCatalogVersion()) != null) {
-                    startIndexFutures.add(removeIndex(index.id()));
+                    // startIndexFutures.add(removeIndex(index.id()));
                 }
 
                 startIndexFutures.add(startIndexAsync(table, index, causalityToken));

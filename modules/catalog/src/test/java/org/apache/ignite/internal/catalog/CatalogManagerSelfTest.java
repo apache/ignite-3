@@ -1258,7 +1258,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         clearInvocations(eventListener);
 
         // Drop index.
-        assertThat(manager.execute(dropIndexCmd), willBe(nullValue()));
+        dropIndex(INDEX_NAME);
         verify(eventListener).notify(any(StoppingIndexEventParameters.class), isNull());
 
         // Remove index.

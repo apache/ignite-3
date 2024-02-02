@@ -42,6 +42,6 @@ public class DestroyIndexEvent implements Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
+        return new RemoveIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
     }
 }

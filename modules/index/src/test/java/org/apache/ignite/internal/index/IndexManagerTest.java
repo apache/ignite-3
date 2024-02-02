@@ -212,8 +212,31 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testDontUnregisterIndexOnCatalogEventIndexDrop() {
+    void testUnregisterNonReadyIndexOnCatalogEventIndexDrop() {
         createIndex(TABLE_NAME, INDEX_NAME);
+        dropIndex(INDEX_NAME);
+
+        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
+
+        verify(tableViewInternal).unregisterIndex(anyInt());
+    }
+
+    @Test
+    void testUnregisterBuildingIndexOnCatalogEventIndexDrop() {
+        createIndex(TABLE_NAME, INDEX_NAME);
+        startBuildingIndex(INDEX_NAME);
+        dropIndex(INDEX_NAME);
+
+        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
+
+        verify(tableViewInternal).unregisterIndex(anyInt());
+    }
+
+    @Test
+    void testDontUnregisterAvailableIndexOnCatalogEventIndexDrop() {
+        createIndex(TABLE_NAME, INDEX_NAME);
+        startBuildingIndex(INDEX_NAME);
+        makeIndexAvailable(INDEX_NAME);
         dropIndex(INDEX_NAME);
 
         TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());

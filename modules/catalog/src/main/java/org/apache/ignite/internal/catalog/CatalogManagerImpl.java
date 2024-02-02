@@ -457,18 +457,20 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             Collection<Catalog> droppedCatalogVersions = catalogByVer.subMap(earliestCatalogVersion(), catalog.version()).values();
 
             // Dropped indexes
-            droppedCatalogVersions.forEach(old -> {
-                old.managedIndexes().intStream()
+            IntOpenHashSet uniqSet = new IntOpenHashSet();
+            droppedCatalogVersions.forEach(oldCatalog -> {
+                oldCatalog.managedIndexes().intStream()
                         .filter(id -> !managedIndexes.contains(id))
-                        .filter(new IntOpenHashSet()::add) // unique
-                        .forEach(id -> events.add(new DestroyIndexEvent(id, old.index(id).tableId())));
+                        .filter(uniqSet::add) // unique
+                        .forEach(id -> events.add(new DestroyIndexEvent(id, oldCatalog.index(id).tableId())));
             });
             // Dropped tables
-            droppedCatalogVersions.forEach(old -> {
-                old.managedTables().intStream()
+            uniqSet.clear();
+            droppedCatalogVersions.forEach(oldCatalog -> {
+                oldCatalog.managedTables().intStream()
                         .filter(id -> !managedTables.contains(id))
-                        .filter(new IntOpenHashSet()::add) // unique
-                        .forEach(id -> events.add(new DestroyTableEvent(id, old.zone(old.table(id).zoneId()).partitions())));
+                        .filter(uniqSet::add) // unique
+                        .forEach(id -> events.add(new DestroyTableEvent(id, oldCatalog.zone(oldCatalog.table(id).zoneId()).partitions())));
             });
 
             // On recovery phase, we must register catalog from the snapshot.
@@ -513,7 +515,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             for (UpdateEntry entry : update.entries()) {
                 if (entry instanceof Fireable) {
                     Fireable fireEvent = (Fireable) entry;
-
+LOG.warn("FIRED: " + entry);
                     eventFutures.add(fireEvent(
                             fireEvent.eventType(),
                             fireEvent.createEventParameters(causalityToken, version)
