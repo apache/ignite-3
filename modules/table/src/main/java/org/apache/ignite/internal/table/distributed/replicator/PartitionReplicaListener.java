@@ -2284,12 +2284,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
 
                 Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                byte[] opTypes = request.binaryTuplesOperationTypes();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
 
-                    BinaryTuple pk = extractPk(searchRow);
-                    boolean isDelete = pk.size() == searchRow.tupleSliceLength();
+                    boolean isDelete = opTypes != null && opTypes[i] == ReadWriteMultiRowReplicaRequest.OP_DELETE;
+
+                    // TODO: Where can I get elementCount?
+                    BinaryTuple pk = isDelete
+                            ? new BinaryTuple(1, searchRow.tupleSlice())
+                            : extractPk(searchRow);
 
                     rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
                         boolean insert = rowId == null;
