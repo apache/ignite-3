@@ -1456,8 +1456,8 @@ public class IgniteToStringBuilder {
      *
      * @param list List.
      * @param elementToString Element to string transformer, accepts the string builder, element of list and its index.
-     * @return String.
      * @param <T> Type of list elements.
+     * @return String.
      */
     public static <T> String toString(List<T> list, IgniteTriConsumer<IgniteStringBuilder, T, Integer> elementToString) {
         int listSize = list.size();
