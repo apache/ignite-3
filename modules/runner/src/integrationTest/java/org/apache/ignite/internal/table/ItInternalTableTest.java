@@ -484,10 +484,13 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
 
         // Update, insert, delete.
+
+        // TODO: This fails because numElements is not passed together with the row.
+        Row delRow = createKeyRow(3);
         Collection<BinaryRowEx> rows = List.of(
                 createKeyValueRow(1, 11, "val11"),
                 createKeyValueRow(2, 2, "val2"),
-                createKeyRow(3)
+                delRow
         );
 
         internalTable.upsertAll(rows, null).join();
