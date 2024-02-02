@@ -651,6 +651,11 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         }
 
         @Override
+        public int partitions() {
+            return 1;
+        }
+
+        @Override
         public String name() {
             return name;
         }
