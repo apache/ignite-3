@@ -15,8 +15,30 @@
  * limitations under the License.
  */
 
-/**
- * Package containing implementation classes of the Network module.
- */
+package org.apache.ignite.internal.network;
 
-package org.apache.ignite.network;
+import java.util.List;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
+
+/**
+ * {@code NodeFinder} implementation that encapsulates a predefined list of network addresses.
+ */
+public class StaticNodeFinder implements NodeFinder {
+    /** List of seed cluster members. */
+    private final List<NetworkAddress> addresses;
+
+    /**
+     * Constructor.
+     *
+     * @param addresses Addresses of initial cluster members.
+     */
+    public StaticNodeFinder(List<NetworkAddress> addresses) {
+        this.addresses = addresses;
+    }
+
+    /** {@inheritDoc} */
+    @Override public List<NetworkAddress> findNodes() {
+        return addresses;
+    }
+}

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -23,6 +23,8 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.Arrays;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.configuration.NodeFinderView;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
 
 /**
  * {@link NodeFinder} factory.

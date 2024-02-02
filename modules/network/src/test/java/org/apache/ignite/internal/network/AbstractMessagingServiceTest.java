@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network;
 
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.junit.jupiter.api.Test;
 

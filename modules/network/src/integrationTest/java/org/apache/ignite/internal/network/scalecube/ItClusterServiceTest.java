@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.network.scalecube;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -40,7 +41,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeMetadata;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 

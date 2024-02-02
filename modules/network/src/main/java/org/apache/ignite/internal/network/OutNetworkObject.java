@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Wrapper for the outgoing network message.

@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.network.NettyBootstrapFactory.isInNetworkThread;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -41,7 +41,6 @@ import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -59,6 +58,13 @@ import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.AbstractMessagingService;
+import org.apache.ignite.network.ChannelType;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.network.UnresolvableConsistentIdException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 

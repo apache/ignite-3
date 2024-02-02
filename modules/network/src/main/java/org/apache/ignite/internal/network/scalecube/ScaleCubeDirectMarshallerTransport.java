@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.network.scalecube;
 
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.cluster.transport.api.Transport;

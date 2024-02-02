@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.network.scalecube;
 
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,10 +25,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

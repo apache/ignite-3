@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -48,7 +48,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -73,6 +72,14 @@ import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarsha
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
+import org.apache.ignite.network.ChannelType;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.network.UnresolvableConsistentIdException;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;

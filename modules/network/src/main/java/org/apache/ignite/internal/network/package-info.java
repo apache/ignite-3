@@ -16,7 +16,7 @@
  */
 
 /**
- * Integration tests for ScaleCube-related classes.
+ * Package containing implementation classes of the Network module.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.network;

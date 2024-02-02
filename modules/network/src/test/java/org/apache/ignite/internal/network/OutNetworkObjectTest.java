@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network;
 
 import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 
 class OutNetworkObjectTest extends BaseIgniteAbstractTest {

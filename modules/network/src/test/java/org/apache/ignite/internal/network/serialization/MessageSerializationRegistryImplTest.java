@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.serialization;
+package org.apache.ignite.internal.network.serialization;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageDeserializer;
+import org.apache.ignite.network.serialization.MessageSerializationFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageSerializer;
 import org.junit.jupiter.api.Test;
 
 /**

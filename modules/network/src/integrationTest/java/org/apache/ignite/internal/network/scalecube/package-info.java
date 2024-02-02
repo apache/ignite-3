@@ -15,28 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
-
-import java.util.List;
-
 /**
- * {@code NodeFinder} implementation that encapsulates a predefined list of network addresses.
+ * Integration tests for ScaleCube-related classes.
  */
-public class StaticNodeFinder implements NodeFinder {
-    /** List of seed cluster members. */
-    private final List<NetworkAddress> addresses;
 
-    /**
-     * Constructor.
-     *
-     * @param addresses Addresses of initial cluster members.
-     */
-    public StaticNodeFinder(List<NetworkAddress> addresses) {
-        this.addresses = addresses;
-    }
-
-    /** {@inheritDoc} */
-    @Override public List<NetworkAddress> findNodes() {
-        return addresses;
-    }
-}
+package org.apache.ignite.internal.network.scalecube;

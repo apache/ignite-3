@@ -33,6 +33,7 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;

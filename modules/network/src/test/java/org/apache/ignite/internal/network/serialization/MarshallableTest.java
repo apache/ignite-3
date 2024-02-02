@@ -43,6 +43,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.messages.MessageWithMarshallable;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.network.serialization.marshal.MarshalException
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;

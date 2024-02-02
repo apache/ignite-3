@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -36,7 +36,10 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.NodeFinderFactory;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
@@ -52,11 +55,8 @@ import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.DefaultMessagingService;
-import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;

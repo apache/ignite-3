@@ -19,4 +19,4 @@
  * Package containing implementation of the Network module interfaces, based on ScaleCube.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.network.scalecube;

@@ -35,6 +35,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
 
 /**
  * Recovery protocol handshake manager for a server.

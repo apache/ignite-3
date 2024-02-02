@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.network.scalecube;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -61,8 +61,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
@@ -78,14 +81,11 @@ import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.RecipientLeftException;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.apache.logging.log4j.core.LogEvent;
