@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readArray;
-import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeArray;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;

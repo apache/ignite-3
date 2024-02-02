@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 
 /**
  * Interface describing a particular change within the {@link VersionedUpdate group}.

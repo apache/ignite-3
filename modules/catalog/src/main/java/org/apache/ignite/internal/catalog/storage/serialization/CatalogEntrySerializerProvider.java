@@ -15,26 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.serialization;
-
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.ALTER_COLUMN;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.ALTER_ZONE;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.DROP_COLUMN;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.DROP_INDEX;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.DROP_TABLE;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.DROP_ZONE;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.ID_GENERATOR;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.MAKE_INDEX_AVAILABLE;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.NEW_COLUMN;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.NEW_INDEX;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.NEW_SYS_VIEW;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.NEW_TABLE;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.NEW_ZONE;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.REMOVE_INDEX;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.RENAME_TABLE;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.SNAPSHOT;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.START_BUILDING_INDEX;
-import static org.apache.ignite.internal.catalog.serialization.MarshallableEntryType.VERSIONED_UPDATE;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -77,25 +58,25 @@ public interface CatalogEntrySerializerProvider {
                 new CatalogObjectSerializer[MarshallableEntryType.values().length];
 
         {
-            serializers[ALTER_COLUMN.id()] = AlterColumnEntry.SERIALIZER;
-            serializers[ALTER_ZONE.id()] = AlterZoneEntry.SERIALIZER;
-            serializers[NEW_ZONE.id()] = NewZoneEntry.SERIALIZER;
-            serializers[DROP_COLUMN.id()] = DropColumnsEntry.SERIALIZER;
-            serializers[DROP_INDEX.id()] = DropIndexEntry.SERIALIZER;
-            serializers[DROP_TABLE.id()] = DropTableEntry.SERIALIZER;
-            serializers[DROP_ZONE.id()] = DropZoneEntry.SERIALIZER;
-            serializers[MAKE_INDEX_AVAILABLE.id()] = MakeIndexAvailableEntry.SERIALIZER;
-            serializers[REMOVE_INDEX.id()] = RemoveIndexEntry.SERIALIZER;
-            serializers[START_BUILDING_INDEX.id()] = StartBuildingIndexEntry.SERIALIZER;
-            serializers[NEW_COLUMN.id()] = NewColumnsEntry.SERIALIZER;
-            serializers[NEW_INDEX.id()] = NewIndexEntry.SERIALIZER;
-            serializers[NEW_SYS_VIEW.id()] = NewSystemViewEntry.SERIALIZER;
-            serializers[NEW_TABLE.id()] = NewTableEntry.SERIALIZER;
-            serializers[RENAME_TABLE.id()] = RenameTableEntry.SERIALIZER;
-            serializers[ID_GENERATOR.id()] = ObjectIdGenUpdateEntry.SERIALIZER;
-            serializers[SNAPSHOT.id()] = SnapshotEntry.SERIALIZER;
+            serializers[MarshallableEntryType.ALTER_COLUMN.id()] = AlterColumnEntry.SERIALIZER;
+            serializers[MarshallableEntryType.ALTER_ZONE.id()] = AlterZoneEntry.SERIALIZER;
+            serializers[MarshallableEntryType.NEW_ZONE.id()] = NewZoneEntry.SERIALIZER;
+            serializers[MarshallableEntryType.DROP_COLUMN.id()] = DropColumnsEntry.SERIALIZER;
+            serializers[MarshallableEntryType.DROP_INDEX.id()] = DropIndexEntry.SERIALIZER;
+            serializers[MarshallableEntryType.DROP_TABLE.id()] = DropTableEntry.SERIALIZER;
+            serializers[MarshallableEntryType.DROP_ZONE.id()] = DropZoneEntry.SERIALIZER;
+            serializers[MarshallableEntryType.MAKE_INDEX_AVAILABLE.id()] = MakeIndexAvailableEntry.SERIALIZER;
+            serializers[MarshallableEntryType.REMOVE_INDEX.id()] = RemoveIndexEntry.SERIALIZER;
+            serializers[MarshallableEntryType.START_BUILDING_INDEX.id()] = StartBuildingIndexEntry.SERIALIZER;
+            serializers[MarshallableEntryType.NEW_COLUMN.id()] = NewColumnsEntry.SERIALIZER;
+            serializers[MarshallableEntryType.NEW_INDEX.id()] = NewIndexEntry.SERIALIZER;
+            serializers[MarshallableEntryType.NEW_SYS_VIEW.id()] = NewSystemViewEntry.SERIALIZER;
+            serializers[MarshallableEntryType.NEW_TABLE.id()] = NewTableEntry.SERIALIZER;
+            serializers[MarshallableEntryType.RENAME_TABLE.id()] = RenameTableEntry.SERIALIZER;
+            serializers[MarshallableEntryType.ID_GENERATOR.id()] = ObjectIdGenUpdateEntry.SERIALIZER;
+            serializers[MarshallableEntryType.SNAPSHOT.id()] = SnapshotEntry.SERIALIZER;
             //noinspection ThisEscapedInObjectConstruction
-            serializers[VERSIONED_UPDATE.id()] = new VersionedUpdateSerializer(this);
+            serializers[MarshallableEntryType.VERSIONED_UPDATE.id()] = new VersionedUpdateSerializer(this);
 
             assert Stream.of(serializers).noneMatch(Objects::isNull);
         }

@@ -15,29 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.serialization;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
-import java.io.IOException;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 
 /**
- * Catalog object serializer.
+ * Marshaller of update log entries.
  */
-public interface CatalogObjectSerializer<T> {
+public interface UpdateLogMarshaller {
     /**
-     * Reads catalog object from data input.
+     * Converts a catalog versioned update into a byte array.
      *
-     * @param input Data input.
-     * @return Catalog entry.
+     * @param update Versioned update to serialize.
+     * @return Byte buffer with a serialized object.
      */
-    T readFrom(IgniteDataInput input) throws IOException;
+    byte[] marshall(UpdateLogEvent update);
 
     /**
-     * Writes catalog object to data output.
+     * Converts byte array into catalog versioned update.
      *
-     * @param value Catalog entry.
-     * @param output Data output.
+     * @param bytes Byte array.
+     * @return Catalog versioned update.
      */
-    void writeTo(T value, IgniteDataOutput output) throws IOException;
+    UpdateLogEvent unmarshall(byte[] bytes);
 }

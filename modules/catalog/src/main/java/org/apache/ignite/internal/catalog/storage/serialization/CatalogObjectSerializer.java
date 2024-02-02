@@ -15,17 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.serialization;
+package org.apache.ignite.internal.catalog.storage.serialization;
+
+import java.io.IOException;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
- * Typed update log entry that uses external serialization.
+ * Catalog object serializer.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface MarshallableEntry {
+public interface CatalogObjectSerializer<T> {
     /**
-     * Returns the entry type used to serialize catalog entries.
+     * Reads catalog object from data input.
      *
-     * @return update entry type.
+     * @param input Data input.
+     * @return Catalog entry.
      */
-    int typeId();
+    T readFrom(IgniteDataInput input) throws IOException;
+
+    /**
+     * Writes catalog object to data output.
+     *
+     * @param value Catalog entry.
+     * @param output Data output.
+     */
+    void writeTo(T value, IgniteDataOutput output) throws IOException;
 }

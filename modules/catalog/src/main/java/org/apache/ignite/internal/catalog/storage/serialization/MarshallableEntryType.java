@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.serialization;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
 /**
  * Update entry serialization type.

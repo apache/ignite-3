@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.serialization;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.IntFunction;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -132,26 +130,5 @@ public class CatalogSerializationUtils {
         for (T item : items) {
             serializer.writeTo(item, output);
         }
-    }
-
-    /** Reads {@link Serializable} object. */
-    public static <T extends Serializable> @Nullable T readSerializableObject(IgniteDataInput input) throws IOException {
-        int blockSize = input.readInt();
-
-        return blockSize == -1 ? null : ByteUtils.fromBytes(input.readByteArray(blockSize));
-    }
-
-    /** Writes {@link Serializable} object. */
-    public static void writeSerializableObject(@Nullable Serializable object, IgniteDataOutput output) throws IOException {
-        if (object == null) {
-            output.writeInt(-1);
-
-            return;
-        }
-
-        byte[] bytes = ByteUtils.toBytes(object);
-
-        output.writeInt(bytes.length);
-        output.writeByteArray(bytes);
     }
 }

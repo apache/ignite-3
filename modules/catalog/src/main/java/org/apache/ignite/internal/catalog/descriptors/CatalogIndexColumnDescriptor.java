@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.io.IOException;
 import java.util.Objects;
-import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;

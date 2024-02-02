@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.readNullableString;
-import static org.apache.ignite.internal.catalog.serialization.CatalogSerializationUtils.writeNullableString;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readNullableString;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeNullableString;
 
 import java.io.IOException;
-import org.apache.ignite.internal.catalog.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
