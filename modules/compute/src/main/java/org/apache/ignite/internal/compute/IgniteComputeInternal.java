@@ -17,16 +17,43 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal compute facade.
  */
 public interface IgniteComputeInternal extends IgniteCompute {
+    /**
+     * Executes a {@link ComputeJob} of the given class on a single node. If the node leaves the cluster, it will be restarted on one of the
+     * candidate nodes.
+     *
+     * @param <R> Job result type.
+     * @param nodes Candidate nodes; In case target node left the cluster, the job will be restarted on one of them.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param options Job execution options.
+     * @param args Arguments of the job.
+     * @return CompletableFuture Job result.
+     */
+    <R> JobExecution<R> executeAsyncWithFailover(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object... args
+    );
+
     /**
      * Gets job status by id.
      *

@@ -141,6 +141,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogZoneDescriptor.class, this, super.toString());
     }
 }

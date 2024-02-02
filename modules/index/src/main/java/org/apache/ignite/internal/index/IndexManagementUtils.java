@@ -188,9 +188,7 @@ class IndexManagementUtils {
      * @param catalogVersion Catalog version.
      */
     static int getPartitionCountFromCatalog(CatalogService catalogService, int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
-
-        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
+        CatalogIndexDescriptor indexDescriptor = index(catalogService, indexId, catalogVersion);
 
         CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
 
@@ -201,6 +199,20 @@ class IndexManagementUtils {
         assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
 
         return zoneDescriptor.partitions();
+    }
+
+    /**
+     * Finds an index by ID in the requested catalog version. Throws if it does not exist.
+     *
+     * @param catalogService Catalog service to be used to find the index.
+     * @param indexId ID of the index to find.
+     * @param catalogVersion Version of the catalog in which to look for the index.
+     */
+    static CatalogIndexDescriptor index(CatalogService catalogService, int indexId, int catalogVersion) {
+        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
+
+        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
+        return indexDescriptor;
     }
 
     /**

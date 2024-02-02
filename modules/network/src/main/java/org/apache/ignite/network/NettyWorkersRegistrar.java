@@ -20,7 +20,7 @@ package org.apache.ignite.network;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.SingleThreadEventExecutor;
 import java.util.ArrayList;
@@ -83,7 +83,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     @Override
     public CompletableFuture<Void> start() {
         List<NettyWorker> nettyWorkers = new ArrayList<>();
-        for (NioEventLoopGroup group : bootstrapFactory.eventLoopGroups()) {
+        for (EventLoopGroup group : bootstrapFactory.eventLoopGroups()) {
             registerWorkersFor(group, nettyWorkers);
         }
         workers = List.copyOf(nettyWorkers);
@@ -94,8 +94,8 @@ public class NettyWorkersRegistrar implements IgniteComponent {
         return nullCompletedFuture();
     }
 
-    private void registerWorkersFor(NioEventLoopGroup group, List<NettyWorker> nettyWorkers) {
-        List<NettyWorker> groupWorkers = new ArrayList<>(group.executorCount());
+    private void registerWorkersFor(EventLoopGroup group, List<NettyWorker> nettyWorkers) {
+        List<NettyWorker> groupWorkers = new ArrayList<>();
 
         for (EventExecutor eventExecutor : group) {
             SingleThreadEventExecutor executor = (SingleThreadEventExecutor) eventExecutor;

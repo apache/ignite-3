@@ -68,6 +68,6 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogIndexDescriptor.class, this, super.toString());
     }
 }

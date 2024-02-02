@@ -91,6 +91,10 @@ class TestIndexManagementUtils {
         TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
+    static void removeIndex(CatalogManager catalogManager, String indexName) {
+        TableTestUtils.removeIndex(catalogManager, indexName);
+    }
+
     static int indexId(CatalogService catalogService, String indexName, HybridClock clock) {
         return TableTestUtils.getIndexIdStrict(catalogService, indexName, clock.nowLong());
     }

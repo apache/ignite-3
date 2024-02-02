@@ -64,6 +64,8 @@ public class TableRowConverterImpl implements TableRowConverter {
      */
     private final int[] keyMapping;
 
+    private final boolean skipReshuffling;
+
     /** Constructor. */
     TableRowConverterImpl(
             SchemaRegistry schemaRegistry,
@@ -75,6 +77,8 @@ public class TableRowConverterImpl implements TableRowConverter {
 
         this.fullTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
         this.keyTupleSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
+
+        this.skipReshuffling = requiredColumns == null && schemaDescriptor.physicalOrderMatchesLogical();
 
         int elementCount = schemaDescriptor.length();
         int size = requiredColumns == null ? elementCount : requiredColumns.cardinality();
@@ -117,10 +121,16 @@ public class TableRowConverterImpl implements TableRowConverter {
         BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
 
         if (!key) {
-            FormatAwareProjectedTuple tuple = new FormatAwareProjectedTuple(binaryTuple, fullMapping);
+            InternalTuple tuple = schemaDescriptor.physicalOrderMatchesLogical()
+                    ? binaryTuple
+                    : new FormatAwareProjectedTuple(binaryTuple, fullMapping);
+
             return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, fullTupleSchema);
         } else {
-            FormatAwareProjectedTuple tuple = new FormatAwareProjectedTuple(binaryTuple, keyMapping);
+            InternalTuple tuple = schemaDescriptor.physicalOrderMatchesLogical()
+                    ? binaryTuple
+                    : new FormatAwareProjectedTuple(binaryTuple, keyMapping);
+
             return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, keyTupleSchema);
         }
     }
@@ -136,10 +146,9 @@ public class TableRowConverterImpl implements TableRowConverter {
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
             InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
 
-            tuple = new FormatAwareProjectedTuple(
-                    tableTuple,
-                    requiredColumnsMapping
-            );
+            tuple = skipReshuffling
+                    ? tableTuple
+                    : new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
         } else {
             InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
 
