@@ -54,6 +54,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.table.distributed.replicator.action.RowOpType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -475,7 +476,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void upsertAllDeleteTest() {
+    public void updateAllWithDeleteTest() {
         // TODO: Test with a single-column key-only table.
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
@@ -484,21 +485,28 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
 
         // Update, insert, delete.
-        Collection<BinaryRowEx> rows = List.of(
+        List<BinaryRowEx> rows = List.of(
                 createKeyValueRow(1, 11, "val11"),
-                createKeyValueRow(2, 2, "val2"),
-                createKeyRow(3)
+                createKeyValueRow(3, 2, "val2"),
+                createKeyRow(5)
         );
 
-        internalTable.updateAll(rows, null).join();
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        for (int i = 0; i < rows.size(); i++) {
+            assertEquals(partitionId, internalTable.partitionId(rows.get(i)), "Unexpected partition for row " + i);
+        }
+
+        List<RowOpType> opTypes = List.of(RowOpType.DEFAULT, RowOpType.DEFAULT, RowOpType.DELETE);
+        internalTable.updateAll(rows, opTypes, partitionId).join();
 
         var row1 = view.get(null, Tuple.create().set("key", 1L));
         assertEquals(11, row1.intValue("valInt"));
 
-        var row2 = view.get(null, Tuple.create().set("key", 2L));
+        var row2 = view.get(null, Tuple.create().set("key", 3L));
         assertEquals(2, row2.intValue("valInt"));
 
-        var row3 = view.get(null, Tuple.create().set("key", 3L));
+        var row3 = view.get(null, Tuple.create().set("key", 5L));
         assertNull(row3);
     }
 
