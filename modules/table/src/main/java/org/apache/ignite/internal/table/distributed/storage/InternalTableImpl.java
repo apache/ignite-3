@@ -966,19 +966,21 @@ public class InternalTableImpl implements InternalTable {
         int idx = 0;
 
         for (BinaryRow row : keys) {
-            if (row instanceof SchemaAware && row instanceof BinaryTupleContainer) {
-                SchemaAware schemaAware = (SchemaAware)row;
-                SchemaDescriptor schema = schemaAware.schema();
-
-                BinaryTupleContainer tupleContainer = (BinaryTupleContainer)row;
-                BinaryTupleReader tuple = tupleContainer.binaryTuple();
-
-                var isKeyOnly = schema != null && tuple != null && tuple.elementCount() == schema.keyColumns().length();
-
-                result[idx++] = isKeyOnly
-                        ? ReadWriteMultiRowReplicaRequest.OP_DELETE
-                        : ReadWriteMultiRowReplicaRequest.OP_UPSERT;
+            if (!(row instanceof SchemaAware) || !(row instanceof BinaryTupleContainer)) {
+                continue;
             }
+
+            SchemaAware schemaAware = (SchemaAware)row;
+            SchemaDescriptor schema = schemaAware.schema();
+
+            BinaryTupleContainer tupleContainer = (BinaryTupleContainer)row;
+            BinaryTupleReader tuple = tupleContainer.binaryTuple();
+
+            var isKeyOnly = schema != null && tuple != null && tuple.elementCount() == schema.keyColumns().length();
+
+            result[idx++] = isKeyOnly
+                    ? ReadWriteMultiRowReplicaRequest.OP_DELETE
+                    : ReadWriteMultiRowReplicaRequest.OP_UPSERT;
         }
 
         return result;
