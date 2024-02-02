@@ -35,9 +35,9 @@ public class ExplainPlan implements QueryPlan {
                     ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, true, null)));
 
     private final PlanId id;
-    private final MultiStepPlan plan;
+    private final ExplainablePlan plan;
 
-    ExplainPlan(PlanId id, MultiStepPlan plan) {
+    ExplainPlan(PlanId id, ExplainablePlan plan) {
         this.id = id;
         this.plan = plan;
     }
@@ -66,7 +66,7 @@ public class ExplainPlan implements QueryPlan {
         return plan.parameterMetadata();
     }
 
-    public MultiStepPlan plan() {
+    public ExplainablePlan plan() {
         return plan;
     }
 }

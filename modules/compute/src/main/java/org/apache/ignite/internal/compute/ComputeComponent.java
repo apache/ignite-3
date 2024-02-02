@@ -105,6 +105,28 @@ public interface ComputeComponent extends IgniteComponent {
     }
 
     /**
+     * Executes a job of the given class on a remote node. If the node leaves the cluster, it will be restarted on the node given by the
+     * {@code nextWorkerSelector}.
+     *
+     * @param remoteNode Name of the job class.
+     * @param nextWorkerSelector The selector that returns the next worker to execute job on.
+     * @param options Job execution options.
+     * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
+     * @param args Job args.
+     * @param <R> Job result type.
+     * @return Future execution result.
+     */
+    <R> JobExecution<R> executeRemotelyWithFailover(
+            ClusterNode remoteNode,
+            NextWorkerSelector nextWorkerSelector,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            ExecutionOptions options,
+            Object... args
+    );
+
+    /**
      * Retrieves the current status of all jobs on all nodes in the cluster.
      *
      * @return The collection of job statuses.

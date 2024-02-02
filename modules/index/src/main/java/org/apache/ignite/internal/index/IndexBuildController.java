@@ -38,7 +38,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -64,7 +64,7 @@ import org.apache.ignite.network.ClusterService;
  * {@link TablePartitionId#tableId()}): </p>
  * <ul>
  *     <li>{@link CatalogEvent#INDEX_BUILDING} - starts building indexes for the corresponding local primary replicas.</li>
- *     <li>{@link CatalogEvent#INDEX_DROP} - stops building indexes for the corresponding local primary replicas.</li>
+ *     <li>{@link CatalogEvent#INDEX_REMOVED} - stops building indexes for the corresponding local primary replicas.</li>
  *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - for a new local primary replica, starts the building of all corresponding
  *     indexes, for an expired primary replica, stops the building of all corresponding indexes.</li>
  * </ul>
@@ -131,12 +131,12 @@ class IndexBuildController implements ManuallyCloseable {
             return onIndexBuilding((StartBuildingIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
 
-            return onIndexDrop((DropIndexEventParameters) parameters).thenApply(unused -> false);
+            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
@@ -174,7 +174,7 @@ class IndexBuildController implements ManuallyCloseable {
         });
     }
 
-    private CompletableFuture<?> onIndexDrop(DropIndexEventParameters parameters) {
+    private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             indexBuilder.stopBuildingIndexes(parameters.indexId());
 

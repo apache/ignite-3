@@ -616,8 +616,19 @@ namespace Apache.Ignite.Tests
         private PooledArrayBuffer ComputeExecute(MsgPackReader reader, bool colocated = false)
         {
             // Colocated: table id, schema version, key.
-            // Else: node name.
-            reader.Skip(colocated ? 4 : 1);
+            // Else: node names.
+            if (colocated)
+            {
+                reader.Skip(4);
+            }
+            else
+            {
+                var namesCount = reader.ReadInt32();
+                for (int i = 0; i < namesCount; i++)
+                {
+                    reader.ReadString();
+                }
+            }
 
             var unitsCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
             var units = new List<DeploymentUnit>(unitsCount);
