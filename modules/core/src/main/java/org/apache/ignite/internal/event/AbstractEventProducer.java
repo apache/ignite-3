@@ -19,7 +19,6 @@ package org.apache.ignite.internal.event;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CollectionUtils.addWithCopyList;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CollectionUtils.removeWithCopyList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -41,7 +40,7 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
     @Override
     public void listen(T evt, EventListener<? extends P> listener) {
         listenersByEvent.compute(evt, (evt0, listeners) -> {
-            if (nullOrEmpty(listeners)) {
+            if (listeners == null) {
                 return List.of((EventListener<P>) listener);
             }
 
@@ -52,13 +51,15 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
     @Override
     public void removeListener(T evt, EventListener<? extends P> listener) {
         listenersByEvent.computeIfPresent(evt, (evt0, listeners) -> {
-            if (nullOrEmpty(listeners)) {
+            int indexOf = listeners.indexOf(listener);
+
+            if (indexOf < 0) {
+                return listeners;
+            } else if (indexOf == 0 && listeners.size() == 1) {
                 return null;
             }
 
-            int indexOf = listeners.indexOf(listener);
-
-            return indexOf < 0 ? listeners : removeWithCopyList(listeners, indexOf);
+            return removeWithCopyList(listeners, indexOf);
         });
     }
 
