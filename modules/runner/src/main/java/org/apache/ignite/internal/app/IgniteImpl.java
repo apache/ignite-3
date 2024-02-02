@@ -703,8 +703,10 @@ public class IgniteImpl implements Ignite {
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY);
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         computeComponent = new ComputeComponentImpl(
+                name,
                 clusterSvc.messagingService(),
                 clusterSvc.topologyService(),
+                logicalTopologyService,
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
                 new ComputeExecutorImpl(this, stateMachine, computeCfg),
                 computeCfg
@@ -713,7 +715,6 @@ public class IgniteImpl implements Ignite {
         compute = new IgniteComputeImpl(
                 placementDriverMgr.placementDriver(),
                 clusterSvc.topologyService(),
-                logicalTopologyService,
                 distributedTblMgr,
                 computeComponent,
                 clock

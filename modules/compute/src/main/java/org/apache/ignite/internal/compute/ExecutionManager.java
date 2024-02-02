@@ -102,7 +102,7 @@ public class ExecutionManager {
      */
     public CompletableFuture<Set<JobStatus>> localStatusesAsync() {
         CompletableFuture<JobStatus>[] statuses = executions.values().stream()
-                .filter(it -> !(it instanceof RemoteJobExecution))
+                .filter(it -> !(it instanceof RemoteJobExecution) && !(it instanceof FailSafeJobExecution))
                 .map(JobExecution::statusAsync)
                 .toArray(CompletableFuture[]::new);
 

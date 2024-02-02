@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.compute;
 
-/**
- * Builder of a command that drops specified index.
- *
- * <p>A builder is considered to be reusable, thus implementation have
- * to make sure invocation of {@link #build()} method doesn't cause any
- * side effects on builder's state or any object created by the same builder.
- */
-public interface DropIndexCommandBuilder extends AbstractIndexCommandBuilder<DropIndexCommandBuilder> {
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.app.IgniteImpl;
+
+class ItEmbeddedWorkerShutdownTest extends ItWorkerShutdownTest {
+    @Override
+    IgniteCompute compute(IgniteImpl entryNode) {
+        return entryNode.compute();
+    }
 }

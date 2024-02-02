@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -254,6 +256,12 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 RowT key, @Nullable BitSet requiredColumns) {
 
             return newPublisher(ctx, partWithConsistencyToken, rowFactory);
+        }
+
+        @Override
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
         }
 
         private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithToken,

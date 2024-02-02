@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-/**
- * Builder of a command that drops specified index.
- *
- * <p>A builder is considered to be reusable, thus implementation have
- * to make sure invocation of {@link #build()} method doesn't cause any
- * side effects on builder's state or any object created by the same builder.
- */
-public interface DropIndexCommandBuilder extends AbstractIndexCommandBuilder<DropIndexCommandBuilder> {
+import org.apache.ignite.internal.catalog.CatalogCommand;
+
+/** Builder for {@link RemoveIndexCommand}. */
+public interface RemoveIndexCommandBuilder {
+    /** Index ID. */
+    RemoveIndexCommandBuilder indexId(int indexId);
+
+    /** Builds a new command with specified parameters. */
+    CatalogCommand build();
 }

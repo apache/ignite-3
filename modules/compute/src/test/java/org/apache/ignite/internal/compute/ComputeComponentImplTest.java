@@ -73,6 +73,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
@@ -130,6 +131,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Mock(answer = RETURNS_DEEP_STUBS)
     private TopologyService topologyService;
+
+    @Mock
+    private LogicalTopologyService logicalTopologyService;
 
     @InjectConfiguration
     private ComputeConfiguration computeConfiguration;
@@ -201,8 +205,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration);
 
         computeComponent = new ComputeComponentImpl(
+                INSTANCE_NAME,
                 messagingService,
                 topologyService,
+                logicalTopologyService,
                 jobContextManager,
                 computeExecutor,
                 computeConfiguration
@@ -703,8 +709,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully());
 
         computeComponent = new ComputeComponentImpl(
+                INSTANCE_NAME,
                 messagingService,
                 topologyService,
+                logicalTopologyService,
                 jobContextManager,
                 computeExecutor,
                 computeConfiguration
