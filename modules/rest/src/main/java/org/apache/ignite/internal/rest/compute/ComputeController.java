@@ -25,7 +25,7 @@ import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.compute.ComputeComponent;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.rest.api.compute.ComputeApi;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.JobStatus;
@@ -39,15 +39,15 @@ import org.jetbrains.annotations.Nullable;
  */
 @Controller
 public class ComputeController implements ComputeApi {
-    private final ComputeComponent computeComponent;
+    private final IgniteComputeInternal compute;
 
-    public ComputeController(ComputeComponent computeComponent) {
-        this.computeComponent = computeComponent;
+    public ComputeController(IgniteComputeInternal compute) {
+        this.compute = compute;
     }
 
     @Override
     public CompletableFuture<Collection<JobStatus>> jobStatuses() {
-        return computeComponent.statusesAsync()
+        return compute.statusesAsync()
                 .thenApply(statuses -> statuses.stream().map(ComputeController::toJobStatus).collect(toList()));
     }
 
@@ -58,13 +58,13 @@ public class ComputeController implements ComputeApi {
 
     @Override
     public CompletableFuture<Void> updatePriority(UUID jobId, UpdateJobPriorityBody updateJobPriorityBody) {
-        return computeComponent.changePriorityAsync(jobId, updateJobPriorityBody.priority())
+        return compute.changePriorityAsync(jobId, updateJobPriorityBody.priority())
                 .thenCompose(result -> handleOperationResult(jobId, result));
     }
 
     @Override
     public CompletableFuture<Void> cancelJob(UUID jobId) {
-        return computeComponent.cancelAsync(jobId)
+        return compute.cancelAsync(jobId)
                 .thenCompose(result -> handleOperationResult(jobId, result));
     }
 
@@ -79,7 +79,7 @@ public class ComputeController implements ComputeApi {
     }
 
     private CompletableFuture<JobStatus> jobStatus0(UUID jobId) {
-        return computeComponent.statusAsync(jobId)
+        return compute.statusAsync(jobId)
                 .thenApply(status -> {
                     if (status == null) {
                         throw new ComputeJobNotFoundException(jobId.toString());
