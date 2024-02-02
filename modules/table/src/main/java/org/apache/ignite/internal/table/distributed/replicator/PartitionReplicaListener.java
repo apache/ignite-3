@@ -2306,7 +2306,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
 
                         if (isDelete) {
-                            return takeLocksForDelete(searchRow, rowId0, txId)
+                            return takeLocksForDelete(row, rowId0, txId)
                                     .thenApply(id -> new IgniteBiTuple<>(id, null));
                         }
 
@@ -2323,11 +2323,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                     for (int i = 0; i < searchRows.size(); i++) {
                         RowId lockedRow = rowIdFuts[i].join().get1();
 
-                        rowsToUpdate.put(lockedRow.uuid(),
-                                MSG_FACTORY.timedBinaryRowMessage()
-                                        .binaryRowMessage(binaryRowMessage(searchRows.get(i)))
-                                        .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())))
-                                        .build());
+                        TimedBinaryRowMessageBuilder timedBinaryRowMessageBuilder = MSG_FACTORY.timedBinaryRowMessage()
+                                .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())));
+
+                        if (opTypes == null || opTypes[i] != ReadWriteMultiRowReplicaRequest.OP_DELETE) {
+                            timedBinaryRowMessageBuilder.binaryRowMessage(binaryRowMessage(searchRows.get(i)));
+                        }
+
+                        rowsToUpdate.put(lockedRow.uuid(), timedBinaryRowMessageBuilder.build());
 
                         rows.add(lockedRow);
                     }
