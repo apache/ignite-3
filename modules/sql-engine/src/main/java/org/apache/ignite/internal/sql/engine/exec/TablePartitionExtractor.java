@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -46,11 +45,7 @@ public class TablePartitionExtractor<RowT> implements RowPartitionExtractor<RowT
     /** {@inheritDoc} */
     @Override
     public int partition(RowT row) {
-        ImmutableIntList colocationColumns = tableDescriptor.distribution().getKeys();
-
-        //for (int columnId : fields) {
-        for (int i = 0; i < fields.length; i++) {
-            int columnId = colocationColumns.getInt(i);
+        for (int columnId : fields) {
             Object value = rowHandler.get(columnId, row);
             NativeTypeSpec nativeTypeSpec = tableDescriptor.columnDescriptor(columnId).physicalType().spec();
             Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
