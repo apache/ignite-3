@@ -2074,6 +2074,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert serializeTablePartitionId(txo.commitPartition()) != null;
 
-        return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, opTypes, txo, groupId, enlistmentConsistencyToken, full);
+        return readWriteMultiRowReplicaRequest(
+                RequestType.RW_UPSERT_ALL, keyRows0, opTypes, txo, groupId, enlistmentConsistencyToken, full);
     }
 }
