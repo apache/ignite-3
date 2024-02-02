@@ -207,7 +207,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = 100 * src.b "
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, 10 * src.a, src.b)";
 
-        List<List<Object>> res = sql(sql);
+        sql(sql);
 
         assertQuery("SELECT * FROM test2 ORDER BY k1")
                 .returns(222, 222, 10, 300, null)

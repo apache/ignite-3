@@ -40,8 +40,8 @@ public interface ExecutableTable {
      */
     TableDescriptor tableDescriptor();
 
-    default Supplier<PartitionCalculator> partitionCalculator() {
-        // TODO: fix other implementations of ExecutableTable
-        return null;
-    }
+    /**
+     * Return partition correspondence calculator.
+     */
+    Supplier<PartitionCalculator> partitionCalculator();
 }

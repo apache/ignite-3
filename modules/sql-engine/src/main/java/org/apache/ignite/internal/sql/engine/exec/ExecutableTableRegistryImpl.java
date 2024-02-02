@@ -134,6 +134,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
             return updatableTable.descriptor();
         }
 
+        /** {@inheritDoc} */
         @Override
         public Supplier<PartitionCalculator> partitionCalculator() {
             return partitionCalculator;

@@ -24,11 +24,10 @@ import java.util.function.Supplier;
  * Table representation as object in SQL schema.
  */
 public interface IgniteTable extends IgniteDataSource {
-
-    default Supplier<PartitionCalculator> partitionCalculator() {
-        // TODO: fix other implementation of IgniteTable
-        return null;
-    }
+    /**
+     * Return partition correspondence calculator.
+     */
+    Supplier<PartitionCalculator> partitionCalculator();
 
     /**
      * Returns all table indexes.

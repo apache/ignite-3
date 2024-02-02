@@ -141,7 +141,6 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
 
         if (nullOrEmpty(joinInfo.pairs())) {
-            System.err.println("!!!!distr: " + res);
             return List.copyOf(res);
         }
 
@@ -170,7 +169,6 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         outTraits = nodeTraits.replace(hash(joinInfo.rightKeys, DistributionFunction.hash()));
         res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
 
-        System.err.println("!!!!distr2: " + res);
         return List.copyOf(res);
     }
 
