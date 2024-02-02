@@ -289,12 +289,12 @@ public class LeaseUpdater {
                         updateLeaseBatchInternal();
                     }
                 } catch (Throwable e) {
-                    LOG.error("Error occurred when updating the leases.", e);
-
                     if (e instanceof Error) {
                         // TODO IGNITE-20368 The node should be halted in case of an error here.
                         throw (Error) e;
                     }
+
+                    LOG.error("Error occurred when updating the leases.", e);
                 } finally {
                     stateChangingLock.leaveBusy();
                 }

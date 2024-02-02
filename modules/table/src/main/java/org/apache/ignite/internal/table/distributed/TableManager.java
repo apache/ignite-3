@@ -206,7 +206,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
-    private static final int MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG = 1;
+    private static final int MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG = 100;
 
     private final ClusterService clusterService;
 
