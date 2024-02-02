@@ -1531,14 +1531,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     validationResult.isSuccessful(),
                                     validationResult.isSuccessful() ? commitTimestamp : null,
                                     txId,
-                                    request.txCoordinatorId()
+                                    request.coordinatorId()
                             ).thenApply(txResult -> {
                                 throwIfSchemaValidationOnCommitFailed(validationResult, txResult);
                                 return txResult;
                             }));
         } else {
             // Aborting.
-            return finishAndCleanup(enlistedGroups, false, null, txId, request.txCoordinatorId());
+            return finishAndCleanup(enlistedGroups, false, null, txId, request.coordinatorId());
         }
     }
 

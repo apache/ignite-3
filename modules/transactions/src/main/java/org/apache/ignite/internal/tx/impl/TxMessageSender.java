@@ -158,7 +158,7 @@ public class TxMessageSender {
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                         .enlistmentConsistencyToken(consistencyToken)
-                        .txCoordinatorId(coordinatorId)
+                        .coordinatorId(coordinatorId)
                         .build());
     }
 

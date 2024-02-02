@@ -62,9 +62,9 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
     /**
      * Get the transaction coordinator inconsistent ID.
      *
-     * @return the transaction coordinator inconsistent ID
+     * @return Transaction coordinator inconsistent ID
      */
-    String txCoordinatorId();
+    String coordinatorId();
 
     /**
      * Transaction commit timestamp.
