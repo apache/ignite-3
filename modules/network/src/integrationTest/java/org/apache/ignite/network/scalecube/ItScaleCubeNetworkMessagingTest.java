@@ -17,7 +17,6 @@
 
 package org.apache.ignite.network.scalecube;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -591,11 +590,9 @@ class ItScaleCubeNetworkMessagingTest {
         receiver.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, senderConsistentId, correlationId) -> {
-                    receiver.messagingService().respond(
-                            sender.topologyService().localMember(),
-                            message,
-                            requireNonNull(correlationId)
-                    );
+                    if (correlationId != null) {
+                        receiver.messagingService().respond(sender.topologyService().localMember(), message, correlationId);
+                    }
                 }
         );
 
