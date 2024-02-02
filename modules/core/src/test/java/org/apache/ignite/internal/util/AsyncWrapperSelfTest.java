@@ -28,12 +28,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.CursorClosedException;
-import org.apache.ignite.lang.NoMorePagesException;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -130,7 +130,7 @@ public class AsyncWrapperSelfTest extends BaseIgniteAbstractTest {
                 .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(3, 6))));
         var stage3 = cursor.requestNextAsync(1)
                 .exceptionally(ex -> {
-                    assertInstanceOf(NoMorePagesException.class, ex);
+                    assertInstanceOf(NoSuchElementException.class, ex);
 
                     return null;
                 });
@@ -184,7 +184,7 @@ public class AsyncWrapperSelfTest extends BaseIgniteAbstractTest {
 
     private static void assertCursorHasNoMoreRow(AsyncCursor<?> cursor) {
         await(cursor.requestNextAsync(1).exceptionally(ex -> {
-            assertInstanceOf(NoMorePagesException.class, ex);
+            assertInstanceOf(NoSuchElementException.class, ex);
 
             return null;
         }));

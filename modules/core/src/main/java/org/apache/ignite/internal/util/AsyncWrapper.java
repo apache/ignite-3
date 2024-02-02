@@ -22,11 +22,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.apache.ignite.lang.CursorClosedException;
-import org.apache.ignite.lang.NoMorePagesException;
 
 /**
  * Wrapper that converts a synchronous iterator to an asynchronous one.
@@ -95,7 +95,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
             int remains = rows;
 
             if (!cursor.hasNext() && !firstRequest) {
-                next.completeExceptionally(new NoMorePagesException());
+                next.completeExceptionally(new NoSuchElementException());
 
                 return;
             }
