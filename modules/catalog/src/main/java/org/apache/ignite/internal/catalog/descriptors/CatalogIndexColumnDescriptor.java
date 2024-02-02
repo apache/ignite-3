@@ -55,7 +55,7 @@ public class CatalogIndexColumnDescriptor {
 
     private static class IndexColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexColumnDescriptor> {
         @Override
-        public CatalogIndexColumnDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+        public CatalogIndexColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
             String name = input.readUTF();
             boolean asc = input.readBoolean();
             boolean nullsFirst = input.readBoolean();
@@ -66,7 +66,7 @@ public class CatalogIndexColumnDescriptor {
         }
 
         @Override
-        public void writeTo(CatalogIndexColumnDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogIndexColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeUTF(descriptor.name());
             output.writeBoolean(descriptor.collation().asc());
             output.writeBoolean(descriptor.collation().nullsFirst());

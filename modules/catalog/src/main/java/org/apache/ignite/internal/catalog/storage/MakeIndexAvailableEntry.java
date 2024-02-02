@@ -58,14 +58,14 @@ public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry impl
      */
     private static class MakeIndexAvailableEntrySerializer implements CatalogObjectSerializer<MakeIndexAvailableEntry> {
         @Override
-        public MakeIndexAvailableEntry readFrom(int version, IgniteDataInput input) throws IOException {
+        public MakeIndexAvailableEntry readFrom(IgniteDataInput input) throws IOException {
             int indexId = input.readInt();
 
             return new MakeIndexAvailableEntry(indexId);
         }
 
         @Override
-        public void writeTo(MakeIndexAvailableEntry object, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(MakeIndexAvailableEntry object, IgniteDataOutput output) throws IOException {
             output.writeInt(object.indexId);
         }
     }

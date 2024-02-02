@@ -104,7 +104,7 @@ public class DropTableEntry implements UpdateEntry, Fireable {
      */
     private static class DropTableEntrySerializer implements CatalogObjectSerializer<DropTableEntry> {
         @Override
-        public DropTableEntry readFrom(int version, IgniteDataInput input) throws IOException {
+        public DropTableEntry readFrom(IgniteDataInput input) throws IOException {
             int tableId = input.readInt();
             String schemaName = input.readUTF();
 
@@ -112,7 +112,7 @@ public class DropTableEntry implements UpdateEntry, Fireable {
         }
 
         @Override
-        public void writeTo(DropTableEntry entry, int version, IgniteDataOutput out) throws IOException {
+        public void writeTo(DropTableEntry entry, IgniteDataOutput out) throws IOException {
             out.writeInt(entry.tableId());
             out.writeUTF(entry.schemaName);
         }

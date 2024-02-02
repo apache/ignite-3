@@ -28,18 +28,16 @@ public interface CatalogObjectSerializer<T> {
     /**
      * Reads catalog object from data input.
      *
-     * @param version Data format version.
      * @param input Data input.
      * @return Catalog entry.
      */
-    T readFrom(int version, IgniteDataInput input) throws IOException;
+    T readFrom(IgniteDataInput input) throws IOException;
 
     /**
      * Writes catalog object to data output.
      *
      * @param value Catalog entry.
-     * @param version Required data format version.
      * @param output Data output.
      */
-    void writeTo(T value, int version, IgniteDataOutput output) throws IOException;
+    void writeTo(T value, IgniteDataOutput output) throws IOException;
 }

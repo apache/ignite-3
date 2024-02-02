@@ -88,14 +88,14 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
      */
     private static class DropZoneEntrySerializer implements CatalogObjectSerializer<DropZoneEntry> {
         @Override
-        public DropZoneEntry readFrom(int version, IgniteDataInput input) throws IOException {
+        public DropZoneEntry readFrom(IgniteDataInput input) throws IOException {
             int zoneId = input.readInt();
 
             return new DropZoneEntry(zoneId);
         }
 
         @Override
-        public void writeTo(DropZoneEntry entry, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(DropZoneEntry entry, IgniteDataOutput output) throws IOException {
             output.writeInt(entry.zoneId());
         }
     }

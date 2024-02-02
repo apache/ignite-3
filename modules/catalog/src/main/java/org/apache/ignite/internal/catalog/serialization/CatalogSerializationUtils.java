@@ -86,37 +86,37 @@ public class CatalogSerializationUtils {
     }
 
     /** Reads array of objects. */
-    public static <T> T[] readArray(int version, CatalogObjectSerializer<T> serializer, IgniteDataInput input, Class<T> clazz)
+    public static <T> T[] readArray(CatalogObjectSerializer<T> serializer, IgniteDataInput input, Class<T> clazz)
             throws IOException {
         int len = input.readInt();
 
         T[] arr = (T[]) Array.newInstance(clazz, len);
 
         for (int i = 0; i < len; i++) {
-            arr[i] = serializer.readFrom(version, input);
+            arr[i] = serializer.readFrom(input);
         }
 
         return arr;
     }
 
     /** Writes array of objects. */
-    public static <T> void writeArray(T[] items, int version, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
+    public static <T> void writeArray(T[] items, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
             throws IOException {
         output.writeInt(items.length);
 
         for (T item : items) {
-            serializer.writeTo(item, version, output);
+            serializer.writeTo(item, output);
         }
     }
 
     /** Reads list of objects. */
-    public static <T> List<T> readList(int version, CatalogObjectSerializer<T> serializer, IgniteDataInput input) throws IOException {
+    public static <T> List<T> readList(CatalogObjectSerializer<T> serializer, IgniteDataInput input) throws IOException {
         int len = input.readInt();
 
         List<T> entries = new ArrayList<>(len);
 
         for (int i = 0; i < len; i++) {
-            T item = serializer.readFrom(version, input);
+            T item = serializer.readFrom(input);
 
             entries.add(item);
         }
@@ -125,12 +125,12 @@ public class CatalogSerializationUtils {
     }
 
     /** Writes list of objects. */
-    public static <T> void writeList(List<T> items, int version, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
+    public static <T> void writeList(List<T> items, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
             throws IOException {
         output.writeInt(items.size());
 
         for (T item : items) {
-            serializer.writeTo(item, version, output);
+            serializer.writeTo(item, output);
         }
     }
 

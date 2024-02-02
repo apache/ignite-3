@@ -106,17 +106,17 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
      */
     private static class NewIndexEntrySerializer implements CatalogObjectSerializer<NewIndexEntry> {
         @Override
-        public NewIndexEntry readFrom(int version, IgniteDataInput input) throws IOException {
+        public NewIndexEntry readFrom(IgniteDataInput input) throws IOException {
             String schemaName = input.readUTF();
-            CatalogIndexDescriptor descriptor = CatalogIndexDescriptor.SERIALIZER.readFrom(version, input);
+            CatalogIndexDescriptor descriptor = CatalogIndexDescriptor.SERIALIZER.readFrom(input);
 
             return new NewIndexEntry(descriptor, schemaName);
         }
 
         @Override
-        public void writeTo(NewIndexEntry entry, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(NewIndexEntry entry, IgniteDataOutput output) throws IOException {
             output.writeUTF(entry.schemaName);
-            CatalogIndexDescriptor.SERIALIZER.writeTo(entry.descriptor(), version, output);
+            CatalogIndexDescriptor.SERIALIZER.writeTo(entry.descriptor(), output);
         }
     }
 }

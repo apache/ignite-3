@@ -112,7 +112,7 @@ public class VersionedUpdate implements UpdateLogEvent {
         }
 
         @Override
-        public VersionedUpdate readFrom(int version, IgniteDataInput input) throws IOException {
+        public VersionedUpdate readFrom(IgniteDataInput input) throws IOException {
             int ver = input.readInt();
             long delayDurationMs = input.readLong();
 
@@ -124,14 +124,14 @@ public class VersionedUpdate implements UpdateLogEvent {
 
                 CatalogObjectSerializer<MarshallableEntry> serializer = serializers.get(entryTypeId);
 
-                entries.add((UpdateEntry) serializer.readFrom(version, input));
+                entries.add((UpdateEntry) serializer.readFrom(input));
             }
 
             return new VersionedUpdate(ver, delayDurationMs, entries);
         }
 
         @Override
-        public void writeTo(VersionedUpdate update, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(VersionedUpdate update, IgniteDataOutput output) throws IOException {
             output.writeInt(update.version());
             output.writeLong(update.delayDurationMs());
 
@@ -139,7 +139,7 @@ public class VersionedUpdate implements UpdateLogEvent {
             for (UpdateEntry entry : update.entries()) {
                 output.writeShort(entry.typeId());
 
-                serializers.get(entry.typeId()).writeTo(entry, version, output);
+                serializers.get(entry.typeId()).writeTo(entry, output);
             }
         }
     }

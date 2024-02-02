@@ -145,7 +145,7 @@ public class CatalogTableColumnDescriptor {
      */
     private static class TableColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
         @Override
-        public CatalogTableColumnDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+        public CatalogTableColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
             DefaultValue defaultValue = CatalogSerializationUtils.readSerializableObject(input);
             String name = input.readUTF();
             int typeId = input.readInt();
@@ -162,7 +162,7 @@ public class CatalogTableColumnDescriptor {
         }
 
         @Override
-        public void writeTo(CatalogTableColumnDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogTableColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
             CatalogSerializationUtils.writeSerializableObject(descriptor.defaultValue(), output);
 
             output.writeUTF(descriptor.name());

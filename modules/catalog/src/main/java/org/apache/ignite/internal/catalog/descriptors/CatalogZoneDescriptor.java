@@ -183,12 +183,12 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      */
     private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
         @Override
-        public CatalogZoneDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+        public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {
             int id = input.readInt();
             String name = input.readUTF();
             long updateToken = input.readLong();
 
-            CatalogDataStorageDescriptor dataStorageDescriptor = CatalogDataStorageDescriptor.SERIALIZER.readFrom(version, input);
+            CatalogDataStorageDescriptor dataStorageDescriptor = CatalogDataStorageDescriptor.SERIALIZER.readFrom(input);
 
             int partitions = input.readInt();
             int replicas = input.readInt();
@@ -212,11 +212,11 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
         }
 
         @Override
-        public void writeTo(CatalogZoneDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogZoneDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
-            CatalogDataStorageDescriptor.SERIALIZER.writeTo(descriptor.dataStorage(), version, output);
+            CatalogDataStorageDescriptor.SERIALIZER.writeTo(descriptor.dataStorage(), output);
 
             output.writeInt(descriptor.partitions());
             output.writeInt(descriptor.replicas());

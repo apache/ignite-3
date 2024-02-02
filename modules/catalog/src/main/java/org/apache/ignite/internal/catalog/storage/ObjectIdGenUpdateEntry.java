@@ -73,14 +73,14 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
      */
     private static class ObjectIdGenUpdateEntrySerializer implements CatalogObjectSerializer<ObjectIdGenUpdateEntry> {
         @Override
-        public ObjectIdGenUpdateEntry readFrom(int version, IgniteDataInput input) throws IOException {
+        public ObjectIdGenUpdateEntry readFrom(IgniteDataInput input) throws IOException {
             int delta = input.readInt();
 
             return new ObjectIdGenUpdateEntry(delta);
         }
 
         @Override
-        public void writeTo(ObjectIdGenUpdateEntry entry, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(ObjectIdGenUpdateEntry entry, IgniteDataOutput output) throws IOException {
             output.writeInt(entry.delta());
         }
     }

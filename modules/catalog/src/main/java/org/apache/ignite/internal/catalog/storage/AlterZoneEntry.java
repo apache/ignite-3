@@ -93,15 +93,15 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
      */
     private static class AlterZoneEntrySerializer implements CatalogObjectSerializer<AlterZoneEntry> {
         @Override
-        public AlterZoneEntry readFrom(int version, IgniteDataInput input) throws IOException {
-            CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(version, input);
+        public AlterZoneEntry readFrom(IgniteDataInput input) throws IOException {
+            CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(input);
 
             return new AlterZoneEntry(descriptor);
         }
 
         @Override
-        public void writeTo(AlterZoneEntry object, int version, IgniteDataOutput output) throws IOException {
-            CatalogZoneDescriptor.SERIALIZER.writeTo(object.descriptor(), version, output);
+        public void writeTo(AlterZoneEntry object, IgniteDataOutput output) throws IOException {
+            CatalogZoneDescriptor.SERIALIZER.writeTo(object.descriptor(), output);
         }
     }
 }

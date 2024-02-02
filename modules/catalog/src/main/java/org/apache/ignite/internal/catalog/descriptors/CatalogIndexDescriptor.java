@@ -83,7 +83,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
 
     private static class IndexDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexDescriptor> {
         @Override
-        public CatalogIndexDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+        public CatalogIndexDescriptor readFrom(IgniteDataInput input) throws IOException {
             int id = input.readInt();
             String name = input.readUTF();
             long updateToken = input.readLong();
@@ -97,7 +97,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
             assert idxType == 0 || idxType == 1 : "Unknown index type: " + idxType;
 
             if (idxType == 0) {
-                List<CatalogIndexColumnDescriptor> columns = readList(version, CatalogIndexColumnDescriptor.SERIALIZER, input);
+                List<CatalogIndexColumnDescriptor> columns = readList(CatalogIndexColumnDescriptor.SERIALIZER, input);
 
                 return new CatalogSortedIndexDescriptor(id, name, tableId, unique, status, creationCatalogVersion, columns, updateToken);
             } else {
@@ -108,7 +108,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         }
 
         @Override
-        public void writeTo(CatalogIndexDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogIndexDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
@@ -120,7 +120,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
             if (descriptor instanceof CatalogSortedIndexDescriptor) {
                 output.writeByte(0);
 
-                writeList(((CatalogSortedIndexDescriptor) descriptor).columns(), version, CatalogIndexColumnDescriptor.SERIALIZER, output);
+                writeList(((CatalogSortedIndexDescriptor) descriptor).columns(), CatalogIndexColumnDescriptor.SERIALIZER, output);
             } else if (descriptor instanceof CatalogHashIndexDescriptor) {
                 output.writeByte(1);
 

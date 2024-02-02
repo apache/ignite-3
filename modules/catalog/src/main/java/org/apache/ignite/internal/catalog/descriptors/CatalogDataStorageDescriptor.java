@@ -72,7 +72,7 @@ public class CatalogDataStorageDescriptor {
      */
     private static class DataStorageDescriptorSerializer implements CatalogObjectSerializer<CatalogDataStorageDescriptor> {
         @Override
-        public CatalogDataStorageDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+        public CatalogDataStorageDescriptor readFrom(IgniteDataInput input) throws IOException {
             if (!input.readBoolean()) {
                 return null;
             }
@@ -84,7 +84,7 @@ public class CatalogDataStorageDescriptor {
         }
 
         @Override
-        public void writeTo(CatalogDataStorageDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogDataStorageDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeBoolean(descriptor != null);
 
             if (descriptor != null) {

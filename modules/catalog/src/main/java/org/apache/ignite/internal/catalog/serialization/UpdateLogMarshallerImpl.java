@@ -25,7 +25,6 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.lang.MarshallerException;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Marshaller of update log entries that uses custom serializer.
@@ -72,31 +71,17 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     /** Initial capacity (in bytes) of the buffer used for data output. */
     private static final int INITIAL_BUFFER_CAPACITY = 256;
 
-    /** Required data format version. */
-    private final int writeVersion;
-
     /** Serializers provider. */
-    private final CatalogEntrySerializerProvider serializers;
-
-    public UpdateLogMarshallerImpl() {
-        this.writeVersion = PROTOCOL_VERSION;
-        this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
-    }
-
-    @TestOnly
-    public UpdateLogMarshallerImpl(int writeVersion, CatalogEntrySerializerProvider serializers) {
-        this.writeVersion = writeVersion;
-        this.serializers = serializers;
-    }
+    private final CatalogEntrySerializerProvider serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
 
     @Override
     public byte[] marshall(UpdateLogEvent update) {
         try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(INITIAL_BUFFER_CAPACITY)) {
-            output.writeShort(writeVersion);
+            output.writeShort(PROTOCOL_VERSION);
 
             output.writeShort(update.typeId());
 
-            serializers.get(update.typeId()).writeTo(update, writeVersion, output);
+            serializers.get(update.typeId()).writeTo(update, output);
 
             return output.array();
         } catch (Throwable t) {
@@ -107,16 +92,16 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     @Override
     public UpdateLogEvent unmarshall(byte[] bytes) {
         try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
-            int entryVersion = input.readShort();
+            int version = input.readShort();
 
-            if (entryVersion > writeVersion) {
+            if (version > PROTOCOL_VERSION) {
                 throw new IllegalStateException(format("An object could not be deserialized because it was using "
-                        + "a newer version of the serialization protocol [objectVersion={}, supported={}]", entryVersion, writeVersion));
+                        + "a newer version of the serialization protocol [objectVersion={}, supported={}]", version, PROTOCOL_VERSION));
             }
 
             int typeId = input.readShort();
 
-            return (UpdateLogEvent) serializers.get(typeId).readFrom(entryVersion, input);
+            return (UpdateLogEvent) serializers.get(typeId).readFrom(input);
         } catch (Throwable t) {
             throw new MarshallerException(t);
         }

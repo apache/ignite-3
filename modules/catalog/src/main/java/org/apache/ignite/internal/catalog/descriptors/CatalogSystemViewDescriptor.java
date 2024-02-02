@@ -156,11 +156,11 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      */
     private static class SystemViewDescriptorSerializer implements CatalogObjectSerializer<CatalogSystemViewDescriptor> {
         @Override
-        public CatalogSystemViewDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+        public CatalogSystemViewDescriptor readFrom(IgniteDataInput input) throws IOException {
             int id = input.readInt();
             String name = input.readUTF();
             long updateToken = input.readLong();
-            List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, input);
+            List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
 
             byte sysViewTypeId = input.readByte();
             SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
@@ -169,11 +169,11 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
         }
 
         @Override
-        public void writeTo(CatalogSystemViewDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogSystemViewDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
-            writeList(descriptor.columns(), version, CatalogTableColumnDescriptor.SERIALIZER, output);
+            writeList(descriptor.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);
             output.writeByte(descriptor.systemViewType().id());
         }
     }

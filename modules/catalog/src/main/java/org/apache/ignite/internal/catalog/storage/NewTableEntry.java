@@ -109,16 +109,16 @@ public class NewTableEntry implements UpdateEntry, Fireable {
      */
     private static class NewTableEntrySerializer implements CatalogObjectSerializer<NewTableEntry> {
         @Override
-        public NewTableEntry readFrom(int version, IgniteDataInput input) throws IOException {
-            CatalogTableDescriptor descriptor = CatalogTableDescriptor.SERIALIZER.readFrom(version, input);
+        public NewTableEntry readFrom(IgniteDataInput input) throws IOException {
+            CatalogTableDescriptor descriptor = CatalogTableDescriptor.SERIALIZER.readFrom(input);
             String schemaName = input.readUTF();
 
             return new NewTableEntry(descriptor, schemaName);
         }
 
         @Override
-        public void writeTo(NewTableEntry entry, int version, IgniteDataOutput output) throws IOException {
-            CatalogTableDescriptor.SERIALIZER.writeTo(entry.descriptor(), version, output);
+        public void writeTo(NewTableEntry entry, IgniteDataOutput output) throws IOException {
+            CatalogTableDescriptor.SERIALIZER.writeTo(entry.descriptor(), output);
             output.writeUTF(entry.schemaName);
         }
     }

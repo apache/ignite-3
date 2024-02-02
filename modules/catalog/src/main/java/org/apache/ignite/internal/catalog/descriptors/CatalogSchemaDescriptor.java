@@ -110,26 +110,26 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
      */
     private static class SchemaDescriptorSerializer implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
         @Override
-        public CatalogSchemaDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+        public CatalogSchemaDescriptor readFrom(IgniteDataInput input) throws IOException {
             int id = input.readInt();
             String name = input.readUTF();
             long updateToken = input.readLong();
-            CatalogTableDescriptor[] tables = readArray(version, CatalogTableDescriptor.SERIALIZER, input, CatalogTableDescriptor.class);
-            CatalogIndexDescriptor[] indexes = readArray(version, CatalogIndexDescriptor.SERIALIZER, input, CatalogIndexDescriptor.class);
+            CatalogTableDescriptor[] tables = readArray(CatalogTableDescriptor.SERIALIZER, input, CatalogTableDescriptor.class);
+            CatalogIndexDescriptor[] indexes = readArray(CatalogIndexDescriptor.SERIALIZER, input, CatalogIndexDescriptor.class);
             CatalogSystemViewDescriptor[] systemViews =
-                    readArray(version, CatalogSystemViewDescriptor.SERIALIZER, input, CatalogSystemViewDescriptor.class);
+                    readArray(CatalogSystemViewDescriptor.SERIALIZER, input, CatalogSystemViewDescriptor.class);
 
             return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateToken);
         }
 
         @Override
-        public void writeTo(CatalogSchemaDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogSchemaDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
-            writeArray(descriptor.tables(), version, CatalogTableDescriptor.SERIALIZER, output);
-            writeArray(descriptor.indexes(), version, CatalogIndexDescriptor.SERIALIZER, output);
-            writeArray(descriptor.systemViews(), version, CatalogSystemViewDescriptor.SERIALIZER, output);
+            writeArray(descriptor.tables(), CatalogTableDescriptor.SERIALIZER, output);
+            writeArray(descriptor.indexes(), CatalogIndexDescriptor.SERIALIZER, output);
+            writeArray(descriptor.systemViews(), CatalogSystemViewDescriptor.SERIALIZER, output);
         }
     }
 }

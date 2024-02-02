@@ -114,16 +114,16 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
      */
     private static class NewSystemViewEntrySerializer implements CatalogObjectSerializer<NewSystemViewEntry> {
         @Override
-        public NewSystemViewEntry readFrom(int version, IgniteDataInput input) throws IOException {
-            CatalogSystemViewDescriptor descriptor = CatalogSystemViewDescriptor.SERIALIZER.readFrom(version, input);
+        public NewSystemViewEntry readFrom(IgniteDataInput input) throws IOException {
+            CatalogSystemViewDescriptor descriptor = CatalogSystemViewDescriptor.SERIALIZER.readFrom(input);
             String schema = input.readUTF();
 
             return new NewSystemViewEntry(descriptor, schema);
         }
 
         @Override
-        public void writeTo(NewSystemViewEntry entry, int version, IgniteDataOutput output) throws IOException {
-            CatalogSystemViewDescriptor.SERIALIZER.writeTo(entry.descriptor, version, output);
+        public void writeTo(NewSystemViewEntry entry, IgniteDataOutput output) throws IOException {
+            CatalogSystemViewDescriptor.SERIALIZER.writeTo(entry.descriptor, output);
             output.writeUTF(entry.schemaName);
         }
     }

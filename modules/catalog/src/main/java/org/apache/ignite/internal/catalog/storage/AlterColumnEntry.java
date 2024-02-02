@@ -116,8 +116,8 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
      */
     private static class AlterColumnEntrySerializer implements CatalogObjectSerializer<AlterColumnEntry> {
         @Override
-        public AlterColumnEntry readFrom(int version, IgniteDataInput input) throws IOException {
-            CatalogTableColumnDescriptor descriptor = CatalogTableColumnDescriptor.SERIALIZER.readFrom(version, input);
+        public AlterColumnEntry readFrom(IgniteDataInput input) throws IOException {
+            CatalogTableColumnDescriptor descriptor = CatalogTableColumnDescriptor.SERIALIZER.readFrom(input);
 
             String schemaName = input.readUTF();
             int tableId = input.readInt();
@@ -126,8 +126,8 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
         }
 
         @Override
-        public void writeTo(AlterColumnEntry value, int version, IgniteDataOutput output) throws IOException {
-            CatalogTableColumnDescriptor.SERIALIZER.writeTo(value.descriptor(), version, output);
+        public void writeTo(AlterColumnEntry value, IgniteDataOutput output) throws IOException {
+            CatalogTableColumnDescriptor.SERIALIZER.writeTo(value.descriptor(), output);
 
             output.writeUTF(value.schemaName);
             output.writeInt(value.tableId);

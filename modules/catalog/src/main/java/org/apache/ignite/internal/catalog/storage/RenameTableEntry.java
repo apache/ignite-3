@@ -88,7 +88,7 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
      */
     private static class RenameTableEntrySerializer implements CatalogObjectSerializer<RenameTableEntry> {
         @Override
-        public RenameTableEntry readFrom(int version, IgniteDataInput input) throws IOException {
+        public RenameTableEntry readFrom(IgniteDataInput input) throws IOException {
             int tableId = input.readInt();
             String newTableName = input.readUTF();
 
@@ -96,7 +96,7 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
         }
 
         @Override
-        public void writeTo(RenameTableEntry entry, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(RenameTableEntry entry, IgniteDataOutput output) throws IOException {
             output.writeInt(entry.tableId);
             output.writeUTF(entry.newTableName);
         }

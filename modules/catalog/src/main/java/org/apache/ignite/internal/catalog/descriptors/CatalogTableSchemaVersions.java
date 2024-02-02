@@ -108,16 +108,16 @@ public class CatalogTableSchemaVersions {
      */
     private static class TableSchemaVersionsSerializer implements CatalogObjectSerializer<CatalogTableSchemaVersions> {
         @Override
-        public CatalogTableSchemaVersions readFrom(int version, IgniteDataInput input) throws IOException {
-            TableVersion[] versions = readArray(version, TableVersionSerializer.INSTANCE, input, TableVersion.class);
+        public CatalogTableSchemaVersions readFrom(IgniteDataInput input) throws IOException {
+            TableVersion[] versions = readArray(TableVersionSerializer.INSTANCE, input, TableVersion.class);
             int base = input.readInt();
 
             return new CatalogTableSchemaVersions(base, versions);
         }
 
         @Override
-        public void writeTo(CatalogTableSchemaVersions tabVersions, int version, IgniteDataOutput output) throws IOException {
-            writeArray(tabVersions.versions, version, TableVersionSerializer.INSTANCE, output);
+        public void writeTo(CatalogTableSchemaVersions tabVersions, IgniteDataOutput output) throws IOException {
+            writeArray(tabVersions.versions, TableVersionSerializer.INSTANCE, output);
             output.writeInt(tabVersions.base);
         }
     }
@@ -129,15 +129,15 @@ public class CatalogTableSchemaVersions {
         static CatalogObjectSerializer<TableVersion> INSTANCE = new TableVersionSerializer();
 
         @Override
-        public TableVersion readFrom(int version, IgniteDataInput input) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, input);
+        public TableVersion readFrom(IgniteDataInput input) throws IOException {
+            List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
 
             return new TableVersion(columns);
         }
 
         @Override
-        public void writeTo(TableVersion tableVersion, int version, IgniteDataOutput output) throws IOException {
-            writeList(tableVersion.columns(), version, CatalogTableColumnDescriptor.SERIALIZER, output);
+        public void writeTo(TableVersion tableVersion, IgniteDataOutput output) throws IOException {
+            writeList(tableVersion.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);
         }
     }
 }

@@ -119,8 +119,8 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
      */
     private static class NewColumnsEntrySerializer implements CatalogObjectSerializer<NewColumnsEntry> {
         @Override
-        public NewColumnsEntry readFrom(int version, IgniteDataInput in) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, in);
+        public NewColumnsEntry readFrom(IgniteDataInput in) throws IOException {
+            List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, in);
             int tableId = in.readInt();
             String schemaName = in.readUTF();
 
@@ -128,8 +128,8 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
         }
 
         @Override
-        public void writeTo(NewColumnsEntry entry, int version, IgniteDataOutput out) throws IOException {
-            writeList(entry.descriptors(), version, CatalogTableColumnDescriptor.SERIALIZER, out);
+        public void writeTo(NewColumnsEntry entry, IgniteDataOutput out) throws IOException {
+            writeList(entry.descriptors(), CatalogTableColumnDescriptor.SERIALIZER, out);
             out.writeInt(entry.tableId());
             out.writeUTF(entry.schemaName);
         }

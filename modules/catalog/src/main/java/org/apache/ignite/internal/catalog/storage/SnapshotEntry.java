@@ -124,28 +124,28 @@ public class SnapshotEntry implements UpdateLogEvent {
     /** Serializer for {@link SnapshotEntry}. */
     private static class SnapshotEntrySerializer implements CatalogObjectSerializer<SnapshotEntry> {
         @Override
-        public SnapshotEntry readFrom(int version, IgniteDataInput input) throws IOException {
+        public SnapshotEntry readFrom(IgniteDataInput input) throws IOException {
             int catalogVersion = input.readInt();
             long activationTime = input.readLong();
             int objectIdGenState  = input.readInt();
 
             CatalogZoneDescriptor[] zones =
-                    CatalogSerializationUtils.readArray(version, CatalogZoneDescriptor.SERIALIZER, input, CatalogZoneDescriptor.class);
+                    CatalogSerializationUtils.readArray(CatalogZoneDescriptor.SERIALIZER, input, CatalogZoneDescriptor.class);
 
             CatalogSchemaDescriptor[] schemas =
-                    CatalogSerializationUtils.readArray(version, CatalogSchemaDescriptor.SERIALIZER, input, CatalogSchemaDescriptor.class);
+                    CatalogSerializationUtils.readArray(CatalogSchemaDescriptor.SERIALIZER, input, CatalogSchemaDescriptor.class);
 
             return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas);
         }
 
         @Override
-        public void writeTo(SnapshotEntry entry, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(SnapshotEntry entry, IgniteDataOutput output) throws IOException {
             output.writeInt(entry.version);
             output.writeLong(entry.activationTime);
             output.writeInt(entry.objectIdGenState);
 
-            CatalogSerializationUtils.writeArray(entry.zones, version, CatalogZoneDescriptor.SERIALIZER, output);
-            CatalogSerializationUtils.writeArray(entry.schemas, version, CatalogSchemaDescriptor.SERIALIZER, output);
+            CatalogSerializationUtils.writeArray(entry.zones, CatalogZoneDescriptor.SERIALIZER, output);
+            CatalogSerializationUtils.writeArray(entry.schemas, CatalogSchemaDescriptor.SERIALIZER, output);
         }
     }
 }

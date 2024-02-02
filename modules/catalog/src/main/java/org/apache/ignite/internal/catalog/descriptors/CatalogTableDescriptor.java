@@ -227,13 +227,13 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      */
     private static class TableDescriptorSerializer implements CatalogObjectSerializer<CatalogTableDescriptor> {
         @Override
-        public CatalogTableDescriptor readFrom(int version, IgniteDataInput input) throws IOException {
+        public CatalogTableDescriptor readFrom(IgniteDataInput input) throws IOException {
             int id = input.readInt();
             String name = input.readUTF();
             long updateToken = input.readLong();
 
-            CatalogTableSchemaVersions schemaVersions = CatalogTableSchemaVersions.SERIALIZER.readFrom(version, input);
-            List<CatalogTableColumnDescriptor> columns = readList(version, CatalogTableColumnDescriptor.SERIALIZER, input);
+            CatalogTableSchemaVersions schemaVersions = CatalogTableSchemaVersions.SERIALIZER.readFrom(input);
+            List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
 
             int schemaId = input.readInt();
             int pkIndexId = input.readInt();
@@ -264,12 +264,12 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         }
 
         @Override
-        public void writeTo(CatalogTableDescriptor descriptor, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(CatalogTableDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
-            CatalogTableSchemaVersions.SERIALIZER.writeTo(descriptor.schemaVersions(), version, output);
-            writeList(descriptor.columns(), version, CatalogTableColumnDescriptor.SERIALIZER, output);
+            CatalogTableSchemaVersions.SERIALIZER.writeTo(descriptor.schemaVersions(), output);
+            writeList(descriptor.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);
 
             output.writeInt(descriptor.schemaId());
             output.writeInt(descriptor.primaryKeyIndexId());

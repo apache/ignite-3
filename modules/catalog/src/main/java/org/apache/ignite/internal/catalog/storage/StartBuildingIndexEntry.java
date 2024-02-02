@@ -58,14 +58,14 @@ public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry impl
      */
     private static class StartBuildingIndexEntrySerializer implements CatalogObjectSerializer<StartBuildingIndexEntry> {
         @Override
-        public StartBuildingIndexEntry readFrom(int version, IgniteDataInput input) throws IOException {
+        public StartBuildingIndexEntry readFrom(IgniteDataInput input) throws IOException {
             int indexId = input.readInt();
 
             return new StartBuildingIndexEntry(indexId);
         }
 
         @Override
-        public void writeTo(StartBuildingIndexEntry object, int version, IgniteDataOutput output) throws IOException {
+        public void writeTo(StartBuildingIndexEntry object, IgniteDataOutput output) throws IOException {
             output.writeInt(object.indexId);
         }
     }
