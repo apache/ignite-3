@@ -162,6 +162,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -204,8 +205,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Transaction storage flush delay. */
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
-
-    private static final int MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG = 100;
 
     private final ClusterService clusterService;
 
@@ -1291,26 +1290,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return String representation of the given assignments list to use it for logging.
      */
     private static String assignmentListToString(List<Set<Assignment>> assignments) {
-        StringBuilder sb = new StringBuilder("[");
-
-        int partsToLog = Math.min(assignments.size(), MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG);
-
-        for (int p = 0; p < partsToLog; p++) {
-            if (p > 0) {
-                sb.append(',');
-            }
-
-            sb.append(p);
-            sb.append("=" + assignments.get(p));
-        }
-
-        if (assignments.size() > MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG) {
-            sb.append(",...and " + (assignments.size() - MAX_PARTITIONS_IN_ASSIGNMENTS_FOR_LOG_MSG) + " more partition(s)");
-        }
-
-        sb.append(']');
-
-        return sb.toString();
+        return S.toString(assignments, (sb, e, i) -> sb.app(i).app('=').app(e));
     }
 
     /**
