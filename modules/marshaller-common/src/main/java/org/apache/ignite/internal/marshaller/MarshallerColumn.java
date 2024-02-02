@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.marshaller;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.jetbrains.annotations.Nullable;
@@ -87,5 +88,24 @@ public class MarshallerColumn {
 
     public int scale() {
         return scale;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        // NOTE: default value supplier does not participate in equality/hashcode.
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MarshallerColumn that = (MarshallerColumn) o;
+        return scale == that.scale && Objects.equals(name, that.name) && type == that.type;
+    }
+
+    @Override
+    public int hashCode() {
+        // NOTE: default value supplier does not participate in equality/hashcode.
+        return Objects.hash(name, type, scale);
     }
 }

@@ -53,8 +53,7 @@ public interface Mapper<T> {
      */
     static <O> Mapper<O> of(Class<O> type) {
         if (nativelySupported(type)) {
-            // TODO: Cache mappers (IGNITE-16094).
-            return new OneColumnMapperImpl<>(type, null, null);
+            return OneColumnMapperImpl.getInstance(type, null, null);
         } else {
             return builder(type).automap().build();
         }
@@ -71,7 +70,7 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If {@code type} is not supported.
      */
     static <O> Mapper<O> of(Class<O> type, String columnName) {
-        return new OneColumnMapperImpl<>(ensureNativelySupported(type), columnName, null);
+        return OneColumnMapperImpl.getInstance(ensureNativelySupported(type), columnName, null);
     }
 
     /**
@@ -91,7 +90,7 @@ public interface Mapper<T> {
             String columnName,
             TypeConverter<ObjectT, ColumnT> converter
     ) {
-        return new OneColumnMapperImpl<>(Objects.requireNonNull(type), Objects.requireNonNull(columnName),
+        return OneColumnMapperImpl.getInstance(Objects.requireNonNull(type), Objects.requireNonNull(columnName),
                 Objects.requireNonNull(converter));
     }
 

@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
@@ -63,8 +62,9 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         keyClass = keyMapper.targetType();
         valClass = valueMapper.targetType();
 
-        keyMarsh = Marshaller.createMarshaller(toMarshallerColumns(schema.keyColumns().columns()), keyMapper, true, false);
-        valMarsh = Marshaller.createMarshaller(toMarshallerColumns(schema.valueColumns().columns()), valueMapper, true, false);
+        MarshallerSchema marshallerSchema = schema.marshallerSchema();
+        keyMarsh = Marshaller.getKeysMarshaller(marshallerSchema, keyMapper, true, false);
+        valMarsh = Marshaller.getValuesMarshaller(marshallerSchema, valueMapper, true, false);
     }
 
     /** {@inheritDoc} */

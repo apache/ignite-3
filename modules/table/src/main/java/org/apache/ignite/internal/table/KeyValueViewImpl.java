@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,6 +30,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -703,8 +701,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Column[] keyCols = schema.keyColumns().columns();
         Column[] valCols = schema.valueColumns().columns();
 
-        Marshaller keyMarsh = createMarshaller(toMarshallerColumns(keyCols), keyMapper, false, true);
-        Marshaller valMarsh = createMarshaller(toMarshallerColumns(valCols), valueMapper, false, true);
+        MarshallerSchema marshallerSchema = schema.marshallerSchema();
+        Marshaller keyMarsh = Marshaller.getKeysMarshaller(marshallerSchema, keyMapper, false, true);
+        Marshaller valMarsh = Marshaller.getValuesMarshaller(marshallerSchema, valueMapper, false, true);
 
         return (row) -> {
             try {

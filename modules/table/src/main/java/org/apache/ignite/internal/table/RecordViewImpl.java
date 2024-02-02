@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -543,8 +541,9 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+        MarshallerSchema marshallerSchema = schema.marshallerSchema();
+        Marshaller marsh = Marshaller.getRowMarshaller(marshallerSchema, mapper, false, true);
         Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-        Marshaller marsh = createMarshaller(toMarshallerColumns(cols), mapper, false, true);
 
         return (row) -> {
             try {

@@ -18,8 +18,10 @@
 package org.apache.ignite.table.mapper;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Maps object fields to columns by name.
@@ -27,6 +29,10 @@ import java.util.Objects;
  * @param <T> Target type.
  */
 class PojoMapperImpl<T> implements PojoMapper<T> {
+
+    /** Cache of pojo mappers. */
+    private static final ConcurrentHashMap<CacheKey, PojoMapper<?>> CACHE = new ConcurrentHashMap<>();
+
     /** Target type. */
     private final Class<T> targetType;
 
@@ -42,7 +48,7 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
      * @param mapping    Column-to-field name mapping.
      * @param converters Column converters.
      */
-    PojoMapperImpl(Class<T> targetType, Map<String, String> mapping, Map<String, TypeConverter<?, ?>> converters) {
+    private PojoMapperImpl(Class<T> targetType, Map<String, String> mapping, Map<String, TypeConverter<?, ?>> converters) {
         this.converters = converters;
         if (Objects.requireNonNull(mapping).isEmpty()) {
             throw new IllegalArgumentException("Empty mapping isn't allowed.");
@@ -50,6 +56,30 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
 
         this.targetType = targetType;
         this.mapping = mapping;
+    }
+
+    /**
+     * Returns an instance of a {@link PojoMapper} for the given target type.
+     *
+     * @param targetType Target type.
+     * @param columnToFields Column-to-field name mapping.
+     * @param converters Column converters.
+     * @return Mapper.
+     */
+    static <T> PojoMapper<T> getInstance(
+            Class<T> targetType,
+            Map<String, String> columnToFields,
+            Map<String, TypeConverter<?, ?>> converters) {
+
+        if (converters.isEmpty()) {
+            CacheKey cacheKey = new CacheKey(targetType, columnToFields);
+
+            return (PojoMapper<T>) CACHE.computeIfAbsent(cacheKey, (k) -> {
+                return new PojoMapperImpl<>((Class<Object>) k.type, k.columnToFields, Collections.emptyMap());
+            });
+        } else {
+            return new PojoMapperImpl<>(targetType, columnToFields, converters);
+        }
     }
 
     /** {@inheritDoc} */
@@ -74,5 +104,34 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
     @Override
     public <FieldT, ColumnT> TypeConverter<FieldT, ColumnT> converterForColumn(String columnName) {
         return (TypeConverter<FieldT, ColumnT>) converters.get(columnName);
+    }
+
+    private static final class CacheKey {
+
+        private final Class<?> type;
+
+        private final Map<String, String> columnToFields;
+
+        CacheKey(Class<?> type,  Map<String, String> columnToFields) {
+            this.type = type;
+            this.columnToFields = columnToFields;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CacheKey cacheKey = (CacheKey) o;
+            return Objects.equals(type, cacheKey.type) && Objects.equals(columnToFields, cacheKey.columnToFields);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(type, columnToFields);
+        }
     }
 }

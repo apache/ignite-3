@@ -17,17 +17,14 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-
 import java.util.Objects;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
 import org.jetbrains.annotations.Nullable;
@@ -66,13 +63,11 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
         recClass = mapper.targetType();
 
-        MarshallerColumn[] keyColumns = toMarshallerColumns(schema.keyColumns().columns());
-        MarshallerColumn[] valueColumns = toMarshallerColumns(schema.valueColumns().columns());
+        MarshallerSchema marshallerSchema = schema.marshallerSchema();
 
-        keyMarsh = Marshaller.createMarshaller(keyColumns, mapper, true, true);
-        valMarsh = Marshaller.createMarshaller(valueColumns, mapper, false, true);
-
-        recMarsh = Marshaller.createMarshaller(ArrayUtils.concat(keyColumns, valueColumns), mapper, false, false);
+        keyMarsh = Marshaller.getKeysMarshaller(marshallerSchema, mapper, true, true);
+        valMarsh = Marshaller.getValuesMarshaller(marshallerSchema, mapper, false, true);
+        recMarsh = Marshaller.getRowMarshaller(marshallerSchema, mapper, false, false);
     }
 
     /** {@inheritDoc} */

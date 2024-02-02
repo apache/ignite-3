@@ -28,7 +28,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
@@ -328,6 +327,6 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         }
 
         var schema = new ClientSchema(0, schemaColumns, null);
-        return schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
+        return schema.getMarshaller(mapper);
     }
 }

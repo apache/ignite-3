@@ -41,6 +41,7 @@ import org.apache.ignite.lang.util.IgniteNameUtils;
  * @param <T> Type of objects the mapper handles.
  */
 public final class MapperBuilder<T> {
+
     /** Target type. */
     private final Class<T> targetType;
 
@@ -258,7 +259,7 @@ public final class MapperBuilder<T> {
         isStale = true;
 
         if (columnToFields == null) {
-            return new OneColumnMapperImpl<>(targetType, mappedToColumn, (TypeConverter<T, ?>) columnConverters.get(mappedToColumn));
+            return OneColumnMapperImpl.getInstance(targetType, mappedToColumn, (TypeConverter<T, ?>) columnConverters.get(mappedToColumn));
         }
 
         Map<String, String> mapping = this.columnToFields;
@@ -279,6 +280,6 @@ public final class MapperBuilder<T> {
                     .forEach(fldName -> mapping.putIfAbsent(fldName.toUpperCase(), fldName));
         }
 
-        return new PojoMapperImpl<>(targetType, mapping, columnConverters);
+        return PojoMapperImpl.getInstance(targetType, mapping, columnConverters);
     }
 }

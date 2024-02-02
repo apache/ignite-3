@@ -23,6 +23,7 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
@@ -49,6 +50,9 @@ public class ClientSchema {
 
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
+
+    /** Marshaller schema. */
+    private MarshallerSchema marshallerSchema;
 
     /**
      * Constructor.
@@ -148,11 +152,30 @@ public class ClientSchema {
     }
 
     public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
-        // TODO: Cache Marshallers (IGNITE-16094).
         return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 
+    /** Returns a marshaller for columns defined by this client schema. */
+    public <T> Marshaller getMarshaller(Mapper mapper) {
+        MarshallerColumn[] marshallerColumns = toMarshallerColumns(TuplePart.KEY_AND_VAL);
+
+        return Marshaller.getMarshaller(marshallerColumns, mapper, true, false);
+    }
+
     <T> Marshaller getMarshaller(Mapper mapper, TuplePart part, boolean allowUnmappedFields) {
+        switch (part) {
+            case KEY:
+                return Marshaller.getKeysMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+            case VAL:
+                return Marshaller.getValuesMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+            case KEY_AND_VAL:
+                return Marshaller.getRowMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+            default:
+                throw new AssertionError("Unexpected tuple part: " + part);
+        }
+    }
+
+    private MarshallerColumn[] toMarshallerColumns(TuplePart part) {
         int colCount = columns.length;
         int firstColIdx = 0;
 
@@ -171,7 +194,7 @@ public class ClientSchema {
             cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
         }
 
-        return Marshaller.createMarshaller(cols, mapper, true, allowUnmappedFields);
+        return cols;
     }
 
     private static BinaryMode mode(ColumnType dataType) {
@@ -229,6 +252,57 @@ public class ClientSchema {
 
             default:
                 throw new IgniteException(Client.PROTOCOL_ERR, "Unknown client data type: " + dataType);
+        }
+    }
+
+    private MarshallerSchema marshallerSchema() {
+        if (marshallerSchema == null) {
+            marshallerSchema = new ClientSideMarshallerSchema(this);
+        }
+        return marshallerSchema;
+    }
+
+    private static class ClientSideMarshallerSchema implements MarshallerSchema {
+
+        private final ClientSchema schema;
+
+        private MarshallerColumn[] keys;
+
+        private MarshallerColumn[] values;
+
+        private MarshallerColumn[] row;
+
+        private ClientSideMarshallerSchema(ClientSchema schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public int schemaVersion() {
+            return schema.version();
+        }
+
+        @Override
+        public MarshallerColumn[] keys() {
+            if (keys == null) {
+                keys = schema.toMarshallerColumns(TuplePart.KEY);
+            }
+            return keys;
+        }
+
+        @Override
+        public MarshallerColumn[] values() {
+            if (values == null) {
+                values = schema.toMarshallerColumns(TuplePart.VAL);
+            }
+            return values;
+        }
+
+        @Override
+        public MarshallerColumn[] row() {
+            if (row == null) {
+                row = schema.toMarshallerColumns(TuplePart.KEY_AND_VAL);
+            }
+            return row;
         }
     }
 }
