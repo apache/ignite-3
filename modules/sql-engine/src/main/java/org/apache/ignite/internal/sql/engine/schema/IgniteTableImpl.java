@@ -62,7 +62,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
                 fieldTypes[i] = colDesc.physicalType();
             }
 
-            return new PartitionCalculator(1, fieldTypes);
+            return new PartitionCalculator(partitions, fieldTypes);
         };
     }
 
