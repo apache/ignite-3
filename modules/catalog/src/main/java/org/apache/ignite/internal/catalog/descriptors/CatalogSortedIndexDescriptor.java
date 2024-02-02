@@ -20,13 +20,21 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Sorted index descriptor. */
 public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
+    public static final CatalogObjectSerializer<CatalogSortedIndexDescriptor> SERIALIZER = new SortedIndexDescriptorSerializer();
+
     private final List<CatalogIndexColumnDescriptor> columns;
 
     /**
@@ -88,7 +96,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param causalityToken Token of the update of the descriptor.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
-    CatalogSortedIndexDescriptor(
+    private CatalogSortedIndexDescriptor(
             int id,
             String name,
             int tableId,
@@ -98,7 +106,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             List<CatalogIndexColumnDescriptor> columns,
             long causalityToken
     ) {
-        super(id, name, tableId, unique, status, creationCatalogVersion, causalityToken);
+        super(CatalogIndexDescriptorType.SORTED, id, name, tableId, unique, status, creationCatalogVersion, causalityToken);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }
@@ -111,5 +119,33 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    private static class SortedIndexDescriptorSerializer implements CatalogObjectSerializer<CatalogSortedIndexDescriptor> {
+        @Override
+        public CatalogSortedIndexDescriptor readFrom(IgniteDataInput input) throws IOException {
+            int id = input.readInt();
+            String name = input.readUTF();
+            long updateToken = input.readLong();
+            int tableId = input.readInt();
+            boolean unique = input.readBoolean();
+            CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
+            int creationCatalogVersion = input.readInt();
+            List<CatalogIndexColumnDescriptor> columns = readList(CatalogIndexColumnDescriptor.SERIALIZER, input);
+
+            return new CatalogSortedIndexDescriptor(id, name, tableId, unique, status, creationCatalogVersion, columns, updateToken);
+        }
+
+        @Override
+        public void writeTo(CatalogSortedIndexDescriptor descriptor, IgniteDataOutput output) throws IOException {
+            output.writeInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeLong(descriptor.updateToken());
+            output.writeInt(descriptor.tableId());
+            output.writeBoolean(descriptor.unique());
+            output.writeByte(descriptor.status().id());
+            output.writeInt(descriptor.creationCatalogVersion());
+            writeList(descriptor.columns(), CatalogIndexColumnDescriptor.SERIALIZER, output);
+        }
     }
 }

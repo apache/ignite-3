@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -108,7 +109,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
         @Override
         public NewIndexEntry readFrom(IgniteDataInput input) throws IOException {
             String schemaName = input.readUTF();
-            CatalogIndexDescriptor descriptor = CatalogIndexDescriptor.SERIALIZER.readFrom(input);
+            CatalogIndexDescriptor descriptor = CatalogSerializationUtils.IDX_SERIALIZER.readFrom(input);
 
             return new NewIndexEntry(descriptor, schemaName);
         }
@@ -116,7 +117,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
         @Override
         public void writeTo(NewIndexEntry entry, IgniteDataOutput output) throws IOException {
             output.writeUTF(entry.schemaName);
-            CatalogIndexDescriptor.SERIALIZER.writeTo(entry.descriptor(), output);
+            CatalogSerializationUtils.IDX_SERIALIZER.writeTo(entry.descriptor(), output);
         }
     }
 }

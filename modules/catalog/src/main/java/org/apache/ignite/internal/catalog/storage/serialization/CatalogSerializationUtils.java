@@ -25,6 +25,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -33,6 +37,8 @@ import org.jetbrains.annotations.Nullable;
  * Utility methods used for serializing catalog objects.
  */
 public class CatalogSerializationUtils {
+    public static CatalogObjectSerializer<CatalogIndexDescriptor> IDX_SERIALIZER = new IndexDescriptorSerializer();
+
     /** Reads nullable string. */
     public static @Nullable String readNullableString(DataInput in) throws IOException {
         if (!in.readBoolean()) {
@@ -129,6 +135,32 @@ public class CatalogSerializationUtils {
 
         for (T item : items) {
             serializer.writeTo(item, output);
+        }
+    }
+
+    private static class IndexDescriptorSerializer implements CatalogObjectSerializer<CatalogIndexDescriptor> {
+        @Override
+        public CatalogIndexDescriptor readFrom(IgniteDataInput input) throws IOException {
+            int idxType = input.readByte();
+
+            CatalogIndexDescriptorType type = CatalogIndexDescriptorType.forId(idxType);
+
+            if (type == CatalogIndexDescriptorType.HASH) {
+                return CatalogHashIndexDescriptor.SERIALIZER.readFrom(input);
+            } else {
+                return CatalogSortedIndexDescriptor.SERIALIZER.readFrom(input);
+            }
+        }
+
+        @Override
+        public void writeTo(CatalogIndexDescriptor descriptor, IgniteDataOutput output) throws IOException {
+            output.writeByte(descriptor.indexType().id());
+
+            if (descriptor.indexType() == CatalogIndexDescriptorType.HASH) {
+                CatalogHashIndexDescriptor.SERIALIZER.writeTo((CatalogHashIndexDescriptor) descriptor, output);
+            } else {
+                CatalogSortedIndexDescriptor.SERIALIZER.writeTo((CatalogSortedIndexDescriptor) descriptor, output);
+            }
         }
     }
 }

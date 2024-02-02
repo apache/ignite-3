@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -115,7 +116,7 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
             String name = input.readUTF();
             long updateToken = input.readLong();
             CatalogTableDescriptor[] tables = readArray(CatalogTableDescriptor.SERIALIZER, input, CatalogTableDescriptor.class);
-            CatalogIndexDescriptor[] indexes = readArray(CatalogIndexDescriptor.SERIALIZER, input, CatalogIndexDescriptor.class);
+            CatalogIndexDescriptor[] indexes = readArray(CatalogSerializationUtils.IDX_SERIALIZER, input, CatalogIndexDescriptor.class);
             CatalogSystemViewDescriptor[] systemViews =
                     readArray(CatalogSystemViewDescriptor.SERIALIZER, input, CatalogSystemViewDescriptor.class);
 
@@ -128,7 +129,7 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
             writeArray(descriptor.tables(), CatalogTableDescriptor.SERIALIZER, output);
-            writeArray(descriptor.indexes(), CatalogIndexDescriptor.SERIALIZER, output);
+            writeArray(descriptor.indexes(), CatalogSerializationUtils.IDX_SERIALIZER, output);
             writeArray(descriptor.systemViews(), CatalogSystemViewDescriptor.SERIALIZER, output);
         }
     }
