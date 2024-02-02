@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.utils;
+package org.apache.ignite.internal.network.utils;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -41,6 +41,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.StaleIds;
+import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.junit.jupiter.api.TestInfo;
 
 /**

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.network.file;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 
 import java.io.IOException;
 import java.nio.file.Files;

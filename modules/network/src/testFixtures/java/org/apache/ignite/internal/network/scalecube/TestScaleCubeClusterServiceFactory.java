@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.network.scalecube;
 
 import io.scalecube.cluster.ClusterConfig;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
-import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFactory;
 
 /**
  * Scalecube test factory. Provides fast detection time.
