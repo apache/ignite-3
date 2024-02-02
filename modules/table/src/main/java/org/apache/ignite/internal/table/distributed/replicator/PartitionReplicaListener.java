@@ -1788,7 +1788,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .commit(commit)
                 .commitTimestampLong(commitTimestampLong)
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(getTxCoordinatorId(transactionId))
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
@@ -1805,14 +1804,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return nullCompletedFuture();
                 })
                 .thenApply(res -> null);
-    }
-
-    private @Nullable String getTxCoordinatorId(UUID txId) {
-        TxStateMeta meta = txManager.stateMeta(txId);
-
-        assert meta != null : "Trying to cleanup a transaction that was not enlisted, txId=" + txId;
-
-        return meta.txCoordinatorId();
     }
 
     /**

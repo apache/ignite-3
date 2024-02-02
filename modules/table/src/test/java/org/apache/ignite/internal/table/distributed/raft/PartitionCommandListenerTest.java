@@ -643,7 +643,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -686,7 +685,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -724,7 +722,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -773,7 +770,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build()));
     }
 
@@ -816,7 +812,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build()));
     }
 
@@ -893,7 +888,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                         .commit(true)
                         .commitTimestampLong(commitTimestamp)
                         .safeTimeLong(hybridClock.nowLong())
-                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build()));
     }
 
