@@ -65,6 +65,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -85,6 +86,8 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.SchemaAware;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -958,6 +961,29 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
+    private static byte[] serializeBinaryTupleOperationTypes(Collection<? extends BinaryRow> keys) {
+        var result = new byte[keys.size()];
+        int idx = 0;
+
+        for (BinaryRow row : keys) {
+            if (row instanceof SchemaAware && row instanceof BinaryTupleContainer) {
+                SchemaAware schemaAware = (SchemaAware)row;
+                SchemaDescriptor schema = schemaAware.schema();
+
+                BinaryTupleContainer tupleContainer = (BinaryTupleContainer)row;
+                BinaryTupleReader tuple = tupleContainer.binaryTuple();
+
+                var isKeyOnly = schema != null && tuple != null && tuple.elementCount() == schema.keyColumns().length();
+
+                result[idx++] = isKeyOnly
+                        ? ReadWriteMultiRowReplicaRequest.OP_DELETE
+                        : ReadWriteMultiRowReplicaRequest.OP_UPSERT;
+            }
+        }
+
+        return result;
+    }
+
     private TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
         return tableMessagesFactory.tablePartitionIdMessage()
                 .partitionId(id.partitionId())
@@ -1100,6 +1126,7 @@ public class InternalTableImpl implements InternalTable {
                 .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .binaryTuples(serializeBinaryTuples(rows))
+                .binaryTuplesOperationTypes(serializeBinaryTupleOperationTypes(rows))
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestType(requestType)

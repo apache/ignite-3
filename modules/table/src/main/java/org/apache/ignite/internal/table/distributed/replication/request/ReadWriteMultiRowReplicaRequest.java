@@ -26,6 +26,16 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
 public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
     /**
+     * Operation type for upsert.
+     */
+    byte OP_UPSERT = 0;
+
+    /**
+     * Operation type for delete.
+     */
+    byte OP_DELETE = 1;
+
+    /**
      * Disable delayed ack optimization.
      *
      * @return {@code True} to disable the delayed ack optimization.
@@ -34,6 +44,7 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
 
     /**
      * A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
+     * See {@link #OP_UPSERT} and {@link #OP_DELETE}.
      *
      * @return A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
      */
