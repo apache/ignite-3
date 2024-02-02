@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write multi-row replica request.
@@ -48,5 +49,5 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
      *
      * @return A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
      */
-    byte[] binaryTuplesOperationTypes();
+    byte @Nullable [] binaryTuplesOperationTypes();
 }
