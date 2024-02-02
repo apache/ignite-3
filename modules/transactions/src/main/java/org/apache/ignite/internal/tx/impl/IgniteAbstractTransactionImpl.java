@@ -50,6 +50,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      *
      * @param txManager The tx manager.
      * @param id The id.
+     * @param coordinatorId Transaction coordinator inconsistent ID.
      */
     public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, String coordinatorId) {
         this.txManager = txManager;

@@ -1220,7 +1220,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(commitPartitionId())
                         .coordinatorId(localNode.id())
-                        .coordinatorId(localNode.id())
                         .full(full)
                         .build(),
                 localNode.id()

@@ -49,6 +49,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
+     * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param readTimestamp The read timestamp.
      */
     ReadOnlyTransactionImpl(

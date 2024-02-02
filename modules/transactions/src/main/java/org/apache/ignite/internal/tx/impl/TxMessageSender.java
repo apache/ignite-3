@@ -168,21 +168,21 @@ public class TxMessageSender {
      * @param primaryConsistentId Node id to send the request to.
      * @param txId Transaction id.
      * @param commitGrpId Partition to store a transaction state.
-     * @param term Raft term.
+     * @param consistencyToken Enlistment consistency token.
      * @return Completable future of {@link TransactionMeta}.
      */
     public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
             String primaryConsistentId,
             UUID txId,
             TablePartitionId commitGrpId,
-            Long term
+            Long consistencyToken
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
                 FACTORY.txStateCommitPartitionRequest()
                         .groupId(commitGrpId)
                         .txId(txId)
-                        .enlistmentConsistencyToken(term)
+                        .enlistmentConsistencyToken(consistencyToken)
                         .build());
     }
 
