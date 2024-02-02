@@ -486,6 +486,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         // Update, insert, delete.
 
         // TODO: This fails because numElements is not passed together with the row.
+        // TODO: Update InternalTableImple.serializeBinaryTuples?
         Row delRow = createKeyRow(3);
         Collection<BinaryRowEx> rows = List.of(
                 createKeyValueRow(1, 11, "val11"),
