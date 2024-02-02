@@ -2297,6 +2297,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : extractPk(searchRow);
 
                     rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
+                        if (isDelete && rowId == null) {
+                            // Does not exist, nothing to delete.
+                            return nullCompletedFuture();
+                        }
+
                         boolean insert = rowId == null;
 
                         RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
@@ -2323,7 +2328,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     List<RowId> rows = new ArrayList<>();
 
                     for (int i = 0; i < searchRows.size(); i++) {
-                        RowId lockedRow = rowIdFuts[i].join().get1();
+                        IgniteBiTuple<RowId, Collection<Lock>> locks = rowIdFuts[i].join();
+                        if (locks == null) {
+                            continue;
+                        }
+
+                        RowId lockedRow = locks.get1();
 
                         TimedBinaryRowMessageBuilder timedBinaryRowMessageBuilder = MSG_FACTORY.timedBinaryRowMessage()
                                 .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())));
@@ -2354,7 +2364,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenApply(res -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
-                                    Collection<Lock> locks = rowIdFut.join().get2();
+                                    IgniteBiTuple<RowId, Collection<Lock>> futRes = rowIdFut.join();
+                                    Collection<Lock> locks = futRes == null ? null : futRes.get2();
 
                                     if (locks != null) {
                                         locks.forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
