@@ -61,6 +61,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -209,8 +210,13 @@ public class TypeUtils {
     }
 
     private static boolean hasConvertableFields(RelDataType resultType) {
-        return RelOptUtil.getFieldTypeList(resultType).stream()
-                .anyMatch(TypeUtils::isConvertableType);
+        for (RelDataTypeField field : resultType.getFieldList()) {
+            if (isConvertableType(field.getType())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -412,8 +418,12 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.VARBINARY, varlen.length());
             }
             case BITMASK:
+                assert nativeType instanceof BitmaskNativeType;
+
+                var bitmask = (BitmaskNativeType) nativeType;
+
                 // TODO IGNITE-18431.
-                throw new AssertionError("BITMASK is not supported yet");
+                return factory.createSqlType(SqlTypeName.VARBINARY, bitmask.sizeInBytes());
             case NUMBER:
                 assert nativeType instanceof NumberNativeType;
 

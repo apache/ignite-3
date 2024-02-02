@@ -903,6 +903,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 mock(DdlCommandHandler.class),
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
+                executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
                 SHUTDOWN_TIMEOUT

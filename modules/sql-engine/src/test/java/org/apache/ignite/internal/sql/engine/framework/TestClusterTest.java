@@ -28,6 +28,7 @@ import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -100,6 +103,12 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
                             )
                     ), rowFactory::create
             );
+        }
+
+        @Override
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+            return CompletableFuture.completedFuture(rowFactory.create());
         }
     };
 
@@ -196,9 +205,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         }
 
         // Ensure the plan uses index.
-        assertTrue(plan instanceof MultiStepPlan);
-        assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteIndexScan);
-        assertEquals("T1_PK", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).root())).indexName());
+        assertTrue(plan instanceof KeyValueGetPlan);
     }
 
     @Test

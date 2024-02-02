@@ -145,7 +145,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
-                .thenAnswer(invocationOnMock -> completedFuture(new LeaderWithTerm(null, 1L)));
+                .thenAnswer(invocationOnMock -> completedFuture(LeaderWithTerm.NO_LEADER));
         when(mockRaftClient.run(any()))
                 .thenAnswer(invocationOnMock -> nullCompletedFuture());
 
