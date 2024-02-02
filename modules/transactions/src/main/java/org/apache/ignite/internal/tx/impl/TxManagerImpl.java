@@ -282,9 +282,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
         HybridTimestamp beginTimestamp = readOnly ? clock.now() : createBeginTimestampWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {
+            updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
+
             return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId);
         }
 
