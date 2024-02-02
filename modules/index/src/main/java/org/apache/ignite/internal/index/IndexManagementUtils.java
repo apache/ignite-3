@@ -47,11 +47,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 
 /** Helper class for index management. */
 class IndexManagementUtils {

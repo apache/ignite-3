@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Simple Either-like wrapper to hold one of the statement type: {@link Iif} or {@link Update}.

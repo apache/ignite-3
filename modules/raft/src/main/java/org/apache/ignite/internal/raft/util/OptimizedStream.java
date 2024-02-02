@@ -20,8 +20,8 @@ package org.apache.ignite.internal.raft.util;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.util.GridUnsafe;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * Direct byte-buffer stream implementation that contains specific optimizations for optimized marshaller.

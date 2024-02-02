@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.network.processor;
 
 import java.util.Collection;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 @Transferable(1)
 public interface ConflictingTypeMessage extends NetworkMessage {

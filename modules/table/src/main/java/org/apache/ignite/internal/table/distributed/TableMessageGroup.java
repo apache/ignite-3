@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GROUP_TYPE;
 
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
-import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Message group for the table module.

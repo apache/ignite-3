@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
+import org.apache.ignite.internal.network.annotations.Transient;
+import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
-import org.apache.ignite.network.annotations.Transient;
-import org.apache.ignite.network.annotations.WithSetter;
 
 /**
  * Partition transactional command.

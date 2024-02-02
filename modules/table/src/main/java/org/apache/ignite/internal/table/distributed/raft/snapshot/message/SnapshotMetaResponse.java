@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 
 /**

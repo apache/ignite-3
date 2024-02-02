@@ -20,9 +20,9 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Network message handler that delegates handling to {@link #messageListener}.
