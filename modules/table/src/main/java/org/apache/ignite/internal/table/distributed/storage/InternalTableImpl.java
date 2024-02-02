@@ -104,6 +104,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.SingleRo
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.replicator.action.RowOpType;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
@@ -961,28 +962,16 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
-    private static byte[] serializeBinaryTupleOperationTypes(Collection<? extends BinaryRow> keys) {
-        var result = new byte[keys.size()];
+    private static byte @Nullable [] serializeBinaryTupleOperationTypes(@Nullable List<RowOpType> opTypes) {
+        if (opTypes == null) {
+            return null;
+        }
+
+        var result = new byte[opTypes.size()];
         int idx = 0;
 
-        for (BinaryRow row : keys) {
-            if (!(row instanceof SchemaAware) || !(row instanceof BinaryTupleContainer)) {
-                assert false : "Unexpected row type: " + row.getClass().getName();
-                continue;
-            }
-
-            SchemaAware schemaAware = (SchemaAware) row;
-            SchemaDescriptor schema = schemaAware.schema();
-
-            BinaryTupleContainer tupleContainer = (BinaryTupleContainer) row;
-            BinaryTupleReader tuple = tupleContainer.binaryTuple();
-
-            // TODO: This does not work for key-only tables!
-            var isKeyOnly = schema != null && tuple != null && tuple.elementCount() == schema.keyColumns().length();
-
-            result[idx++] = isKeyOnly
-                    ? ReadWriteMultiRowReplicaRequest.OP_DELETE
-                    : ReadWriteMultiRowReplicaRequest.OP_UPSERT;
+        for (RowOpType opType : opTypes) {
+            result[idx++] = (byte) opType.ordinal();
         }
 
         return result;
@@ -1100,7 +1089,14 @@ public class InternalTableImpl implements InternalTable {
                 rows,
                 tx,
                 (keyRows, txo, groupId, enlistmentConsistencyToken, full) ->
-                        readWriteMultiRowReplicaRequest(RequestType.RW_INSERT_ALL, keyRows, txo, groupId, enlistmentConsistencyToken, full),
+                        readWriteMultiRowReplicaRequest(
+                                RequestType.RW_INSERT_ALL,
+                                keyRows,
+                                null,
+                                txo,
+                                groupId,
+                                enlistmentConsistencyToken,
+                                full),
                 InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
                     for (BinaryRow row : res) {
@@ -1119,6 +1115,7 @@ public class InternalTableImpl implements InternalTable {
     private ReadWriteMultiRowReplicaRequest readWriteMultiRowReplicaRequest(
             RequestType requestType,
             Collection<? extends BinaryRow> rows,
+            @Nullable List<RowOpType> rowOpTypes,
             InternalTransaction tx,
             ReplicationGroupId groupId,
             Long enlistmentConsistencyToken,
@@ -1131,7 +1128,7 @@ public class InternalTableImpl implements InternalTable {
                 .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .binaryTuples(serializeBinaryTuples(rows))
-                .binaryTuplesOperationTypes(serializeBinaryTupleOperationTypes(rows))
+                .binaryTuplesOperationTypes(serializeBinaryTupleOperationTypes(rowOpTypes))
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestType(requestType)
@@ -1312,6 +1309,7 @@ public class InternalTableImpl implements InternalTable {
                         readWriteMultiRowReplicaRequest(
                                 RequestType.RW_DELETE_EXACT_ALL,
                                 keyRows0,
+                                null,
                                 txo,
                                 groupId,
                                 enlistmentConsistencyToken,
@@ -2067,6 +2065,19 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert serializeTablePartitionId(txo.commitPartition()) != null;
 
-        return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full);
+        return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, null, txo, groupId, enlistmentConsistencyToken, full);
+    }
+
+    private ReplicaRequest upsertAllInternal(
+            Collection<? extends BinaryRow> keyRows0,
+            @Nullable List<RowOpType> opTypes,
+            InternalTransaction txo,
+            ReplicationGroupId groupId,
+            Long enlistmentConsistencyToken,
+            boolean full
+    ) {
+        assert serializeTablePartitionId(txo.commitPartition()) != null;
+
+        return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, opTypes, txo, groupId, enlistmentConsistencyToken, full);
     }
 }

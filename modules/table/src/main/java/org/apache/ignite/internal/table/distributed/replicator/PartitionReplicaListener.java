@@ -154,6 +154,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.replicator.action.RowOpType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -2289,7 +2290,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
 
-                    boolean isDelete = opTypes != null && opTypes[i] == ReadWriteMultiRowReplicaRequest.OP_DELETE;
+                    boolean isDelete = opTypes != null && opTypes[i] == RowOpType.DELETE.ordinal();
 
                     BinaryTuple pk = isDelete
                             ? resolvePk(searchRow.tupleSlice())
@@ -2327,7 +2328,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         TimedBinaryRowMessageBuilder timedBinaryRowMessageBuilder = MSG_FACTORY.timedBinaryRowMessage()
                                 .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())));
 
-                        if (opTypes == null || opTypes[i] != ReadWriteMultiRowReplicaRequest.OP_DELETE) {
+                        if (opTypes == null || opTypes[i] != RowOpType.DELETE.ordinal()) {
                             timedBinaryRowMessageBuilder.binaryRowMessage(binaryRowMessage(searchRows.get(i)));
                         }
 

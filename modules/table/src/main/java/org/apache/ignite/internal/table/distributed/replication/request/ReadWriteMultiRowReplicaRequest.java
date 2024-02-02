@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.replicator.action.RowOpType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,16 +28,6 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
 public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
     /**
-     * Operation type for upsert.
-     */
-    byte OP_UPSERT = 0;
-
-    /**
-     * Operation type for delete.
-     */
-    byte OP_DELETE = 1;
-
-    /**
      * Disable delayed ack optimization.
      *
      * @return {@code True} to disable the delayed ack optimization.
@@ -44,8 +35,8 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
     boolean skipDelayedAck();
 
     /**
-     * A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
-     * See {@link #OP_UPSERT} and {@link #OP_DELETE}.
+     * Optional operation types (one  for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
+     * See {@link RowOpType}.
      *
      * @return A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
      */
