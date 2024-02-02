@@ -73,10 +73,6 @@ public class CatalogDataStorageDescriptor {
     private static class DataStorageDescriptorSerializer implements CatalogObjectSerializer<CatalogDataStorageDescriptor> {
         @Override
         public CatalogDataStorageDescriptor readFrom(IgniteDataInput input) throws IOException {
-            if (!input.readBoolean()) {
-                return null;
-            }
-
             String engine = input.readUTF();
             String region = readNullableString(input);
 
@@ -85,12 +81,8 @@ public class CatalogDataStorageDescriptor {
 
         @Override
         public void writeTo(CatalogDataStorageDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeBoolean(descriptor != null);
-
-            if (descriptor != null) {
-                output.writeUTF(descriptor.engine());
-                writeNullableString(descriptor.dataRegion(), output);
-            }
+            output.writeUTF(descriptor.engine());
+            writeNullableString(descriptor.dataRegion(), output);
         }
     }
 }

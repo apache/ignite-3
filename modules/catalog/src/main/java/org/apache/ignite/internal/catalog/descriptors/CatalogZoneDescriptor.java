@@ -216,6 +216,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             output.writeInt(descriptor.id());
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
+
             CatalogDataStorageDescriptor.SERIALIZER.writeTo(descriptor.dataStorage(), output);
 
             output.writeInt(descriptor.partitions());

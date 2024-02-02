@@ -90,8 +90,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         UpdateEntry entry1 = new NewZoneEntry(newCatalogZoneDescriptor("zone1", storage1));
         UpdateEntry entry2 = new NewZoneEntry(newCatalogZoneDescriptor("zone2", storage2));
-        UpdateEntry entry3 = new NewZoneEntry(newCatalogZoneDescriptor("testZone", null));
-        VersionedUpdate update = newVersionedUpdate(entry1, entry2, entry3);
+        VersionedUpdate update = newVersionedUpdate(entry1, entry2);
 
         assertVersionedUpdate(update, serialize(update));
     }
@@ -276,7 +275,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         };
 
         SnapshotEntry entry = new SnapshotEntry(new Catalog(2, 0L, 1,
-                List.of(newCatalogZoneDescriptor("zone1", null)),
+                List.of(newCatalogZoneDescriptor("zone1", new CatalogDataStorageDescriptor("test-engine1", "region"))),
                 List.of(new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, 1))));
 
         SnapshotEntry deserialized = (SnapshotEntry) marshaller.unmarshall(marshaller.marshall(entry));

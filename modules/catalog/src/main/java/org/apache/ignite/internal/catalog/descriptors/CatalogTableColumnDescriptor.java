@@ -22,7 +22,6 @@ import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -148,6 +147,7 @@ public class CatalogTableColumnDescriptor {
     private static class TableColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
         @Override
         public CatalogTableColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
+            // TODO ticket
             DefaultValue defaultValue = readSerializableObject(input);
             String name = input.readUTF();
             int typeId = input.readInt();
@@ -165,7 +165,7 @@ public class CatalogTableColumnDescriptor {
 
         @Override
         public void writeTo(CatalogTableColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            // TODO
+            // TODO ticket
             writeSerializableObject(descriptor.defaultValue(), output);
 
             output.writeUTF(descriptor.name());
