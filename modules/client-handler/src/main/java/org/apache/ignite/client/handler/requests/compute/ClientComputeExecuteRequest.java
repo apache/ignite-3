@@ -31,9 +31,9 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * Compute execute request.

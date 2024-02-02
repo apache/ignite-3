@@ -19,7 +19,6 @@ package org.apache.ignite.internal.network;
 
 import java.util.List;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
 
 /**
  * {@code NodeFinder} implementation that encapsulates a predefined list of network addresses.

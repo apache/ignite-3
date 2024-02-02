@@ -20,8 +20,8 @@ package org.apache.ignite.internal.network.message;
 import static org.apache.ignite.internal.network.NetworkMessageTypes.INVOKE_RESPONSE;
 
 import org.apache.ignite.internal.network.DefaultMessagingService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Invocation response.

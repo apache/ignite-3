@@ -256,8 +256,8 @@ public class TransferableObjectProcessorIncrementalTest extends BaseIgniteAbstra
     private JavaFileObject createTransferable(String className, int msgId) {
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
-                        + "import org.apache.ignite.network.NetworkMessage;\n"
-                        + "import org.apache.ignite.network.annotations.Transferable;\n"
+                        + "import org.apache.ignite.internal.network.NetworkMessage;\n"
+                        + "import org.apache.ignite.internal.network.annotations.Transferable;\n"
                         + "\n"
                         + "\n"
                         + "@Transferable(value = " + msgId + ")\n"
@@ -271,7 +271,7 @@ public class TransferableObjectProcessorIncrementalTest extends BaseIgniteAbstra
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
                         + "\n"
-                        + "    import org.apache.ignite.network.annotations.MessageGroup;\n"
+                        + "    import org.apache.ignite.internal.network.annotations.MessageGroup;\n"
                         + "\n"
                         + "@MessageGroup(groupType = 1, groupName = \"" + groupName + "\")\n"
                         + "public class " + className + " {\n"
@@ -282,7 +282,7 @@ public class TransferableObjectProcessorIncrementalTest extends BaseIgniteAbstra
     private JavaFileObject createNonTransferable(String className) {
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
-                        + "import org.apache.ignite.network.NetworkMessage;\n"
+                        + "import org.apache.ignite.internal.network.NetworkMessage;\n"
                         + "\n"
                         + "\n"
                         + "public interface " + className + " extends NetworkMessage {\n"

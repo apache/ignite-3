@@ -19,9 +19,9 @@ package org.apache.ignite.raft.server;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.utils.ClusterServiceTestUtils;

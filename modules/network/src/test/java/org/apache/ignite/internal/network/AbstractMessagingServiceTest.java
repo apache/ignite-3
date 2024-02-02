@@ -28,10 +28,9 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.AbstractMessagingService;
-import org.apache.ignite.network.annotations.MessageGroup;
 import org.junit.jupiter.api.Test;
 
 /**

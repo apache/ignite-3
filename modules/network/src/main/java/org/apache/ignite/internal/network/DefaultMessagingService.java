@@ -58,13 +58,8 @@ import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.AbstractMessagingService;
-import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.network.UnresolvableConsistentIdException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 

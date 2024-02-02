@@ -62,11 +62,11 @@ import org.apache.ignite.internal.compute.message.JobStatusesRequest;
 import org.apache.ignite.internal.compute.message.JobStatusesResponse;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 

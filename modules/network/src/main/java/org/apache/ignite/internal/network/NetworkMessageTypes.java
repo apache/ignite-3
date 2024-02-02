@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
@@ -28,7 +29,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessag
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Message types for the network module.

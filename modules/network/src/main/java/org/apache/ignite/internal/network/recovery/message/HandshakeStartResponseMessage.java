@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.recovery.message;
 
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Handshake start response message, contains info about the node, connection id and the quantity of the received messages.

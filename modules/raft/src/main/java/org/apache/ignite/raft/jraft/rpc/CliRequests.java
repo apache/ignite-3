@@ -21,8 +21,8 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.Collection;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup;
 import org.jetbrains.annotations.Nullable;

@@ -24,7 +24,6 @@ import java.util.Arrays;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.configuration.NodeFinderView;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
 
 /**
  * {@link NodeFinder} factory.
