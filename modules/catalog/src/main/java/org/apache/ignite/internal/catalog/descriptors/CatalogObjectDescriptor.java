@@ -25,7 +25,6 @@ import org.apache.ignite.internal.tostring.S;
 
 /**
  * Base class for catalog objects.
- * TODO: IGNITE-19082 Implement custom effective serialization instead.
  */
 public abstract class CatalogObjectDescriptor {
     private final int id;

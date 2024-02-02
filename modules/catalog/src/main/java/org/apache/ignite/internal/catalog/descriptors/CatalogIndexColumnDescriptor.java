@@ -57,8 +57,11 @@ public class CatalogIndexColumnDescriptor {
         @Override
         public CatalogIndexColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
             String name = input.readUTF();
-            boolean asc = input.readBoolean();
-            boolean nullsFirst = input.readBoolean();
+
+            byte collationBits = input.readByte();
+
+            boolean asc = (collationBits & 1) == 1;
+            boolean nullsFirst = (collationBits & 2) == 2;
 
             CatalogColumnCollation collation = CatalogColumnCollation.get(asc, nullsFirst);
 
@@ -68,8 +71,12 @@ public class CatalogIndexColumnDescriptor {
         @Override
         public void writeTo(CatalogIndexColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeUTF(descriptor.name());
-            output.writeBoolean(descriptor.collation().asc());
-            output.writeBoolean(descriptor.collation().nullsFirst());
+
+            CatalogColumnCollation collation = descriptor.collation();
+
+            byte collationBits = (byte) ((collation.asc() ? 1 : 0) | (collation.nullsFirst() ? 2 : 0));
+
+            output.writeByte(collationBits);
         }
     }
 }

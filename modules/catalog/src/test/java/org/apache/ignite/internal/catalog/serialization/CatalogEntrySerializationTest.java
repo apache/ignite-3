@@ -195,15 +195,19 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void newTableEntry() {
-        CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
-        CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
+        CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c0", null);
+        CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c1", null);
+        CatalogTableColumnDescriptor col3 = newCatalogTableColumnDescriptor("c3", null);
+        CatalogTableColumnDescriptor col4 = newCatalogTableColumnDescriptor("c2", null);
 
-        List<CatalogTableColumnDescriptor> columns = List.of(col1, col2);
+        List<CatalogTableColumnDescriptor> columns = List.of(col1, col2, col3, col4);
 
         NewTableEntry entry1 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null), "PUBLIC");
-        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")), "PUBLIC");
+        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of()), "PUBLIC");
+        NewTableEntry entry3 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")), "PUBLIC");
+        NewTableEntry entry4 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1")), "PUBLIC");
 
-        VersionedUpdate update = newVersionedUpdate(entry1, entry2);
+        VersionedUpdate update = newVersionedUpdate(entry1, entry2, entry3, entry4);
         VersionedUpdate deserialized = serialize(update);
 
         assertVersionedUpdate(update, deserialized);
@@ -329,11 +333,13 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     }
 
     private static CatalogSortedIndexDescriptor newSortedIndexDescriptor(String name) {
-        CatalogIndexColumnDescriptor colDesc1 = new CatalogIndexColumnDescriptor("C1", CatalogColumnCollation.ASC_NULLS_FIRST);
-        CatalogIndexColumnDescriptor colDesc2 = new CatalogIndexColumnDescriptor("C2", CatalogColumnCollation.DESC_NULLS_LAST);
+        CatalogIndexColumnDescriptor idxCol1 = new CatalogIndexColumnDescriptor("C1", CatalogColumnCollation.ASC_NULLS_FIRST);
+        CatalogIndexColumnDescriptor idxCol2 = new CatalogIndexColumnDescriptor("C2", CatalogColumnCollation.DESC_NULLS_LAST);
+        CatalogIndexColumnDescriptor idxCol3 = new CatalogIndexColumnDescriptor("C3", CatalogColumnCollation.DESC_NULLS_FIRST);
+        CatalogIndexColumnDescriptor idxCol4 = new CatalogIndexColumnDescriptor("C4", CatalogColumnCollation.ASC_NULLS_LAST);
 
         return new CatalogSortedIndexDescriptor(
-                1, name, 12, false, CatalogIndexStatus.AVAILABLE, 1, List.of(colDesc1, colDesc2));
+                1, name, 12, false, CatalogIndexStatus.AVAILABLE, 1, List.of(idxCol1, idxCol2, idxCol3, idxCol4));
     }
 
     private static CatalogHashIndexDescriptor newHashIndexDescriptor(String name) {
