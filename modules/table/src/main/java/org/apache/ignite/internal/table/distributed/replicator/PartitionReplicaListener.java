@@ -2352,8 +2352,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenApply(res -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
-                                    rowIdFut.join().get2()
-                                            .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                    Collection<Lock> locks = rowIdFut.join().get2();
+
+                                    if (locks != null){
+                                        locks.forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                    }
                                 }
 
                                 return new ReplicaResult(null, res);
