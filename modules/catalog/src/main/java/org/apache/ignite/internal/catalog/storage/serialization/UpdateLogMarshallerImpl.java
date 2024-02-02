@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.lang.MarshallerException;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Marshaller of update log entries that uses custom serializer.
@@ -72,7 +73,16 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     private static final int INITIAL_BUFFER_CAPACITY = 256;
 
     /** Serializers provider. */
-    private final CatalogEntrySerializerProvider serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
+    private final CatalogEntrySerializerProvider serializers;
+
+    public UpdateLogMarshallerImpl() {
+        this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
+    }
+
+    @TestOnly
+    public UpdateLogMarshallerImpl(CatalogEntrySerializerProvider serializers) {
+        this.serializers = serializers;
+    }
 
     @Override
     public byte[] marshall(UpdateLogEvent update) {

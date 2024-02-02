@@ -37,8 +37,6 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 public class SnapshotEntry implements UpdateLogEvent {
     public static final CatalogObjectSerializer<SnapshotEntry> SERIALIZER = new SnapshotEntrySerializer();
 
-    private static final long serialVersionUID = 7931135953382710758L;
-
     private final int version;
     private final long activationTime;
     private final int objectIdGenState;

@@ -34,8 +34,6 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Group of changes that relates to specified version.
  */
 public class VersionedUpdate implements UpdateLogEvent {
-    private static final long serialVersionUID = 8189081952066692697L;
-
     private final int version;
 
     private final long delayDurationMs;
