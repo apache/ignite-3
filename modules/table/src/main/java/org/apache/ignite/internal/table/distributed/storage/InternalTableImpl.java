@@ -977,6 +977,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryTupleContainer tupleContainer = (BinaryTupleContainer) row;
             BinaryTupleReader tuple = tupleContainer.binaryTuple();
 
+            // TODO: This does not work for key-only tables!
             var isKeyOnly = schema != null && tuple != null && tuple.elementCount() == schema.keyColumns().length();
 
             result[idx++] = isKeyOnly

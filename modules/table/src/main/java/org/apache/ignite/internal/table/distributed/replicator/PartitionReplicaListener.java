@@ -2305,6 +2305,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
 
                         if (isDelete) {
+                            assert row != null;
+
                             return takeLocksForDelete(row, rowId0, txId)
                                     .thenApply(id -> new IgniteBiTuple<>(id, null));
                         }
