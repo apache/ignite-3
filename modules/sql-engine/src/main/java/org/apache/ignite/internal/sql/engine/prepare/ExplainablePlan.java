@@ -18,15 +18,10 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 /**
- * QueryPlan factory interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Denotes a query plan that can be explained, i.e. converted to a human-readable
+ * string representation.
  */
-public interface QueryPlanFactory {
-    /**
-     * Create plans from context.
-     *
-     * @param ctx Planning context.
-     * @return Query plan.
-     */
-    QueryPlan create(PlanningContext ctx);
+public interface ExplainablePlan extends QueryPlan {
+    /** Returns human readable string representation of current query plan. */
+    String explain();
 }

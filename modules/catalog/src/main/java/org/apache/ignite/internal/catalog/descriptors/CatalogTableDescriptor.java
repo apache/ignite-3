@@ -46,6 +46,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     private final int pkIndexId;
 
+    @IgniteToStringExclude
     private final CatalogTableSchemaVersions schemaVersions;
 
     private final List<CatalogTableColumnDescriptor> columns;
@@ -206,7 +207,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogTableDescriptor.class, this, super.toString());
     }
 
     public long creationToken() {

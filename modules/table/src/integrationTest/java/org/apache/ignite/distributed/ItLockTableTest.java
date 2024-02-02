@@ -34,6 +34,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
@@ -94,6 +95,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected static TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    protected static StorageUpdateConfiguration storageUpdateConfiguration;
+
     private ItTxTestCluster txTestCluster;
 
     private HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
@@ -113,6 +117,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                storageUpdateConfiguration,
                 workDir,
                 1,
                 1,

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -26,7 +25,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Group of changes that relates to specified version.
  */
-public class VersionedUpdate implements Serializable {
+public class VersionedUpdate implements UpdateLogEvent {
     private static final long serialVersionUID = 3799095274342596183L;
 
     private final int version;

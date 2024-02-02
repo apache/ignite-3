@@ -48,9 +48,9 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId) {
+    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, int creationCatalogVersion) {
         return new CatalogHashIndexDescriptor(
-                indexId, indexName, tableId, unique, columns
+                indexId, indexName, tableId, unique, creationCatalogVersion, columns
         );
     }
 

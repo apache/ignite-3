@@ -230,10 +230,10 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
     @Override
     public IgniteRel visit(IgniteTableModify rel) {
+        long sourceId = rel.sourceId();
         String tableName = String.join(".", rel.getTable().getQualifiedName());
 
-        // TODO  https://issues.apache.org/jira/browse/IGNITE-20495 there is no sourceId on TableModifyNode
-        output.writeFormattedString("(name={}, source={}, distribution={})", tableName, "-1", rel.distribution());
+        output.writeFormattedString("(name={}, source={}, distribution={})", tableName, sourceId, rel.distribution());
         return super.visit(rel);
     }
 

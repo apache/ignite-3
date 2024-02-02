@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -44,7 +43,7 @@ public class TestCluster implements LifecycleAware {
     private final Map<String, TestNode> nodeByName;
     private final List<LifecycleAware> components;
     private final Runnable initClosure;
-    private final CatalogService catalogService;
+    private final CatalogManager catalogManager;
 
     TestCluster(
             Map<String, TestNode> nodeByName,
@@ -55,11 +54,11 @@ public class TestCluster implements LifecycleAware {
         this.nodeByName = nodeByName;
         this.components = List.of(new ComponentToLifecycleAwareAdaptor(catalogManager), prepareService);
         this.initClosure = initClosure;
-        this.catalogService = catalogManager;
+        this.catalogManager = catalogManager;
     }
 
-    public CatalogService catalogService() {
-        return catalogService;
+    public CatalogManager catalogManager() {
+        return catalogManager;
     }
 
     /**

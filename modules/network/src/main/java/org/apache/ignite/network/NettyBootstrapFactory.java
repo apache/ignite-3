@@ -23,10 +23,12 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.concurrent.EventExecutor;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.OutboundView;
+import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup.NetworkThread;
 import org.jetbrains.annotations.TestOnly;
@@ -41,7 +44,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Netty bootstrap factory. Holds shared {@link EventLoopGroup} instances and encapsulates common Netty {@link Bootstrap} creation logic.
  */
-public class NettyBootstrapFactory implements IgniteComponent {
+public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoopsSource {
     /** Network configuration. */
     private final NetworkConfiguration networkConfiguration;
 
@@ -49,13 +52,16 @@ public class NettyBootstrapFactory implements IgniteComponent {
     private final String eventLoopGroupNamePrefix;
 
     /** Server boss socket channel handler event loop group. */
-    private NioEventLoopGroup bossGroup;
+    private EventLoopGroup bossGroup;
 
     /** Server work socket channel handler event loop group. */
-    private NioEventLoopGroup workerGroup;
+    private EventLoopGroup workerGroup;
 
     /** Client socket channel handler event loop group. */
-    private NioEventLoopGroup clientWorkerGroup;
+    private EventLoopGroup clientWorkerGroup;
+
+    /** All event loops with which {@link io.netty.channel.Channel}s might be registered. */
+    private volatile List<EventLoop> channelEventLoops;
 
     /**
      * Constructor.
@@ -138,7 +144,7 @@ public class NettyBootstrapFactory implements IgniteComponent {
     /**
      * Returns all event loop groups managed by this factory.
      */
-    List<NioEventLoopGroup> eventLoopGroups() {
+    List<EventLoopGroup> eventLoopGroups() {
         return List.of(bossGroup, workerGroup, clientWorkerGroup);
     }
 
@@ -149,7 +155,21 @@ public class NettyBootstrapFactory implements IgniteComponent {
         workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
         clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
 
+        this.channelEventLoops = List.copyOf(eventLoopsAt(workerGroup, clientWorkerGroup));
+
         return nullCompletedFuture();
+    }
+
+    private static List<EventLoop> eventLoopsAt(EventLoopGroup ... groups) {
+        List<EventLoop> channelEventLoops = new ArrayList<>();
+
+        for (EventLoopGroup group : groups) {
+            for (EventExecutor child : group) {
+                channelEventLoops.add((EventLoop) child);
+            }
+        }
+
+        return channelEventLoops;
     }
 
     /**
@@ -176,11 +196,16 @@ public class NettyBootstrapFactory implements IgniteComponent {
     }
 
 
+    @Override
+    public List<EventLoop> channelEventLoops() {
+        return channelEventLoops;
+    }
+
     /**
      * Returns worker event loop group.
      */
     @TestOnly
-    public NioEventLoopGroup serverEventLoopGroup() {
+    public EventLoopGroup serverEventLoopGroup() {
         return workerGroup;
     }
 }

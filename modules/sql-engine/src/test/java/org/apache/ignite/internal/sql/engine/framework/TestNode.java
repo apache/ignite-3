@@ -136,6 +136,7 @@ public class TestNode implements LifecycleAware {
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
+                tableRegistry,
                 dependencyResolver,
                 0
         ));

@@ -50,7 +50,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
@@ -106,8 +106,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
-        List<PartitionWithTerm> partsWithTerms = IntStream.range(0, TestInternalTableImpl.PART_CNT)
-                .mapToObj(p -> new PartitionWithTerm(p, -1L))
+        List<PartitionWithConsistencyToken> partsWithConsistencyTokens = IntStream.range(0, TestInternalTableImpl.PART_CNT)
+                .mapToObj(p -> new PartitionWithConsistencyToken(p, -1L))
                 .collect(Collectors.toList());
 
         int probingCnt = 50;
@@ -171,7 +171,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             };
             ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
-                    partsWithTerms, null, null, null);
+                    partsWithConsistencyTokens, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 
@@ -185,7 +185,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             }
 
             internalTable.scanComplete.await();
-            assertEquals(sizes[i++] * partsWithTerms.size(), cnt);
+            assertEquals(sizes[i++] * partsWithConsistencyTokens.size(), cnt);
         }
     }
 

@@ -18,22 +18,25 @@
 package org.apache.ignite.internal.compute.messaging;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.compute.ComputeUtils.cancelFromJobCancelResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.changePriorityFromJobChangePriorityResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.jobIdFromExecuteResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.resultFromJobResultResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatusResponse;
+import static org.apache.ignite.internal.compute.ComputeUtils.statusesFromJobStatusesResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CHANGE_JOB_PRIORITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.FAIL_TO_GET_JOB_STATUS_ERR;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -55,8 +58,11 @@ import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
+import org.apache.ignite.internal.compute.message.JobStatusesRequest;
+import org.apache.ignite.internal.compute.message.JobStatusesResponse;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
@@ -128,6 +134,8 @@ public class ComputeMessaging {
             sendExecuteResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobResultRequest) {
             sendJobResultResponse(null, ex, senderConsistentId, correlationId);
+        } else if (message instanceof JobStatusesRequest) {
+            sendJobStatusesResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobStatusRequest) {
             sendJobStatusResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
@@ -147,6 +155,8 @@ public class ComputeMessaging {
             processExecuteRequest(starter, (ExecuteRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobResultRequest) {
             processJobResultRequest((JobResultRequest) message, senderConsistentId, correlationId);
+        } else if (message instanceof JobStatusesRequest) {
+            processJobStatusesRequest((JobStatusesRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobStatusRequest) {
             processJobStatusRequest((JobStatusRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
@@ -182,7 +192,7 @@ public class ComputeMessaging {
     ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         ExecuteRequest executeRequest = messagesFactory.executeRequest()
                 .executeOptions(options)
@@ -245,6 +255,33 @@ public class ComputeMessaging {
                 .build();
 
         messagingService.respond(senderConsistentId, jobResultResponse, correlationId);
+    }
+
+    CompletableFuture<Collection<JobStatus>> remoteStatusesAsync(ClusterNode remoteNode) {
+        JobStatusesRequest jobStatusRequest = messagesFactory.jobStatusesRequest()
+                .build();
+
+        return messagingService.invoke(remoteNode, jobStatusRequest, NETWORK_TIMEOUT_MILLIS)
+                .thenCompose(networkMessage -> statusesFromJobStatusesResponse((JobStatusesResponse) networkMessage));
+    }
+
+    private void processJobStatusesRequest(JobStatusesRequest message, String senderConsistentId, long correlationId) {
+        executionManager.localStatusesAsync()
+                .whenComplete((statuses, throwable) -> sendJobStatusesResponse(statuses, throwable, senderConsistentId, correlationId));
+    }
+
+    private void sendJobStatusesResponse(
+            @Nullable Collection<JobStatus> statuses,
+            @Nullable Throwable throwable,
+            String senderConsistentId,
+            Long correlationId
+    ) {
+        JobStatusesResponse jobStatusResponse = messagesFactory.jobStatusesResponse()
+                .statuses(statuses)
+                .throwable(throwable)
+                .build();
+
+        messagingService.respond(senderConsistentId, jobStatusResponse, correlationId);
     }
 
     /**
@@ -361,6 +398,26 @@ public class ComputeMessaging {
     }
 
     /**
+     * Broadcasts job statuses request to all nodes in the cluster.
+     *
+     * @return The future which will be completed with the collection of statuses from all nodes.
+     */
+    public CompletableFuture<Collection<JobStatus>> broadcastStatusesAsync() {
+        return broadcastAsyncAndCollect(
+                node -> remoteStatusesAsync(node),
+                throwable -> new ComputeException(
+                        FAIL_TO_GET_JOB_STATUS_ERR,
+                        "Failed to retrieve statuses",
+                        throwable
+                )).thenApply(statuses -> {
+                    return statuses.stream()
+                            .flatMap(Collection::stream)
+                            .filter(Objects::nonNull)
+                            .collect(toList());
+                });
+    }
+
+    /**
      * Broadcasts job status request to all nodes in the cluster.
      *
      * @param jobId Job id.
@@ -448,6 +505,29 @@ public class ComputeMessaging {
                 result.completeExceptionally(error.apply(throwable));
             }
         });
+
+        return result;
+    }
+
+    private <R> CompletableFuture<Collection<R>> broadcastAsyncAndCollect(
+            Function<ClusterNode, CompletableFuture<@Nullable R>> request,
+            Function<Throwable, Throwable> error
+    ) {
+        CompletableFuture<Collection<R>> result = new CompletableFuture<>();
+
+        CompletableFuture<R>[] futures = topologyService.allMembers()
+                .stream()
+                .map(request::apply)
+                .toArray(CompletableFuture[]::new);
+
+        CompletableFutures.allOf(futures).whenComplete((collection, throwable) -> {
+            if (throwable == null) {
+                result.complete(collection);
+            } else {
+                result.completeExceptionally(error.apply(throwable));
+            }
+        });
+
         return result;
     }
 }

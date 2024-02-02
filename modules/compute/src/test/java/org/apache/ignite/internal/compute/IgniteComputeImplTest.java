@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -119,7 +121,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("remoteResponse")
         );
 
-        verify(computeComponent).executeRemotely(ExecutionOptions.DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a",  42);
+        verifyExecuteRemotelyWithFailover(ExecutionOptions.DEFAULT);
     }
 
     @Test
@@ -148,7 +150,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("remoteResponse")
         );
 
-        verify(computeComponent).executeRemotely(expectedOptions, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a",  42);
+        verifyExecuteRemotelyWithFailover(expectedOptions);
     }
 
     @Test
@@ -200,9 +202,16 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(completedExecution("jobResponse"));
     }
 
-    private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions executionOptions) {
-        when(computeComponent.executeRemotely(executionOptions, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
-                .thenReturn(completedExecution("remoteResponse"));
+    private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
+        when(computeComponent.executeRemotelyWithFailover(
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), aryEq(new Object[]{"a", 42})
+        )).thenReturn(completedExecution("remoteResponse"));
+    }
+
+    private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
+        verify(computeComponent).executeRemotelyWithFailover(
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), aryEq(new Object[]{"a", 42})
+        );
     }
 
     private static <R> JobExecution<R> completedExecution(R result) {

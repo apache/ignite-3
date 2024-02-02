@@ -44,23 +44,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
-import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -303,54 +295,5 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 startTime.addPhysicalTime(1_000),
                 new TablePartitionId(tableId(), PARTITION_ID)
         );
-    }
-
-    private static class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
-            PlacementDriver {
-        private final Map<ReplicationGroupId, CompletableFuture<ReplicaMeta>> primaryReplicaMetaFutureById = new ConcurrentHashMap<>();
-
-        @Override
-        public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
-                ReplicationGroupId groupId,
-                HybridTimestamp timestamp,
-                long timeout,
-                TimeUnit unit
-        ) {
-            return primaryReplicaMetaFutureById.get(groupId);
-        }
-
-        @Override
-        public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-            return primaryReplicaMetaFutureById.get(replicationGroupId);
-        }
-
-        @Override
-        public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ReplicaMeta currentLease(ReplicationGroupId groupId) {
-            return primaryReplicaMetaFutureById.get(groupId).join();
-        }
-
-        CompletableFuture<Void> setPrimaryReplicaMeta(
-                long causalityToken,
-                TablePartitionId replicaId,
-                CompletableFuture<ReplicaMeta> replicaMetaFuture
-        ) {
-            primaryReplicaMetaFutureById.put(replicaId, replicaMetaFuture);
-
-            return replicaMetaFuture.thenCompose(replicaMeta -> fireEvent(
-                    PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
-                    new PrimaryReplicaEventParameters(
-                            causalityToken,
-                            replicaId,
-                            replicaMeta.getLeaseholderId(),
-                            replicaMeta.getLeaseholder(),
-                            replicaMeta.getStartTime()
-                    )
-            ));
-        }
     }
 }

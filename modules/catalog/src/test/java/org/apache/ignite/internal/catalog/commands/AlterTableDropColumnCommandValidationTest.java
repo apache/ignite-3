@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -235,6 +236,21 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 CatalogValidationException.class,
                 () -> builder.build().get(catalog),
                 "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsThrownIfSchemaIsReserved(String schema) {
+        AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder();
+
+        builder.schemaName(schema)
+                .tableName("t");
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Operations with reserved schemas are not allowed"
         );
     }
 }
