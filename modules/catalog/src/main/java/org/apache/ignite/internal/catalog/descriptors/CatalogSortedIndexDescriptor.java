@@ -37,6 +37,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
+     * @param creationCatalogVersion Catalog version in which the index was created.
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
@@ -45,9 +46,10 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             String name,
             int tableId,
             boolean unique,
+            int creationCatalogVersion,
             List<CatalogIndexColumnDescriptor> columns
     ) {
-        this(id, name, tableId, unique, columns, REGISTERED);
+        this(id, name, tableId, unique, REGISTERED, creationCatalogVersion, columns);
     }
 
     /**
@@ -57,8 +59,9 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param columns A list of columns descriptors.
      * @param status Index status.
+     * @param creationCatalogVersion Catalog version in which the index was created.
+     * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
     public CatalogSortedIndexDescriptor(
@@ -66,10 +69,11 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             String name,
             int tableId,
             boolean unique,
-            List<CatalogIndexColumnDescriptor> columns,
-            CatalogIndexStatus status
+            CatalogIndexStatus status,
+            int creationCatalogVersion,
+            List<CatalogIndexColumnDescriptor> columns
     ) {
-        super(id, name, tableId, unique, status);
+        super(id, name, tableId, unique, status, creationCatalogVersion);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }
@@ -81,7 +85,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogSortedIndexDescriptor.class, this, super.toString());
     }
 }
 

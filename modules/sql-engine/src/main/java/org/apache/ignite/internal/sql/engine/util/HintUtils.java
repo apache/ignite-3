@@ -20,8 +20,14 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.EXPAND_DISTINCT_AGG;
 
 import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.rel.hint.Hintable;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 
@@ -58,5 +64,22 @@ public class HintUtils {
         }
 
         return joiner.toString();
+    }
+
+    /**
+     * Filter hints suitable for {@code rel}.
+     *
+     * @param <T> Relational node type.
+     * @param rel Relational node.
+     * @param hints Target hints to get.
+     * @return Filtered hints suitable for {@code rel}.
+     */
+    public static <T extends RelNode & Hintable> List<RelHint> hints(T rel, EnumSet<IgniteHint> hints) {
+        List<RelHint> hintList = rel.getHints().stream()
+                .filter(hint -> hints.contains(IgniteHint.get(hint.hintName)))
+                .collect(Collectors.toList());
+
+        return rel.getCluster().getHintStrategies()
+                .apply(hintList, rel);
     }
 }

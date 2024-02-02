@@ -38,7 +38,9 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelProgressivePromise;
+import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.EventExecutor;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -90,6 +92,9 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     @Mock
     private EventExecutor eventExecutor;
 
+    @Mock
+    private EventLoop eventLoop;
+
     @Captor
     private ArgumentCaptor<OutNetworkObject> sentMessageCaptor;
 
@@ -109,6 +114,8 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
 
         lenient().when(context.executor()).thenReturn(eventExecutor);
         lenient().when(eventExecutor.inEventLoop()).thenReturn(true);
+
+        lenient().when(channel.eventLoop()).thenReturn(eventLoop);
 
         lenient().when(channel.writeAndFlush(any())).then(invocation -> {
             DefaultChannelProgressivePromise future = new DefaultChannelProgressivePromise(channel, eventExecutor);
@@ -160,6 +167,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
                 SERVER_CONSISTENT_ID,
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
+                () -> List.of(channel.eventLoop()),
                 new AllIdsAreFresh(),
                 channelCreationListener,
                 stopping

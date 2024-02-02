@@ -531,6 +531,21 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsThrownIfSchemaIsReserved(String schema) {
+        AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
+
+        builder.schemaName(schema)
+                .tableName("t");
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Operations with reserved schemas are not allowed"
+        );
+    }
+
     private static Stream<Arguments> invalidTypeConversionPairs() {
         List<Arguments> arguments = new ArrayList<>();
         for (ColumnType from : ColumnType.values()) {

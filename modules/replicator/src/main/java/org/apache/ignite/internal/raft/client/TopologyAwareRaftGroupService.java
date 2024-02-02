@@ -140,7 +140,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                     if (subscribed) {
                                         return refreshAndGetLeaderWithTerm()
                                                 .thenAcceptAsync(leaderWithTerm -> {
-                                                    if (leaderWithTerm.leader() != null
+                                                    if (!leaderWithTerm.isEmpty()
                                                             && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
                                                         serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
                                                     }
@@ -310,7 +310,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 }
 
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
-                    if (leaderWithTerm.leader() != null) {
+                    if (!leaderWithTerm.isEmpty()) {
                         serverEventHandler.onLeaderElected(
                                 clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
                                 leaderWithTerm.term()

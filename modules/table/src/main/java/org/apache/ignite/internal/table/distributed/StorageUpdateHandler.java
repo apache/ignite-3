@@ -20,15 +20,17 @@ package org.apache.ignite.internal.table.distributed;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -54,21 +56,27 @@ public class StorageUpdateHandler {
     /** A container for rows that were inserted, updated or removed. */
     private final PendingRows pendingRows = new PendingRows();
 
+    /** Storage updater configuration. */
+    private final StorageUpdateConfiguration storageUpdateConfiguration;
+
     /**
      * The constructor.
      *
      * @param partitionId Partition id.
      * @param storage Partition data storage.
      * @param indexUpdateHandler Partition index update handler.
+     * @param storageUpdateConfiguration Configuration for the storage update handler.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
-            IndexUpdateHandler indexUpdateHandler
+            IndexUpdateHandler indexUpdateHandler,
+            StorageUpdateConfiguration storageUpdateConfiguration
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexUpdateHandler = indexUpdateHandler;
+        this.storageUpdateConfiguration = storageUpdateConfiguration;
     }
 
     /**
@@ -103,27 +111,21 @@ public class StorageUpdateHandler {
         indexUpdateHandler.waitIndexes();
 
         storage.runConsistently(locker -> {
-            RowId rowId = new RowId(partitionId, rowUuid);
             int commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
+            RowId rowId = new RowId(partitionId, rowUuid);
 
-            locker.lock(rowId);
-
-            performStorageCleanupIfNeeded(txId, rowId, lastCommitTs);
-
-            if (commitTs != null) {
-                storage.addWriteCommitted(rowId, row, commitTs);
-            } else {
-                BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
-
-                if (oldRow != null) {
-                    assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
-                    // Previous uncommitted row should be removed from indexes.
-                    tryRemovePreviousWritesIndex(rowId, oldRow);
-                }
-            }
-
-            indexUpdateHandler.addToIndexes(row, rowId);
+            tryProcessRow(
+                    locker,
+                    commitTblId,
+                    commitPartId,
+                    rowId,
+                    txId,
+                    row,
+                    lastCommitTs,
+                    commitTs,
+                    false
+            );
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowId(txId, rowId);
@@ -135,6 +137,44 @@ public class StorageUpdateHandler {
 
             return null;
         });
+    }
+
+    private boolean tryProcessRow(
+            Locker locker,
+            int commitTblId,
+            int commitPartId,
+            RowId rowId,
+            UUID txId,
+            @Nullable BinaryRow row,
+            @Nullable HybridTimestamp lastCommitTs,
+            @Nullable HybridTimestamp commitTs,
+            boolean useTryLock
+    ) {
+        if (useTryLock) {
+            if (!locker.tryLock(rowId)) {
+                return false;
+            }
+        } else {
+            locker.lock(rowId);
+        }
+
+        performStorageCleanupIfNeeded(txId, rowId, lastCommitTs);
+
+        if (commitTs != null) {
+            storage.addWriteCommitted(rowId, row, commitTs);
+        } else {
+            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+
+            if (oldRow != null) {
+                assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
+                // Previous uncommitted row should be removed from indexes.
+                tryRemovePreviousWritesIndex(rowId, oldRow);
+            }
+        }
+
+        indexUpdateHandler.addToIndexes(row, rowId);
+
+        return true;
     }
 
     /**
@@ -155,53 +195,90 @@ public class StorageUpdateHandler {
             @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs
     ) {
+        if (nullOrEmpty(rowsToUpdate)) {
+            return;
+        }
+
         indexUpdateHandler.waitIndexes();
 
-        storage.runConsistently(locker -> {
-            int commitTblId = commitPartitionId.tableId();
-            int commitPartId = commitPartitionId.partitionId();
+        int commitTblId = commitPartitionId.tableId();
+        int commitPartId = commitPartitionId.partitionId();
 
-            if (!nullOrEmpty(rowsToUpdate)) {
-                List<RowId> rowIds = new ArrayList<>();
+        Iterator<Entry<UUID, TimedBinaryRow>> it = rowsToUpdate.entrySet().iterator();
+        Entry<UUID, TimedBinaryRow> lastUnprocessedEntry = it.next();
 
-                // Sort IDs to prevent deadlock. Natural UUID order matches RowId order within the same partition.
-                SortedMap<UUID, TimedBinaryRow> sortedRowsToUpdateMap = new TreeMap<>(rowsToUpdate);
+        while (lastUnprocessedEntry != null) {
+            lastUnprocessedEntry = processEntriesUntilBatchLimit(
+                    lastUnprocessedEntry,
+                    txId,
+                    trackWriteIntent,
+                    commitTs,
+                    commitTblId,
+                    commitPartId,
+                    it,
+                    onApplication,
+                    storageUpdateConfiguration.batchByteLength().value()
+            );
+        }
+    }
 
-                for (Map.Entry<UUID, TimedBinaryRow> entry : sortedRowsToUpdateMap.entrySet()) {
-                    RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = entry.getValue() == null ? null : entry.getValue().binaryRow();
+    private Entry<UUID, TimedBinaryRow> processEntriesUntilBatchLimit(
+            Entry<UUID, TimedBinaryRow> lastUnprocessedEntry,
+            UUID txId,
+            boolean trackWriteIntent,
+            @Nullable HybridTimestamp commitTs,
+            int commitTblId,
+            int commitPartId,
+            Iterator<Entry<UUID, TimedBinaryRow>> it,
+            @Nullable Runnable onApplication, int maxBatchLength
+    ) {
+        return storage.runConsistently(locker -> {
+            List<RowId> processedRowIds = new ArrayList<>();
+            int batchLength = 0;
+            Entry<UUID, TimedBinaryRow> entryToProcess = lastUnprocessedEntry;
+            while (entryToProcess != null) {
+                RowId rowId = new RowId(partitionId, entryToProcess.getKey());
+                BinaryRow row = entryToProcess.getValue() == null ? null : entryToProcess.getValue().binaryRow();
 
-                    locker.lock(rowId);
-
-                    performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
-
-                    if (commitTs != null) {
-                        storage.addWriteCommitted(rowId, row, commitTs);
-                    } else {
-                        BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
-
-                        if (oldRow != null) {
-                            assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
-                            // Previous uncommitted row should be removed from indexes.
-                            tryRemovePreviousWritesIndex(rowId, oldRow);
-                        }
-                    }
-
-                    rowIds.add(rowId);
-                    indexUpdateHandler.addToIndexes(row, rowId);
+                if (row != null) {
+                    batchLength += row.tupleSliceLength();
                 }
 
-                if (trackWriteIntent) {
-                    pendingRows.addPendingRowIds(txId, rowIds);
+                if (!processedRowIds.isEmpty() && batchLength > maxBatchLength) {
+                    break;
                 }
 
-                if (onApplication != null) {
-                    onApplication.run();
+                boolean rowProcessed = tryProcessRow(
+                        locker,
+                        commitTblId,
+                        commitPartId,
+                        rowId,
+                        txId,
+                        row,
+                        entryToProcess.getValue() == null ? null : entryToProcess.getValue().commitTimestamp(),
+                        commitTs,
+                        !processedRowIds.isEmpty()
+                );
+
+                if (!rowProcessed) {
+                    break;
                 }
+
+                entryToProcess = it.hasNext() ? it.next() : null;
+                processedRowIds.add(rowId);
             }
 
-            return null;
+            if (trackWriteIntent) {
+                pendingRows.addPendingRowIds(txId, processedRowIds);
+            }
+
+            if (entryToProcess == null && onApplication != null) {
+                onApplication.run();
+            }
+
+            return entryToProcess;
         });
+
     }
 
     private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {

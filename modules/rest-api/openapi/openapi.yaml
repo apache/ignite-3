@@ -118,6 +118,124 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/compute/jobs:
+    get:
+      tags:
+      - compute
+      summary: Retrieve all job statuses
+      description: Fetches the current statuses of all compute jobs.
+      operationId: jobStatuses
+      responses:
+        "200":
+          description: Successful retrieval of job statuses.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobStatus'
+  /management/v1/compute/jobs/{jobId}:
+    get:
+      tags:
+      - compute
+      summary: Retrieve a job status
+      description: Fetches the current status of a specific compute job identified
+        by jobId.
+      operationId: jobStatus
+      parameters:
+      - name: jobId
+        in: path
+        description: The unique identifier of the compute job.
+        required: true
+        schema:
+          type: string
+          description: The unique identifier of the compute job.
+          format: uuid
+      responses:
+        "200":
+          description: Successful retrieval of the job status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        "404":
+          description: Compute job not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      tags:
+      - compute
+      summary: Cancel a job
+      description: Cancels a specific compute job identified by jobId.
+      operationId: cancelJob
+      parameters:
+      - name: jobId
+        in: path
+        description: The unique identifier of the compute job.
+        required: true
+        schema:
+          type: string
+          description: The unique identifier of the compute job.
+          format: uuid
+      responses:
+        "200":
+          description: Successful cancellation of the job.
+          content:
+            application/json: {}
+        "404":
+          description: Compute job not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "409":
+          description: Compute job is in an illegal state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/compute/jobs/{jobId}/priority:
+    put:
+      tags:
+      - compute
+      summary: Update a job's priority
+      description: Updates the priority of a specific compute job identified by jobId.
+      operationId: updatePriority
+      parameters:
+      - name: jobId
+        in: path
+        description: The unique identifier of the compute job.
+        required: true
+        schema:
+          type: string
+          description: The unique identifier of the compute job.
+          format: uuid
+      requestBody:
+        description: The new priority data for the job.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJobPriorityBody'
+        required: true
+      responses:
+        "200":
+          description: Successful update of the job priority.
+          content:
+            application/json: {}
+        "404":
+          description: Compute job not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "409":
+          description: Compute job is in an illegal state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/configuration/cluster:
     get:
       tags:
@@ -818,6 +936,47 @@ components:
           type: string
           description: The issue with the parameter.
       description: Information about invalid request parameter.
+    JobState:
+      type: string
+      description: Job state.
+      enum:
+      - QUEUED
+      - EXECUTING
+      - FAILED
+      - COMPLETED
+      - CANCELING
+      - CANCELED
+    JobStatus:
+      required:
+      - createTime
+      - id
+      - state
+      type: object
+      properties:
+        id:
+          type: string
+          description: Job ID.
+          format: uuid
+        state:
+          description: Job state.
+          allOf:
+          - $ref: '#/components/schemas/JobState'
+          - {}
+        createTime:
+          type: string
+          description: Job create time.
+          format: date-time
+        startTime:
+          type: string
+          description: Job start time.
+          format: date-time
+          nullable: true
+        finishTime:
+          type: string
+          description: Job finish time.
+          format: date-time
+          nullable: true
+      description: Rest representation of org.apache.ignite.compute.JobStatus.
     Metric:
       type: object
       properties:
@@ -982,6 +1141,16 @@ components:
           - $ref: '#/components/schemas/DeploymentStatus'
           - description: Unit status.
       description: Unit version and status.
+    UpdateJobPriorityBody:
+      required:
+      - priority
+      type: object
+      properties:
+        priority:
+          type: integer
+          description: Priority.
+          format: int32
+      description: DTO of update job priority request body.
     deployMode:
       type: string
       description: Initial set of nodes to deploy.

@@ -36,12 +36,15 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
 
     private final Map<String, IgniteIndex> indexMap;
 
+    private final int partitions;
+
     /** Constructor. */
     public IgniteTableImpl(String name, int id, int version, TableDescriptor desc,
-            Statistic statistic, Map<String, IgniteIndex> indexMap) {
+            Statistic statistic, Map<String, IgniteIndex> indexMap, int partitions) {
 
         super(name, id, version, desc, statistic);
         this.indexMap = indexMap;
+        this.partitions = partitions;
     }
 
     /** {@inheritDoc} */
@@ -67,6 +70,12 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     @Override
     public Map<String, IgniteIndex> indexes() {
         return indexMap;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partitions() {
+        return partitions;
     }
 
     /** {@inheritDoc} */

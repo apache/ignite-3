@@ -17,7 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
-import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -25,12 +25,16 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -40,6 +44,7 @@ import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -47,6 +52,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -55,8 +61,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -64,12 +68,14 @@ import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.netty.ConnectorKey;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.OutgoingAcknowledgementSilencer;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
@@ -77,11 +83,13 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.RecipientLeftException;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.apache.logging.log4j.core.LogEvent;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,7 +103,8 @@ import reactor.core.publisher.Mono;
  * Integration tests for messaging based on ScaleCube.
  */
 class ItScaleCubeNetworkMessagingTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItScaleCubeNetworkMessagingTest.class);
+    /** Message sent to establish a connection. */
+    private static final String TRAILBLAZER = "trailblazer";
 
     /**
      * Test cluster.
@@ -149,7 +158,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         testCluster.startAwait();
 
-        var testMessage = messageFactory.testMessage().msg("Message from Alice").build();
+        var testMessage = testMessage("Message from Alice");
 
         ClusterService alice = testCluster.members.get(0);
 
@@ -157,7 +166,7 @@ class ItScaleCubeNetworkMessagingTest {
             alice.messagingService().weakSend(member, testMessage);
         }
 
-        boolean messagesReceived = messageReceivedLatch.await(3, TimeUnit.SECONDS);
+        boolean messagesReceived = messageReceivedLatch.await(3, SECONDS);
         assertTrue(messagesReceived);
 
         testCluster.members.stream()
@@ -205,9 +214,10 @@ class ItScaleCubeNetworkMessagingTest {
 
             private final String senderConsistentId;
 
+            @Nullable
             private final Long correlationId;
 
-            private Data(TestMessage message, String senderConsistentId, Long correlationId) {
+            private Data(TestMessage message, String senderConsistentId, @Nullable Long correlationId) {
                 this.message = message;
                 this.senderConsistentId = senderConsistentId;
                 this.correlationId = correlationId;
@@ -222,11 +232,11 @@ class ItScaleCubeNetworkMessagingTest {
                         dataFuture.complete(new Data((TestMessage) message, sender, correlationId))
         );
 
-        var requestMessage = messageFactory.testMessage().msg("request").build();
+        TestMessage requestMessage = testMessage("request");
 
         member.messagingService().send(self, requestMessage);
 
-        Data actualData = dataFuture.get(3, TimeUnit.SECONDS);
+        Data actualData = dataFuture.get(3, SECONDS);
 
         assertThat(actualData.message.msg(), is(requestMessage.msg()));
         assertThat(actualData.senderConsistentId, is(self.name()));
@@ -247,13 +257,13 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterNode self = member.topologyService().localMember();
 
-        var requestMessage = messageFactory.testMessage().msg("request").build();
-        var responseMessage = messageFactory.testMessage().msg("response").build();
+        var requestMessage = testMessage("request");
+        var responseMessage = testMessage("response");
 
         member.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, sender, correlationId) -> {
-                    if (message.equals(requestMessage)) {
+                    if (correlationId != null && message.equals(requestMessage)) {
                         member.messagingService().respond(self, responseMessage, correlationId);
                     }
                 }
@@ -262,7 +272,7 @@ class ItScaleCubeNetworkMessagingTest {
         TestMessage actualResponseMessage = member.messagingService()
                 .invoke(self, requestMessage, 1000)
                 .thenApply(TestMessage.class::cast)
-                .get(3, TimeUnit.SECONDS);
+                .get(3, SECONDS);
 
         assertThat(actualResponseMessage.msg(), is(responseMessage.msg()));
     }
@@ -294,11 +304,11 @@ class ItScaleCubeNetworkMessagingTest {
                 1000
         );
 
-        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, TimeUnit.SECONDS));
+        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
         assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
 
-        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
+        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, SECONDS));
 
         assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
     }
@@ -332,11 +342,11 @@ class ItScaleCubeNetworkMessagingTest {
 
         member0.stop();
 
-        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, TimeUnit.SECONDS));
+        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
         assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
 
-        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
+        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, SECONDS));
 
         assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
     }
@@ -375,15 +385,15 @@ class ItScaleCubeNetworkMessagingTest {
                 1000
         );
 
-        assertTrue(receivedTestMessages.await(10, TimeUnit.SECONDS), "Did not receive invocations on the receiver in time");
+        assertTrue(receivedTestMessages.await(10, SECONDS), "Did not receive invocations on the receiver in time");
 
         member0.stop();
 
-        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, TimeUnit.SECONDS));
+        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
         assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
 
-        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
+        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, SECONDS));
 
         assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
     }
@@ -408,7 +418,7 @@ class ItScaleCubeNetworkMessagingTest {
                     startedBlocking.countDown();
 
                     try {
-                        blocking.await(10, TimeUnit.SECONDS);
+                        blocking.await(10, SECONDS);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(e);
@@ -418,21 +428,19 @@ class ItScaleCubeNetworkMessagingTest {
 
         try {
             // Send a message that will block the inbound thread for normal messages.
-            member0.messagingService().send(member1.topologyService().localMember(), messageFactory.testMessage().build());
+            send(messageFactory.testMessage().build(), member0, member1);
 
-            assertTrue(startedBlocking.await(10, TimeUnit.SECONDS));
+            assertTrue(startedBlocking.await(10, SECONDS));
 
             CountDownLatch receivedScalecubeMessage = new CountDownLatch(1);
 
             member1.messagingService().addMessageHandler(
                     NetworkMessageTypes.class,
-                    (message, senderConsistentId, correlationId) -> {
-                        receivedScalecubeMessage.countDown();
-                    }
+                    (message, senderConsistentId, correlationId) -> receivedScalecubeMessage.countDown()
             );
 
             assertTrue(
-                    receivedScalecubeMessage.await(10, TimeUnit.SECONDS),
+                    receivedScalecubeMessage.await(10, SECONDS),
                     "Did not receive Scalecube messages, probably Scalecube inbound thread is blocked"
             );
         } finally {
@@ -477,19 +485,18 @@ class ItScaleCubeNetworkMessagingTest {
                 }
         );
 
-        var testMessage = messageFactory.testMessage().msg("foo").build();
+        var testMessage = testMessage("foo");
 
         HandshakeFinishMessage networkMessage = new NetworkMessagesFactory().handshakeFinishMessage().build();
 
         // Test that a message gets delivered to both handlers.
-        node2.messagingService()
-                .send(node1.topologyService().localMember(), testMessage)
-                .get(1, TimeUnit.SECONDS);
+        send(testMessage, node2, node1)
+                .get(1, SECONDS);
 
         // Test that a message from the other group is only delivered to a single handler.
         node2.messagingService()
                 .send(node1.topologyService().localMember(), networkMessage)
-                .get(1, TimeUnit.SECONDS);
+                .get(1, SECONDS);
 
         assertThat(testMessageFuture1, willBe(equalTo(testMessage)));
         assertThat(testMessageFuture2, willBe(equalTo(testMessage)));
@@ -517,7 +524,7 @@ class ItScaleCubeNetworkMessagingTest {
         CountDownLatch ready = pair.get1();
         AtomicBoolean reappeared = pair.get2();
 
-        assertTrue(ready.await(10, TimeUnit.SECONDS), "Node neither reappeared, nor was rejected");
+        assertTrue(ready.await(10, SECONDS), "Node neither reappeared, nor was rejected");
 
         assertThat(reappeared.get(), is(false));
     }
@@ -547,24 +554,24 @@ class ItScaleCubeNetworkMessagingTest {
         stopDroppingMessagesTo(outcast.nodeName());
 
         CompletableFuture<Void> sendFromOutcast = outcast.messagingService().send(notOutcastNode, messageFactory.testMessage().build());
-        assertThat(sendFromOutcast, willThrow(HandshakeException.class));
+        assertThat(sendFromOutcast, either(willThrow(HandshakeException.class)).or(willThrow(RecipientLeftException.class)));
 
         CompletableFuture<?> invokeFromOutcast = outcast.messagingService().invoke(
                 notOutcastNode,
                 messageFactory.testMessage().build(),
                 10_000
         );
-        assertThat(invokeFromOutcast, willThrow(HandshakeException.class));
+        assertThat(invokeFromOutcast, either(willThrow(HandshakeException.class)).or(willThrow(RecipientLeftException.class)));
 
         CompletableFuture<Void> sendToOutcast = notOutcast.messagingService().send(outcastNode, messageFactory.testMessage().build());
-        assertThat(sendToOutcast, willThrow(HandshakeException.class));
+        assertThat(sendToOutcast, either(willThrow(HandshakeException.class)).or(willThrow(RecipientLeftException.class)));
 
         CompletableFuture<?> invokeToOutcast = notOutcast.messagingService().invoke(
                 outcastNode,
                 messageFactory.testMessage().build(),
                 10_000
         );
-        assertThat(invokeToOutcast, willThrow(HandshakeException.class));
+        assertThat(invokeToOutcast, either(willThrow(HandshakeException.class)).or(willThrow(RecipientLeftException.class)));
     }
 
     @Test
@@ -576,34 +583,295 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService sender = testCluster.members.get(0);
         ClusterService receiver = testCluster.members.get(1);
 
-        receiver.messagingService().addMessageHandler(
-                TestMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> {
-                    receiver.messagingService().respond(
-                            sender.topologyService().localMember(),
-                            message,
-                            requireNonNull(correlationId)
-                    );
-                }
-        );
-
-        // Make an invocation to establish a connection.
-        CompletableFuture<?> firstInvoke = sender.messagingService().invoke(
-                receiver.topologyService().localMember(),
-                messageFactory.testMessage().build(),
-                10_000
-        );
-        assertThat(firstInvoke, willCompleteSuccessfully());
+        establishConnection(sender, receiver);
 
         closeAllChannels(sender.messagingService());
 
-        // Now try again.
-        CompletableFuture<?> secondInvoke = sender.messagingService().invoke(
+        receiver.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> {
+                    if (correlationId != null) {
+                        receiver.messagingService().respond(sender.topologyService().localMember(), message, correlationId);
+                    }
+                }
+        );
+
+        // This must cause a reconnection.
+        CompletableFuture<?> secondInvoke = invoke(messageFactory.testMessage().build(), sender, receiver);
+        assertThat(secondInvoke, willCompleteSuccessfully());
+    }
+
+    /**
+     * This is the scenario:
+     *
+     * <ol>
+     *     <li>Messages get added to the queue of a channel</li>
+     *     <li>Before they actually get sent, the channel closure is initiated</li>
+     *     <li>But when the sends are processed by the event loop, the channel has still not closed fully (and it still holds
+     *     the recovery descriptor)</li>
+     * </ol>
+     *
+     * <p>The expected outcome is that the messages get delivered without any more external sends/invokes and that they
+     * are delivered in the right order.
+     */
+    @Test
+    public void messagesQueuedAtNonFullyClosedOldChannelGetDeliveredAfterReconnection() throws Exception {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService sender = testCluster.members.get(0);
+        ClusterService receiver = testCluster.members.get(1);
+
+        List<String> receivedPayloads = new CopyOnWriteArrayList<>();
+        collectReceivedPayloads(sender, receiver, receivedPayloads);
+
+        establishConnection(sender, receiver);
+
+        // Block work on the channel's event loop until we put close command and send commands on the loop.
+        // As a result, after we unblock the loop, the sends will fail with ClosedChannelException in Netty.
+        // We'll then observe whether this is handled transparently by opening a new channel and re-sending via new channel.
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+
+        CountDownLatch proceedToClosing = new CountDownLatch(1);
+        blockEventLoopWith(proceedToClosing, defaultChannelSender);
+
+        CompletableFuture<Void> closeFuture = defaultChannelSender.closeAsync();
+
+        CompletableFuture<?> sendViaOldChannel = send(testMessage("first"), sender, receiver);
+        CompletableFuture<?> invokeViaOldChannel = invoke(testMessage("second"), sender, receiver);
+
+        try {
+            assertFalse(closeFuture.isDone());
+            proceedToClosing.countDown();
+            assertThat(closeFuture, willCompleteSuccessfully());
+
+            assertThat(sendViaOldChannel, willSucceedIn(3, SECONDS));
+            assertThat(invokeViaOldChannel, willSucceedIn(3, SECONDS));
+
+            List<String> expectedPayloads = List.of("trailblazer", "first", "second");
+            waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
+            assertThat(receivedPayloads, equalTo(expectedPayloads));
+
+            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+            assertThatHasNoUnacknowledgedMessages(nettySender);
+        } finally {
+            proceedToClosing.countDown();
+        }
+    }
+
+    private static void collectReceivedPayloads(ClusterService sender, ClusterService receiver, List<String> receivedPayloads) {
+        receiver.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> {
+                    if (message instanceof TestMessage) {
+                        receivedPayloads.add(((TestMessage) message).msg());
+                    }
+
+                    if (correlationId != null) {
+                        receiver.messagingService().respond(
+                                sender.topologyService().localMember(),
+                                message,
+                                correlationId
+                        );
+                    }
+                }
+        );
+    }
+
+    private TestMessage testMessage(String message) {
+        return messageFactory.testMessage().msg(message).build();
+    }
+
+    private static CompletableFuture<Void> send(TestMessage message, ClusterService sender, ClusterService receiver) {
+        return sender.messagingService().send(
                 receiver.topologyService().localMember(),
-                messageFactory.testMessage().build(),
+                message
+        );
+    }
+
+    private static CompletableFuture<NetworkMessage> invoke(TestMessage message, ClusterService sender, ClusterService receiver) {
+        return sender.messagingService().invoke(
+                receiver.topologyService().localMember(),
+                message,
                 10_000
         );
-        assertThat(secondInvoke, willCompleteSuccessfully());
+    }
+
+    private static void assertThatHasNoUnacknowledgedMessages(NettySender nettySender) {
+        CompletableFuture<List<OutNetworkObject>> unackedMessagesFuture = new CompletableFuture<>();
+
+        nettySender.channel().eventLoop().execute(() -> {
+            unackedMessagesFuture.complete(nettySender.recoveryDescriptor().unacknowledgedMessages());
+        });
+
+        assertThat(unackedMessagesFuture, willBe(empty()));
+    }
+
+    private static NettySender nettySenderForDefaultChannel(ClusterService sender, String receiverConsistentId) {
+        return connectionManager(sender).channels()
+                .get(new ConnectorKey<>(receiverConsistentId, ChannelType.DEFAULT));
+    }
+
+    private static ConnectionManager connectionManager(ClusterService clusterService) {
+        return ((DefaultMessagingService) clusterService.messagingService()).connectionManager();
+    }
+
+    /**
+     * This is the scenario:
+     *
+     * <ol>
+     *     <li>Messages get added to the queue of a channel</li>
+     *     <li>Before they actually get sent, the channel closure is initiated</li>
+     *     <li>When the sends are processed by the event loop, the channel has already been closed (and does not hold
+     *     the recovery descriptor anymore)</li>
+     *     <li>Additionally, we variate whether a new channel in the same logical connection has been opened or not</li>
+     * </ol>
+     *
+     * <p>The expected outcome is that the messages get delivered without any more external sends/invokes and that they
+     * are delivered in the right order.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void messagesQueuedOnFullyClosedOldChannelGetDeliveredAfterReconnection(boolean openNewChannelBeforeSendingToOld)
+            throws Exception {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService sender = testCluster.members.get(0);
+        ClusterService receiver = testCluster.members.get(1);
+
+        List<String> receivedPayloads = new CopyOnWriteArrayList<>();
+        collectReceivedPayloads(sender, receiver, receivedPayloads);
+
+        establishConnection(sender, receiver);
+
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+
+        // Now close the sender completely.
+        assertThat(defaultChannelSender.closeAsync(), willCompleteSuccessfully());
+
+        if (openNewChannelBeforeSendingToOld) {
+            establishConnectionWithoutSendingMessages(sender, receiver);
+        }
+
+        // Sending first message directly via NettySender. This is a hack, but there is no reliable way to hit a closed
+        // sender via MessagingService methods as its internals try to avoid such a situation; only in a tight race can
+        // this be reproduced.
+        OutNetworkObject outViaOldChannel = new OutNetworkObject(testMessage("first"), List.of());
+        defaultChannelSender.send(outViaOldChannel);
+        CompletableFuture<?> sendViaNewChannel = send(testMessage("second"), sender, receiver);
+
+        assertThat(outViaOldChannel.acknowledgedFuture(), willSucceedIn(3, SECONDS));
+        assertThat(sendViaNewChannel, willSucceedIn(3, SECONDS));
+
+        List<String> expectedPayloads = List.of("trailblazer", "first", "second");
+        waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
+        assertThat(receivedPayloads, equalTo(expectedPayloads));
+
+        NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        assertThatHasNoUnacknowledgedMessages(nettySender);
+    }
+
+    private static void establishConnectionWithoutSendingMessages(ClusterService sender, ClusterService receiver) {
+        NetworkAddress receiverAddress = receiver.topologyService().localMember().address();
+        CompletableFuture<NettySender> newSenderFuture = connectionManager(sender).channel(
+                receiver.nodeName(),
+                ChannelType.DEFAULT,
+                new InetSocketAddress(receiverAddress.host(), receiverAddress.port())
+        ).toCompletableFuture();
+
+        assertThat(newSenderFuture, willCompleteSuccessfully());
+    }
+
+    /**
+     * This is the scenario:
+     *
+     * <ol>
+     *     <li>Messages get added to the queue of a channel</li>
+     *     <li>Before they actually get sent, the channel is closed</li>
+     *     <li>New messages are sent, which spawns a new channel</li>
+     * </ol>>
+     *
+     * <p>The expected outcome is that all the messages get delivered in the right order.
+     */
+    @Test
+    public void messagesQueuedOnOldChannelGetDeliveredBeforeMessagesSentViaNewChannel() throws Exception {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService sender = testCluster.members.get(0);
+        ClusterService receiver = testCluster.members.get(1);
+
+        List<String> receivedPayloads = new CopyOnWriteArrayList<>();
+        collectReceivedPayloads(sender, receiver, receivedPayloads);
+
+        establishConnection(sender, receiver);
+
+        // Block work on the channel's event loop until we put close command and send commands on the loop.
+        // As a result, after we unblock the loop, the sends will fail with ClosedChannelException in Netty.
+        // We'll then observe whether this is handled transparently by opening a new channel and re-sending via new channel.
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+
+        CountDownLatch proceedToClosing = new CountDownLatch(1);
+        blockEventLoopWith(proceedToClosing, defaultChannelSender);
+
+        CompletableFuture<Void> closeFuture = defaultChannelSender.closeAsync();
+
+        CountDownLatch proceedToSendingViaOldChannel = new CountDownLatch(1);
+        blockEventLoopWith(proceedToSendingViaOldChannel, defaultChannelSender);
+
+        CompletableFuture<?> sendViaOldChannel = send(testMessage("first"), sender, receiver);
+        CompletableFuture<?> invokeViaOldChannel = invoke(testMessage("second"), sender, receiver);
+
+        assertFalse(closeFuture.isDone());
+        proceedToClosing.countDown();
+        assertThat(closeFuture, willCompleteSuccessfully());
+
+        assertFalse(sendViaOldChannel.isDone());
+        assertFalse(invokeViaOldChannel.isDone());
+
+        CompletableFuture<?> sendViaNewChannel = send(testMessage("third"), sender, receiver);
+        CompletableFuture<?> invokeViaNewChannel = invoke(testMessage("fourth"), sender, receiver);
+
+        try {
+            assertFalse(sendViaOldChannel.isDone());
+            assertFalse(invokeViaOldChannel.isDone());
+
+            proceedToSendingViaOldChannel.countDown();
+
+            assertThat(sendViaOldChannel, willCompleteSuccessfully());
+            assertThat(invokeViaOldChannel, willCompleteSuccessfully());
+            assertThat(sendViaNewChannel, willCompleteSuccessfully());
+            assertThat(invokeViaNewChannel, willCompleteSuccessfully());
+
+            List<String> expectedPayloads = List.of("trailblazer", "first", "second", "third", "fourth");
+            waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
+            assertThat(receivedPayloads, equalTo(expectedPayloads));
+
+            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+            assertThatHasNoUnacknowledgedMessages(nettySender);
+        } finally {
+            proceedToClosing.countDown();
+            proceedToSendingViaOldChannel.countDown();
+        }
+    }
+
+    private void establishConnection(ClusterService sender, ClusterService receiver) {
+        CompletableFuture<?> future = send(testMessage(TRAILBLAZER), sender, receiver);
+
+        assertThat(future, willCompleteSuccessfully());
+    }
+
+    private static void blockEventLoopWith(CountDownLatch release, NettySender nettySender) {
+        nettySender.channel().eventLoop().execute(() -> {
+            try {
+                release.await(10, SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Test
@@ -639,7 +907,7 @@ class ItScaleCubeNetworkMessagingTest {
                         blockingStarted.countDown();
 
                         try {
-                            assertTrue(canProceed.await(10, TimeUnit.SECONDS));
+                            assertTrue(canProceed.await(10, SECONDS));
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                             throw new RuntimeException(e);
@@ -653,19 +921,19 @@ class ItScaleCubeNetworkMessagingTest {
         TestMessage message = messageFactory.testMessage().build();
 
         // This message will get stuck.
-        sender.messagingService().send(receiver.topologyService().localMember(), message);
+        send(message, sender, receiver);
 
         // These 2 will be handled after the sender has left the physical topology.
-        sender.messagingService().send(receiver.topologyService().localMember(), message);
-        sender.messagingService().invoke(receiver.topologyService().localMember(), message, 10_000);
+        send(message, sender, receiver);
+        invoke(message, sender, receiver);
 
-        assertTrue(blockingStarted.await(10, TimeUnit.SECONDS));
+        assertTrue(blockingStarted.await(10, SECONDS));
 
         knockOutNode(sender.nodeName(), false);
 
         canProceed.countDown();
 
-        assertTrue(messagesSkipped.await(10, TimeUnit.SECONDS), "Messages were not skipped");
+        assertTrue(messagesSkipped.await(10, SECONDS), "Messages were not skipped");
         assertThat(messagesDelivered.get(), is(1));
     }
 
@@ -725,7 +993,7 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     private CompletableFuture<Void> sendMessage(ClusterService sender, ClusterService receiver) {
-        return sender.messagingService().send(receiver.topologyService().localMember(), messageFactory.testMessage().build());
+        return send(messageFactory.testMessage().build(), sender, receiver);
     }
 
     private static OutgoingAcknowledgementSilencer dropAcksFrom(ClusterService clusterService) throws InterruptedException {
@@ -816,7 +1084,7 @@ class ItScaleCubeNetworkMessagingTest {
         });
 
         // Wait until all nodes see disappearance of the outcast.
-        assertTrue(disappeared.await(10, TimeUnit.SECONDS), "Node did not disappear in time");
+        assertTrue(disappeared.await(10, SECONDS), "Node did not disappear in time");
 
         if (closeConnectionsForcibly) {
             MessagingService messagingService = testCluster.members.stream()
@@ -849,12 +1117,12 @@ class ItScaleCubeNetworkMessagingTest {
         logInspectors.add(new LogInspector(
                 RecoveryClientHandshakeManager.class.getName(),
                 matcher,
-                () -> ready.countDown()));
+                ready::countDown));
 
         logInspectors.add(new LogInspector(
                 RecoveryServerHandshakeManager.class.getName(),
                 matcher,
-                () -> ready.countDown()));
+                ready::countDown));
 
         logInspectors.forEach(LogInspector::start);
 
@@ -904,7 +1172,7 @@ class ItScaleCubeNetworkMessagingTest {
             alice.stop();
         }
 
-        boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, TimeUnit.SECONDS);
+        boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
         assertTrue(aliceShutdownReceived);
 
         Collection<ClusterNode> networkMembers = bob.topologyService().allMembers();
@@ -987,7 +1255,7 @@ class ItScaleCubeNetworkMessagingTest {
         void startAwait() throws InterruptedException {
             members.forEach(ClusterService::start);
 
-            if (!waitForCondition(this::allMembersSeeEachOther, TimeUnit.SECONDS.toMillis(3))) {
+            if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
                 throw new AssertionError();
             }
         }

@@ -52,6 +52,7 @@ import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedCo
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.rel.IgnitePkLookup;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -282,9 +283,9 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         return result.thenApply(plan -> {
-            assert plan instanceof MultiStepPlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
+            assert plan instanceof ExplainablePlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
 
-            return new ExplainPlan(nextPlanId(), (MultiStepPlan) plan);
+            return new ExplainPlan(nextPlanId(), (ExplainablePlan) plan);
         });
     }
 
@@ -338,6 +339,11 @@ public class PrepareServiceImpl implements PrepareService {
                 IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
+
+                if (clonedTree instanceof IgnitePkLookup) {
+                    return new KeyValueGetPlan(nextPlanId(), (IgnitePkLookup) clonedTree, resultSetMetadata, parameterMetadata);
+                }
+
                 return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
             }, planningPool));
 

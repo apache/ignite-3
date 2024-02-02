@@ -88,6 +88,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -161,6 +162,8 @@ public class ItTxTestCluster {
     private final RaftConfiguration raftConfig;
 
     private final TransactionConfiguration txConfiguration;
+
+    private final StorageUpdateConfiguration storageUpdateConfiguration;
 
     private final Path workDir;
 
@@ -259,6 +262,7 @@ public class ItTxTestCluster {
             TestInfo testInfo,
             RaftConfiguration raftConfig,
             TransactionConfiguration txConfiguration,
+            StorageUpdateConfiguration storageUpdateConfiguration,
             Path workDir,
             int nodes,
             int replicas,
@@ -267,6 +271,7 @@ public class ItTxTestCluster {
     ) {
         this.raftConfig = raftConfig;
         this.txConfiguration = txConfiguration;
+        this.storageUpdateConfiguration = storageUpdateConfiguration;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -532,7 +537,8 @@ public class ItTxTestCluster {
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        indexUpdateHandler
+                        indexUpdateHandler,
+                        storageUpdateConfiguration
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(

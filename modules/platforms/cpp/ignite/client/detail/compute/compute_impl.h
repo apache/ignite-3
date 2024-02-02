@@ -47,15 +47,16 @@ public:
         , m_tables(std::move(tables)) {}
 
     /**
-     * Executes a compute job represented by the given class on the specified node asynchronously.
+     * Executes a compute job represented by the given class on one of the specified node asynchronously. If the node leaves the cluster,
+     * it will be restarted on one of the candidate nodes.
      *
-     * @param node Node to use for the job execution.
+     * @param nodes Candidate node to use for the job execution.
      * @param units Deployment units. Can be empty.
      * @param job_class_name Java class name of the job to execute.
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    void execute_on_one_node(cluster_node node, const std::vector<deployment_unit> &units,
+    void execute_on_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
         std::string_view job_class_name, const std::vector<primitive> &args,
         ignite_callback<std::optional<primitive>> callback);
 

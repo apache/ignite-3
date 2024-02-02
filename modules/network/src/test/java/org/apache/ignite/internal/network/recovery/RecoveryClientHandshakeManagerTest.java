@@ -39,7 +39,9 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelProgressivePromise;
+import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.EventExecutor;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -100,6 +102,9 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     private EventExecutor eventExecutor;
 
     @Mock
+    private EventLoop eventLoop;
+
+    @Mock
     private NettySender competitorNettySender;
 
     @Captor
@@ -116,6 +121,8 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
         lenient().when(thisContext.executor()).thenReturn(eventExecutor);
         lenient().when(eventExecutor.inEventLoop()).thenReturn(true);
+
+        lenient().when(thisChannel.eventLoop()).thenReturn(eventLoop);
 
         lenient().when(recoveryDescriptorProvider.getRecoveryDescriptor(any(), any(), anyShort()))
                 .thenReturn(recoveryDescriptor);
@@ -169,6 +176,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
                 CLIENT_CONSISTENT_ID,
                 CONNECTION_INDEX,
                 recoveryDescriptorProvider,
+                () -> List.of(thisChannel.eventLoop()),
                 new AllIdsAreFresh(),
                 channelCreationListener,
                 stopping

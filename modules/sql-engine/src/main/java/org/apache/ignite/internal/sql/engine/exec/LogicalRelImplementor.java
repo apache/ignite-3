@@ -396,7 +396,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 idx,
                 scannableTable,
                 tbl.descriptor(),
-                group.partitionsWithTerms(ctx.localNode().name()),
+                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
                 comp,
                 ranges,
                 filters,
@@ -437,7 +437,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 rowFactory,
                 scannableTable,
-                group.partitionsWithTerms(ctx.localNode().name()),
+                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
@@ -657,7 +657,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         IgniteTable table = rel.getTable().unwrapOrThrow(IgniteTable.class);
         UpdatableTable updatableTable = resolvedDependencies.updatableTable(table.id());
 
-        ModifyNode<RowT> node = new ModifyNode<>(ctx, updatableTable, rel.getOperation(), rel.getUpdateColumnList());
+        ModifyNode<RowT> node = new ModifyNode<>(ctx, updatableTable, rel.sourceId(), rel.getOperation(), rel.getUpdateColumnList());
 
         Node<RowT> input = visit(rel.getInput());
 

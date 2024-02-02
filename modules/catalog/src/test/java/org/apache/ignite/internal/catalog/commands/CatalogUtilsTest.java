@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
@@ -29,16 +30,20 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -47,6 +52,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -189,6 +195,10 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         dropIndex(indexName1);
 
+        int catalogVersionBeforeRemoveIndex1 = catalogManager.latestCatalogVersion();
+
+        removeIndex(indexName1);
+
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
         int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
 
@@ -199,15 +209,16 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
         );
 
-        assertThat(
-                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                hasItems(
-                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                        index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
-                        index(catalogManager, catalogVersionBeforeDropIndex1, indexName1),
-                        index(catalogManager, catalogVersionBeforeDropIndex1, indexName2)
-                )
+        Collection<CatalogIndexDescriptor> collectedIndexes = collectIndexes(
+                catalogManager,
+                tableId,
+                earliestCatalogVersion,
+                latestCatalogVersion
         );
+        assertThat(collectedIndexes, hasItem(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME)));
+        assertThat(collectedIndexes, hasItem(index(catalogManager, catalogVersionBeforeDropIndex0, indexName0)));
+        assertThat(collectedIndexes, hasItem(index(catalogManager, catalogVersionBeforeRemoveIndex1, indexName1)));
+        assertThat(collectedIndexes, hasItem(index(catalogManager, catalogVersionBeforeDropIndex1, indexName2)));
     }
 
     /**
@@ -249,9 +260,11 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         makeIndexAvailable(indexName0);
         makeIndexAvailable(indexName2);
 
-        int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
-
         dropIndex(indexName0);
+
+        int catalogVersionBeforeRemoveIndex0 = catalogManager.latestCatalogVersion();
+
+        removeIndex(indexName0);
 
         int catalogVersionBeforeDropIndex3 = catalogManager.latestCatalogVersion();
 
@@ -271,16 +284,17 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 )
         );
 
-        assertThat(
-                collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                hasItems(
-                        index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
-                        index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
-                        index(catalogManager, latestCatalogVersion, indexName1),
-                        index(catalogManager, latestCatalogVersion, indexName2),
-                        index(catalogManager, catalogVersionBeforeDropIndex3, indexName3)
-                )
+        Collection<CatalogIndexDescriptor> collectedIndexes = collectIndexes(
+                catalogManager,
+                tableId,
+                earliestCatalogVersion,
+                latestCatalogVersion
         );
+        assertThat(collectedIndexes, hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME)));
+        assertThat(collectedIndexes, hasItems(index(catalogManager, catalogVersionBeforeRemoveIndex0, indexName0)));
+        assertThat(collectedIndexes, hasItems(index(catalogManager, latestCatalogVersion, indexName1)));
+        assertThat(collectedIndexes, hasItems(index(catalogManager, latestCatalogVersion, indexName2)));
+        assertThat(collectedIndexes, hasItems(index(catalogManager, catalogVersionBeforeDropIndex3, indexName3)));
     }
 
     @Test
@@ -323,6 +337,19 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         Exception e = assertThrows(CatalogValidationException.class, () -> replaceTable(schema, table));
 
         assertThat(e.getMessage(), is(String.format("Table with ID %d has not been found in schema with ID %d", Integer.MAX_VALUE, 0)));
+    }
+
+    @Test
+    void testClusterWideEnsuredActivationTimestamp() {
+        createTable(TABLE_NAME);
+
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+        HybridTimestamp expClusterWideActivationTs = HybridTimestamp.hybridTimestamp(catalog.time())
+                .addPhysicalTime(HybridTimestamp.maxClockSkew())
+                .roundUpToPhysicalTick();
+
+        assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog));
     }
 
     private void createTable(String tableName) {
@@ -372,6 +399,18 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         CatalogCommand catalogCommand = DropIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .indexName(indexName)
+                .build();
+
+        assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
+    }
+
+    private void removeIndex(String indexName) {
+        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, HybridTimestamp.MAX_VALUE.longValue());
+
+        assertThat(indexDescriptor, is(notNullValue()));
+
+        CatalogCommand catalogCommand = RemoveIndexCommand.builder()
+                .indexId(indexDescriptor.id())
                 .build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());

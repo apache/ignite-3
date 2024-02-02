@@ -43,7 +43,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public final Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor schema = schemaByIndexId(catalog, indexId);
 
         return new Catalog(
@@ -64,7 +64,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
         );
     }
 
-    private static CatalogSchemaDescriptor schemaByIndexId(Catalog catalog, int indexId) {
+    static CatalogSchemaDescriptor schemaByIndexId(Catalog catalog, int indexId) {
         CatalogIndexDescriptor index = catalog.index(indexId);
 
         assert index != null : indexId;
@@ -106,8 +106,9 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 index.name(),
                 index.tableId(),
                 index.unique(),
-                index.columns(),
-                newStatus
+                newStatus,
+                index.creationCatalogVersion(),
+                index.columns()
         );
     }
 
@@ -117,8 +118,9 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 index.name(),
                 index.tableId(),
                 index.unique(),
-                index.columns(),
-                newStatus
+                newStatus,
+                index.creationCatalogVersion(),
+                index.columns()
         );
     }
 }

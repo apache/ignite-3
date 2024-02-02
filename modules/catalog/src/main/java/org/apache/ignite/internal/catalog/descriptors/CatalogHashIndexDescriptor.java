@@ -36,11 +36,12 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
+     * @param creationCatalogVersion Catalog version in which the index was created.
      * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        this(id, name, tableId, unique, columns, REGISTERED);
+    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, int creationCatalogVersion, List<String> columns) {
+        this(id, name, tableId, unique, REGISTERED, creationCatalogVersion, columns);
     }
 
     /**
@@ -50,12 +51,21 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param columns A list of indexed columns. Must not contains duplicates.
      * @param status Index status.
+     * @param creationCatalogVersion Catalog version in which the index was created.
+     * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns, CatalogIndexStatus status) {
-        super(id, name, tableId, unique, status);
+    public CatalogHashIndexDescriptor(
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            CatalogIndexStatus status,
+            int creationCatalogVersion,
+            List<String> columns
+    ) {
+        super(id, name, tableId, unique, status, creationCatalogVersion);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }
@@ -67,8 +77,6 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogHashIndexDescriptor.class, this, super.toString());
     }
 }
-
-
