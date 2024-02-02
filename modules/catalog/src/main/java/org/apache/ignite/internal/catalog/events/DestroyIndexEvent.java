@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog.events;
 
 import org.apache.ignite.internal.catalog.storage.Fireable;
 
-/** {@link CatalogEvent#INDEX_DESTROY} event. */
+/** {@link CatalogEvent#INDEX_REMOVED} event. */
 public class DestroyIndexEvent implements Fireable {
     private final int indexId;
     private final int tableId;
@@ -37,11 +37,11 @@ public class DestroyIndexEvent implements Fireable {
 
     @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.INDEX_DESTROY;
+        return CatalogEvent.INDEX_REMOVED;
     }
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DestroyIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
+        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
     }
 }

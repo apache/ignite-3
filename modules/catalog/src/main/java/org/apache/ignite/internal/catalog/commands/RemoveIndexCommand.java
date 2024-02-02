@@ -64,7 +64,7 @@ public class RemoveIndexCommand implements CatalogCommand {
             throw new CatalogValidationException("Cannot remove index {} because its status is {}", indexId, index.status());
         }
 
-        return List.of(new RemoveIndexEntry(indexId));
+        return List.of(new RemoveIndexEntry(indexId, index.tableId()));
     }
 
     private static class Builder implements RemoveIndexCommandBuilder {

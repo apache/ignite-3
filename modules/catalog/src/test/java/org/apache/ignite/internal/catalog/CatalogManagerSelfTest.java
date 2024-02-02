@@ -132,7 +132,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
-import org.apache.ignite.internal.catalog.events.DestroyIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
@@ -1235,7 +1234,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.INDEX_AVAILABLE, eventListener);
         manager.listen(CatalogEvent.INDEX_STOPPING, eventListener);
         manager.listen(CatalogEvent.INDEX_REMOVED, eventListener);
-        manager.listen(CatalogEvent.INDEX_DESTROY, eventListener);
 
         // Try to create index without table.
         assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundValidationException.class));
@@ -1272,7 +1270,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Index destroyed after Catalog compaction.
         waitCatalogCompaction(manager, clock.nowLong());
-        verify(eventListener).notify(any(DestroyIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(RemoveIndexEventParameters.class), isNull());
 
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);

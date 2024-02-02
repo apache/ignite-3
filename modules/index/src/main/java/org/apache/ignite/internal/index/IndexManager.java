@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_STOPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -50,8 +51,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.DestroyIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -158,6 +159,14 @@ public class IndexManager implements IgniteComponent {
             return falseCompletedFuture();
         });
 
+        catalogManager.listen(INDEX_REMOVED, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
+
+            return onIndexDrop((RemoveIndexEventParameters) parameters);
+        });
+
         LOG.info("Index manager started");
 
         return nullCompletedFuture();
@@ -206,7 +215,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     // TODO: IGNITE-20121 Unregister index only before we physically start deleting the index before truncate catalog
-    private CompletableFuture<Boolean> onIndexDrop(StoppingIndexEventParameters parameters) {
+    private CompletableFuture<Boolean> onIndexDrop(RemoveIndexEventParameters parameters) {
         int indexId = parameters.indexId();
         int tableId = parameters.tableId();
 

@@ -79,7 +79,7 @@ public class DropIndexCommand extends AbstractIndexCommand {
         switch (index.status()) {
             case REGISTERED:
             case BUILDING:
-                return List.of(new RemoveIndexEntry(index.id()));
+                return List.of(new RemoveIndexEntry(index.id(), index.tableId()));
             case AVAILABLE:
                 return List.of(new DropIndexEntry(index.id(), index.tableId()));
             case STOPPING:

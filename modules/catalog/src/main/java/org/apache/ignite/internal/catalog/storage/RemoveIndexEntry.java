@@ -36,14 +36,17 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = -6193287919562795933L;
 
     private final int indexId;
+    private final int tableId;
 
     /**
      * Constructs the object.
      *
      * @param indexId An id of an index to drop.
      */
-    public RemoveIndexEntry(int indexId) {
+    public RemoveIndexEntry(int indexId, int tableId) {
         this.indexId = indexId;
+        this.tableId = tableId;
+
     }
 
     @Override
@@ -53,7 +56,7 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new RemoveIndexEventParameters(causalityToken, catalogVersion, indexId);
+        return new RemoveIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
     }
 
     @Override
