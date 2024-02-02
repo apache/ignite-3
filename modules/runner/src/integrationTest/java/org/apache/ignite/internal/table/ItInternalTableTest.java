@@ -477,7 +477,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
     @Test
     public void updateAllWithDeleteTest() {
-        // TODO: Test with a single-column key-only table.
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
         RecordView<Tuple> view = table.recordView();
