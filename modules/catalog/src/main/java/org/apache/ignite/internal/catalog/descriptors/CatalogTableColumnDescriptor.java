@@ -147,7 +147,7 @@ public class CatalogTableColumnDescriptor {
     private static class TableColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
         @Override
         public CatalogTableColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
-            // TODO ticket
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21435 Should not depend on Serializable.
             DefaultValue defaultValue = readSerializableObject(input);
             String name = input.readUTF();
             int typeId = input.readInt();
@@ -165,7 +165,7 @@ public class CatalogTableColumnDescriptor {
 
         @Override
         public void writeTo(CatalogTableColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            // TODO ticket
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21435 Should not depend on Serializable.
             writeSerializableObject(descriptor.defaultValue(), output);
 
             output.writeUTF(descriptor.name());
