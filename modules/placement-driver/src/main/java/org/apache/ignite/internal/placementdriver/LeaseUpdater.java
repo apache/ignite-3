@@ -326,7 +326,7 @@ public class LeaseUpdater {
             renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now)
                     && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
 
-            var currentAssignmentsSize = currentAssignments.size();
+            int currentAssignmentsSize = currentAssignments.size();
 
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
@@ -381,10 +381,10 @@ public class LeaseUpdater {
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
-            var key = PLACEMENTDRIVER_LEASES_KEY;
+            ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
 
-            var shouldLogLeaseStatistics = leaseUpdateStatistics.shouldLogLeaseStatistics();
-            var leasesUpdatedInCurrentIteration = leaseUpdateStatistics.leasesUpdatedInCurrentIteration();
+            boolean shouldLogLeaseStatistics = leaseUpdateStatistics.shouldLogLeaseStatistics();
+            LeaseUpdateStatisticsParameters leasesUpdatedInCurrentIteration = leaseUpdateStatistics.leasesUpdatedInCurrentIteration();
 
             msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
@@ -403,7 +403,7 @@ public class LeaseUpdater {
                     return;
                 }
 
-                var totalLeases = leaseUpdateStatistics.onSuccessfulIteration(leasesUpdatedInCurrentIteration);
+                LeaseUpdateStatisticsParameters totalLeases = leaseUpdateStatistics.onSuccessfulIteration(leasesUpdatedInCurrentIteration);
 
                 if (shouldLogLeaseStatistics) {
                     LOG.info("Leases updated (printed once per " + LeaseUpdateStatistics.PRINT_ONCE_PER_ITERATIONS + " iterations): ["
@@ -535,7 +535,7 @@ public class LeaseUpdater {
          * Should be called only from the updater thread.
          */
         private boolean shouldLogLeaseStatistics() {
-            var result = ++statisticsLogCounter > PRINT_ONCE_PER_ITERATIONS;
+            boolean result = ++statisticsLogCounter > PRINT_ONCE_PER_ITERATIONS;
 
             if (result) {
                 statisticsLogCounter = 0;

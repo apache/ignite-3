@@ -668,7 +668,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     realAssignments[p] = real;
                                 }
 
-                                var realAssignmentsList = asList(realAssignments);
+                                List<Set<Assignment>> realAssignmentsList = asList(realAssignments);
 
                                 LOG.info(IgniteStringFormatter.format("Assignments picked up from meta storage [tableId={}, "
                                         + "assignments={}]", tableId, assignmentListToString(realAssignmentsList)));
