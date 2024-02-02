@@ -70,4 +70,17 @@ public enum CatalogColumnCollation {
     public boolean nullsFirst() {
         return nullsFirst;
     }
+
+    /** Writes collation to byte. */
+    static byte pack(CatalogColumnCollation collation) {
+        return  (byte) ((collation.asc() ? 1 : 0) | (collation.nullsFirst() ? 2 : 0));
+    }
+
+    /** Reads collation from byte. */
+    static CatalogColumnCollation unpack(byte collationBits) {
+        boolean asc = (collationBits & 1) == 1;
+        boolean nullsFirst = (collationBits & 2) == 2;
+
+        return get(asc, nullsFirst);
+    }
 }
