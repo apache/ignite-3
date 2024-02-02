@@ -971,10 +971,10 @@ public class InternalTableImpl implements InternalTable {
                 continue;
             }
 
-            SchemaAware schemaAware = (SchemaAware)row;
+            SchemaAware schemaAware = (SchemaAware) row;
             SchemaDescriptor schema = schemaAware.schema();
 
-            BinaryTupleContainer tupleContainer = (BinaryTupleContainer)row;
+            BinaryTupleContainer tupleContainer = (BinaryTupleContainer) row;
             BinaryTupleReader tuple = tupleContainer.binaryTuple();
 
             var isKeyOnly = schema != null && tuple != null && tuple.elementCount() == schema.keyColumns().length();
