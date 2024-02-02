@@ -490,7 +490,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
                 createKeyRow(3)
         );
 
-        internalTable.upsertAll(rows, null).join();
+        internalTable.updateAll(rows, null).join();
 
         var row1 = view.get(null, Tuple.create().set("key", 1L));
         assertEquals(11, row1.intValue("valInt"));

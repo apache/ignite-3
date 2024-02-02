@@ -236,7 +236,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         return withSchemaSync(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshalPairs(pairs.entrySet(), schemaVersion);
 
-            return tbl.upsertAll(rows, (InternalTransaction) tx);
+            return tbl.updateAll(rows, (InternalTransaction) tx);
         });
     }
 
@@ -690,7 +690,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> {
             return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.upsertAll(marshalPairs(items, schemaVersion), partitionId);
+                return this.tbl.updateAll(marshalPairs(items, schemaVersion), partitionId);
             });
         };
 

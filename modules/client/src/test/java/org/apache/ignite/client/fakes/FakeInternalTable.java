@@ -175,7 +175,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         for (var row : rows) {
             upsert(row, tx);
         }
@@ -185,7 +185,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, int partition) {
         throw new UnsupportedOperationException();
     }
 

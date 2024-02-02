@@ -260,7 +260,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
                 () -> internalTbl.getAndReplace(someRow, tx).get(),
                 () -> internalTbl.getAndUpsert(someRow, tx).get(),
                 () -> internalTbl.upsert(someRow, tx).get(),
-                () -> internalTbl.upsertAll(List.of(someRow), tx).get(),
+                () -> internalTbl.updateAll(List.of(someRow), tx).get(),
                 () -> internalTbl.insert(someRow, tx).get(),
                 () -> internalTbl.insertAll(List.of(someRow), tx).get(),
                 () -> internalTbl.replace(someRow, tx).get(),

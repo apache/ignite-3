@@ -204,7 +204,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         }
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion), (InternalTransaction) tx);
+            return tbl.updateAll(marshalPairs(pairs.entrySet(), schemaVersion), (InternalTransaction) tx);
         });
     }
 
@@ -545,7 +545,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items) -> {
             return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.upsertAll(marshalPairs(items, schemaVersion), partitionId);
+                return this.tbl.updateAll(marshalPairs(items, schemaVersion), partitionId);
             });
         };
 

@@ -219,7 +219,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testUpsertAllDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> internalTable.upsertAll(List.of(createKeyValueRow(3), createKeyValueRow(60)), tx)
+        pureTableScan(tx -> internalTable.updateAll(List.of(createKeyValueRow(3), createKeyValueRow(60)), tx)
                 .thenApply(unused -> 2)
         );
     }

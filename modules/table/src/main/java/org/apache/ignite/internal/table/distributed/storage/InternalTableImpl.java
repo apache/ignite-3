@@ -1019,7 +1019,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
                 rows,
                 tx,
@@ -1032,10 +1032,11 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, int partition) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
+        // TODO: How to indicate deletions?
         CompletableFuture<Void> fut = enlistWithRetry(
                 tx,
                 partition,
