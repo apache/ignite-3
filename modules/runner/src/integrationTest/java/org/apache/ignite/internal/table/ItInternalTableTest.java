@@ -484,17 +484,22 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
 
         // Update, insert, delete.
-
-        // TODO: This fails because numElements is not passed together with the row.
-        // TODO: Update InternalTableImple.serializeBinaryTuples?
-        Row delRow = createKeyRow(3);
         Collection<BinaryRowEx> rows = List.of(
                 createKeyValueRow(1, 11, "val11"),
                 createKeyValueRow(2, 2, "val2"),
-                delRow
+                createKeyRow(3)
         );
 
         internalTable.upsertAll(rows, null).join();
+
+        var row1 = view.get(null, Tuple.create().set("key", 1L));
+        assertEquals(11, row1.intValue("valInt"));
+
+        var row2 = view.get(null, Tuple.create().set("key", 2L));
+        assertEquals(2, row2.intValue("valInt"));
+
+        var row3 = view.get(null, Tuple.create().set("key", 3L));
+        assertNull(row3);
     }
 
     private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
