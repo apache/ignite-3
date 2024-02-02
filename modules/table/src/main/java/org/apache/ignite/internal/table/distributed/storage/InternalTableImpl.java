@@ -967,6 +967,7 @@ public class InternalTableImpl implements InternalTable {
 
         for (BinaryRow row : keys) {
             if (!(row instanceof SchemaAware) || !(row instanceof BinaryTupleContainer)) {
+                assert false : "Unexpected row type: " + row.getClass().getName();
                 continue;
             }
 
