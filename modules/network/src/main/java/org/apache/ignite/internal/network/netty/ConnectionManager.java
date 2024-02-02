@@ -495,7 +495,8 @@ public class ConnectionManager implements ChannelCreationListener {
                     bootstrapFactory,
                     staleIdDetector,
                     this,
-                    stopping::get
+                    stopping::get,
+                    failureProcessor
             );
         }
 

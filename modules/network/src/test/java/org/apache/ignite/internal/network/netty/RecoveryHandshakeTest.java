@@ -688,7 +688,8 @@ public class RecoveryHandshakeTest {
                 () -> List.of(clientSideChannel.eventLoop()),
                 staleIdDetector,
                 channel -> {},
-                () -> false
+                () -> false,
+                mock(FailureProcessor.class)
         );
     }
 

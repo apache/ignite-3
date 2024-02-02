@@ -499,8 +499,11 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
-    private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake,
-            NettyBootstrapFactory bootstrapFactory, StaleIdDetector staleIdDetector) {
+    private RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(
+            Runnable beforeHandshake,
+            NettyBootstrapFactory bootstrapFactory,
+            StaleIdDetector staleIdDetector
+    ) {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
             public RecoveryClientHandshakeManager create(
@@ -517,7 +520,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         bootstrapFactory,
                         staleIdDetector,
                         channel -> {},
-                        () -> false
+                        () -> false,
+                        failureProcessor
                 ) {
                     @Override
                     protected void finishHandshake() {
