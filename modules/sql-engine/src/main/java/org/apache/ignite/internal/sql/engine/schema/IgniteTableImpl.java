@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
@@ -26,6 +27,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.Statistic;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.type.NativeType;
 
 /**
  * Table implementation for sql engine.
@@ -40,6 +42,25 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
 
         super(name, id, version, desc, statistic);
         this.indexMap = indexMap;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Supplier<PartitionCalculator> partitionCalculator() {
+        return () -> {
+            int fieldCnt = descriptor().distribution().getKeys().size();
+            NativeType[] fieldTypes = new NativeType[fieldCnt];
+
+            int[] colocationColumns = descriptor().distribution().getKeys().toIntArray();
+
+            for (int i = 0; i < fieldCnt; i++) {
+                ColumnDescriptor colDesc = descriptor().columnDescriptor(colocationColumns[i]);
+
+                fieldTypes[i] = colDesc.physicalType();
+            }
+
+            return new PartitionCalculator(1, fieldTypes);
+        };
     }
 
     /** {@inheritDoc} */

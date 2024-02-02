@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.function.Supplier;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /**
@@ -37,4 +39,9 @@ public interface ExecutableTable {
      * Returns a descriptor for the table.
      */
     TableDescriptor tableDescriptor();
+
+    default Supplier<PartitionCalculator> partitionCalculator() {
+        // TODO: fix other implementations of ExecutableTable
+        return null;
+    }
 }

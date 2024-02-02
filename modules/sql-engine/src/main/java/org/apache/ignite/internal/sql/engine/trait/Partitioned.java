@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.trait;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.sql.engine.exec.mapping.RowPartitionExtractor;
+import org.apache.ignite.internal.sql.engine.exec.RowPartitionExtractor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -44,7 +44,7 @@ public final class Partitioned<RowT> implements Destination<RowT> {
     /** {@inheritDoc} */
     @Override
     public List<String> targets(RowT row) {
-        int part = calc.getPartition(row);
+        int part = calc.partition(row);
         return assignments.get(part);
     }
 

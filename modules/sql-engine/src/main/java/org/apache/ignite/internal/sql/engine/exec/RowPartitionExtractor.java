@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping;
+package org.apache.ignite.internal.sql.engine.exec;
 
-/** Calculate assignments according to supplied row. */
+/** Calculate partition according to supplied row. */
 @FunctionalInterface
 public interface RowPartitionExtractor<RowT> {
     /**
@@ -25,5 +25,5 @@ public interface RowPartitionExtractor<RowT> {
      *
      * @return Resolved partition.
      */
-    int getPartition(RowT row);
+    int partition(RowT row);
 }

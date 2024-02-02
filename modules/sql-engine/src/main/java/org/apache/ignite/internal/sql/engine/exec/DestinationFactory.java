@@ -23,10 +23,10 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.exec.mapping.RowPartitionExtractorImpl;
-import org.apache.ignite.internal.sql.engine.exec.mapping.TypeAwareRowPartitionExtractor;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
@@ -92,18 +92,17 @@ class DestinationFactory<RowT> {
                 assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
 
                 List<String> assignments = Commons.transform(group.assignments(), NodeWithTerm::name);
-
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();
-
+                    Supplier<PartitionCalculator> calculator = dependencies.partitionCalculator(tableId);
                     TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
 
-                    var resolver = new TypeAwareRowPartitionExtractor<>(assignments.size(), keys.toIntArray(), tableDescriptor, rowHandler);
+                    var resolver = new TablePartitionExtractor<>(calculator.get(), keys.toIntArray(), tableDescriptor, rowHandler);
 
                     return new Partitioned<>(assignments, resolver);
                 }
 
-                var resolver = new RowPartitionExtractorImpl<>(group.nodeNames().size(), keys.toIntArray(), rowHandler);
+                var resolver = new RehashingPartitionExtractor<>(group.nodeNames().size(), keys.toIntArray(), rowHandler);
 
                 return new Partitioned<>(group.nodeNames(), resolver);
             }

@@ -15,31 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping;
+package org.apache.ignite.internal.sql.engine.exec;
 
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.util.IgniteUtils;
 
-/** Resolves partition according to incoming row, only colocation columns are used. */
-public class RowPartitionExtractorImpl<RowT> implements RowPartitionExtractor<RowT> {
+/** Extract assignment based on incoming row. */
+public class RehashingPartitionExtractor<RowT> implements RowPartitionExtractor<RowT> {
+    private final int targetCount;
+    private final int[] fields;
     private final RowHandler<RowT> rowHandler;
-    private final AssignmentExtractor resolver;
-    private final int[] keys;
 
     /** Constructor. */
-    public RowPartitionExtractorImpl(int partitions, int[] keys, RowHandler<RowT> rowHandler) {
-        resolver = new AssignmentExtractor(partitions, keys.length);
-
+    public RehashingPartitionExtractor(
+            int targetCount,
+            int[] fields,
+            RowHandler<RowT> rowHandler
+    ) {
+        this.targetCount = targetCount;
+        this.fields = fields;
         this.rowHandler = rowHandler;
-        this.keys = keys;
     }
 
     /** {@inheritDoc} */
     @Override
-    public int getPartition(RowT row) {
-        for (int idx : keys) {
-            resolver.append(rowHandler.get(idx, row));
+    public int partition(RowT row) {
+        int hash = 0;
+        for (int columnId : fields) {
+            Object value = rowHandler.get(columnId, row);
+
+            hash = 31 * hash + (value == null ? 0 : value.hashCode());
         }
 
-        return resolver.getAssignment();
+        return IgniteUtils.safeAbs(hash) % targetCount;
     }
 }
