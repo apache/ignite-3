@@ -32,7 +32,8 @@ class ReplicatorUtils {
     /**
      * Looks for the latest index with {@link CatalogIndexStatus#BUILDING} for the table, {@code null} if missing.
      *
-     * <p>NOTE: It is expected that the method will be executed in the metastore thread so that the catalog does not change.</p>
+     * <p>NOTE: It is expected that the method will be executed in the metastore thread so that the catalog does not change
+     * concurrently.</p>
      *
      * @param catalogService Catalog service.
      * @param tableId Table ID.

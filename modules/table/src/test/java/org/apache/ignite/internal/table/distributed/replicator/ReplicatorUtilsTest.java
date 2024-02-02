@@ -85,14 +85,14 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
         withCatalogManager(catalogManager -> {
             createSimpleTable(catalogManager, TABLE_NAME);
 
-            int tableId = getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
+            int tableId = tableId(catalogManager, TABLE_NAME);
 
             assertNull(latestIndexDescriptorInBuildingStatus(catalogManager, tableId));
 
             createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
             assertNull(latestIndexDescriptorInBuildingStatus(catalogManager, tableId));
 
-            int indexId = getIndexIdStrict(catalogManager, INDEX_NAME, clock.nowLong());
+            int indexId = indexId(catalogManager, INDEX_NAME);
 
             startBuildingIndex(catalogManager, indexId);
             assertEquals(indexId, latestIndexDescriptorInBuildingStatus(catalogManager, tableId).id());
@@ -100,8 +100,30 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
             makeIndexAvailable(catalogManager, indexId);
             assertEquals(indexId, latestIndexDescriptorInBuildingStatus(catalogManager, tableId).id());
 
-            createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME + "_ONE_MORE");
+            String otherIndexName = INDEX_NAME + 1;
+
+            createSimpleHashIndex(catalogManager, TABLE_NAME, otherIndexName);
             assertEquals(indexId, latestIndexDescriptorInBuildingStatus(catalogManager, tableId).id());
+
+            int otherIndexId = indexId(catalogManager, otherIndexName);
+
+            startBuildingIndex(catalogManager, otherIndexId);
+            assertEquals(otherIndexId, latestIndexDescriptorInBuildingStatus(catalogManager, tableId).id());
+        });
+    }
+
+    @Test
+    void testLatestIndexDescriptorInBuildingStatusForOtherTable() throws Exception {
+        withCatalogManager(catalogManager -> {
+            String otherTableName = TABLE_NAME + 1;
+
+            createSimpleTable(catalogManager, TABLE_NAME);
+            createSimpleTable(catalogManager, otherTableName);
+
+            createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+            startBuildingIndex(catalogManager, indexId(catalogManager, INDEX_NAME));
+
+            assertNull(latestIndexDescriptorInBuildingStatus(catalogManager, tableId(catalogManager, otherTableName)));
         });
     }
 
@@ -123,5 +145,13 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
         } finally {
             closeAll(catalogManager::beforeNodeStop, catalogManager::stop);
         }
+    }
+
+    private int indexId(CatalogService catalogService, String indexName) {
+        return getIndexIdStrict(catalogService, indexName, clock.nowLong());
+    }
+
+    private int tableId(CatalogService catalogService, String tableName) {
+        return getTableIdStrict(catalogService, tableName, clock.nowLong());
     }
 }
