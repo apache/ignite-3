@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.Collections.synchronizedList;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertExceptionIsExpected;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -2216,21 +2214,17 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         CyclicBarrier b = new CyclicBarrier(threadNum);
         CountDownLatch finishLatch = new CountDownLatch(1);
 
-        List<Exception> enlistExceptions = synchronizedList(new ArrayList<>());
-
         var futEnlists = runMultiThreadedAsync(() -> {
             finishLatch.await();
             var rnd = ThreadLocalRandom.current();
 
-            try {
+            IgniteTestUtils.assertThrows(TransactionException.class, TX_ALREADY_FINISHED_ERR, () -> {
                 if (rnd.nextBoolean()) {
                     rv.upsert(tx, makeValue(2, 200.));
                 } else {
                     rv.get(tx, makeKey(1));
                 }
-            } catch (Exception e) {
-                enlistExceptions.add(e);
-            }
+            }, "Transaction is already finished");
 
             return null;
         }, threadNum, "txCommitTestThread");
@@ -2247,12 +2241,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertThat(futFinishes, willSucceedFast());
         assertThat(futEnlists, willSucceedFast());
-
-        assertEquals(threadNum, enlistExceptions.size());
-
-        for (var e : enlistExceptions) {
-            assertExceptionIsExpected(TransactionException.class, TX_ALREADY_FINISHED_ERR, "Transaction is already finished", e);
-        }
 
         assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
     }

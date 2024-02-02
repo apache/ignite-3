@@ -24,7 +24,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -287,6 +286,39 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Checks whether runnable throws the correct {@link IgniteException}, which is itself of a specified class.
+     *
+     * @param expectedClass Expected exception class.
+     * @param expectedErrorCode Expected error code of the {@link IgniteException}.
+     * @param run Runnable to check.
+     * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrows(
+            Class<? extends IgniteException> expectedClass,
+            int expectedErrorCode,
+            Executable run,
+            @Nullable String errorMessageFragment
+    ) {
+        try {
+            run.execute();
+        } catch (Throwable throwable) {
+            assertInstanceOf(expectedClass, throwable);
+
+            IgniteException igniteException = (IgniteException) throwable;
+            assertEquals(expectedErrorCode, igniteException.code());
+
+            if (errorMessageFragment != null) {
+                assertThat(throwable.getMessage(), containsString(errorMessageFragment));
+            }
+
+            return throwable;
+        }
+
+        throw new AssertionError("Exception has not been thrown.");
+    }
+
+    /**
      * Checks whether runnable throws exception, which is itself of a specified class, or has a cause of the specified class.
      *
      * @param run Runnable to check.
@@ -324,35 +356,6 @@ public final class IgniteTestUtils {
         }
 
         throw new AssertionError("Exception has not been thrown.");
-    }
-
-    /**
-     * Checks the given {@link IgniteException} that it is the instance of the correct class, has the correct code and message.
-     * If the exception is incorrect, {@link AssertionError} is thrown and the incorrect exception is added to suppressed exceptions.
-     *
-     * @param expectedClass Expected class of the exception.
-     * @param expectedErrorCode Expected error code of the {@link IgniteException}.
-     * @param expectedMessageSubstring A substring that must be contained in the error message of the exception.
-     * @param exception Exception to check.
-     */
-    public static void assertExceptionIsExpected(
-            Class<? extends IgniteException> expectedClass,
-            int expectedErrorCode,
-            String expectedMessageSubstring,
-            Exception exception
-    ) {
-        try {
-            assertInstanceOf(expectedClass, exception);
-
-            IgniteException igniteException = (IgniteException) exception;
-            assertEquals(expectedErrorCode, igniteException.code());
-
-            assertTrue(exception.getMessage().contains(expectedMessageSubstring));
-        } catch (AssertionError error) {
-            error.addSuppressed(exception);
-
-            throw error;
-        }
     }
 
     /**
