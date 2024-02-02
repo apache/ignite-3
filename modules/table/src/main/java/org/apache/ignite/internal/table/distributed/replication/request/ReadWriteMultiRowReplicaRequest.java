@@ -31,4 +31,11 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
      * @return {@code True} to disable the delayed ack optimization.
      */
     boolean skipDelayedAck();
+
+    /**
+     * A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
+     *
+     * @return A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
+     */
+    byte[] binaryTuplesOperationTypes();
 }
