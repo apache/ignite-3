@@ -140,7 +140,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx1,
-                internalTable.scan(PART_ID, tx1.id(), tx1.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
+                internalTable.scan(
+                        PART_ID,
+                        tx1.id(),
+                        tx1.commitPartition(),
+                        tx1.coordinatorId(),
+                        recipient,
+                        sortedIndexId,
+                        null,
+                        null,
+                        0,
+                        null
+                )
         );
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
@@ -416,7 +427,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx,
-                internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
+                internalTable.scan(
+                        PART_ID,
+                        tx.id(),
+                        tx.commitPartition(),
+                        tx.coordinatorId(),
+                        recipient,
+                        sortedIndexId,
+                        null,
+                        null,
+                        0,
+                        null
+                )
         );
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
@@ -444,7 +466,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                 tx,
-                internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
+                internalTable.scan(
+                        PART_ID,
+                        tx.id(),
+                        tx.commitPartition(),
+                        tx.coordinatorId(),
+                        recipient,
+                        sortedIndexId,
+                        null,
+                        null,
+                        0,
+                        null
+                )
         );
 
         assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
@@ -476,6 +509,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                         PART_ID,
                         tx.id(),
                         tx.commitPartition(),
+                        tx.coordinatorId(),
                         recipient,
                         soredIndexId,
                         lowBound,
@@ -503,6 +537,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                         PART_ID,
                         tx.id(),
                         tx.commitPartition(),
+                        tx.coordinatorId(),
                         recipient,
                         soredIndexId,
                         lowBound,
@@ -557,7 +592,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
                 Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
-                        internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
+                        internalTable.scan(
+                                PART_ID,
+                                tx.id(),
+                                tx.commitPartition(),
+                                tx.coordinatorId(),
+                                recipient,
+                                sortedIndexId,
+                                null,
+                                null,
+                                0,
+                                null
+                        )
                 );
 
                 // Non-thread-safe collection is fine, HB is guaranteed by "Thread#join" inside of "runRace".
@@ -583,7 +629,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
                 Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                         tx,
-                        internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
+                        internalTable.scan(
+                                PART_ID,
+                                tx.id(),
+                                tx.commitPartition(),
+                                tx.coordinatorId(),
+                                recipient,
+                                sortedIndexId,
+                                null,
+                                null,
+                                0,
+                                null
+                        )
                 );
 
                 assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
@@ -664,7 +721,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
                 publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
-                        internalTable.scan(PART_ID, tx.id(), tx.commitPartition(), recipient, sortedIndexId, null, null, 0, null)
+                        internalTable.scan(
+                                PART_ID,
+                                tx.id(),
+                                tx.commitPartition(),
+                                tx.coordinatorId(),
+                                recipient,
+                                sortedIndexId,
+                                null,
+                                null,
+                                0,
+                                null
+                        )
                 );
             }
 

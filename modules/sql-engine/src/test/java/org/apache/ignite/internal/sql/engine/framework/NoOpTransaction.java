@@ -131,6 +131,11 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
+    public String coordinatorId() {
+        return clusterNode().id();
+    }
+
+    @Override
     public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
         return tuple;
     }

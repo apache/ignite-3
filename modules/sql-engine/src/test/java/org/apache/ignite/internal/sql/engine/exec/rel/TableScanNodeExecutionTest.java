@@ -62,7 +62,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -217,8 +216,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     1,
                     Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
-                    new SingleClusterNodeResolver(DummyInternalTableImpl.LOCAL_NODE),
-                    DummyInternalTableImpl.LOCAL_NODE,
+                    new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,
                     mock(MvTableStorage.class),
                     mock(TxStateTableStorage.class),

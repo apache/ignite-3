@@ -250,7 +250,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 new SingleClusterNodeResolver(LOCAL_NODE),
-                LOCAL_NODE,
                 txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),

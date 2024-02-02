@@ -105,7 +105,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         idGenerator = new TransactionIdGenerator(LOCAL_NODE.name().hashCode());
 
-        txMessageSender = spy(new TxMessageSender(messagingService, topologyService, replicaService, clock));
+        txMessageSender = spy(new TxMessageSender(messagingService, replicaService, clock));
 
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
 

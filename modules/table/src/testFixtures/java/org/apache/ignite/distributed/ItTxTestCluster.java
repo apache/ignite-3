@@ -215,8 +215,6 @@ public class ItTxTestCluster {
 
     protected IgniteTransactions igniteTransactions;
 
-    protected ClusterNode localNode;
-
     protected String localNodeName;
 
     private final ClusterNodeResolver nodeResolver = new ClusterNodeResolver() {
@@ -400,9 +398,7 @@ public class ItTxTestCluster {
 
         LOG.info("Partition groups have been started");
 
-        localNode = cluster.get(0).topologyService().localMember();
-
-        localNodeName = localNode.name();
+        localNodeName = cluster.get(0).topologyService().localMember().name();
 
         if (startClient) {
             initializeClientTxComponents();
@@ -493,7 +489,6 @@ public class ItTxTestCluster {
                 TxMessageSender txMessageSender =
                         new TxMessageSender(
                                 clusterServices.get(assignment).messagingService(),
-                                clusterServices.get(assignment).topologyService(),
                                 replicaServices.get(assignment),
                                 clocks.get(assignment)
                         );
@@ -656,7 +651,6 @@ public class ItTxTestCluster {
                         clients,
                         1,
                         nodeResolver,
-                        localNode,
                         clientTxManager,
                         mock(MvTableStorage.class),
                         mock(TxStateTableStorage.class),
@@ -888,7 +882,7 @@ public class ItTxTestCluster {
                 nodeResolver,
                 client.messagingService(),
                 placementDriver,
-                new TxMessageSender(client.messagingService(), client.topologyService(), clientReplicaSvc, clientClock)
+                new TxMessageSender(client.messagingService(), clientReplicaSvc, clientClock)
         );
 
         clientTxStateResolver.start();

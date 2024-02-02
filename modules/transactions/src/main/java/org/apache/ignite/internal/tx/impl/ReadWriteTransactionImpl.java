@@ -69,8 +69,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      */
-    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
-        super(txManager, id);
+    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id, String txCoordinatorId) {
+        super(txManager, id, txCoordinatorId);
 
         this.observableTsTracker = observableTsTracker;
     }

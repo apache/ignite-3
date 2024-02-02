@@ -129,7 +129,6 @@ import org.apache.ignite.internal.table.distributed.raft.UnexpectedTransactionSt
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.CommittableTxRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
@@ -438,14 +437,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             assert ((SchemaVersionAwareReplicaRequest) request).schemaVersion() > 0 : "No schema version passed?";
         }
 
-        if (request instanceof CommittableTxRequest) {
-            var req = (CommittableTxRequest) request;
+        if (request instanceof ReadWriteReplicaRequest) {
+            var req = (ReadWriteReplicaRequest) request;
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
                 txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
                         PENDING,
-                        req.txCoordinatorId(),
+                        req.coordinatorId(),
                         req.commitPartitionId().asTablePartitionId(),
                         null
                 ));
@@ -677,7 +676,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // If they don't fit the bucket, the transaction is treated as 2pc.
             txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
                     PENDING,
-                    req.txCoordinatorId(),
+                    req.coordinatorId(),
                     req.commitPartitionId().asTablePartitionId(),
                     null
             ));
@@ -2429,7 +2428,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             request.commitPartitionId(),
                                             request.transactionId(),
                                             request.full(),
-                                            request.txCoordinatorId(),
+                                            request.coordinatorId(),
                                             catalogVersion,
                                             request.skipDelayedAck()
                                     )
@@ -2649,7 +2648,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 lastCommitTimestamp,
                 request.transactionId(),
                 request.full(),
-                request.txCoordinatorId(),
+                request.coordinatorId(),
                 catalogVersion
         );
     }
@@ -2776,7 +2775,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 request.commitPartitionId(),
                 request.transactionId(),
                 request.full(),
-                request.txCoordinatorId(),
+                request.coordinatorId(),
                 catalogVersion,
                 request.skipDelayedAck()
         );
@@ -3039,7 +3038,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             lastCommitTime,
                                             request.transactionId(),
                                             request.full(),
-                                            request.txCoordinatorId(),
+                                            request.coordinatorId(),
                                             catalogVersion
                                     )
                             )
@@ -3063,7 +3062,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             lastCommitTime,
                                             request.transactionId(),
                                             request.full(),
-                                            request.txCoordinatorId(),
+                                            request.coordinatorId(),
                                             catalogVersion
                                     )
                             )
@@ -3303,7 +3302,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                     lastCommitTime,
                                                     txId,
                                                     request.full(),
-                                                    request.txCoordinatorId(),
+                                                    request.coordinatorId(),
                                                     catalogVersion
                                             )
                                     )

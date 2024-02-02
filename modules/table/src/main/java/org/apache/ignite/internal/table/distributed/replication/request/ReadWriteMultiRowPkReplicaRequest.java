@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * Read-write multi-row replica request involving table's Primary Keys.
  */
 @Transferable(TableMessageGroup.RW_MULTI_ROW_PK_REPLICA_REQUEST)
-public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadWriteReplicaRequest {
     /**
      * Disable delayed ack optimization.
      *

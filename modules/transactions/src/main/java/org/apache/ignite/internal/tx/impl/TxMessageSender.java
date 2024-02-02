@@ -33,7 +33,6 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,9 +48,6 @@ public class TxMessageSender {
     /** Messaging service. */
     private final MessagingService messagingService;
 
-    /** Topology service. */
-    private final TopologyService topologyService;
-
     /** Replica service. */
     private final ReplicaService replicaService;
 
@@ -62,18 +58,11 @@ public class TxMessageSender {
      * Constructor.
      *
      * @param messagingService Messaging service.
-     * @param topologyService Topology service.
      * @param replicaService Replica service.
      * @param clock A hybrid logical clock.
      */
-    public TxMessageSender(
-            MessagingService messagingService,
-            TopologyService topologyService,
-            ReplicaService replicaService,
-            HybridClock clock
-    ) {
+    public TxMessageSender(MessagingService messagingService, ReplicaService replicaService, HybridClock clock) {
         this.messagingService = messagingService;
-        this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.clock = clock;
     }
@@ -139,21 +128,23 @@ public class TxMessageSender {
     /**
      * Send a transactions finish request.
      *
-     * @param primaryConsistentId Node id to send the request to.
+     * @param primaryConsistentId Node consistent id to send the request to.
+     * @param coordinatorId Node id of the transaction coordinator.
      * @param commitPartition Partition to store a transaction state.
      * @param replicationGroupIds Enlisted partition groups.
      * @param txId Transaction id.
-     * @param term Raft term.
+     * @param consistencyToken Enlistment consistency token.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of {@link TransactionResult}.
      */
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
+            String coordinatorId,
             TablePartitionId commitPartition,
             Collection<ReplicationGroupId> replicationGroupIds,
             UUID txId,
-            Long term,
+            Long consistencyToken,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
@@ -166,8 +157,8 @@ public class TxMessageSender {
                         .groups(replicationGroupIds)
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                        .enlistmentConsistencyToken(term)
-                        .txCoordinatorId(topologyService.localMember().id())
+                        .enlistmentConsistencyToken(consistencyToken)
+                        .txCoordinatorId(coordinatorId)
                         .build());
     }
 

@@ -271,7 +271,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 partRafts,
                 PARTS,
                 new SingleClusterNodeResolver(clusterNode),
-                clusterNode,
                 txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),

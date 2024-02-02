@@ -170,8 +170,6 @@ public class InternalTableImpl implements InternalTable {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    private final ClusterNode localNode;
-
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> safeTimeTrackerByPartitionId = emptyMap();
 
@@ -186,7 +184,6 @@ public class InternalTableImpl implements InternalTable {
      * @param partMap Map partition id to raft group.
      * @param partitions Partitions.
      * @param clusterNodeResolver Cluster node resolver.
-     * @param localNode Local node.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
      * @param txStateStorage Transaction state storage.
@@ -200,7 +197,6 @@ public class InternalTableImpl implements InternalTable {
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
-            ClusterNode localNode,
             TxManager txManager,
             MvTableStorage tableStorage,
             TxStateTableStorage txStateStorage,
@@ -222,7 +218,6 @@ public class InternalTableImpl implements InternalTable {
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
-        this.localNode = localNode;
     }
 
     /** {@inheritDoc} */
@@ -252,10 +247,6 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public void name(String newName) {
         this.tableName = newName;
-    }
-
-    private String txCoordinatorId() {
-        return localNode.id();
     }
 
     /**
@@ -462,7 +453,7 @@ public class InternalTableImpl implements InternalTable {
                         .batchSize(batchSize)
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(tx.coordinatorId())
                         .build();
 
         if (primaryReplicaAndConsistencyToken != null) {
@@ -795,7 +786,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RW_GET)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> false,
                 false
@@ -927,7 +918,7 @@ public class InternalTableImpl implements InternalTable {
                 .requestType(requestType)
                 .timestampLong(clock.nowLong())
                 .full(full)
-                .txCoordinatorId(txCoordinatorId())
+                .coordinatorId(tx.coordinatorId())
                 .build();
     }
 
@@ -994,7 +985,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_UPSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> false,
                 false
@@ -1048,7 +1039,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> false,
                 false
@@ -1071,7 +1062,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_INSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res,
                 false
@@ -1121,7 +1112,7 @@ public class InternalTableImpl implements InternalTable {
                 .requestType(requestType)
                 .timestampLong(clock.nowLong())
                 .full(full)
-                .txCoordinatorId(txCoordinatorId())
+                .coordinatorId(tx.coordinatorId())
                 .build();
     }
 
@@ -1141,7 +1132,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res,
                 false
@@ -1168,7 +1159,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_REPLACE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res,
                 false
@@ -1191,7 +1182,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> res == null,
                 false
@@ -1214,7 +1205,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_DELETE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res,
                 false
@@ -1237,7 +1228,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res,
                 false
@@ -1260,7 +1251,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .txCoordinatorId(txCoordinatorId())
+                        .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> res == null,
                 false
@@ -1340,12 +1331,25 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String coordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, commitPartition, recipient, indexId, key, null, null, 0, columnsToInclude);
+        return scan(
+                partId,
+                txId,
+                commitPartition,
+                coordinatorId,
+                recipient,
+                indexId,
+                key,
+                null,
+                null,
+                0,
+                columnsToInclude
+        );
     }
 
     @Override
@@ -1464,6 +1468,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String coordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -1471,13 +1476,26 @@ public class InternalTableImpl implements InternalTable {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, commitPartition, recipient, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+        return scan(
+                partId,
+                txId,
+                commitPartition,
+                coordinatorId,
+                recipient,
+                indexId,
+                null,
+                lowerBound,
+                upperBound,
+                flags,
+                columnsToInclude
+        );
     }
 
     private Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String coordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuple exactKey,
@@ -1505,7 +1523,7 @@ public class InternalTableImpl implements InternalTable {
                             .enlistmentConsistencyToken(recipient.enlistmentConsistencyToken())
                             .full(false) // Set explicitly.
                             .commitPartitionId(serializeTablePartitionId(commitPartition))
-                            .txCoordinatorId(txCoordinatorId())
+                            .coordinatorId(coordinatorId)
                             .build();
 
                     return replicaSvc.invoke(recipient.node(), request);

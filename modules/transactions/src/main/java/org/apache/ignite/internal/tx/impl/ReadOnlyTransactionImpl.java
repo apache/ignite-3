@@ -55,9 +55,10 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             TxManagerImpl txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
+            String txCoordinatorId,
             HybridTimestamp readTimestamp
     ) {
-        super(txManager, id);
+        super(txManager, id, txCoordinatorId);
 
         this.readTimestamp = readTimestamp;
         this.observableTsTracker = observableTsTracker;

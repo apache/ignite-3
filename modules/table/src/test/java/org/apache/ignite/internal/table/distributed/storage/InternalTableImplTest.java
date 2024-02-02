@@ -43,7 +43,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -59,15 +58,12 @@ import org.junit.jupiter.api.Test;
 public class InternalTableImplTest extends BaseIgniteAbstractTest {
     @Test
     void testUpdatePartitionTrackers() {
-        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
-
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
                 Int2ObjectMaps.emptyMap(),
                 1,
-                new SingleClusterNodeResolver(localNode),
-                localNode,
+                new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
@@ -108,15 +104,12 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testRowBatchByPartitionId() {
-        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
-
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
                 Int2ObjectMaps.emptyMap(),
                 3,
-                new SingleClusterNodeResolver(localNode),
-                localNode,
+                new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
