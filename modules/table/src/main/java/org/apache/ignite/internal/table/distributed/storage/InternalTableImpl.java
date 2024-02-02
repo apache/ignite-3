@@ -65,7 +65,6 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -86,8 +85,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.SchemaAware;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -1021,15 +1018,14 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, int partition) {
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable List<RowOpType> opTypes, int partition) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
-        // TODO: How to indicate deletions?
         CompletableFuture<Void> fut = enlistWithRetry(
                 tx,
                 partition,
-                enlistmentConsistencyToken -> upsertAllInternal(rows, tx, partGroupId, enlistmentConsistencyToken, true),
+                enlistmentConsistencyToken -> upsertAllInternal(rows, opTypes, tx, partGroupId, enlistmentConsistencyToken, true),
                 true,
                 null,
                 true // Allow auto retries for data streamer.
