@@ -52,6 +52,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -155,6 +156,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Prevents double stopping of the tracker. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /**
+     * Amount of started transaction.
+     * TODO: IGNITE-21440 Implement transaction metrics.
+     */
+    private final AtomicInteger startedTxs = new AtomicInteger();
+    /**
+     * Amount of fixed transaction.
+     * TODO: IGNITE-21440 Implement transaction metrics.
+     */
+    private final AtomicInteger fixedTxs = new AtomicInteger();
+
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -283,6 +296,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         HybridTimestamp beginTimestamp = readOnly ? clock.now() : createBeginTimestampWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
 
+        startedTxs.incrementAndGet();
+
         if (!readOnly) {
             updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
@@ -377,6 +392,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}].", commitIntent, txId, enlistedGroups);
+
+        fixedTxs.incrementAndGet();
 
         assert enlistedGroups != null;
 
@@ -638,16 +655,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
-                .filter(e -> isFinalState(e.txState()))
-                .count());
+        return fixedTxs.get();
     }
 
     @Override
     public int pending() {
-        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
-                .filter(e -> e.txState() == PENDING)
-                .count());
+        return startedTxs.get() - fixedTxs.get();
     }
 
     @Override
@@ -719,6 +732,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
+        fixedTxs.incrementAndGet();
+
         CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureById.remove(txIdAndTimestamp);
 
         assert readOnlyTxFuture != null : txIdAndTimestamp;
