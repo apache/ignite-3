@@ -45,11 +45,13 @@ public class TablePartitionExtractor<RowT> implements RowPartitionExtractor<RowT
     /** {@inheritDoc} */
     @Override
     public int partition(RowT row) {
-        for (int columnId : fields) {
-            Object value = rowHandler.get(columnId, row);
-            NativeTypeSpec nativeTypeSpec = tableDescriptor.columnDescriptor(columnId).physicalType().spec();
-            Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
+        int[] colocationColumns = tableDescriptor.distribution().getKeys().toIntArray();
 
+        for (int i = 0; i < fields.length; i++) {
+            Object value = rowHandler.get(fields[i], row);
+
+            NativeTypeSpec nativeTypeSpec = tableDescriptor.columnDescriptor(colocationColumns[i]).physicalType().spec();
+            Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
             value = TypeUtils.fromInternal(value, storageType);
             partitionCalculator.append(value);
         }
