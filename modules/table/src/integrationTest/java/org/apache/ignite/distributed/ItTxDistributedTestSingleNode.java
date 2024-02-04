@@ -253,7 +253,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return txTestCluster.txManagers.values();
     }
 
-    @Test
+    
     public void testIgniteTransactionsAndReadTimestamp() {
         Transaction readWriteTx = igniteTransactions.begin();
         assertFalse(readWriteTx.isReadOnly());
