@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -73,12 +74,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().pageSize(batchSize).build();
             streamerFut = view.streamData(publisher, options);
 
-            publisher.submit(tuple(1, "foo"));
-            publisher.submit(tuple(2, "bar"));
+            publisher.submit(DataStreamerItem.of(tuple(1, "foo")));
+            publisher.submit(DataStreamerItem.of(tuple(2, "bar")));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -95,11 +96,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<PersonPojo>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<PersonPojo>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(new PersonPojo(1, "foo"));
-            publisher.submit(new PersonPojo(2, "bar"));
+            publisher.submit(DataStreamerItem.of(new PersonPojo(1, "foo")));
+            publisher.submit(DataStreamerItem.of(new PersonPojo(2, "bar")));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -111,11 +112,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Tuple, Tuple>>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<Tuple, Tuple>>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(tupleKey(1), Tuple.create().set("name", "foo")));
-            publisher.submit(Map.entry(tupleKey(2), Tuple.create().set("name", "bar")));
+            publisher.submit(DataStreamerItem.of(Map.entry(tupleKey(1), Tuple.create().set("name", "foo"))));
+            publisher.submit(DataStreamerItem.of(Map.entry(tupleKey(2), Tuple.create().set("name", "bar"))));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -127,11 +128,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Integer, PersonValPojo>>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<Integer, PersonValPojo>>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(1, new PersonValPojo("foo")));
-            publisher.submit(Map.entry(2, new PersonValPojo("bar")));
+            publisher.submit(DataStreamerItem.of(Map.entry(1, new PersonValPojo("foo"))));
+            publisher.submit(DataStreamerItem.of(Map.entry(2, new PersonValPojo("bar"))));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -143,11 +144,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<Tuple> view = this.defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
             streamerFut = view.streamData(publisher, options);
 
-            publisher.submit(tuple(1, "foo"));
+            publisher.submit(DataStreamerItem.of(tuple(1, "foo")));
             waitForKey(view, tupleKey(1));
         }
 
@@ -159,11 +160,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<Tuple> view = this.defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
             streamerFut = view.streamData(publisher, options);
 
-            publisher.submit(tuple(1, "foo"));
+            publisher.submit(DataStreamerItem.of(tuple(1, "foo")));
             assertFalse(waitForCondition(() -> view.get(null, tupleKey(1)) != null, 1000));
         }
 
@@ -176,13 +177,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().build();
             streamerFut = view.streamData(publisher, options);
 
             var tuple = Tuple.create();
 
-            publisher.submit(tuple);
+            publisher.submit(DataStreamerItem.of(tuple));
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
@@ -195,12 +196,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().pageSize(33).build();
             streamerFut = view.streamData(publisher, options);
 
             for (int i = 0; i < 10_000; i++) {
-                publisher.submit(tuple(i, "x-" + i));
+                publisher.submit(DataStreamerItem.of(tuple(i, "x-" + i)));
             }
         }
 
@@ -222,15 +223,15 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().pageSize(1).build();
             streamerFut = view.streamData(publisher, options);
 
-            publisher.submit(tupleKey(1));
+            publisher.submit(DataStreamerItem.of(tupleKey(1)));
             waitForKey(view, tupleKey(1));
 
             ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
-            publisher.submit(tupleKey(2));
+            publisher.submit(DataStreamerItem.of(tupleKey(2)));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();

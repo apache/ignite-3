@@ -30,6 +30,7 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -358,7 +359,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
@@ -367,8 +368,19 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<Tuple, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeTuples(null, items, s, w, false),
+                ClientOp.STREAMER_PROCESS_BATCH,
+                (s, w) -> {
+                    w.out().packInt(tbl.tableId());
+                    w.out().packInt(s.version());
+                    w.out().packInt(items.size());
+
+                    for (var tuple : items) {
+                        int opCode = tuple.operationType().ordinal();
+                        w.out().packInt(opCode);
+
+                        ClientTupleSerializer.writeTupleRaw(tuple.get(), s, w, false);
+                    }
+                },
                 r -> null,
                 PartitionAwarenessProvider.of(nodeId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));

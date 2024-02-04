@@ -55,6 +55,7 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -521,7 +522,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Entry<K, V>>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new KeyValuePojoStreamerPartitionAwarenessProvider<K, V>(tbl, keySer.mapper());
@@ -530,13 +531,14 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<Entry<K, V>, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
+                ClientOp.TUPLE_UPSERT_ALL, // TODO: Dedicated operation with removal flag.
                 (s, w) -> {
                     writeSchemaAndTx(s, w, null);
                     w.out().packInt(items.size());
 
-                    for (Entry<K, V> e : items) {
-                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                    for (DataStreamerItem<Entry<K, V>> e : items) {
+                        // TODO: Send op type.
+                        writeKeyValueRaw(s, w, e.get().getKey(), e.get().getValue());
                     }
                 },
                 r -> null,
