@@ -74,6 +74,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -185,8 +186,10 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
@@ -658,6 +661,63 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
+    }
+
+    @Test
+    void testClientsAreUpdatedAfterPendingRebalanceHandled() throws Exception {
+        Node node = getNode(0);
+
+        createZone(node, ZONE_NAME, 1, 1);
+
+        createTable(node, ZONE_NAME, TABLE_NAME);
+
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        String assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0).stream()
+                .findFirst()
+                .orElseThrow()
+                .consistentId();
+
+        String newNodeNameForAssignment = nodes.stream()
+                .filter(n -> !assignmentsBeforeRebalance.equals(n.clusterService.nodeName()))
+                .findFirst()
+                .orElseThrow()
+                .name;
+
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
+
+        // Write the new assignments to metastore as a pending assignments.
+        TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
+
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+
+        byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
+
+        AtomicBoolean stopDropping = new AtomicBoolean(true);
+
+        // Using this hack we pause rebalance on all nodes
+        nodes.forEach(n -> ((DefaultMessagingService) n.clusterService.messagingService())
+                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && stopDropping.get())
+        );
+
+        node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments);
+
+        // Check that raft clients on all nodes were updated with the new list of peers.
+        assertTrue(waitForCondition(
+                () -> nodes.stream().allMatch(n ->
+                        n.tableManager
+                                .latestTables()
+                                .get(getTableId(node, TABLE_NAME))
+                                .internalTable()
+                                .partitionRaftGroupService(0)
+                                .peers()
+                                .stream()
+                                .collect(toSet())
+                                .equals(Set.of(new Peer(newNodeNameForAssignment), new Peer(assignmentsBeforeRebalance)))),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
+
+        stopDropping.set(false);
     }
 
     private void clearSpyInvocations() {

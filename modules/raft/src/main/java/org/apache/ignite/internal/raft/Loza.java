@@ -388,18 +388,7 @@ public class Loza implements RaftManager {
             RaftGroupOptions groupOptions,
             @Nullable RaftServiceFactory<T> raftServiceFactory
     ) {
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
-        }
-
-        boolean started = raftServer.startRaftNode(nodeId, configuration, raftGrpEvtsLsnr, lsnr, groupOptions);
-
-        if (!started) {
-            throw new IgniteInternalException(IgniteStringFormatter.format(
-                    "Raft group on the node is already started [nodeId={}]",
-                    nodeId
-            ));
-        }
+        startRaftGroupNodeInternalWithoutService(nodeId, configuration, lsnr, raftGrpEvtsLsnr, groupOptions);
 
         Marshaller cmdMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), opts.getCommandsMarshaller());
 

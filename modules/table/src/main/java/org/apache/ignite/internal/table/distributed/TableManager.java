@@ -757,7 +757,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 table,
                                 partId,
                                 assignments.get(partId),
-                                assignments.get(partId),
                                 false
                         )
                         .whenComplete((res, ex) -> {
@@ -777,7 +776,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TableImpl table,
             int partId,
             Set<Assignment> newPartAssignment,
-            Set<Assignment> oldPartAssignment,
             boolean isRecovery
     ) {
         CompletableFuture<Void> resultFuture = new CompletableFuture<>();
@@ -819,9 +817,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var raftNodeId = localMemberAssignment == null ? null : new RaftNodeId(replicaGrpId, serverPeer);
 
-        boolean shouldStartPartitionTrackers = localMemberAssignment != null && !((Loza) raftMgr).isStarted(raftNodeId);
+        boolean shouldStartRaftListeners = localMemberAssignment != null && !((Loza) raftMgr).isStarted(raftNodeId);
 
-        if (shouldStartPartitionTrackers) {
+        if (shouldStartRaftListeners) {
             ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
             mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
@@ -881,8 +879,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
                 }), ioExecutor)
                 .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
-                    updatedRaftGroupService.updateConfiguration(configurationFromAssignments(union(newPartAssignment, oldPartAssignment)));
-
                     ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                     boolean startedRaftNode = startGroupFut.join();
@@ -1818,14 +1814,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             tbl,
                             replicaGrpId.partitionId(),
                             pendingAssignments,
-                            stableAssignments,
                             isRecovery
                     )), ioExecutor);
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
 
-        return localServicesStartFuture;
+        return localServicesStartFuture.thenRunAsync(
+                () -> tbl.internalTable()
+                        .partitionRaftGroupService(replicaGrpId.partitionId())
+                        .updateConfiguration(configurationFromAssignments(union(pendingAssignments, stableAssignments))),
+                ioExecutor
+        );
     }
 
     private CompletableFuture<Void> changePeersOnRebalance(
