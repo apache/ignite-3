@@ -17,20 +17,10 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.Mockito.mock;
-
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
-import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -38,7 +28,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -70,24 +59,5 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
                 table,
                 engine == null ? null : engine::stop
         );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21386")
-    void testCreateTableWithDynamicCustomDataRegion() {
-        String customRegionName = "foobar";
-
-        CompletableFuture<Void> engineConfigChangeFuture = storagesConfiguration.profiles()
-                .change(c -> c.create(customRegionName, rocksDbDataRegionChange -> { /* No-op. */ }));
-
-        assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
-
-        table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, customRegionName),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
-        );
-
-        table.start();
-
-        getOrCreateMvPartition(table, 1);
     }
 }

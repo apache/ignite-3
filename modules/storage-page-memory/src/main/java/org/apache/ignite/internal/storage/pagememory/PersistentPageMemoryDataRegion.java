@@ -98,7 +98,6 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      * Starts a persistent data region.
      */
     public void start() {
-        // TODO: KKK why is this cast needed?
         PersistentPageMemoryProfileView dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(

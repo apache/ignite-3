@@ -152,7 +152,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting checkpoint manager", e);
         }
 
-        // TODO: IGNITE-21386 Fix runtime loading for storage profiles
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         storagesConfiguration.profiles().value().stream().forEach(p -> {
             if (p instanceof PersistentPageMemoryProfileView) {

@@ -49,6 +49,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     String SYSTEM_SCHEMA_NAME = "SYSTEM";
 
     String DEFAULT_ZONE_NAME = "Default";
+
     /** Default storage profile. */
     String DEFAULT_STORAGE_PROFILE = "default";
 

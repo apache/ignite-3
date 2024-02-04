@@ -19,10 +19,7 @@ package org.apache.ignite.example.storage;
 
 import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileChange;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -31,9 +28,6 @@ import org.junit.jupiter.api.Test;
 public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testExample() throws Exception {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21386 uncomment it when runtime profile loading will be fixed
-        // addDataRegionConfig("rocksdb-example");
-
         assertConsoleOutputContains(RocksDbStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
                         + "    1, John, Doe, 1000.0\n"
@@ -41,14 +35,5 @@ public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
                         + "    3, Mary, Major, 1500.0\n"
                         + "    4, Richard, Miles, 1450.0\n"
         );
-    }
-
-    private void addDataRegionConfig(String name) throws Exception {
-        ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
-                .profiles()
-                .change(profileChange -> profileChange.create(name, c -> {
-                    c.convert(RocksDbProfileChange.class);
-                }))
-                .get(1, TimeUnit.SECONDS);
     }
 }

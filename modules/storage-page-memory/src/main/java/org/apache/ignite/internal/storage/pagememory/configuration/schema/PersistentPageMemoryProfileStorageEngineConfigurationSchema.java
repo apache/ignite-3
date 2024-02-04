@@ -27,7 +27,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryChec
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 
 /**
- * Root configuration for {@link PersistentPageMemoryStorageEngine}.
+ * Configuration for {@link PersistentPageMemoryStorageEngine}.
  */
 @Config
 public class PersistentPageMemoryProfileStorageEngineConfigurationSchema {

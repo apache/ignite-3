@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 
 /**
- * Root configuration for {@link VolatilePageMemoryStorageEngine}.
+ * Configuration for {@link VolatilePageMemoryStorageEngine}.
  */
 @Config
 public class VolatilePageMemoryProfileStorageEngineConfigurationSchema {

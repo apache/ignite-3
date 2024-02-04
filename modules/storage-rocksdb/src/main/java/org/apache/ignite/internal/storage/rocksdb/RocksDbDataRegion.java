@@ -45,7 +45,7 @@ public class RocksDbDataRegion {
     /**
      * Constructor.
      *
-     * @param cfg Data region configuration.
+     * @param cfg Storage profile configuration.
      */
     public RocksDbDataRegion(RocksDbProfileConfiguration cfg) {
         this.cfg = cfg;
@@ -55,25 +55,25 @@ public class RocksDbDataRegion {
      * Start the rocksDb data region.
      */
     public void start() {
-        RocksDbProfileView dataRegionView = (RocksDbProfileView) cfg.value();
+        RocksDbProfileView storageProfileView = (RocksDbProfileView) cfg.value();
 
-        long writeBufferSize = dataRegionView.writeBufferSize();
+        long writeBufferSize = storageProfileView.writeBufferSize();
 
-        long totalCacheSize = dataRegionView.size() + writeBufferSize;
+        long totalCacheSize = storageProfileView.size() + writeBufferSize;
 
-        switch (dataRegionView.cache().toLowerCase(Locale.ROOT)) {
+        switch (storageProfileView.cache().toLowerCase(Locale.ROOT)) {
             case ROCKSDB_CLOCK_CACHE:
-                cache = new ClockCache(totalCacheSize, dataRegionView.numShardBits(), false);
+                cache = new ClockCache(totalCacheSize, storageProfileView.numShardBits(), false);
 
                 break;
 
             case ROCKSDB_LRU_CACHE:
-                cache = new LRUCache(totalCacheSize, dataRegionView.numShardBits(), false);
+                cache = new LRUCache(totalCacheSize, storageProfileView.numShardBits(), false);
 
                 break;
 
             default:
-                assert false : dataRegionView.cache();
+                assert false : storageProfileView.cache();
         }
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
