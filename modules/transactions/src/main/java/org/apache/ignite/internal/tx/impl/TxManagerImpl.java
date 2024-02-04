@@ -366,6 +366,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
         TxState finalState;
 
+        fixedTxs.incrementAndGet();
+
         if (commit) {
             timestampTracker.update(clock.now());
 
