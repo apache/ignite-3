@@ -700,7 +700,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && stopDropping.get())
         );
 
-        node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments);
+        node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
 
         // Check that raft clients on all nodes were updated with the new list of peers.
         assertTrue(waitForCondition(
