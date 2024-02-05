@@ -69,8 +69,8 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
     private static final int BATCH_SIZE = 100;
 
-    @InjectConfiguration(polymorphicExtensions = { VolatilePageMemoryProfileConfigurationSchema.class }, value = "mock.engine = aimem")
-    private StorageProfileConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = VolatilePageMemoryProfileConfigurationSchema.class, value = "mock.engine = aimem")
+    private StorageProfileConfiguration storageProfileCfg;
 
     @Nullable
     private PageMemory pageMemory;
@@ -166,7 +166,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     }
 
     private PageMemory createPageMemory(int pageSize) throws Exception {
-        dataRegionCfg
+        storageProfileCfg
                 .change(c -> ((VolatilePageMemoryProfileChange) c)
                         .changeInitSize(MAX_SIZE)
                         .changeMaxSize(MAX_SIZE))
@@ -179,7 +179,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
         ioRegistry.load(TestDataPageIo.VERSIONS);
 
         return new VolatilePageMemory(
-                (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
+                (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
                 ioRegistry,
                 pageSize
         );
