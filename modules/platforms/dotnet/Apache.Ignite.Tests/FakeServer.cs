@@ -299,7 +299,9 @@ namespace Apache.Ignite.Tests
                     case ClientOp.ComputeExecuteColocated:
                     {
                         using var pooledArrayBuffer = ComputeExecute(reader, colocated: opCode == ClientOp.ComputeExecuteColocated);
-                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
+                        using var resWriter = new PooledArrayBuffer();
+                        resWriter.MessageWriter.Write(Guid.NewGuid());
+                        Send(handler, requestId, resWriter);
                         Send(handler, requestId, pooledArrayBuffer, isNotification: true);
                         continue;
                     }
