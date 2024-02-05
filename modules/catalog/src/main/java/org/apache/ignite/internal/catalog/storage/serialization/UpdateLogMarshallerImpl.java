@@ -36,19 +36,16 @@ import org.jetbrains.annotations.TestOnly;
  * <li>Backward compatibility support when changing existing or adding new entry.</li>
  * </ul>
  * At the moment, the serialization format is specified manually.
- * Backward compatibility, when necessary, should be supported at the serializer level.
  *
- *<p>The starting point is version 1 (see {@link #PROTOCOL_VERSION}).
- *
- *<p>While backward compatibility is not required, entities can change arbitrarily without changing the version.
+ *<p>While backward compatibility is not required, entities can change arbitrarily without changing the data format version.
  * However, every change to an entry's fields requires a change to the serializer that serializes that entry.
  *
  *<p>Basic format description:
  *<pre>
  * (size) | description
  * ------------------------------
- *     2  | data format version
- *     1  | UpdateLogEvent type (0 - {@link VersionedUpdate}, 1 - {@link SnapshotEntry})
+ *     2  | data format version ({@link #PROTOCOL_VERSION})
+ *     2  | entry type ({@link VersionedUpdate} or {@link SnapshotEntry})
  *
  * [fields of the corresponding event follow (for example, {@link VersionedUpdate}]
  *

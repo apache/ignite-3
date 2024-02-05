@@ -23,9 +23,9 @@ package org.apache.ignite.internal.catalog.storage.serialization;
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface MarshallableEntry {
     /**
-     * Returns the entry type used to serialize catalog entries.
+     * Returns the entry type id used to serialize catalog entries.
      *
-     * @return update entry type.
+     * @return update log entry type id.
      */
     int typeId();
 }
