@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -134,6 +135,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     partitionId,
                     tx.id(),
                     tx.commitPartition(),
+                    tx.coordinatorId(),
                     new PrimaryReplica(clusterNode, consistencyToken),
                     null,
                     null,
@@ -220,6 +222,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
+                    anyString(),
                     eq(primaryReplica),
                     eq(indexId),
                     condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
@@ -293,6 +296,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
+                    anyString(),
                     eq(primaryReplica),
                     eq(indexId),
                     nullable(BinaryTuplePrefix.class),
@@ -412,6 +416,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
+                    anyString(),
                     eq(primaryReplica),
                     eq(indexId),
                     prefix.capture(),
@@ -464,6 +469,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     any(),
+                    anyString(),
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
@@ -514,6 +520,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     any(),
+                    anyString(),
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
@@ -590,6 +597,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
+                        any(String.class),
                         any(PrimaryReplica.class),
                         isNull(),
                         isNull(),
@@ -636,6 +644,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
+                        any(String.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuplePrefix.class),
@@ -681,6 +690,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
+                        any(String.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuple.class),
