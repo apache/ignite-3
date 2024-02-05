@@ -469,7 +469,8 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(GetConfig());
 
             const int sleepMs = 3000;
-            var jobTask = client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+            var jobExecution = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+            var jobTask = jobExecution.GetResultAsync();
 
             // Wait a bit and close the connection.
             await Task.Delay(10);
