@@ -46,8 +46,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
             verify(handler, times(1)).onFailure(anyString(), any());
-        }
-        finally {
+        } finally {
             failureProcessor.stop();
         }
     }
