@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.topology;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -33,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -173,7 +173,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.eventType, is(EventType.VALIDATED));
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(Set.copyOf(event.node.storageProfiles()), is(Set.copyOf(STORAGE_PROFILES_LIST)));
+        assertThat(event.node.storageProfiles(), containsInAnyOrder(STORAGE_PROFILES_LIST.toArray()));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
@@ -182,7 +182,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(2L));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(Set.copyOf(event.node.storageProfiles()), is(Set.copyOf(STORAGE_PROFILES_LIST)));
+        assertThat(event.node.storageProfiles(), containsInAnyOrder(STORAGE_PROFILES_LIST.toArray()));
 
         assertThat(events, is(empty()));
 
@@ -220,7 +220,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertTrue(secondNode.isPresent());
 
         assertThat(secondNode.get().userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(Set.copyOf(secondNode.get().storageProfiles()), is(Set.copyOf(STORAGE_PROFILES_LIST)));
+        assertThat(secondNode.get().storageProfiles(), containsInAnyOrder(STORAGE_PROFILES_LIST.toArray()));
     }
 
     @Test
