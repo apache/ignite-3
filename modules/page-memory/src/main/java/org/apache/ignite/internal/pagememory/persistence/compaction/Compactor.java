@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.io.PageIo;
