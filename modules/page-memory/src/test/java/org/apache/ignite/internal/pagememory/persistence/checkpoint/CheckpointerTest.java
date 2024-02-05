@@ -63,6 +63,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
@@ -112,6 +113,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
@@ -144,6 +146,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
@@ -247,6 +250,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
@@ -275,6 +279,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
@@ -362,6 +367,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(partitionMetaManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
@@ -390,6 +396,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE)),
                 createFilePageStoreManager(Map.of()),
@@ -414,6 +421,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
@@ -454,6 +462,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),

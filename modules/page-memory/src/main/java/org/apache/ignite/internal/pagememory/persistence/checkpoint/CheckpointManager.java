@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -88,6 +89,7 @@ public class CheckpointManager {
      * @param checkpointConfig Checkpoint configuration.
      * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param filePageStoreManager File page store manager.
      * @param partitionMetaManager Partition meta information manager.
      * @param dataRegions Data regions.
@@ -99,6 +101,7 @@ public class CheckpointManager {
             String igniteInstanceName,
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            FailureProcessor failureProcessor,
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
@@ -146,6 +149,7 @@ public class CheckpointManager {
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
+                failureProcessor,
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
@@ -157,7 +161,8 @@ public class CheckpointManager {
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
                 () -> checkpointUrgency(dataRegions),
-                checkpointer
+                checkpointer,
+                failureProcessor
         );
     }
 

@@ -18,13 +18,17 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_CRITICAL_OPERATION_TIMEOUT;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
+import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -57,6 +61,9 @@ public class CheckpointTimeoutLock {
     /** Stop flag. */
     private boolean stop;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -69,12 +76,14 @@ public class CheckpointTimeoutLock {
             CheckpointReadWriteLock checkpointReadWriteLock,
             long checkpointReadLockTimeout,
             Supplier<CheckpointUrgency> urgencySupplier,
-            Checkpointer checkpointer
+            Checkpointer checkpointer,
+            FailureProcessor failureProcessor
     ) {
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.checkpointReadLockTimeout = checkpointReadLockTimeout;
         this.urgencySupplier = urgencySupplier;
         this.checkpointer = checkpointer;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -178,11 +187,7 @@ public class CheckpointTimeoutLock {
                 } catch (CheckpointReadLockTimeoutException e) {
                     LOG.debug(e.getMessage(), e);
 
-                    throw e;
-
-                    // TODO: IGNITE-16899 After the implementation of FailureProcessor,
-                    // by analogy with 2.0, we need to reset the timeout and try again
-                    //timeout = 0;
+                    timeout = 0;
                 }
             }
         } finally {
@@ -232,9 +237,15 @@ public class CheckpointTimeoutLock {
     }
 
     private void failCheckpointReadLock() throws CheckpointReadLockTimeoutException {
-        // TODO: IGNITE-16899 After the implementation of FailureProcessor, by analogy with 2.0,
-        // either fail the node or try acquire read lock again by throwing an CheckpointReadLockTimeoutException
+        String msg = "Checkpoint read lock acquisition has been timed out.";
 
-        throw new CheckpointReadLockTimeoutException("Checkpoint read lock acquisition has been timed out");
+        IgniteInternalException e = new IgniteInternalException(SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR, msg);
+
+        // either fail the node or try acquire read lock again by throwing an CheckpointReadLockTimeoutException
+        if (failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, e))) {
+            throw e;
+        }
+
+        throw new CheckpointReadLockTimeoutException(msg);
     }
 }

@@ -491,6 +491,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 checkpointConfig,
                 filePageStoreManager,
                 partitionMetaManager,

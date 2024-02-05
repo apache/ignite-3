@@ -146,6 +146,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     igniteInstanceName,
                     null,
                     longJvmPauseDetector,
+                    failureProcessor,
                     engineConfig.checkpoint(),
                     filePageStoreManager,
                     partitionMetaManager,
