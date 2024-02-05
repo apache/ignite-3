@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * A marker interface for replication group command.

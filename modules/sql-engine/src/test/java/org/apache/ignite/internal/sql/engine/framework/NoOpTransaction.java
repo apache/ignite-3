@@ -22,11 +22,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 
@@ -131,7 +131,12 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+    public String coordinatorId() {
+        return clusterNode().id();
+    }
+
+    @Override
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
         return tuple;
     }
 
@@ -152,8 +157,8 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        return nodeAndTerm;
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
+        return nodeAndConsistencyToken;
     }
 
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */

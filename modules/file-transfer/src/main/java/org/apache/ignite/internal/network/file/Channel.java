@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.file;
 
-import org.apache.ignite.network.ChannelType;
+import org.apache.ignite.internal.network.ChannelType;
 
 /**
  * Channel types used by the file transfer protocol.

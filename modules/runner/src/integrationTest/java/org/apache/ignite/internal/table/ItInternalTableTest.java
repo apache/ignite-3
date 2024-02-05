@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -470,6 +472,41 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
                 assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
             }
         }
+    }
+
+    @Test
+    public void updateAllWithDeleteTest() {
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+
+        RecordView<Tuple> view = table.recordView();
+        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
+        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
+
+        // Update, insert, delete.
+        List<BinaryRowEx> rows = List.of(
+                createKeyValueRow(1, 11, "val11"),
+                createKeyValueRow(3, 2, "val2"),
+                createKeyRow(5)
+        );
+
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        for (int i = 0; i < rows.size(); i++) {
+            assertEquals(partitionId, internalTable.partitionId(rows.get(i)), "Unexpected partition for row " + i);
+        }
+
+        BitSet deleted = new BitSet(3);
+        deleted.set(2);
+        internalTable.updateAll(rows, deleted, partitionId).join();
+
+        var row1 = view.get(null, Tuple.create().set("key", 1L));
+        assertEquals(11, row1.intValue("valInt"));
+
+        var row2 = view.get(null, Tuple.create().set("key", 3L));
+        assertEquals(2, row2.intValue("valInt"));
+
+        var row3 = view.get(null, Tuple.create().set("key", 5L));
+        assertNull(row3);
     }
 
     private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {

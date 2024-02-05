@@ -39,6 +39,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -56,7 +57,6 @@ import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -107,7 +107,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
             IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
         }
 
-        FragmentDescription fragmentDesc = new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null);
+        FragmentDescription fragmentDesc = getFragmentDescription();
 
         return new ExecutionContext<>(
                 taskExecutor,
@@ -119,6 +119,10 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node"))
         );
+    }
+
+    protected FragmentDescription getFragmentDescription() {
+        return new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null);
     }
 
     protected Object[] row(Object... fields) {

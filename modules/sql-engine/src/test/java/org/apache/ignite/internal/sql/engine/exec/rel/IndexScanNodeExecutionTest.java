@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -38,7 +39,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -205,7 +207,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
-        List<PartitionWithTerm> partitions = scannableTable.getPartitions();
+        List<PartitionWithConsistencyToken> partitions = scannableTable.getPartitions();
 
         return new IndexScanNode<>(ctx, rowFactory, indexDescriptor, scannableTable, tableDescriptor, partitions,
                 comparator, conditions, null, null, null);
@@ -219,43 +221,53 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             partitionedData.put(partitionId, List.of(rows));
         }
 
-        List<PartitionWithTerm> getPartitions() {
+        List<PartitionWithConsistencyToken> getPartitions() {
             return new TreeSet<>(partitionedData.keySet())
                     .stream()
-                    .map(k -> new PartitionWithTerm(k, 2L))
+                    .map(k -> new PartitionWithConsistencyToken(k, 2L))
                     .collect(Collectors.toList());
         }
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                @Nullable BitSet requiredColumns) {
+        public <RowT> Publisher<RowT> scan(
+                ExecutionContext<RowT> ctx,
+                PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory,
+                @Nullable BitSet requiredColumns
+        ) {
 
             throw new UnsupportedOperationException("Not supported");
         }
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns,
                 @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
 
-            List<T> list = partitionedData.get(partWithTerm.partId());
+            List<T> list = partitionedData.get(partWithConsistencyToken.partId());
             return new ScanPublisher<>(list, ctx, rowFactory);
         }
 
         @Override
-        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns,
                 RowT key, @Nullable BitSet requiredColumns) {
 
-            return newPublisher(ctx, partWithTerm, rowFactory);
+            return newPublisher(ctx, partWithConsistencyToken, rowFactory);
         }
 
-        private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+        @Override
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithToken,
                 RowFactory<RowT> rowFactory) {
 
-            int partId = partWithTerm.partId();
+            int partId = partWithToken.partId();
             List<T> list = partitionedData.get(partId);
             Objects.requireNonNull(list, "No data for partition " + partId);
 

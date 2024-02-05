@@ -35,11 +35,15 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index status. */
     private final CatalogIndexStatus status;
 
-    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, CatalogIndexStatus status) {
+    /** Catalog version in which the index was created. */
+    private final int creationCatalogVersion;
+
+    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, CatalogIndexStatus status, int creationCatalogVersion) {
         super(id, Type.INDEX, name, INITIAL_CAUSALITY_TOKEN);
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");
+        this.creationCatalogVersion = creationCatalogVersion;
     }
 
     /** Gets table ID. */
@@ -57,8 +61,13 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return status;
     }
 
+    /** Returns catalog version in which the index was created. */
+    public int creationCatalogVersion() {
+        return creationCatalogVersion;
+    }
+
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogIndexDescriptor.class, this, super.toString());
     }
 }

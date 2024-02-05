@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -102,6 +103,35 @@ public interface ComputeComponent extends IgniteComponent {
     ) {
         return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
     }
+
+    /**
+     * Executes a job of the given class on a remote node. If the node leaves the cluster, it will be restarted on the node given by the
+     * {@code nextWorkerSelector}.
+     *
+     * @param remoteNode Name of the job class.
+     * @param nextWorkerSelector The selector that returns the next worker to execute job on.
+     * @param options Job execution options.
+     * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
+     * @param args Job args.
+     * @param <R> Job result type.
+     * @return Future execution result.
+     */
+    <R> JobExecution<R> executeRemotelyWithFailover(
+            ClusterNode remoteNode,
+            NextWorkerSelector nextWorkerSelector,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            ExecutionOptions options,
+            Object... args
+    );
+
+    /**
+     * Retrieves the current status of all jobs on all nodes in the cluster.
+     *
+     * @return The collection of job statuses.
+     */
+    CompletableFuture<Collection<JobStatus>> statusesAsync();
 
     /**
      * Retrieves the current status of the job on any node in the cluster. The job status may be deleted and thus return {@code null} if the

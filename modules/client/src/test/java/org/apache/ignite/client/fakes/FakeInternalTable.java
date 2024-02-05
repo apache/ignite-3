@@ -185,7 +185,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition) {
         throw new UnsupportedOperationException();
     }
 
@@ -370,6 +370,7 @@ public class FakeInternalTable implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -407,6 +408,7 @@ public class FakeInternalTable implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,

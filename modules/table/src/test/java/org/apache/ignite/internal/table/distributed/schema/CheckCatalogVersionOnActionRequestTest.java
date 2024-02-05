@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;

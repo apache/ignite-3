@@ -63,6 +63,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
@@ -81,8 +83,6 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matchers;
@@ -189,7 +189,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(tablePartitionId, new IgniteBiTuple<>(node, 1L));
 
-        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndTerm(tablePartitionId));
+        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndConsistencyToken(tablePartitionId));
     }
 
     @Test

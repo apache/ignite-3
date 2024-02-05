@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -34,7 +35,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -124,8 +124,11 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -140,6 +143,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
@@ -169,9 +173,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.network.NettyWorkersRegistrar;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -225,6 +226,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private static StorageUpdateConfiguration storageUpdateConfiguration;
 
     @InjectConfiguration
     private CriticalWorkersConfiguration workersConfiguration;
@@ -493,6 +497,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 registry,
                 gcConfig,
+                storageUpdateConfiguration,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
@@ -1121,6 +1126,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21354")
     public void testCfgGapWithoutData() {
         List<IgniteImpl> nodes = startNodes(3);
 

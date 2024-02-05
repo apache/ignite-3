@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -57,7 +57,7 @@ class IndexBuildTask {
 
     private final ReplicaService replicaService;
 
-    private final ExecutorService executor;
+    private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
 
@@ -80,7 +80,7 @@ class IndexBuildTask {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
-            ExecutorService executor,
+            Executor executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
             ClusterNode node,
@@ -212,22 +212,11 @@ class IndexBuildTask {
     }
 
     private boolean enterBusy() {
-        if (!busyLock.enterBusy()) {
-            return false;
-        }
-
-        if (!taskBusyLock.enterBusy()) {
-            busyLock.leaveBusy();
-
-            return false;
-        }
-
-        return true;
+        return IndexManagementUtils.enterBusy(busyLock, taskBusyLock);
     }
 
     private void leaveBusy() {
-        taskBusyLock.leaveBusy();
-        busyLock.leaveBusy();
+        IndexManagementUtils.leaveBusy(busyLock, taskBusyLock);
     }
 
     private String createCommonIndexInfo() {

@@ -42,6 +42,15 @@ public interface UpdateLog extends IgniteComponent {
     CompletableFuture<Boolean> append(VersionedUpdate update);
 
     /**
+     * Saves a snapshot entry and drop updates of previous versions from the log, if supported, otherwise do nothing.
+     *
+     * @param snapshotEntry An entry, which represents a result of merging updates of previous versions.
+     * @return A {@code true} if snapshot has been successfully appended, {@code false} otherwise
+     *      if a snapshot with the same or greater version already exists, or snapshots are not supported.
+     */
+    CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry);
+
+    /**
      * Registers a handler to keep track of appended updates.
      *
      * @param handler A handler to notify when new update was appended.
@@ -71,6 +80,6 @@ public interface UpdateLog extends IgniteComponent {
          * @param causalityToken Causality token.
          * @return Handler future.
          */
-        CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken);
+        CompletableFuture<Void> handle(UpdateLogEvent update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken);
     }
 }

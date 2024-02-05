@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.network.messages;
 
 import java.io.Serializable;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Message for testing a case when a message contains an object which in turn has a field of type {@link java.time.Instant}

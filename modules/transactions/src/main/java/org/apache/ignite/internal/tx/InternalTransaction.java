@@ -41,9 +41,9 @@ public interface InternalTransaction extends Transaction {
      * Returns enlisted primary replica node associated with given replication group.
      *
      * @param tablePartitionId Table partition id.
-     * @return Enlisted primary replica node and raft term associated with given replication group.
+     * @return Enlisted primary replica node and consistency token associated with given replication group.
      */
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId);
+    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId);
 
     /**
      * Returns a transaction state.
@@ -71,10 +71,10 @@ public interface InternalTransaction extends Transaction {
      * Enlists a partition group into a transaction.
      *
      * @param tablePartitionId Table partition id to enlist.
-     * @param nodeAndTerm Primary replica cluster node and raft term to enlist for given replication group.
+     * @param nodeAndConsistencyToken Primary replica cluster node and consistency token to enlist for given replication group.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
+    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken);
 
     /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
@@ -90,6 +90,13 @@ public interface InternalTransaction extends Transaction {
      * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
      */
     HybridTimestamp startTimestamp();
+
+    /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return Transaction coordinator inconsistent ID.
+     */
+    String coordinatorId();
 
     /**
      * Finishes a read-only transaction with a specific execution timestamp.

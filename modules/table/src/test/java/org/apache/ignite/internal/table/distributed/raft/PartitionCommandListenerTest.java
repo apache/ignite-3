@@ -54,9 +54,12 @@ import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -71,6 +74,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -104,7 +108,6 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -120,6 +123,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private static final int KEY_COUNT = 100;
 
@@ -170,6 +174,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private StorageUpdateHandler storageUpdateHandler;
 
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
+
     /**
      * Initializes a table listener before tests.
      */
@@ -190,7 +197,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         storageUpdateHandler = spy(new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                indexUpdateHandler
+                indexUpdateHandler,
+                storageUpdateConfiguration
         ));
 
         commandListener = new PartitionListener(
@@ -288,7 +296,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                indexUpdateHandler
+                indexUpdateHandler,
+                storageUpdateConfiguration
         );
 
         PartitionListener testCommandListener = new PartitionListener(
@@ -634,7 +643,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -677,7 +685,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -715,7 +722,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -764,7 +770,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build()));
     }
 
@@ -807,7 +812,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build()));
     }
 
@@ -884,7 +888,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                         .commit(true)
                         .commitTimestampLong(commitTimestamp)
                         .safeTimeLong(hybridClock.nowLong())
-                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build()));
     }
 

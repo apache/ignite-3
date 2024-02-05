@@ -64,6 +64,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -94,10 +98,6 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
@@ -283,7 +283,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -319,7 +319,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             );
         }
 
-        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
+        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
     }
 
     /**
@@ -572,17 +572,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             String primaryConsistentId,
-            Long term,
+            Long enlistmentConsistencyToken,
             boolean commit,
             Collection<ReplicationGroupId> replicationGroupIds,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        LOG.debug("Finish [partition={}, node={}, term={} commit={}, txId={}, groups={}",
-                commitPartition, primaryConsistentId, term, commit, txId, replicationGroupIds);
+        LOG.debug("Finish [partition={}, node={}, enlistmentConsistencyToken={} commit={}, txId={}, groups={}",
+                commitPartition, primaryConsistentId, enlistmentConsistencyToken, commit, txId, replicationGroupIds);
 
-        return txMessageSender.finish(primaryConsistentId, commitPartition, replicationGroupIds, txId, term, commit, commitTimestamp)
+        return txMessageSender.finish(
+                        primaryConsistentId,
+                        commitPartition,
+                        replicationGroupIds,
+                        txId,
+                        enlistmentConsistencyToken,
+                        commit,
+                        commitTimestamp
+                )
                 .thenAccept(txResult -> {
                     validateTxFinishedAsExpected(commit, txId, txResult);
 

@@ -19,8 +19,7 @@
 
 package org.apache.ignite.raft.jraft.entity;
 
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.jetbrains.annotations.Nullable;

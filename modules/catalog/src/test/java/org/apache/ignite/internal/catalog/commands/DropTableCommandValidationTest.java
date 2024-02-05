@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -94,6 +95,21 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
                 CatalogValidationException.class,
                 () -> command.get(catalog),
                 "Table with name 'PUBLIC.TEST' not found"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsThrownIfSchemaIsReserved(String schema) {
+        DropTableCommandBuilder builder = DropTableCommand.builder();
+
+        builder.schemaName(schema)
+                .tableName("t");
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Operations with reserved schemas are not allowed"
         );
     }
 }

@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Regular query or DML.
  */
-public class MultiStepPlan implements QueryPlan {
+public class MultiStepPlan implements ExplainablePlan {
 
     private final PlanId id;
 
@@ -69,6 +73,13 @@ public class MultiStepPlan implements QueryPlan {
     @Nullable
     public SqlQueryType type() {
         return type;
+    }
+
+    @Override
+    public String explain() {
+        IgniteRel clonedRoot = Cloner.clone(root, Commons.cluster());
+
+        return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
     }
 
     /** Returns root of the query tree. */

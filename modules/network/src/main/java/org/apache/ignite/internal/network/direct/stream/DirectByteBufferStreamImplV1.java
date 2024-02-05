@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.direct.stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.network.NetworkMessage.NULL_GROUP_TYPE;
 import static org.apache.ignite.internal.util.ArrayUtils.BOOLEAN_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.CHAR_ARRAY;
@@ -34,7 +35,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.INT_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
-import static org.apache.ignite.network.NetworkMessage.NULL_GROUP_TYPE;
 
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
@@ -53,15 +53,15 @@ import java.util.UUID;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializer;
-import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 

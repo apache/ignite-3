@@ -61,7 +61,7 @@ public class TestTable extends IgniteTableImpl {
             Map<String, DataProvider<?>> dataProviders
     ) {
         super(name, tableId, 1, descriptor, new TestStatistic(rowCnt),
-                indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity())));
+                indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity())), 1);
 
         this.dataProviders = dataProviders;
     }
