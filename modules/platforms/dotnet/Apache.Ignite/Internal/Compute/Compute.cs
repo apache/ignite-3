@@ -198,6 +198,12 @@ namespace Apache.Ignite.Internal.Compute
             });
         }
 
+        private static async Task<T> GetResult<T>(NotificationHandler handler)
+        {
+            using var notificationRes = await handler.Task.ConfigureAwait(false);
+            return (T)notificationRes.GetReader().ReadObjectFromBinaryTuple()!;
+        }
+
         private async Task<IJobExecution<T>> ExecuteOnNodes<T>(
             ICollection<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
@@ -214,7 +220,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
             var jobId = res.GetReader().ReadGuid();
-            var resultTask = GetResult((NotificationHandler)res.Metadata!);
+            var resultTask = GetResult<T>((NotificationHandler)res.Metadata!);
 
             return new JobExecution<T>(jobId, resultTask);
 
@@ -231,19 +237,6 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(0); // Max retries.
 
                 w.WriteObjectCollectionAsBinaryTuple(args);
-            }
-
-            static async Task<T> GetResult(NotificationHandler handler)
-            {
-                using var notificationRes = await handler.Task.ConfigureAwait(false);
-                return Read(notificationRes);
-            }
-
-            static T Read(in PooledBuffer buf)
-            {
-                var reader = buf.GetReader();
-
-                return (T)reader.ReadObjectFromBinaryTuple()!;
             }
         }
 
@@ -299,9 +292,10 @@ namespace Apache.Ignite.Internal.Compute
                             ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
-                    var notificationHandler = (NotificationHandler)res.Metadata!;
-                    using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
-                    return Read(notificationRes);
+                    var jobId = res.GetReader().ReadGuid();
+                    var resultTask = GetResult<T>((NotificationHandler)res.Metadata!);
+
+                    return new JobExecution<T>(jobId, resultTask);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
@@ -342,11 +336,6 @@ namespace Apache.Ignite.Internal.Compute
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
                 return colocationHash;
-            }
-
-            static T Read(in PooledBuffer buf)
-            {
-                return (T)buf.GetReader().ReadObjectFromBinaryTuple()!;
             }
         }
     }
