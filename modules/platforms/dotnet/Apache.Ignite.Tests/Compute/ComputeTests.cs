@@ -93,7 +93,8 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteOnRandomNode()
         {
-            var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
+            var jobExecution = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
+            var res = await jobExecution.GetResultAsync();
 
             var expectedNodeNames = Enumerable.Range(1, 4)
                 .Select(x => x == 1 ? PlatformTestNodeRunner : PlatformTestNodeRunner + "_" + x)
@@ -337,10 +338,10 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public void TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
+        public async Task TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
-                await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, ExceptionJob, "foo-bar"));
+            var jobExecution = await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, ExceptionJob, "foo-bar");
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExecution.GetResultAsync());
 
             Assert.AreEqual("Test exception: foo-bar", ex!.Message);
             Assert.IsNotNull(ex.InnerException);
