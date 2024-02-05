@@ -86,8 +86,8 @@ namespace Apache.Ignite.Tests.Compute
             var res1 = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(0), Units, NodeNameJob, "-", 11);
             var res2 = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, NodeNameJob, ":", 22);
 
-            Assert.AreEqual(PlatformTestNodeRunner + "-_11", res1);
-            Assert.AreEqual(PlatformTestNodeRunner + "_2:_22", res2);
+            Assert.AreEqual(PlatformTestNodeRunner + "-_11", await res1.GetResultAsync());
+            Assert.AreEqual(PlatformTestNodeRunner + "_2:_22", await res2.GetResultAsync());
         }
 
         [Test]
@@ -114,13 +114,13 @@ namespace Apache.Ignite.Tests.Compute
         {
             var nodes = await GetNodeAsync(0);
 
-            IDictionary<IClusterNode, Task<string>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, Units, NodeNameJob, "123");
+            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, Units, NodeNameJob, "123");
             var res = await taskMap[nodes[0]];
 
             Assert.AreEqual(1, taskMap.Count);
             Assert.AreSame(nodes[0], taskMap.Keys.Single());
 
-            Assert.AreEqual(PlatformTestNodeRunner + "123", res);
+            Assert.AreEqual(PlatformTestNodeRunner + "123", await res.GetResultAsync());
         }
 
         [Test]
@@ -128,7 +128,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var nodes = await Client.GetClusterNodesAsync();
 
-            IDictionary<IClusterNode, Task<string>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, Units, NodeNameJob, "123");
+            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, Units, NodeNameJob, "123");
             var res1 = await taskMap[nodes[0]];
             var res2 = await taskMap[nodes[1]];
             var res3 = await taskMap[nodes[2]];
@@ -136,10 +136,10 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.AreEqual(4, taskMap.Count);
 
-            Assert.AreEqual(nodes[0].Name + "123", res1);
-            Assert.AreEqual(nodes[1].Name + "123", res2);
-            Assert.AreEqual(nodes[2].Name + "123", res3);
-            Assert.AreEqual(nodes[3].Name + "123", res4);
+            Assert.AreEqual(nodes[0].Name + "123", await res1.GetResultAsync());
+            Assert.AreEqual(nodes[1].Name + "123", await res2.GetResultAsync());
+            Assert.AreEqual(nodes[2].Name + "123", await res3.GetResultAsync());
+            Assert.AreEqual(nodes[3].Name + "123", await res4.GetResultAsync());
         }
 
         [Test]
@@ -147,7 +147,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), Units, ConcatJob, 1.1, Guid.Empty, "3", null);
 
-            Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3_null", res);
+            Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3_null", await res.GetResultAsync());
         }
 
         [Test]
@@ -306,7 +306,8 @@ namespace Apache.Ignite.Tests.Compute
         {
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
-            var tableName = await Client.Compute.ExecuteAsync<string>(nodes, Units, CreateTableJob, "drop_me");
+            var tableNameExec = await Client.Compute.ExecuteAsync<string>(nodes, Units, CreateTableJob, "drop_me");
+            var tableName = await tableNameExec.GetResultAsync();
 
             try
             {
@@ -377,11 +378,11 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await server.ConnectClientAsync();
 
             var res = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), units, FakeServer.GetDetailsJob);
-            StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", res);
+            StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", await res.GetResultAsync());
 
             // Lazy enumerable.
             var res2 = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), units.Reverse(), FakeServer.GetDetailsJob);
-            StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", res2);
+            StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", await res2.GetResultAsync());
 
             // Colocated.
             var keyTuple = new IgniteTuple { ["ID"] = 1 };

@@ -19,7 +19,6 @@ namespace Apache.Ignite.Compute;
 
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Internal.Compute;
 using Network;
 using Table;
 
