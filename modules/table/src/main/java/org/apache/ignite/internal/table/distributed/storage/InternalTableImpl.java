@@ -1441,11 +1441,11 @@ public class InternalTableImpl implements InternalTable {
                     } else {
                         var replicationGrpId = new TablePartitionId(tableId, partId);
 
-                        opFut = tx.enlistedNodeAndTerm(replicationGrpId) != null ? completeScan(
+                        opFut = tx.enlistedNodeAndConsistencyToken(replicationGrpId) != null ? completeScan(
                                 tx.id(),
                                 replicationGrpId,
                                 fut,
-                                tx.enlistedNodeAndTerm(replicationGrpId).get1(),
+                                tx.enlistedNodeAndConsistencyToken(replicationGrpId).get1(),
                                 intentionallyClose
                         ) : fut.thenApply(cursorId -> null);
                     }
