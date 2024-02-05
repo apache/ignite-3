@@ -489,7 +489,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 node.name(),
                 bootstrapFactory,
                 staleIdDetector,
-                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector)
+                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector),
                 failureProcessor
         );
         connectionManager.start();
