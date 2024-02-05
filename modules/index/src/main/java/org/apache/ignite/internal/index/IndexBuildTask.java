@@ -69,6 +69,8 @@ class IndexBuildTask {
 
     private final long enlistmentConsistencyToken;
 
+    private final int creationCatalogVersion;
+
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean taskStopGuard = new AtomicBoolean();
@@ -85,7 +87,8 @@ class IndexBuildTask {
             int batchSize,
             ClusterNode node,
             List<IndexBuildCompletionListener> listeners,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            int creationCatalogVersion
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -98,6 +101,7 @@ class IndexBuildTask {
         // We do not intentionally make a copy of the list, we want to see changes in the passed list.
         this.listeners = listeners;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
+        this.creationCatalogVersion = creationCatalogVersion;
     }
 
     /** Starts building the index. */
@@ -208,6 +212,7 @@ class IndexBuildTask {
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
+                .creationCatalogVersion(creationCatalogVersion)
                 .build();
     }
 
