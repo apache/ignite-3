@@ -134,7 +134,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(recs);
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.updateAll(mapToBinary(recs, schemaVersion, false), (InternalTransaction) tx);
+            return tbl.upsertAll(mapToBinary(recs, schemaVersion, false), (InternalTransaction) tx);
         });
     }
 

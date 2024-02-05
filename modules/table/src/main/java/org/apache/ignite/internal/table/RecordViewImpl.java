@@ -151,7 +151,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         Objects.requireNonNull(recs);
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.updateAll(marshal(recs, schemaVersion), (InternalTransaction) tx);
+            return tbl.upsertAll(marshal(recs, schemaVersion), (InternalTransaction) tx);
         });
     }
 

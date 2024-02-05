@@ -204,7 +204,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         }
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.updateAll(marshalPairs(pairs.entrySet(), schemaVersion), (InternalTransaction) tx);
+            return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion), (InternalTransaction) tx);
         });
     }
 

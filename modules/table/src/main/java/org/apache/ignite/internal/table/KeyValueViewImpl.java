@@ -236,7 +236,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         return withSchemaSync(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshalPairs(pairs.entrySet(), schemaVersion);
 
-            return tbl.updateAll(rows, (InternalTransaction) tx);
+            return tbl.upsertAll(rows, (InternalTransaction) tx);
         });
     }
 

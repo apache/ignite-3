@@ -154,7 +154,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
+    CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously updates records in the table (insert, update, delete).
