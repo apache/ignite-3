@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.compute.message;
 
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Remote job statuses request.

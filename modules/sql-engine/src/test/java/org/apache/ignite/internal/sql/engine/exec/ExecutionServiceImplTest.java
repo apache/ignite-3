@@ -74,6 +74,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -131,9 +133,7 @@ import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;

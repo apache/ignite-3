@@ -80,6 +80,9 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     TableDescriptor tableDescriptor = sqlTable.descriptor();
 
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
+                    // TODO Can be removed after https://issues.apache.org/jira/browse/IGNITE-20680
+                    assert schemaRegistry != null : "SchemaRegistry does not exist: " + sqlTable.id();
+
                     SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
                     TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(schemaRegistry, schemaDescriptor);
 

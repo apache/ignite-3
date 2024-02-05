@@ -22,8 +22,8 @@ import static java.util.stream.Collectors.toList;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * File header. This message is sent by the sender to the receiver to provide information about the file to be transferred.

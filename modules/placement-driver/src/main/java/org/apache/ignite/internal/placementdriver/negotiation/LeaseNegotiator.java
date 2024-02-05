@@ -26,12 +26,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.LeaseUpdater;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * This class negotiates a lease with leaseholder. If the lease is negotiated, it is ready available to accept.

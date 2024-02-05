@@ -20,7 +20,7 @@ package org.apache.ignite.internal.rest.compute;
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.compute.ComputeComponent;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.rest.RestFactory;
 
 /**
@@ -28,20 +28,20 @@ import org.apache.ignite.internal.rest.RestFactory;
  */
 @Factory
 public class ComputeRestFactory implements RestFactory {
-    private ComputeComponent computeComponent;
+    private IgniteComputeInternal compute;
 
-    public ComputeRestFactory(ComputeComponent computeComponent) {
-        this.computeComponent = computeComponent;
+    public ComputeRestFactory(IgniteComputeInternal compute) {
+        this.compute = compute;
     }
 
     @Bean
     @Singleton
-    public ComputeComponent computeComponent() {
-        return computeComponent;
+    public IgniteComputeInternal computeComponent() {
+        return compute;
     }
 
     @Override
     public void cleanResources() {
-        computeComponent = null;
+        compute = null;
     }
 }

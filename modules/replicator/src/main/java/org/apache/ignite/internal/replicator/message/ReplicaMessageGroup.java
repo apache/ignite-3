@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.replicator.message;
 
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
-import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Message group for the replication process.

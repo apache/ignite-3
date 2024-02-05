@@ -20,8 +20,8 @@ package org.apache.ignite.internal.network.handshake;
 import io.netty.channel.ChannelHandlerContext;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.netty.NettySender;
-import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Handshake operation manager.

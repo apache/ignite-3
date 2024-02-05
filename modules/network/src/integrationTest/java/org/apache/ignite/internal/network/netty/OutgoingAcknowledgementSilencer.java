@@ -26,8 +26,8 @@ import io.netty.channel.ChannelPromise;
 import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
-import org.apache.ignite.network.OutNetworkObject;
 
 /**
  * {@link io.netty.channel.ChannelOutboundHandler} that drops outgoing {@link AcknowledgementMessage}s.

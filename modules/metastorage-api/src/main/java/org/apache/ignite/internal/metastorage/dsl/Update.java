@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import java.util.Collection;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Simple operations + result wrapper to describe the terminal branch of {@link If} execution.

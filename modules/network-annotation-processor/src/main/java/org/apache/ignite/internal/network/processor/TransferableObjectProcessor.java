@@ -45,6 +45,9 @@ import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.processor.messages.MessageBuilderGenerator;
 import org.apache.ignite.internal.network.processor.messages.MessageFactoryGenerator;
 import org.apache.ignite.internal.network.processor.messages.MessageImplGenerator;
@@ -52,14 +55,11 @@ import org.apache.ignite.internal.network.processor.serialization.MessageDeseria
 import org.apache.ignite.internal.network.processor.serialization.MessageSerializerGenerator;
 import org.apache.ignite.internal.network.processor.serialization.RegistryInitializerGenerator;
 import org.apache.ignite.internal.network.processor.serialization.SerializationFactoryGenerator;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.MessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageSerializationFactory;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializationRegistryInitializer;
-import org.apache.ignite.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageSerializationFactory;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.jetbrains.annotations.Nullable;
 
 /**

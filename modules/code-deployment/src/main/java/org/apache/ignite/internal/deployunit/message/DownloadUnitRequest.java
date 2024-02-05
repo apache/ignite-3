@@ -19,8 +19,8 @@ package org.apache.ignite.internal.deployunit.message;
 
 import static org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes.DOWNLOAD_UNIT_REQUEST;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Download unit content request.

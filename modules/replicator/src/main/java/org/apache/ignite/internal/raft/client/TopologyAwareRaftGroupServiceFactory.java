@@ -20,12 +20,12 @@ package org.apache.ignite.internal.raft.client;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 

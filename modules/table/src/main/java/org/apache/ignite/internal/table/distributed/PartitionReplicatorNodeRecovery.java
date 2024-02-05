@@ -37,6 +37,7 @@ import java.util.function.IntFunction;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
 

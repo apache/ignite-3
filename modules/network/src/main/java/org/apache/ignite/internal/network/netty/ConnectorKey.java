@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.ChannelType;
 
 /**
  * Composite key object for connectors.
