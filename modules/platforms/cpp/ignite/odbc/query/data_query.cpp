@@ -251,6 +251,9 @@ sql_result data_query::next_result_set() {
 sql_result data_query::make_request_execute() {
     auto &schema = m_connection.get_schema();
 
+    bool single = m_params.get_param_set_size() <= 1;
+    auto client_op = single ? protocol::client_operation::SQL_EXEC : protocol::client_operation::SQL_EXEC_BATCH;
+
     auto success = m_diag.catch_errors([&] {
         auto tx = m_connection.get_transaction_id();
         if (!tx && !m_connection.is_auto_commit()) {
@@ -260,7 +263,7 @@ sql_result data_query::make_request_execute() {
             tx = m_connection.get_transaction_id();
             assert(tx);
         }
-        auto response = m_connection.sync_request(protocol::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
+        auto response = m_connection.sync_request(client_op, [&](protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
             else
@@ -281,7 +284,12 @@ sql_result data_query::make_request_execute() {
 
             writer.write(m_query);
 
-            m_params.write(writer);
+            if(single) {
+                m_params.write(writer);
+            } else {
+                m_params.write(writer, 0, m_params.get_param_set_size(), true);
+            }
+
             writer.write(m_connection.get_observable_timestamp());
         });
 
@@ -294,6 +302,13 @@ sql_result data_query::make_request_execute() {
         m_has_more_pages = reader->read_bool();
         m_was_applied = reader->read_bool();
         m_rows_affected = reader->read_int64();
+
+        // Batch query, set attribute if it's set
+        if(!single) {
+            if(auto affected = m_params.get_params_processed_ptr()) {
+                *affected = m_rows_affected;
+            }
+        }
 
         if (m_has_rowset) {
             auto columns = read_result_set_meta(*reader);

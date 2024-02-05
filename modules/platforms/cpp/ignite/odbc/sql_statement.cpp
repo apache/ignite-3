@@ -245,12 +245,6 @@ sql_result sql_statement::internal_set_attribute(int attr, void *value, SQLINTEG
         case SQL_ATTR_PARAMSET_SIZE: {
             auto size = reinterpret_cast<SQLULEN>(value);
 
-            if (size > 1) {
-                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Batching is not supported.");
-
-                return sql_result::AI_ERROR;
-            }
-
             if (size < 1) {
                 add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, "Can not set parameter set size to zero.");
                 return sql_result::AI_SUCCESS_WITH_INFO;

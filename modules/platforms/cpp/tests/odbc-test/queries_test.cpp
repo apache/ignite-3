@@ -1199,3 +1199,19 @@ TEST_F(queries_test, max_min_select) {
     ret = SQLFreeStmt(m_statement, SQL_CLOSE);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 }
+
+TEST_F(queries_test, insert_select_batch) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_batch_select(100);
+}
+
+// TODO: Support status array on server side in batch requests. Now we know only affected rows number.
+#ifdef MUTED
+TEST_F(queries_test, test_non_full_batch_select)
+{
+    odbc_connect(get_basic_connection_string());
+
+    insert_non_null_batch_select(900, 42);
+}
+#endif
