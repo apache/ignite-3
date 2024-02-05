@@ -358,6 +358,9 @@ public class ErrorGroups {
 
         /** Failure due to primary replica expiration. */
         public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Failure due to a stale operation of a completed transaction is detected. */
+        public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Replicator error group. */
