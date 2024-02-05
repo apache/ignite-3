@@ -965,10 +965,10 @@ public class InternalTableImpl implements InternalTable {
         }
 
         var result = new byte[opTypes.size()];
-        int idx = 0;
 
-        for (RowOpType opType : opTypes) {
-            result[idx++] = (byte) opType.ordinal();
+        for (int i = 0; i < opTypes.size(); i++) {
+            //noinspection NumericCastThatLosesPrecision
+            result[i] = (byte) opTypes.get(i).ordinal();
         }
 
         return result;
