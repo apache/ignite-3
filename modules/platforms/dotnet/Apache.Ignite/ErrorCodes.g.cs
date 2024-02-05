@@ -291,8 +291,11 @@ namespace Apache.Ignite
             /// <summary> TxPrimaryReplicaExpired error. </summary>
             public const int TxPrimaryReplicaExpired = (GroupCode << 16) | (13 & 0xFFFF);
 
+            /// <summary> TxAlreadyFinished error. </summary>
+            public const int TxAlreadyFinished = (GroupCode << 16) | (14 & 0xFFFF);
+
             /// <summary> TxStaleOperation error. </summary>
-            public const int TxStaleOperation = (GroupCode << 16) | (14 & 0xFFFF);
+            public const int TxStaleOperation = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>
