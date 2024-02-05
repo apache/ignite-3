@@ -294,7 +294,7 @@ public final class IgniteTestUtils {
      * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
      * @return Thrown throwable.
      */
-    public static Throwable assertThrows(
+    public static Throwable assertThrowsWithCode(
             Class<? extends IgniteException> expectedClass,
             int expectedErrorCode,
             Executable run,

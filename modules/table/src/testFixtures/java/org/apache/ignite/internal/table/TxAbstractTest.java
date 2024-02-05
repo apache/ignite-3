@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -2218,7 +2219,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             finishLatch.await();
             var rnd = ThreadLocalRandom.current();
 
-            IgniteTestUtils.assertThrows(TransactionException.class, TX_ALREADY_FINISHED_ERR, () -> {
+            assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR, () -> {
                 if (rnd.nextBoolean()) {
                     rv.upsert(tx, makeValue(2, 200.));
                 } else {
@@ -2324,17 +2325,17 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         finisher.accept(tx, txId);
 
-        TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(1)));
-        assertTrue(ex.getMessage().contains("Transaction is already finished."));
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
+                () -> accountsRv.get(tx, makeKey(1)), "Transaction is already finished");
 
-        ex = assertThrows(TransactionException.class, () -> accountsRv.delete(tx, makeKey(1)));
-        assertTrue(ex.getMessage().contains("Transaction is already finished"));
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
+                () -> accountsRv.delete(tx, makeKey(1)), "Transaction is already finished");
 
-        ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(2)));
-        assertTrue(ex.getMessage().contains("Transaction is already finished."));
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
+                () -> accountsRv.get(tx, makeKey(2)), "Transaction is already finished");
 
-        ex = assertThrows(TransactionException.class, () -> accountsRv.upsert(tx, makeValue(2, 300.)));
-        assertTrue(ex.getMessage().contains("Transaction is already finished"));
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
+                () -> accountsRv.upsert(tx, makeValue(2, 300.)), "Transaction is already finished");
 
         if (checkLocks) {
             assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
