@@ -485,6 +485,22 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual("Connection closed.", ex!.Message);
         }
 
+        [Test]
+        public async Task TestJobExecutionStatus()
+        {
+            // TODO: Check different statuses.
+            // TODO: Check null result when the job does not exist.
+            await Task.Delay(1);
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public async Task TestJobExecutionCancel()
+        {
+            await Task.Delay(1);
+            Assert.Fail("TODO");
+        }
+
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
             (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1).ToList();
     }
