@@ -33,7 +33,6 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.replicator.action.RowOpType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -160,11 +159,11 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously updates records in the table (insert, update, delete).
      *
      * @param rows Rows to update.
-     * @param opTypes Operation types for each row. Required when deleting rows.
+     * @param deleted Bit set indicating deleted rows (one bit per item in {@param rows}). When null, no rows are deleted.
      * @param partition Partition that the rows belong to.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable List<RowOpType> opTypes, int partition);
+    CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition);
 
     /**
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.

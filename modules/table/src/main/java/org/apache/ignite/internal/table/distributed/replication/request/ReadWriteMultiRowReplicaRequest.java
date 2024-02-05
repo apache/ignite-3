@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.util.BitSet;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.replicator.action.RowOpType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,10 +35,10 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
     boolean skipDelayedAck();
 
     /**
-     * Optional operation types (one for every tuple in {@link #binaryTuples()}.
-     * See {@link RowOpType}.
+     * Deleted flags (one for every tuple in {@link #binaryTuples()}.
      *
-     * @return A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
+     * @return A bit for every tuple in {@link #binaryTuples()} indicating a delete operation.
      */
-    byte @Nullable [] operationTypes();
+    @Nullable
+    BitSet deleted();
 }

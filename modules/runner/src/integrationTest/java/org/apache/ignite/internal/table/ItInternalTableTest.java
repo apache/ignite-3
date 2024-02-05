@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.table.distributed.replicator.action.RowOpType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -495,8 +495,9 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             assertEquals(partitionId, internalTable.partitionId(rows.get(i)), "Unexpected partition for row " + i);
         }
 
-        List<RowOpType> opTypes = List.of(RowOpType.DEFAULT, RowOpType.DEFAULT, RowOpType.DELETE);
-        internalTable.updateAll(rows, opTypes, partitionId).join();
+        BitSet deleted = new BitSet(3);
+        deleted.set(2);
+        internalTable.updateAll(rows, deleted, partitionId).join();
 
         var row1 = view.get(null, Tuple.create().set("key", 1L));
         assertEquals(11, row1.intValue("valInt"));
