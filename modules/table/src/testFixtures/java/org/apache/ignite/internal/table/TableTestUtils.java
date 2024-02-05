@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -30,14 +33,26 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Utils to manage tables inside tests.
- */
+/** Utils to manage tables inside tests. */
 public class TableTestUtils {
+    /** Table name. */
+    public static final String TABLE_NAME = "TEST_TABLE";
+
+    /** Index name. */
+    public static final String INDEX_NAME = "TEST_INDEX";
+
+    /** Column name. */
+    public static final String COLUMN_NAME = "TEST_COLUMN";
+
     /**
      * Creates table in the catalog.
      *
@@ -91,6 +106,21 @@ public class TableTestUtils {
     public static void dropIndex(CatalogManager catalogManager, String schemaName, String indexName) {
         assertThat(
                 catalogManager.execute(DropIndexCommand.builder().schemaName(schemaName).indexName(indexName).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    /**
+     * Removes index from the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param indexName Index name.
+     */
+    public static void removeIndex(CatalogManager catalogManager, String indexName) {
+        int indexId = getIndexIdStrict(catalogManager, indexName, Long.MAX_VALUE);
+
+        assertThat(
+                catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).build()),
                 willCompleteSuccessfully()
         );
     }
@@ -242,5 +272,54 @@ public class TableTestUtils {
         assertNotNull(index, "indexName=" + indexName + ", timestamp=" + timestamp);
 
         return index;
+    }
+
+    /**
+     * Creates a simple table in {@link CatalogService#DEFAULT_SCHEMA_NAME} and {@link CatalogService#DEFAULT_ZONE_NAME} and single
+     * {@link #COLUMN_NAME column} of type {@link ColumnType#INT32}.
+     *
+     * @param catalogManager Catalog name.
+     * @param tableName Table name.
+     */
+    public static void createSimpleTable(CatalogManager catalogManager, String tableName) {
+        createTable(
+                catalogManager,
+                DEFAULT_SCHEMA_NAME,
+                DEFAULT_ZONE_NAME,
+                tableName,
+                List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()),
+                List.of(COLUMN_NAME)
+        );
+    }
+
+    /**
+     * Creates a simple index on the table from {@link #createSimpleTable(CatalogManager, String)}.
+     *
+     * @param catalogManager Catalog name.
+     * @param tableName Table name.
+     * @param indexName Index name.
+     */
+    public static void createSimpleHashIndex(CatalogManager catalogManager, String tableName, String indexName) {
+        createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(COLUMN_NAME), false);
+    }
+
+    /**
+     * Sets the index status to {@link CatalogIndexStatus#BUILDING}.
+     *
+     * @param catalogManager Catalog manager.
+     * @param indexId Index ID.
+     */
+    public static void startBuildingIndex(CatalogManager catalogManager, int indexId) {
+        assertThat(catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+    }
+
+    /**
+     * Sets the index to {@link CatalogIndexStatus#AVAILABLE}.
+     *
+     * @param catalogManager Catalog manager.
+     * @param indexId Index ID.
+     */
+    public static void makeIndexAvailable(CatalogManager catalogManager, int indexId) {
+        assertThat(catalogManager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }
 }

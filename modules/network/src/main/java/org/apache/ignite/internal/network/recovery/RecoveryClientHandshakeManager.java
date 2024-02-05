@@ -34,11 +34,14 @@ import java.util.function.Function;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
+import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
 import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
@@ -51,8 +54,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
 
 /**
  * Recovery protocol handshake manager for a client.
@@ -71,6 +72,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
+
+    private final ChannelEventLoopsSource channelEventLoopsSource;
 
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
@@ -122,6 +125,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             String consistentId,
             short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
+            ChannelEventLoopsSource channelEventLoopsSource,
             StaleIdDetector staleIdDetector,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping
@@ -130,6 +134,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.consistentId = consistentId;
         this.connectionId = connectionId;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
+        this.channelEventLoopsSource = channelEventLoopsSource;
         this.staleIdDetector = staleIdDetector;
         this.stopping = stopping;
 
@@ -230,7 +235,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.remoteConsistentId = handshakeStartMessage.consistentId();
 
         ChannelKey channelKey = new ChannelKey(remoteConsistentId, remoteLaunchId, connectionId);
-        switchEventLoopIfNeeded(channel, channelKey, () -> proceedAfterSavingIds(handshakeStartMessage));
+        switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> proceedAfterSavingIds(handshakeStartMessage));
     }
 
     private void proceedAfterSavingIds(HandshakeStartMessage handshakeStartMessage) {

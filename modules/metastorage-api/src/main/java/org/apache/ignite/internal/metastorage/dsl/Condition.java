@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * Interface for boolean conditions.

@@ -96,6 +96,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -173,6 +174,12 @@ public class TestBuilders {
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
@@ -210,6 +217,12 @@ public class TestBuilders {
             @Override
             public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
         };
@@ -250,6 +263,12 @@ public class TestBuilders {
                         ),
                         rowFactory::create
                 );
+            }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
             }
         };
     }

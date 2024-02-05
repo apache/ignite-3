@@ -209,11 +209,11 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
     @MethodSource("compoundIndex")
     public void testCompoundIndex(TestTypeArguments<T> arguments) throws InterruptedException {
         sql("drop index if exists t_test_key_pk_idx");
-        sql("create index if not exists t_test_key_pk_idx on t (id, test_key)");
+        sql("create index if not exists t_test_key_pk_idx on t (test_key, id)");
 
         runSql("insert into t values(100, $0)");
 
-        String query = format("select id, test_key from t where test_key = {} and id = 100", arguments.valueExpr(0));
+        String query = format("select id, test_key from t where test_key = {} and id >= 100", arguments.valueExpr(0));
         checkQuery(query)
                 .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_PK_IDX"))
                 .returns(100, arguments.value(0))

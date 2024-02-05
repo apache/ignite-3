@@ -100,9 +100,7 @@ public class ClientCompute implements IgniteCompute {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        ClusterNode node = randomNode(nodes);
-
-        return new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, options, args));
+        return new ClientJobExecution<>(ch, executeOnNodesAsync(nodes, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
@@ -252,7 +250,9 @@ public class ClientCompute implements IgniteCompute {
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            ClientJobExecution<R> execution = new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, options, args));
+            JobExecution<R> execution = new ClientJobExecution<>(ch, executeOnNodesAsync(
+                    Set.of(node), units, jobClassName, options, args
+            ));
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
@@ -261,22 +261,19 @@ public class ClientCompute implements IgniteCompute {
         return map;
     }
 
-    private CompletableFuture<PayloadInputChannel> executeOnOneNode(
-            ClusterNode node,
+    private CompletableFuture<PayloadInputChannel> executeOnNodesAsync(
+            Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
             Object[] args
     ) {
+        ClusterNode node = randomNode(nodes);
+
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
-                    if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
-                        w.out().packNil();
-                    } else {
-                        w.out().packString(node.name());
-                    }
-
+                    packNodeNames(w.out(), nodes);
                     packJob(w.out(), units, jobClassName, options, args);
                 },
                 ch -> ch,
@@ -406,6 +403,13 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return completedFuture(res);
+    }
+
+    private static void packNodeNames(ClientMessagePacker w, Set<ClusterNode> nodes) {
+        w.packInt(nodes.size());
+        for (ClusterNode node : nodes) {
+            w.packString(node.name());
+        }
     }
 
     private static void packJob(ClientMessagePacker w,

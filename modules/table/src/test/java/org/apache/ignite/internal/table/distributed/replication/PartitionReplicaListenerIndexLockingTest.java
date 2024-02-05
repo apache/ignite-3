@@ -145,7 +145,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
-                .thenAnswer(invocationOnMock -> completedFuture(new LeaderWithTerm(null, 1L)));
+                .thenAnswer(invocationOnMock -> completedFuture(LeaderWithTerm.NO_LEADER));
         when(mockRaftClient.run(any()))
                 .thenAnswer(invocationOnMock -> nullCompletedFuture());
 
@@ -213,10 +213,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
-        ClusterNode localNode = mock(ClusterNode.class);
-
-        when(localNode.name()).thenReturn("localNode");
-        when(localNode.id()).thenReturn("localNode");
+        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
@@ -305,6 +302,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             insertRows(List.of(new Pair<>(testBinaryRow, rowId)), TestTransactionIds.newTransactionId());
         }
 
+        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+
         ReplicaRequest request;
 
         switch (arg.type) {
@@ -318,6 +317,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
                         .requestType(arg.type)
+                        .coordinatorId(localNode.id())
                         .build();
 
                 break;
@@ -336,6 +336,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .schemaVersion(testBinaryRow.schemaVersion())
                         .binaryTuple(testBinaryRow.tupleSlice())
                         .requestType(arg.type)
+                        .coordinatorId(localNode.id())
                         .build();
                 break;
 
@@ -388,6 +389,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             }
         }
 
+        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+
         ReplicaRequest request;
 
         switch (arg.type) {
@@ -400,6 +403,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
                         .requestType(arg.type)
+                        .coordinatorId(localNode.id())
                         .build();
 
                 break;
@@ -415,6 +419,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(rows))
                         .requestType(arg.type)
+                        .coordinatorId(localNode.id())
                         .build();
 
                 break;

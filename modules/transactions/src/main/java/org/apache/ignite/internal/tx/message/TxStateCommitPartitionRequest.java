@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.util.UUID;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Transaction state request.

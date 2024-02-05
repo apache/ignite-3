@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Read-write multi-row replica request.
  */
 @Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest {
     /**
      * Disable delayed ack optimization.
      *

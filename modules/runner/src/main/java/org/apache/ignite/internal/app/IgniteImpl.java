@@ -109,9 +109,19 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
+import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.NettyWorkersRegistrar;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -127,6 +137,7 @@ import org.apache.ignite.internal.rest.RestManager;
 import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
+import org.apache.ignite.internal.rest.compute.ComputeRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
@@ -171,19 +182,9 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.DefaultMessagingService;
-import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.network.NettyWorkersRegistrar;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeMetadata;
-import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -702,8 +703,10 @@ public class IgniteImpl implements Ignite {
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY);
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         computeComponent = new ComputeComponentImpl(
+                name,
                 clusterSvc.messagingService(),
                 clusterSvc.topologyService(),
+                logicalTopologyService,
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
                 new ComputeExecutorImpl(this, stateMachine, computeCfg),
                 computeCfg
@@ -712,7 +715,6 @@ public class IgniteImpl implements Ignite {
         compute = new IgniteComputeImpl(
                 placementDriverMgr.placementDriver(),
                 clusterSvc.topologyService(),
-                logicalTopologyService,
                 distributedTblMgr,
                 computeComponent,
                 clock
@@ -767,6 +769,8 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
+        Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
+
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
 
         return new RestComponent(
@@ -776,7 +780,9 @@ public class IgniteImpl implements Ignite {
                         nodeMetricRestFactory,
                         deploymentCodeRestFactory,
                         authProviderFactory,
-                        restManagerFactory),
+                        restManagerFactory,
+                        computeRestFactory
+                ),
                 restManager,
                 restConfiguration
         );

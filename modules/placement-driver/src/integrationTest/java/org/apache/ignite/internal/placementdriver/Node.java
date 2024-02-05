@@ -22,9 +22,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterService;
 
 class Node implements AutoCloseable {
     final String name;

@@ -18,7 +18,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
 
 /**

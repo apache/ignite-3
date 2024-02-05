@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
@@ -30,6 +33,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -171,5 +175,22 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         INITIAL_CAUSALITY_TOKEN
                 ))
         );
+    }
+
+    static CatalogTableDescriptor table(int tableId, int schemaId, int zoneId, int pkIndexId, String columnName) {
+        return new CatalogTableDescriptor(
+                tableId,
+                schemaId,
+                pkIndexId,
+                "TEST_TABLE",
+                zoneId,
+                List.of(tableColumn(columnName)),
+                List.of(columnName),
+                null
+        );
+    }
+
+    static CatalogTableColumnDescriptor tableColumn(String columnName) {
+        return new CatalogTableColumnDescriptor(columnName, INT32, false, DEFAULT_PRECISION, DEFAULT_SCALE, DEFAULT_LENGTH, null);
     }
 }

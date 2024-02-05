@@ -40,7 +40,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelProgressivePromise;
 import io.netty.channel.EventLoop;
-import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.EventExecutor;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -58,7 +58,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.OutNetworkObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -106,9 +105,6 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     private EventLoop eventLoop;
 
     @Mock
-    private EventLoopGroup eventLoopGroup;
-
-    @Mock
     private NettySender competitorNettySender;
 
     @Captor
@@ -127,8 +123,6 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         lenient().when(eventExecutor.inEventLoop()).thenReturn(true);
 
         lenient().when(thisChannel.eventLoop()).thenReturn(eventLoop);
-        lenient().when(eventLoop.parent()).thenReturn(eventLoopGroup);
-        lenient().when(eventLoopGroup.iterator()).thenReturn(List.of((EventExecutor) eventLoop).iterator());
 
         lenient().when(recoveryDescriptorProvider.getRecoveryDescriptor(any(), any(), anyShort()))
                 .thenReturn(recoveryDescriptor);
@@ -182,6 +176,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
                 CLIENT_CONSISTENT_ID,
                 CONNECTION_INDEX,
                 recoveryDescriptorProvider,
+                () -> List.of(thisChannel.eventLoop()),
                 new AllIdsAreFresh(),
                 channelCreationListener,
                 stopping
