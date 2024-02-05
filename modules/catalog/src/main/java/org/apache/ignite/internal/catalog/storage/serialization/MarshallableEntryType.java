@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.storage.serialization;
 
 /**
- * Update entry serialization type.
+ * Update log entry serialization type.
  */
 public enum MarshallableEntryType {
     ALTER_COLUMN(0),
@@ -60,14 +60,5 @@ public enum MarshallableEntryType {
     /** Returns type ID. */
     public int id() {
         return id;
-    }
-
-    /** Returns entry type by identifier. */
-    static MarshallableEntryType forId(int id) {
-        if (id >= 0 && id < VALS.length) {
-            return VALS[id];
-        }
-
-        throw new IllegalArgumentException("Unknown entry type ID: " + id);
     }
 }
