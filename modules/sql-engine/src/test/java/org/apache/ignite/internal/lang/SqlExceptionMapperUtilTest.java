@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.stream.Stream;
 import org.apache.ignite.lang.CursorClosedException;
-import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
@@ -58,8 +57,7 @@ class SqlExceptionMapperUtilTest {
     private static Stream<Arguments> testSqlInternalExceptionDefaultMappingForPublicException() {
         return Stream.of(
                 Arguments.of(new NoRowSetExpectedException()),
-                Arguments.of(new CursorClosedException()),
-                Arguments.of(new NoMorePagesException())
+                Arguments.of(new CursorClosedException())
         );
     }
 

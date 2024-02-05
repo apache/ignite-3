@@ -36,7 +36,6 @@ import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -157,12 +156,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
-        if (closed) {
+        if (closed || !hasMorePages()) {
             return CompletableFuture.failedFuture(new CursorClosedException());
-        }
-
-        if (!hasMorePages()) {
-            return CompletableFuture.failedFuture(new NoMorePagesException());
         }
 
         return ch.serviceAsync(

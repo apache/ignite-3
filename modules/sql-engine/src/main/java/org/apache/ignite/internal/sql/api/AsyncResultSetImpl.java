@@ -30,7 +30,6 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
-import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -42,9 +41,6 @@ import org.jetbrains.annotations.Nullable;
  * Asynchronous result set implementation.
  */
 public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
-    private static final CompletableFuture<? extends AsyncResultSet<?>> HAS_NO_MORE_PAGE_FUTURE =
-            CompletableFuture.failedFuture(new NoMorePagesException());
-
     private final IdleExpirationTracker expirationTracker;
 
     private final AsyncSqlCursor<InternalSqlRow> cursor;
@@ -139,20 +135,16 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
         expirationTracker.touch();
 
-        if (!hasMorePages()) {
-            return (CompletableFuture<? extends AsyncResultSet<T>>) HAS_NO_MORE_PAGE_FUTURE;
-        } else {
-            return cursor.requestNextAsync(pageSize)
-                    .thenApply(page -> {
-                        curPage = page;
+        return cursor.requestNextAsync(pageSize)
+                .thenApply(page -> {
+                    curPage = page;
 
-                        if (!curPage.hasMore()) {
-                            closeAsync();
-                        }
+                    if (!curPage.hasMore()) {
+                        closeAsync();
+                    }
 
-                        return this;
-                    });
-        }
+                    return this;
+                });
     }
 
     /** {@inheritDoc} */

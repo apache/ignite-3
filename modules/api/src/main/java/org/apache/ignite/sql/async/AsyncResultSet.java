@@ -20,7 +20,6 @@ package org.apache.ignite.sql.async;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.CursorClosedException;
-import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -131,7 +130,6 @@ public interface AsyncResultSet<T> extends AsyncCursor<T> {
      *     The future will return {@code this} for chaining.
      * @throws NoRowSetExpectedException If no row set is expected as a query result.
      * @throws CursorClosedException If cursor is closed.
-     * @throws NoMorePagesException If there are no more pages.
      */
     @Override
     CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();

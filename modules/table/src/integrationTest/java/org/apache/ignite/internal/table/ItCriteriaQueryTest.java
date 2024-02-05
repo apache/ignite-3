@@ -65,7 +65,6 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.NoMorePagesException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -430,25 +429,17 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("allViews")
-    void testNoMorePages() {
-        RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
+    void testFetchCursorIsClosed(CriteriaQuerySource<TestObject> view) {
+        AsyncCursor<TestObject> ars1 = await(view.queryAsync(null, null, builder().pageSize(2).build()));
 
-        AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, builder().pageSize(3).build()));
+        assertNotNull(ars1);
+        await(ars1.closeAsync());
+        assertThrows(CursorClosedException.class, () -> await(ars1.fetchNextPage()), Common.CURSOR_CLOSED_ERR, "Cursor is closed");
 
-        assertNotNull(ars);
-        assertThrows(NoMorePagesException.class, () -> await(ars.fetchNextPage()), "There are no more pages");
-    }
+        AsyncCursor<TestObject> ars2 = await(view.queryAsync(null, null, builder().pageSize(3).build()));
 
-    @ParameterizedTest
-    @MethodSource("allViews")
-    void testFetchCursorIsClosed() {
-        RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
-
-        AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, builder().pageSize(2).build()));
-
-        assertNotNull(ars);
-        await(ars.closeAsync());
-        assertThrows(CursorClosedException.class, () -> await(ars.fetchNextPage()), Common.CURSOR_CLOSED_ERR, "Cursor is closed");
+        assertNotNull(ars2);
+        assertThrows(CursorClosedException.class, () -> await(ars2.fetchNextPage()), Common.CURSOR_CLOSED_ERR, "Cursor is closed");
     }
 
     @ParameterizedTest
