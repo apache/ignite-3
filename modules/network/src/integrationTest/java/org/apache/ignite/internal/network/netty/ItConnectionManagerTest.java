@@ -80,13 +80,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for {@link ConnectionManager}.
  */
-@ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     /** Started connection managers. */
@@ -102,9 +99,6 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     private NetworkConfiguration networkConfiguration;
 
     private TestInfo testInfo;
-
-    @Mock
-    private FailureProcessor failureProcessor;
 
     @BeforeEach
     void setTestInfo(TestInfo testInfo) {
@@ -516,7 +510,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     consistentId,
                     bootstrapFactory,
                     new AllIdsAreFresh(),
-                    failureProcessor
+                    mock(FailureProcessor.class)
             );
 
             manager.start();
