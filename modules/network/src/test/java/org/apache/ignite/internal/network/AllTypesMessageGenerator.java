@@ -34,7 +34,6 @@ import org.apache.ignite.internal.network.messages.AllTypesMessage;
 import org.apache.ignite.internal.network.messages.AllTypesMessageBuilder;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
-import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**

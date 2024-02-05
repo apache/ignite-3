@@ -56,14 +56,14 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.RecipientLeftException;
 
 /**
  * Task of switching the index from {@link CatalogIndexStatus#REGISTERED} to state {@link CatalogIndexStatus#BUILDING}, it is expected that

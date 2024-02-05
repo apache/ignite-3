@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.network.file;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,13 +30,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NodeFinder;
+import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.junit.jupiter.api.TestInfo;
 

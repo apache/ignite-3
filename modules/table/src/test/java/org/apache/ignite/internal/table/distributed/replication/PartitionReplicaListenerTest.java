@@ -93,6 +93,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
@@ -183,9 +185,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterNodeResolver;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.apache.ignite.network.TopologyService;
@@ -1871,10 +1871,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private CompletableFuture<?> doRwScanCloseRequest(UUID targetTxId) {
         return partitionReplicaListener.invoke(
-                TABLE_MESSAGES_FACTORY.readWriteScanCloseReplicaRequest()
+                TABLE_MESSAGES_FACTORY.scanCloseReplicaRequest()
                         .groupId(grpId)
                         .transactionId(targetTxId)
-                        .enlistmentConsistencyToken(1L)
                         .scanId(1)
                         .build(),
                 localNode.id()

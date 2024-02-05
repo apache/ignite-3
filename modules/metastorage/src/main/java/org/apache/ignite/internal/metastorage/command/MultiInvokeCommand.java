@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.command;
 
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Represents invoke command with nested conditions and execution branches.

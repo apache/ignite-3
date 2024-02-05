@@ -21,11 +21,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 
 /**

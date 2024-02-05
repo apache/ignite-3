@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.OutNetworkObject;
 import org.jetbrains.annotations.Nullable;
 
 /**

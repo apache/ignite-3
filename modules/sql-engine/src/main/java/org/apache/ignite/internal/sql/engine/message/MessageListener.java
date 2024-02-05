@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * MessageListener interface.

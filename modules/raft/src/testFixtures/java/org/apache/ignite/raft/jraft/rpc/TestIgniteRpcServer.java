@@ -18,14 +18,14 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.NullActionRequestInterceptor;
-import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.messages.TestMessageGroup;
 
 /**

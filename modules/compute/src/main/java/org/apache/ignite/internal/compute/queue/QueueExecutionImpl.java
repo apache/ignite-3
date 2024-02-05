@@ -91,8 +91,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
             QueueEntry<R> queueEntry = this.queueEntry.get();
             if (queueEntry != null) {
-                executor.remove(queueEntry);
-                queueEntry.interrupt();
+                if (executor.remove(queueEntry)) {
+                    result.cancel(true);
+                } else {
+                    queueEntry.interrupt();
+                }
                 return true;
             }
         } catch (IllegalJobStateTransition e) {

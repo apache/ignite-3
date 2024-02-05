@@ -36,11 +36,11 @@ import org.apache.ignite.internal.index.message.IndexMessageGroup;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**

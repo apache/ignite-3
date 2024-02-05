@@ -43,6 +43,7 @@ import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParamete
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
