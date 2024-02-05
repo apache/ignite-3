@@ -26,9 +26,9 @@ using NodaTime;
 /// <param name="Id">Job ID.</param>
 /// <param name="State">State.</param>
 /// <param name="CreateTime">Create time.</param>
-/// <param name="StartTime">Start time (null when not yet started).</param>
-/// <param name="FinishTime">Finish time (null when not yet finished).</param>
-public record JobStatus(
+/// <param name="StartTime">Start time (<c>null</c> when not yet started).</param>
+/// <param name="FinishTime">Finish time (<c>null</c> when not yet finished).</param>
+public sealed record JobStatus(
     Guid Id,
     JobState State,
     Instant CreateTime,
