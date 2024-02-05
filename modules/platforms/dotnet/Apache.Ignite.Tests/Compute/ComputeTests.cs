@@ -104,10 +104,10 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public void TestExecuteResultTypeMismatchThrowsInvalidCastException()
+        public async Task TestExecuteResultTypeMismatchThrowsInvalidCastException()
         {
-            Assert.ThrowsAsync<InvalidCastException>(async () =>
-                await Client.Compute.ExecuteAsync<Guid>(await Client.GetClusterNodesAsync(), Units, NodeNameJob));
+            var jobExec = await Client.Compute.ExecuteAsync<Guid>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
+            Assert.ThrowsAsync<InvalidCastException>(async () => await jobExec.GetResultAsync());
         }
 
         [Test]
@@ -333,7 +333,7 @@ namespace Apache.Ignite.Tests.Compute
             }
             finally
             {
-                await Client.Compute.ExecuteAsync<string>(nodes, Units, DropTableJob, tableName);
+                await (await Client.Compute.ExecuteAsync<string>(nodes, Units, DropTableJob, tableName)).GetResultAsync();
             }
         }
 
