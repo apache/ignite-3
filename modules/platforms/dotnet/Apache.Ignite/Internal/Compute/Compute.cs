@@ -198,9 +198,16 @@ namespace Apache.Ignite.Internal.Compute
             });
         }
 
-        private static IJobExecution<T> GetJobExecution<T>(PooledBuffer computeExecuteResult)
+        private static IJobExecution<T> GetJobExecution<T>(PooledBuffer computeExecuteResult, bool readSchema)
         {
-            var jobId = computeExecuteResult.GetReader().ReadGuid();
+            var reader = computeExecuteResult.GetReader();
+
+            if (readSchema)
+            {
+                _ = reader.ReadInt32();
+            }
+
+            var jobId = reader.ReadGuid();
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
 
             return new JobExecution<T>(jobId, resultTask);
@@ -227,7 +234,7 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            return GetJobExecution<T>(res);
+            return GetJobExecution<T>(res, readSchema: false);
 
             void Write()
             {
@@ -297,7 +304,7 @@ namespace Apache.Ignite.Internal.Compute
                             ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
-                    return GetJobExecution<T>(res);
+                    return GetJobExecution<T>(res, readSchema: true);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
