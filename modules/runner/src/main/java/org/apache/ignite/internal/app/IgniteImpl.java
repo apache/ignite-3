@@ -660,7 +660,8 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
-                this::sql
+                this::sql,
+                failureProcessor
         );
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);

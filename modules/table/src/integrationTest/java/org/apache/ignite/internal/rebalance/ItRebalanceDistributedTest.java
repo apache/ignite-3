@@ -1139,7 +1139,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     catalogManager,
                     new HybridTimestampTracker(),
                     placementDriver,
-                    () -> mock(IgniteSql.class)
+                    () -> mock(IgniteSql.class),
+                    failureProcessor
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

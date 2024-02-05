@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -27,6 +28,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -77,6 +81,8 @@ public class LowWatermark implements ManuallyCloseable {
 
     private final AtomicReference<ScheduledFuture<?>> lastScheduledTaskFuture = new AtomicReference<>();
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -85,6 +91,8 @@ public class LowWatermark implements ManuallyCloseable {
      * @param clock A hybrid logical clock.
      * @param txManager Transaction manager.
      * @param vaultManager Vault manager.
+     * @param mvGc MVCC garbage collector.
+     * @param failureProcessor Failure processor tha is used to handle critical errors.
      */
     public LowWatermark(
             String nodeName,
@@ -92,13 +100,15 @@ public class LowWatermark implements ManuallyCloseable {
             HybridClock clock,
             TxManager txManager,
             VaultManager vaultManager,
-            MvGc mvGc
+            MvGc mvGc,
+            FailureProcessor failureProcessor
     ) {
         this.lowWatermarkConfig = lowWatermarkConfig;
         this.clock = clock;
         this.txManager = txManager;
         this.vaultManager = vaultManager;
         this.mvGc = mvGc;
+        this.failureProcessor = failureProcessor;
 
         scheduledThreadPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "low-watermark-updater", LOG)
@@ -134,7 +144,8 @@ public class LowWatermark implements ManuallyCloseable {
                             if (!(throwable instanceof NodeStoppingException)) {
                                 LOG.error("Error getting low watermark", throwable);
 
-                                // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
+                                failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
+
                                 inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                             }
                         } else {

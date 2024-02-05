@@ -96,6 +96,7 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -362,6 +363,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Configuration for {@link StorageUpdateHandler}. */
     private final StorageUpdateConfiguration storageUpdateConfig;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Creates a new table manager.
      *
@@ -382,6 +386,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
+     * @param failureProcessor Failure processor that is used to process critical errors.
      */
     public TableManager(
             String nodeName,
@@ -409,7 +414,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogService catalogService,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
-            Supplier<IgniteSql> sql
+            Supplier<IgniteSql> sql,
+            FailureProcessor failureProcessor
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -432,6 +438,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.placementDriver = placementDriver;
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
+        this.failureProcessor = failureProcessor;
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -493,7 +500,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         mvGc = new MvGc(nodeName, gcConfig);
 
-        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
+        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc, failureProcessor);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 

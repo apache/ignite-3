@@ -524,7 +524,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 catalogManager,
                 new HybridTimestampTracker(),
                 placementDriverManager.placementDriver(),
-                sqlRef::get
+                sqlRef::get,
+                failureProcessor
         );
 
         var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
