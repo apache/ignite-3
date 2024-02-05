@@ -432,7 +432,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null,
-                (schemaVersion) -> this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId));
+                (schemaVersion) -> this.tbl.updateAll(mapToBinary(items, schemaVersion, false), null, partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

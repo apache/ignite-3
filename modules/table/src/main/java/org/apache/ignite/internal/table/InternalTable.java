@@ -156,13 +156,14 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously inserts records into a table, if they do not exist, or replaces the existing ones.
+     * Asynchronously updates records in the table (insert, update, delete).
      *
-     * @param rows Rows to insert into the table.
+     * @param rows Rows to update.
+     * @param deleted Bit set indicating deleted rows (one bit per item in {@param rows}). When null, no rows are deleted.
      * @param partition Partition that the rows belong to.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition);
+    CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition);
 
     /**
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
