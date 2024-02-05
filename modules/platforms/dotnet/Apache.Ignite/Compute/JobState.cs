@@ -43,7 +43,7 @@ public enum JobState
     Completed,
 
     /// <summary>
-    /// The job has received the cancel command, but it is still running.
+    /// The job has received the cancel command, but is still running.
     /// </summary>
     Canceling,
 
