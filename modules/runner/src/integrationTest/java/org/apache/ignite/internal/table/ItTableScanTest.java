@@ -100,6 +100,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     /** The only partition in the table. */
     private static final int PART_ID = 0;
 
+    private static final int AWAIT_TIMEOUT_MILLIS = 10_000;
+
     private SchemaDescriptor schema;
 
     private TableViewInternal table;
@@ -150,12 +152,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         try {
             assertTrue(
-                    waitForCondition(() -> partitionStorage.pendingCursors() == 0, 10_000),
+                    waitForCondition(() -> partitionStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
                     "Alive versioned storage cursors: " + partitionStorage.pendingCursors()
             );
 
             assertTrue(
-                    waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, 10_000),
+                    waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
                     "Alive index storage cursors: " + sortedIdxStorage.pendingCursors()
             );
         } catch (InterruptedException e) {
@@ -220,7 +222,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         subscription.request(2);
 
-        assertTrue(waitForCondition(() -> scannedRows.size() == 2, 10_000));
+        assertTrue(waitForCondition(() -> scannedRows.size() == 2, AWAIT_TIMEOUT_MILLIS));
 
         assertFalse(scanned.isDone());
 
@@ -264,7 +266,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         subscription.request(1);
 
-        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), AWAIT_TIMEOUT_MILLIS));
 
         assertEquals(1, scannedRows.size());
 
@@ -440,7 +442,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         subscription.request(1);
 
-        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), AWAIT_TIMEOUT_MILLIS));
 
         assertEquals(1, scannedRows.size());
         assertFalse(scanned.isDone());
@@ -451,7 +453,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         subscription.request(2);
 
-        assertTrue(waitForCondition(() -> scannedRows.size() == 3, 10_000));
+        assertTrue(waitForCondition(() -> scannedRows.size() == 3, AWAIT_TIMEOUT_MILLIS));
 
         assertFalse(scanned.isDone());
         assertFalse(txOpFut.isDone());
@@ -507,7 +509,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         subscription.request(3);
 
-        assertTrue(waitForCondition(() -> scannedRows.size() == 3, 10_000));
+        assertTrue(waitForCondition(() -> scannedRows.size() == 3, AWAIT_TIMEOUT_MILLIS));
 
         assertFalse(scanned.isDone());
 
@@ -764,7 +766,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         subscription.request(requestAmount2);
 
         int total = requestAmount1 + requestAmount2;
-        assertTrue(waitForCondition(() -> scannedRows.size() == total, 10_000),
+        assertTrue(waitForCondition(() -> scannedRows.size() == total, AWAIT_TIMEOUT_MILLIS),
                 "expected=" + total + ", actual=" + scannedRows.size());
 
         subscription.cancel();
@@ -870,7 +872,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         subscription.request(1_000); // Request so many entries here to close the publisher.
 
-        assertTrue(waitForCondition(() -> scanned.isDone(), 10_000));
+        assertTrue(waitForCondition(() -> scanned.isDone(), AWAIT_TIMEOUT_MILLIS));
 
         return scannedRows;
     }
