@@ -1124,7 +1124,7 @@ public class InternalTableImpl implements InternalTable {
                 .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .binaryTuples(serializeBinaryTuples(rows))
-                .binaryTuplesOperationTypes(serializeBinaryTupleOperationTypes(rowOpTypes))
+                .operationTypes(serializeBinaryTupleOperationTypes(rowOpTypes))
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestType(requestType)
