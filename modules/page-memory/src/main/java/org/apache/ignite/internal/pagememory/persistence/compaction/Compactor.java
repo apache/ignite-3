@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.compaction;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toCollection;
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.ByteBuffer;
@@ -31,6 +32,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -80,6 +84,9 @@ public class Compactor extends IgniteWorker {
     /** Page size in bytes. */
     private final int pageSize;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Creates new ignite worker with given parameters.
      *
@@ -89,6 +96,7 @@ public class Compactor extends IgniteWorker {
      * @param threads Number of compaction threads.
      * @param filePageStoreManager File page store manager.
      * @param pageSize Page size in bytes.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      */
     public Compactor(
             IgniteLogger log,
@@ -96,11 +104,13 @@ public class Compactor extends IgniteWorker {
             @Nullable IgniteWorkerListener listener,
             ConfigurationValue<Integer> threads,
             FilePageStoreManager filePageStoreManager,
-            int pageSize
+            int pageSize,
+            FailureProcessor failureProcessor
     ) {
         super(log, igniteInstanceName, "compaction-thread", listener);
 
         this.filePageStoreManager = filePageStoreManager;
+        this.failureProcessor = failureProcessor;
 
         int threadCount = threads.value();
 
@@ -135,7 +145,7 @@ public class Compactor extends IgniteWorker {
                 doCompaction();
             }
         } catch (Throwable t) {
-            // TODO: IGNITE-16899 By analogy with 2.0, we need to handle the exception (err) by the FailureProcessor
+            failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
 
             throw new IgniteInternalException(t);
         }

@@ -142,7 +142,8 @@ public class CheckpointManager {
                 workerListener,
                 checkpointConfig.compactionThreads(),
                 filePageStoreManager,
-                pageSize
+                pageSize,
+                failureProcessor
         );
 
         checkpointer = new Checkpointer(
