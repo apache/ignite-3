@@ -318,8 +318,11 @@ namespace Apache.Ignite.Tests.Compute
 
                 // Drop table and create a new one with a different ID, then execute a computation again.
                 // This should update the cached table and complete the computation successfully.
-                await Client.Compute.ExecuteAsync<string>(nodes, Units, DropTableJob, tableName);
-                await Client.Compute.ExecuteAsync<string>(nodes, Units, CreateTableJob, tableName);
+                var dropExec = await Client.Compute.ExecuteAsync<string>(nodes, Units, DropTableJob, tableName);
+                await dropExec.GetResultAsync();
+
+                var createExec = await Client.Compute.ExecuteAsync<string>(nodes, Units, CreateTableJob, tableName);
+                await createExec.GetResultAsync();
 
                 if (forceLoadAssignment)
                 {
