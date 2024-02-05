@@ -109,7 +109,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(
+        public IDictionary<IClusterNode, Task<IJobExecution<T>>> BroadcastAsync<T>(
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
@@ -119,12 +119,12 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobClassName);
             IgniteArgumentCheck.NotNull(units);
 
-            var res = new Dictionary<IClusterNode, Task<T>>();
+            var res = new Dictionary<IClusterNode, Task<IJobExecution<T>>>();
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
 
             foreach (var node in nodes)
             {
-                var task = ExecuteOnNodes<T>(new[] { node }, units0, jobClassName, args);
+                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units0, jobClassName, args);
 
                 res[node] = task;
             }
@@ -213,10 +213,10 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            var notificationHandler = (NotificationHandler)res.Metadata!;
-            var resultTask = GetResult(notificationHandler);
+            var jobId = res.GetReader().ReadGuid();
+            var resultTask = GetResult((NotificationHandler)res.Metadata!);
 
-            return new JobExecution<T>(Guid.Empty, resultTask);
+            return new JobExecution<T>(jobId, resultTask);
 
             void Write()
             {

@@ -19,6 +19,7 @@ namespace Apache.Ignite.Compute;
 
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Internal.Compute;
 using Network;
 using Table;
 
@@ -87,7 +88,7 @@ public interface ICompute
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
-    IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(
+    IDictionary<IClusterNode, Task<IJobExecution<T>>> BroadcastAsync<T>(
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
