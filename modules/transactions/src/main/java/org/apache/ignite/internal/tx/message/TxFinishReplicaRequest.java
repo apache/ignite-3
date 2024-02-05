@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  *      <li>Send cleanup requests to all enlisted primary replicas.</li>
  *  </ol>
  */
-@Transferable(value = TxMessageGroup.TX_FINISH_REQUEST)
+@Transferable(TxMessageGroup.TX_FINISH_REQUEST)
 public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
