@@ -198,10 +198,18 @@ namespace Apache.Ignite.Internal.Compute
             });
         }
 
-        private static async Task<T> GetResult<T>(NotificationHandler handler)
+        private static IJobExecution<T> GetJobExecution<T>(PooledBuffer res)
         {
-            using var notificationRes = await handler.Task.ConfigureAwait(false);
-            return (T)notificationRes.GetReader().ReadObjectFromBinaryTuple()!;
+            var jobId = res.GetReader().ReadGuid();
+            var resultTask = GetResult((NotificationHandler)res.Metadata!);
+
+            return new JobExecution<T>(jobId, resultTask);
+
+            static async Task<T> GetResult(NotificationHandler handler)
+            {
+                using var notificationRes = await handler.Task.ConfigureAwait(false);
+                return (T)notificationRes.GetReader().ReadObjectFromBinaryTuple()!;
+            }
         }
 
         private async Task<IJobExecution<T>> ExecuteOnNodes<T>(
@@ -219,10 +227,7 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            var jobId = res.GetReader().ReadGuid();
-            var resultTask = GetResult<T>((NotificationHandler)res.Metadata!);
-
-            return new JobExecution<T>(jobId, resultTask);
+            return GetJobExecution<T>(res);
 
             void Write()
             {
