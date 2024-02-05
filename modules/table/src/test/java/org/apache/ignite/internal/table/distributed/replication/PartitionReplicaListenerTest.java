@@ -1890,9 +1890,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .groupId(grpId)
                         .transactionId(targetTxId)
                         .scanId(1)
-                        // TODO: both following lines will not be needed after IGNITE-21290
-                        .coordinatorId(localNode.id())
-                        .commitPartitionId(commitPartitionId())
                         .build(),
                 localNode.id()
         );
