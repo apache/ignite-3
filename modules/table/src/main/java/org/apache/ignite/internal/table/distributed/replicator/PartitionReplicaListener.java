@@ -2285,7 +2285,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
 
                 Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
-                byte[] opTypes = request.binaryTuplesOperationTypes();
+                byte[] opTypes = request.operationTypes();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);

@@ -35,10 +35,10 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
     boolean skipDelayedAck();
 
     /**
-     * Optional operation types (one  for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
+     * Optional operation types (one for every tuple in {@link #binaryTuples()}.
      * See {@link RowOpType}.
      *
      * @return A byte for every tuple in {@link #binaryTuples()} indicating an operation type for that row.
      */
-    byte @Nullable [] binaryTuplesOperationTypes();
+    byte @Nullable [] operationTypes();
 }
