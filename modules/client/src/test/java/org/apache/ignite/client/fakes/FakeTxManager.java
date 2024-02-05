@@ -136,6 +136,11 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
+            public String coordinatorId() {
+                return null;
+            }
+
+            @Override
             public HybridTimestamp readTimestamp() {
                 return tracker.get();
             }

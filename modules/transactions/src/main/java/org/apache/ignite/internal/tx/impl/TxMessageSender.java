@@ -128,11 +128,11 @@ public class TxMessageSender {
     /**
      * Send a transactions finish request.
      *
-     * @param primaryConsistentId Node id to send the request to.
+     * @param primaryConsistentId Node consistent id to send the request to.
      * @param commitPartition Partition to store a transaction state.
      * @param replicationGroupIds Enlisted partition groups.
      * @param txId Transaction id.
-     * @param term Raft term.
+     * @param consistencyToken Enlistment consistency token.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of {@link TransactionResult}.
@@ -142,7 +142,7 @@ public class TxMessageSender {
             TablePartitionId commitPartition,
             Collection<ReplicationGroupId> replicationGroupIds,
             UUID txId,
-            Long term,
+            Long consistencyToken,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
@@ -155,7 +155,7 @@ public class TxMessageSender {
                         .groups(replicationGroupIds)
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                        .enlistmentConsistencyToken(term)
+                        .enlistmentConsistencyToken(consistencyToken)
                         .build());
     }
 
@@ -165,21 +165,21 @@ public class TxMessageSender {
      * @param primaryConsistentId Node id to send the request to.
      * @param txId Transaction id.
      * @param commitGrpId Partition to store a transaction state.
-     * @param term Raft term.
+     * @param consistencyToken Enlistment consistency token.
      * @return Completable future of {@link TransactionMeta}.
      */
     public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
             String primaryConsistentId,
             UUID txId,
             TablePartitionId commitGrpId,
-            Long term
+            Long consistencyToken
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
                 FACTORY.txStateCommitPartitionRequest()
                         .groupId(commitGrpId)
                         .txId(txId)
-                        .enlistmentConsistencyToken(term)
+                        .enlistmentConsistencyToken(consistencyToken)
                         .build());
     }
 

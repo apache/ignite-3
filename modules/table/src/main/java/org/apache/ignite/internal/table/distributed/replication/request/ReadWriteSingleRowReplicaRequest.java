@@ -24,5 +24,5 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
  * Read-write single-row replica request.
  */
 @Transferable(TableMessageGroup.RW_SINGLE_ROW_REPLICA_REQUEST)
-public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaRequest, ReadWriteReplicaRequest {
 }

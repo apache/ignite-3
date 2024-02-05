@@ -1219,8 +1219,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableName,
                 tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterService.topologyService(), txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
+                partitions,
+                clusterService.topologyService(),
+                txManager,
+                tableStorage,
+                txStateStorage,
+                replicaSvc,
+                clock,
+                observableTimestampTracker,
+                placementDriver
+        );
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions, sql.get());
 
