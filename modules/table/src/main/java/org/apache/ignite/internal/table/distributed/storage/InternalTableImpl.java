@@ -1102,6 +1102,8 @@ public class InternalTableImpl implements InternalTable {
             boolean full
     ) {
         assert allSchemaVersionsSame(rows) : "Different schema versions encountered: " + uniqueSchemaVersions(rows);
+        assert deleted == null || rows.size() == deleted.cardinality()
+                : "Deleted set size mismatch: expected " + rows.size() + ", actual " + deleted.cardinality();
 
         return tableMessagesFactory.readWriteMultiRowReplicaRequest()
                 .groupId(groupId)

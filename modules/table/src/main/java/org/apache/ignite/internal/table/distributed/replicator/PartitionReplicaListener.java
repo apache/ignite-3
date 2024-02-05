@@ -2338,7 +2338,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         TimedBinaryRowMessageBuilder timedBinaryRowMessageBuilder = MSG_FACTORY.timedBinaryRowMessage()
                                 .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())));
 
-                        if (deleted == null || deleted.get(i)) {
+                        if (deleted == null || !deleted.get(i)) {
                             timedBinaryRowMessageBuilder.binaryRowMessage(binaryRowMessage(searchRows.get(i)));
                         }
 
