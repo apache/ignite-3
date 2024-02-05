@@ -314,7 +314,8 @@ namespace Apache.Ignite.Tests.Compute
             try
             {
                 var keyTuple = new IgniteTuple { [KeyCol] = 1L };
-                var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var resNodeNameExec = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var resNodeName = await resNodeNameExec.GetResultAsync();
 
                 // Drop table and create a new one with a different ID, then execute a computation again.
                 // This should update the cached table and complete the computation successfully.
@@ -330,7 +331,8 @@ namespace Apache.Ignite.Tests.Compute
                     table.SetFieldValue("_partitionAssignment", null);
                 }
 
-                var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var resNodeName2Exec = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var resNodeName2 = await resNodeName2Exec.GetResultAsync();
 
                 Assert.AreEqual(resNodeName, resNodeName2);
             }
