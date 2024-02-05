@@ -36,8 +36,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -57,6 +57,7 @@ import org.apache.ignite.internal.network.serialization.PerSessionSerializationS
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -64,7 +65,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Recovery protocol handshake flow test.
  */
-public class RecoveryHandshakeTest {
+public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     /** Connection id. */
     private static final short CONNECTION_ID = 1337;
 

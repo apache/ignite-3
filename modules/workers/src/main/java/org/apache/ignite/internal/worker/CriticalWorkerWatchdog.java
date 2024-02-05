@@ -128,7 +128,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
                 String message = String.format(
-                        "A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
+                        "A critical thread is blocked for %d ms that is more than the allowed %d ms, it is %s",
                         delayedThreadIdsToDelays.get(threadInfo.getThreadId()),
                         maxAllowedLag,
                         toString(threadInfo));
