@@ -113,6 +113,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -917,6 +918,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         /** Index manager. */
         private final IndexManager indexManager;
 
+        /** Failure processor. */
+        private final FailureProcessor failureProcessor;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -1072,12 +1076,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
+            failureProcessor = new FailureProcessor(name);
+
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
                             nodeCfgMgr.configurationRegistry(),
                             dir.resolve("storage"),
-                            null
+                            null,
+                            failureProcessor
                     )
             );
 
@@ -1180,6 +1187,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
+                    failureProcessor,
                     clusterService,
                     raftManager,
                     cmgManager

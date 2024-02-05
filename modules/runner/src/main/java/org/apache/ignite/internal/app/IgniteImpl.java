@@ -567,7 +567,8 @@ public class IgniteImpl implements Ignite {
                         name,
                         nodeConfigRegistry,
                         storagePath,
-                        longJvmPauseDetector
+                        longJvmPauseDetector,
+                        failureProcessor
                 )
         );
 

@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
@@ -76,6 +77,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     @Nullable
     private volatile CheckpointManager checkpointManager;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -83,6 +86,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      * @param engineConfig PageMemory storage engine configuration.
      * @param ioRegistry IO registry.
      * @param storagePath Storage path.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param longJvmPauseDetector Long JVM pause detector.
      */
     public PersistentPageMemoryStorageEngine(
@@ -90,13 +94,15 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
-            @Nullable LongJvmPauseDetector longJvmPauseDetector
+            @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            FailureProcessor failureProcessor
     ) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -124,7 +130,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     igniteInstanceName,
                     storagePath,
                     fileIoFactory,
-                    pageSize
+                    pageSize,
+                    failureProcessor
             );
 
             filePageStoreManager.start();

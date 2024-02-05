@@ -455,7 +455,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         name,
                         nodeCfgMgr.configurationRegistry(),
                         storagePath,
-                        null
+                        null,
+                        failureProcessor
                 )
         );
 
