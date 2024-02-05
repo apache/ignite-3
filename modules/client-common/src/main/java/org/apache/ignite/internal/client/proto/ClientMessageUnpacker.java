@@ -732,6 +732,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      *
      * @return BatchedArguments object with the unpacked arguments.
      */
+    @SuppressWarnings("unused")
     public BatchedArguments unpackObjectArrayFromBinaryTupleArray() {
         assert refCnt > 0 : "Unpacker is closed";
 
@@ -741,7 +742,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
         int rowLen = unpackInt();
         int rows = unpackInt();
-        boolean last = unpackBoolean();
+        boolean last = unpackBoolean(); // unused now, but we will need it in case of arguments load by pages.
 
         BatchedArguments args = BatchedArguments.create();
 
