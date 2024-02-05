@@ -59,14 +59,15 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -98,14 +99,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     /** The only partition in the table. */
     private static final int PART_ID = 0;
 
-    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("key", NativeTypes.INT32, false)},
-            new Column[]{
-                    new Column("valInt", NativeTypes.INT32, false),
-                    new Column("valStr", NativeTypes.STRING, false)
-            }
-    );
+    private SchemaDescriptor schema;
 
     private TableViewInternal table;
 
@@ -117,12 +111,66 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         internalTable = table.internalTable();
 
+        schema = table.schemaView().lastKnownSchema();
+
         loadData(table);
     }
 
     @AfterEach
     public void afterTest() {
+        CLUSTER.runningNodes().forEach(this::checkResourcesAreReleased);
+
         clearData(table);
+    }
+
+    /**
+     * Checks all transaction resources are released (cursors and locks).
+     *
+     * @param ignite Ignite instance.
+     */
+    private void checkResourcesAreReleased(IgniteImpl ignite) {
+        checkCursorsAreClosed(ignite);
+
+        assertTrue(ignite.txManager().lockManager().isEmpty());
+    }
+
+    /**
+     * Checks all transaction cursors are closed.
+     *
+     * @param ignite Ignite instance.
+     */
+    private void checkCursorsAreClosed(IgniteImpl ignite) {
+        int sortedIdxId = getIndexId(ignite, SORTED_IDX);
+
+        var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+                .internalTable().storage().getMvPartition(PART_ID);
+        var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+                .internalTable().storage().getIndex(PART_ID, sortedIdxId);
+
+        assertEquals(0, partitionStorage.pendingCursors());
+        assertEquals(0, sortedIdxStorage.pendingCursors());
+    }
+
+    /**
+     * Gets index id by name.
+     *
+     * @param idxName Index name.
+     * @return Index id.
+     */
+    private int getIndexId(IgniteImpl ignite, String idxName) {
+        CatalogManager catalogManager = ignite.catalogManager();
+
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        return catalogManager.indexes(catalogVersion).stream()
+                .filter(index -> {
+                    log.info("Scanned idx " + index.name());
+
+                    return idxName.equalsIgnoreCase(index.name());
+                })
+                .mapToInt(CatalogObjectDescriptor::id)
+                .findFirst()
+                .getAsInt();
     }
 
     @Test
@@ -158,7 +206,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertFalse(updateKey2Fut.isDone());
 
-        subscription.request(1_000); // Request so much entries here to close the publisher.
+        subscription.request(1_000); // Request so  many entries here to close the publisher.
 
         assertThat(scanned, willCompleteSuccessfully());
 
@@ -167,7 +215,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertFalse(insertKey99Fut.isDone());
 
-        log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
+        log.info("Result: " + scannedRows.stream().map(this::rowToString).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
@@ -185,7 +233,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(0, null, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -201,11 +249,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         table.keyValueView().put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"));
 
-        subscription.request(1_000); // Request so much entries here to close the publisher.
+        subscription.request(1_000); // Request so many entries here to close the publisher.
 
         IgniteTestUtils.await(scanned);
 
-        log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
+        log.info("Result: " + scannedRows.stream().map(this::rowToString).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
     }
@@ -351,7 +399,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     /**
      * The method executes an operation, encapsulated in closure, during a pure table scan.
      *
-     * @param txOperationAction An closure to apply during the scan operation.
+     * @param txOperationAction A closure to apply during the scan operation.
      * @throws Exception If failed.
      */
     public void pureTableScan(Function<InternalTransaction, CompletableFuture<Integer>> txOperationAction) throws Exception {
@@ -361,7 +409,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null, null, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -385,11 +433,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         assertFalse(scanned.isDone());
         assertFalse(txOpFut.isDone());
 
-        subscription.request(1_000); // Request so much entries here to close the publisher.
+        subscription.request(1_000); // Request so many entries here to close the publisher.
 
         IgniteTestUtils.await(scanned);
 
-        log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
+        log.info("Result: " + scannedRows.stream().map(this::rowToString).collect(Collectors.joining(", ")));
 
         assertThat(txOpFut, willCompleteSuccessfully());
 
@@ -397,7 +445,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
-        var pub = internalTable.scan(0, null, null, null, null, 0, null);
+        var pub = internalTable.scan(PART_ID, null, null, null, null, 0, null);
 
         assertEquals(ROW_IDS.size() + txOpFut.get(), scanAllRows(pub).size());
     }
@@ -434,11 +482,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
 
-        subscription.request(1_000); // Request so much entries here to close the publisher.
+        subscription.request(1_000); // Request so many entries here to close the publisher.
 
         IgniteTestUtils.await(scanned);
 
-        log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
+        log.info("Result: " + scannedRows.stream().map(this::rowToString).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
@@ -487,7 +535,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = scanAllRows(publisher);
 
-        log.info("Result of scanning in old transaction: " + scannedRows.stream().map(ItTableScanTest::rowToString)
+        log.info("Result of scanning in old transaction: " + scannedRows.stream().map(this::rowToString)
                 .collect(Collectors.joining(", ")));
 
         assertEquals(3, scannedRows.size());
@@ -536,7 +584,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(5, scannedRows2.size());
 
-        log.info("Result of scanning after insert rows: " + scannedRows2.stream().map(ItTableScanTest::rowToString)
+        log.info("Result of scanning after insert rows: " + scannedRows2.stream().map(this::rowToString)
                 .collect(Collectors.joining(", ")));
     }
 
@@ -605,16 +653,42 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      *
      * @param requestAmount1 Number of rows in the first request.
      * @param requestAmount2 Number of rows in the second request.
+     * @param readOnly If true, RO transaction is initiated, otherwise, RW transaction is initiated.
+     * @param implicit If false, an explicit transaction is initiated, otherwise, an implicit one.
      *
      * @throws Exception If failed.
      */
     @ParameterizedTest
-    @CsvSource({"3, 1", "1, 3"})
-    public void testCompositeScanRequest(int requestAmount1, int requestAmount2) throws Exception {
+    @CsvSource({"3, 1, false, false", "1, 3, false, false", "3, 1, true, false", "1, 3, true, false", "3, 1, false, true",
+            "1, 3, false, true"})
+    public void testCompositeScanRequest(int requestAmount1, int requestAmount2, boolean readOnly, boolean implicit) throws Exception {
         List<BinaryRow> scannedRows = new ArrayList<>();
-        Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
-        CompletableFuture<Void> scanned = new CompletableFuture<>();
 
+        Publisher<BinaryRow> publisher;
+
+        InternalTransaction tx = null;
+
+        if (readOnly) {
+            IgniteImpl ignite = CLUSTER.aliveNode();
+
+            var tablePartId = new TablePartitionId(internalTable.tableId(), PART_ID);
+
+            ReplicaMeta primaryReplica = IgniteTestUtils.await(
+                    ignite.placementDriver().awaitPrimaryReplica(tablePartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
+
+            ClusterNode recipientNode = ignite.clusterNodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
+                    .findFirst().get();
+
+            publisher = internalTable.scan(PART_ID, ignite.clock().now(), recipientNode);
+        } else {
+            if (!implicit) {
+                tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin();
+            }
+
+            publisher = internalTable.scan(PART_ID, tx, null, null, null, 0, null);
+        }
+
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
         Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 
         subscription.request(requestAmount1);
@@ -625,6 +699,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 "expected=" + total + ", actual=" + scannedRows.size());
 
         subscription.cancel();
+
+        CLUSTER.runningNodes().forEach(this::checkCursorsAreClosed);
+
+        if (tx != null) {
+            tx.rollback();
+        }
 
         assertThat(scanned, willCompleteSuccessfully());
     }
@@ -689,8 +769,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @param binaryRow Binary row.
      * @return String representation.
      */
-    private static String rowToString(BinaryRow binaryRow) {
-        Row row = Row.wrapBinaryRow(SCHEMA, binaryRow);
+    private String rowToString(BinaryRow binaryRow) {
+        Row row = Row.wrapBinaryRow(schema, binaryRow);
 
         return IgniteStringFormatter.format("[{}, {}, {}]", row.intValue(0), row.intValue(1), row.stringValue(2));
     }
@@ -708,7 +788,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 
-        subscription.request(1_000); // Request so much entries here to close the publisher.
+        subscription.request(1_000); // Request so many entries here to close the publisher.
 
         assertTrue(waitForCondition(() -> scanned.isDone(), 10_000));
 
@@ -749,7 +829,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * Gets an index id.
      */
     private static int getSortedIndexId() {
-        CatalogManager catalogManager = ((IgniteImpl) CLUSTER.aliveNode()).catalogManager();
+        CatalogManager catalogManager = (CLUSTER.aliveNode()).catalogManager();
 
         int catalogVersion = catalogManager.latestCatalogVersion();
 
@@ -766,7 +846,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Ignite table.
      */
     private static TableViewInternal getOrCreateTable() {
-        sql("CREATE ZONE IF NOT EXISTS ZONE1 WITH REPLICAS=1, PARTITIONS=1;");
+        sql("CREATE ZONE IF NOT EXISTS ZONE1 ENGINE " + TestStorageEngine.ENGINE_NAME + " WITH REPLICAS=1, PARTITIONS=1;");
 
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
                 + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1';");
@@ -792,14 +872,14 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @param id Primary key.
      * @return Entire row.
      */
-    private static Row createKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
+    private Row createKeyValueRow(int id) {
+        RowAssembler rowBuilder = new RowAssembler(schema);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
         rowBuilder.appendString("StrNew_" + id);
 
-        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     /**
@@ -808,14 +888,14 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @param id Primary key.
      * @return Entire row.
      */
-    private static Row createOldKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
+    private Row createOldKeyValueRow(int id) {
+        RowAssembler rowBuilder = new RowAssembler(schema);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
         rowBuilder.appendString("Str_" + id);
 
-        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     /**
@@ -824,12 +904,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @param id Primary key.
      * @return Key row.
      */
-    private static Row createKeyRow(int id) {
-        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA);
+    private Row createKeyRow(int id) {
+        RowAssembler rowBuilder = RowAssembler.keyAssembler(schema);
 
         rowBuilder.appendInt(id);
 
-        return Row.wrapKeyOnlyBinaryRow(SCHEMA, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
     }
 
     /**
