@@ -230,7 +230,8 @@ namespace Apache.Ignite.Tests.Compute
             {
                 var nodes = await Client.GetClusterNodesAsync();
                 var str = expectedStr ?? val.ToString()!.Replace("E+", "E");
-                var res = await Client.Compute.ExecuteAsync<object>(nodes, Units, EchoJob, val, str);
+                IJobExecution<object> resExec = await Client.Compute.ExecuteAsync<object>(nodes, Units, EchoJob, val, str);
+                object res = await resExec.GetResultAsync();
 
                 Assert.AreEqual(val, res);
             }
