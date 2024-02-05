@@ -1008,14 +1008,14 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         CompletableFuture<Void> fut = enlistWithRetry(
                 tx,
                 partition,
-                enlistmentConsistencyToken -> upsertAllInternal(rows, tx, partGroupId, enlistmentConsistencyToken, true),
+                enlistmentConsistencyToken -> upsertAllInternal(rows, deleted, tx, partGroupId, enlistmentConsistencyToken, true),
                 true,
                 null,
                 true // Allow auto retries for data streamer.
@@ -1077,7 +1077,14 @@ public class InternalTableImpl implements InternalTable {
                 rows,
                 tx,
                 (keyRows, txo, groupId, enlistmentConsistencyToken, full) ->
-                        readWriteMultiRowReplicaRequest(RequestType.RW_INSERT_ALL, keyRows, txo, groupId, enlistmentConsistencyToken, full),
+                        readWriteMultiRowReplicaRequest(
+                                RequestType.RW_INSERT_ALL,
+                                keyRows,
+                                null,
+                                txo,
+                                groupId,
+                                enlistmentConsistencyToken,
+                                full),
                 InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
                     for (BinaryRow row : res) {
@@ -1096,6 +1103,7 @@ public class InternalTableImpl implements InternalTable {
     private ReadWriteMultiRowReplicaRequest readWriteMultiRowReplicaRequest(
             RequestType requestType,
             Collection<? extends BinaryRow> rows,
+            @Nullable BitSet deleted,
             InternalTransaction tx,
             ReplicationGroupId groupId,
             Long enlistmentConsistencyToken,
@@ -1108,6 +1116,7 @@ public class InternalTableImpl implements InternalTable {
                 .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .binaryTuples(serializeBinaryTuples(rows))
+                .deleted(deleted)
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestType(requestType)
@@ -1295,6 +1304,7 @@ public class InternalTableImpl implements InternalTable {
                         readWriteMultiRowReplicaRequest(
                                 RequestType.RW_DELETE_EXACT_ALL,
                                 keyRows0,
+                                null,
                                 txo,
                                 groupId,
                                 enlistmentConsistencyToken,
@@ -2129,6 +2139,20 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert serializeTablePartitionId(txo.commitPartition()) != null;
 
-        return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full);
+        return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, null, txo, groupId, enlistmentConsistencyToken, full);
+    }
+
+    private ReplicaRequest upsertAllInternal(
+            Collection<? extends BinaryRow> keyRows0,
+            @Nullable BitSet deleted,
+            InternalTransaction txo,
+            ReplicationGroupId groupId,
+            Long enlistmentConsistencyToken,
+            boolean full
+    ) {
+        assert serializeTablePartitionId(txo.commitPartition()) != null;
+
+        return readWriteMultiRowReplicaRequest(
+                RequestType.RW_UPSERT_ALL, keyRows0, deleted, txo, groupId, enlistmentConsistencyToken, full);
     }
 }

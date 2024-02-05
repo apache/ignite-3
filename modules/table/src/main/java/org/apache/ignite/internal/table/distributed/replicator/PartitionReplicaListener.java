@@ -51,6 +51,7 @@ import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -2282,17 +2283,36 @@ public class PartitionReplicaListener implements ReplicaListener {
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
 
                 Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                BitSet deleted = request.deleted();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
 
-                    rowIdFuts[i] = resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
+                    boolean isDelete = deleted != null && deleted.get(i);
+
+                    BinaryTuple pk = isDelete
+                            ? resolvePk(searchRow.tupleSlice())
+                            : extractPk(searchRow);
+
+                    rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
+                        if (isDelete && rowId == null) {
+                            // Does not exist, nothing to delete.
+                            return nullCompletedFuture();
+                        }
+
                         boolean insert = rowId == null;
 
                         RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
 
                         if (lastCommitTime != null) {
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
+                        }
+
+                        if (isDelete) {
+                            assert row != null;
+
+                            return takeLocksForDelete(row, rowId0, txId)
+                                    .thenApply(id -> new IgniteBiTuple<>(id, null));
                         }
 
                         return insert
@@ -2306,13 +2326,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                     List<RowId> rows = new ArrayList<>();
 
                     for (int i = 0; i < searchRows.size(); i++) {
-                        RowId lockedRow = rowIdFuts[i].join().get1();
+                        IgniteBiTuple<RowId, Collection<Lock>> locks = rowIdFuts[i].join();
+                        if (locks == null) {
+                            continue;
+                        }
 
-                        rowsToUpdate.put(lockedRow.uuid(),
-                                MSG_FACTORY.timedBinaryRowMessage()
-                                        .binaryRowMessage(binaryRowMessage(searchRows.get(i)))
-                                        .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())))
-                                        .build());
+                        RowId lockedRow = locks.get1();
+
+                        TimedBinaryRowMessageBuilder timedBinaryRowMessageBuilder = MSG_FACTORY.timedBinaryRowMessage()
+                                .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())));
+
+                        if (deleted == null || !deleted.get(i)) {
+                            timedBinaryRowMessageBuilder.binaryRowMessage(binaryRowMessage(searchRows.get(i)));
+                        }
+
+                        rowsToUpdate.put(lockedRow.uuid(), timedBinaryRowMessageBuilder.build());
 
                         rows.add(lockedRow);
                     }
@@ -2333,8 +2361,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenApply(res -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
-                                    rowIdFut.join().get2()
-                                            .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                    IgniteBiTuple<RowId, Collection<Lock>> futRes = rowIdFut.join();
+                                    Collection<Lock> locks = futRes == null ? null : futRes.get2();
+
+                                    if (locks != null) {
+                                        locks.forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                    }
                                 }
 
                                 return new ReplicaResult(null, res);

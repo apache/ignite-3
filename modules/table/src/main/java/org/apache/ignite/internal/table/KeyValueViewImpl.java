@@ -690,7 +690,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> {
             return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.upsertAll(marshalPairs(items, schemaVersion), partitionId);
+                return this.tbl.updateAll(marshalPairs(items, schemaVersion), null, partitionId);
             });
         };
 
