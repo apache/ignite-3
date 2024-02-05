@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -147,8 +148,19 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
-        assertEquals(0, partitionStorage.pendingCursors());
-        assertEquals(0, sortedIdxStorage.pendingCursors());
+        try {
+            assertTrue(
+                    waitForCondition(() -> partitionStorage.pendingCursors() == 0, 10_000),
+                    "Alive versioned storage cursors: " + partitionStorage.pendingCursors()
+            );
+
+            assertTrue(
+                    waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, 10_000),
+                    "Alive index storage cursors: " + sortedIdxStorage.pendingCursors()
+            );
+        } catch (InterruptedException e) {
+            fail("Waiting cursors close was interrupted.");
+        }
     }
 
     /**
