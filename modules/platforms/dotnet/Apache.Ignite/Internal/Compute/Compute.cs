@@ -60,7 +60,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteAsync<T>(
+        public async Task<IJobExecution<T>> ExecuteAsync<T>(
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
@@ -198,7 +198,7 @@ namespace Apache.Ignite.Internal.Compute
             });
         }
 
-        private async Task<T> ExecuteOnNodes<T>(
+        private async Task<IJobExecution<T>> ExecuteOnNodes<T>(
             ICollection<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
@@ -214,8 +214,9 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
             var notificationHandler = (NotificationHandler)res.Metadata!;
-            using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
-            return Read(notificationRes);
+            var resultTask = GetResult(notificationHandler);
+
+            return new JobExecution<T>(Guid.Empty, resultTask);
 
             void Write()
             {
@@ -230,6 +231,12 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(0); // Max retries.
 
                 w.WriteObjectCollectionAsBinaryTuple(args);
+            }
+
+            static async Task<T> GetResult(NotificationHandler handler)
+            {
+                using var notificationRes = await handler.Task.ConfigureAwait(false);
+                return Read(notificationRes);
             }
 
             static T Read(in PooledBuffer buf)

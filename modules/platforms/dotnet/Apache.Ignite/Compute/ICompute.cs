@@ -36,7 +36,7 @@ public interface ICompute
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<T> ExecuteAsync<T>(
+    Task<IJobExecution<T>> ExecuteAsync<T>(
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
