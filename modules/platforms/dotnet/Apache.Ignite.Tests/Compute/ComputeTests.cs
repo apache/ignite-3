@@ -270,9 +270,9 @@ namespace Apache.Ignite.Tests.Compute
             var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
 
-            Assert.AreEqual(expectedNodeName, resNodeName);
-            Assert.AreEqual(expectedNodeName, resNodeName2);
-            Assert.AreEqual(expectedNodeName, resNodeName3);
+            Assert.AreEqual(expectedNodeName, await resNodeName.GetResultAsync());
+            Assert.AreEqual(expectedNodeName, await resNodeName2.GetResultAsync());
+            Assert.AreEqual(expectedNodeName, await resNodeName3.GetResultAsync());
 
             // We only connect to 2 of 4 nodes because of different auth settings.
             if (nodeIdx < 3)
@@ -394,7 +394,7 @@ namespace Apache.Ignite.Tests.Compute
             var res3 = await client.Compute.ExecuteColocatedAsync<string>(
                 FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob);
 
-            StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", res3);
+            StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", await res3.GetResultAsync());
         }
 
         [Test]
