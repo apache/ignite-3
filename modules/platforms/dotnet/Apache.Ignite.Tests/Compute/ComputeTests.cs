@@ -355,10 +355,10 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public void TestCheckedExceptionInJobPropagatesToClient()
+        public async Task TestCheckedExceptionInJobPropagatesToClient()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
-                await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, CheckedExceptionJob, "foo-bar"));
+            var jobExecution = await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, CheckedExceptionJob, "foo-bar");
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExecution.GetResultAsync());
 
             Assert.AreEqual("TestCheckedEx: foo-bar", ex!.Message);
             Assert.IsNotNull(ex.InnerException);
