@@ -62,6 +62,11 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
         this.schemaName = schemaName;
     }
 
+    /** Returns an id the table to be modified. */
+    public int tableId() {
+        return tableId;
+    }
+
     /** Returns a descriptor for the column to be replaced. */
     public CatalogTableColumnDescriptor descriptor() {
         return column;

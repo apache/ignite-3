@@ -103,5 +103,4 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
             }
         }
     }
-
 }

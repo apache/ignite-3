@@ -307,22 +307,22 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             output.writeLong(descriptor.creationToken());
         }
 
-        private static int[] resolveColocationColumnIndexes(int[] pkIndexes, CatalogTableDescriptor descriptor) {
-            int[] colocationIndexes = new int[descriptor.colocationColumns().size()];
+        private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {
+            int[] colocationColumnIndexes = new int[descriptor.colocationColumns().size()];
 
-            for (int idx : pkIndexes) {
+            for (int idx : pkColumnIndexes) {
                 String columnName = descriptor.columns.get(idx).name();
 
                 for (int j = 0; j < descriptor.colocationColumns().size(); j++) {
                     if (descriptor.colocationColumns().get(j).equals(columnName)) {
-                        colocationIndexes[j] = idx;
+                        colocationColumnIndexes[j] = idx;
 
                         break;
                     }
                 }
             }
 
-            return colocationIndexes;
+            return colocationColumnIndexes;
         }
 
         private static int[] resolvePkColumnIndexes(CatalogTableDescriptor descriptor) {
@@ -331,26 +331,25 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
             assert columns.size() >= pkColumns.size();
 
-            int[] idxs = new int[pkColumns.size()];
+            int[] pkColumnIndexes = new int[pkColumns.size()];
+            int foundCount = 0;
 
-            int found = 0;
-
-            for (int i = 0; i < columns.size() && found < idxs.length; i++) {
+            for (int i = 0; i < columns.size() && foundCount < pkColumnIndexes.length; i++) {
                 for (int j = 0; j < pkColumns.size(); j++) {
-                    String search = pkColumns.get(j);
+                    String pkColumn = pkColumns.get(j);
 
-                    if (search.equals(columns.get(i).name())) {
-                        idxs[j] = i;
-                        found++;
+                    if (pkColumn.equals(columns.get(i).name())) {
+                        pkColumnIndexes[j] = i;
+                        foundCount++;
 
                         break;
                     }
                 }
             }
 
-            assert found == idxs.length;
+            assert foundCount == pkColumnIndexes.length;
 
-            return idxs;
+            return pkColumnIndexes;
         }
     }
 }
