@@ -106,8 +106,8 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteResultTypeMismatchThrowsInvalidCastException()
         {
-            var jobExec = await Client.Compute.ExecuteAsync<Guid>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
-            Assert.ThrowsAsync<InvalidCastException>(async () => await jobExec.GetResultAsync());
+            var jobExecution = await Client.Compute.ExecuteAsync<Guid>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
+            Assert.ThrowsAsync<InvalidCastException>(async () => await jobExecution.GetResultAsync());
         }
 
         [Test]
@@ -156,14 +156,14 @@ namespace Apache.Ignite.Tests.Compute
         {
             var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), Units, ConcatJob, args: null);
 
-            Assert.IsNull(res);
+            Assert.IsNull(await res.GetResultAsync());
         }
 
         [Test]
-        public void TestJobErrorPropagatesToClientWithClassAndMessage()
+        public async Task TestJobErrorPropagatesToClientWithClassAndMessage()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
-                await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), Units, ErrorJob, "unused"));
+            var jobExecution = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), Units, ErrorJob, "unused");
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExecution.GetResultAsync());
 
             StringAssert.Contains("Custom job error", ex!.Message);
 
