@@ -30,4 +30,11 @@ public interface IgniteTable extends IgniteDataSource {
      * @return Indexes for the current table.
      */
     Map<String, IgniteIndex> indexes();
+
+    /**
+     * Returns the number of partitions for this table.
+     *
+     * @return Number of partitions.
+     */
+    int partitions();
 }

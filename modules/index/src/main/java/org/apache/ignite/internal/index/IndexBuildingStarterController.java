@@ -31,15 +31,15 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * Component is responsible for starting and stopping {@link IndexBuildingStarterTask} via {@link IndexBuildingStarter}.
@@ -50,7 +50,7 @@ import org.apache.ignite.network.ClusterService;
  * <br><p>Tasks are started and stopped based on events:</p>
  * <ul>
  *     <li>{@link CatalogEvent#INDEX_CREATE} - task starts for the new index.</li>
- *     <li>{@link CatalogEvent#INDEX_DROP} - stops task for the new index if it has been added.</li>
+ *     <li>{@link CatalogEvent#INDEX_REMOVED} - stops task for the new index if it has been added.</li>
  *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - when the local node becomes the primary replica for partition {@code 0} of
  *     the table, it starts tasks for its all new indexes, and when the primary replica expires, it stops all tasks for the table.</li>
  * </ul>
@@ -108,12 +108,12 @@ class IndexBuildingStarterController implements ManuallyCloseable {
             return onIndexCreate((CreateIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
 
-            return onIndexDrop((DropIndexEventParameters) parameters).thenApply(unused -> false);
+            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
@@ -139,9 +139,11 @@ class IndexBuildingStarterController implements ManuallyCloseable {
         });
     }
 
-    private CompletableFuture<?> onIndexDrop(DropIndexEventParameters parameters) {
+    private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion() - 1);
+
+            assert indexDescriptor != null : parameters.indexId();
 
             indexBuildingStarter.stopTask(indexDescriptor);
 

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 /**
- * Builder of a command that drop specified index.
+ * Builder of a command that drops specified index.
  *
  * <p>A builder is considered to be reusable, thus implementation have
  * to make sure invocation of {@link #build()} method doesn't cause any

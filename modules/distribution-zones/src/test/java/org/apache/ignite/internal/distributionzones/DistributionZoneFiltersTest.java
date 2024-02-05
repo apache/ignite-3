@@ -186,4 +186,22 @@ public class DistributionZoneFiltersTest {
 
         assertTrue(filter(newAttributesMap, filter));
     }
+
+    @Test
+    void testNodeAttributesFilterScenario19() {
+        Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD");
+
+        String filter = "region";
+
+        assertTrue(filter(newAttributesMap, filter));
+    }
+
+    @Test
+    void testNodeAttributesFilterScenario20() {
+        Map<String, String> newAttributesMap = Map.of("storage", "SSD");
+
+        String filter = "region";
+
+        assertFalse(filter(newAttributesMap, filter));
+    }
 }
