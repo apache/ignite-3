@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * Read-write multi-row replica request.
  */
 @Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest {
     /**
      * Disable delayed ack optimization.
      *

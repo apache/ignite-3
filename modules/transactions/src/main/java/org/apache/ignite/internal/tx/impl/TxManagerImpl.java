@@ -283,7 +283,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -319,7 +319,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             );
         }
 
-        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
+        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
     }
 
     /**

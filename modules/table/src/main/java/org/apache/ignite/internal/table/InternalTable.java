@@ -341,6 +341,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partId The partition.
      * @param txId Transaction id.
      * @param commitPartition Commit partition id.
+     * @param txCoordinatorId Transaction coordinator id.
      * @param recipient Primary replica that will handle given get request.
      * @param lowerBound Lower search bound.
      * @param upperBound Upper search bound.
@@ -352,6 +353,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -409,6 +411,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partId The partition.
      * @param txId Transaction id.
      * @param commitPartition Commit partition id.
+     * @param txCoordinatorId Transaction coordinator id.
      * @param recipient Primary replica that will handle given get request.
      * @param indexId Index id.
      * @param key Key to search.
@@ -419,6 +422,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,

@@ -45,9 +45,4 @@ public interface WriteIntentSwitchCommand extends PartitionCommand {
     default @Nullable HybridTimestamp commitTimestamp() {
         return nullableHybridTimestamp(commitTimestampLong());
     }
-
-    /**
-     * Transaction coordinator id.
-     */
-    String txCoordinatorId();
 }
