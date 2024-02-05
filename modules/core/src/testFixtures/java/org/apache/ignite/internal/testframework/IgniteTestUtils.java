@@ -22,6 +22,8 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -280,6 +283,39 @@ public final class IgniteTestUtils {
         }
 
         return throwable;
+    }
+
+    /**
+     * Checks whether runnable throws the correct {@link IgniteException}, which is itself of a specified class.
+     *
+     * @param expectedClass Expected exception class.
+     * @param expectedErrorCode Expected error code of the {@link IgniteException}.
+     * @param run Runnable to check.
+     * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrowsWithCode(
+            Class<? extends IgniteException> expectedClass,
+            int expectedErrorCode,
+            Executable run,
+            @Nullable String errorMessageFragment
+    ) {
+        try {
+            run.execute();
+        } catch (Throwable throwable) {
+            assertInstanceOf(expectedClass, throwable);
+
+            IgniteException igniteException = (IgniteException) throwable;
+            assertEquals(expectedErrorCode, igniteException.code());
+
+            if (errorMessageFragment != null) {
+                assertThat(throwable.getMessage(), containsString(errorMessageFragment));
+            }
+
+            return throwable;
+        }
+
+        throw new AssertionError("Exception has not been thrown.");
     }
 
     /**

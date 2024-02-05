@@ -32,9 +32,9 @@ import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
@@ -546,9 +546,8 @@ public class InternalTableImpl implements InternalTable {
             // Track only write requests from explicit transactions.
             if (!txManager.addInflight(tx.id())) {
                 return failedFuture(
-                        new TransactionException(TX_UNEXPECTED_STATE_ERR, format(
-                                "Failed to enlist a write operation into a transaction, tx is locked for updates "
-                                        + "[tableName={}, partId={}, txState={}].",
+                        new TransactionException(TX_ALREADY_FINISHED_ERR, format(
+                                "Transaction is already finished [tableName={}, partId={}, txState={}].",
                                 tableName,
                                 partId,
                                 tx.state()
