@@ -515,7 +515,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             for (UpdateEntry entry : update.entries()) {
                 if (entry instanceof Fireable) {
                     Fireable fireEvent = (Fireable) entry;
-LOG.warn("FIRED: " + entry);
+
                     eventFutures.add(fireEvent(
                             fireEvent.eventType(),
                             fireEvent.createEventParameters(causalityToken, version)
