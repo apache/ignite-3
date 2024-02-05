@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Compute;
 
+using System;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -25,6 +26,11 @@ using System.Threading.Tasks;
 /// <typeparam name="T">Job result type.</typeparam>
 public interface IJobExecution<T>
 {
+    /// <summary>
+    /// Gets the job ID.
+    /// </summary>
+    Guid Id { get; }
+
     /// <summary>
     /// Gets the job execution result.
     /// </summary>
