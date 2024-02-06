@@ -522,6 +522,23 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public async Task TestJobExecutionStatusFailed()
+        {
+            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+
+            var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, ErrorJob, "unused");
+            Assert.CatchAsync(async () => await jobExecution.GetResultAsync());
+            JobStatus? status = await jobExecution.GetStatusAsync();
+
+            Assert.IsNotNull(status);
+            Assert.AreNotEqual(Guid.Empty, status!.Id);
+            Assert.AreEqual(JobState.Failed, status.State);
+            Assert.Greater(status.CreateTime, beforeStart);
+            Assert.Greater(status.StartTime, status.CreateTime);
+            Assert.Greater(status.FinishTime, status.StartTime);
+        }
+
+        [Test]
         public async Task TestJobExecutionStatusNull()
         {
             var fakeJobStatus = new JobStatus(Guid.NewGuid(), JobState.Canceled, Instant.MinValue, null, null);

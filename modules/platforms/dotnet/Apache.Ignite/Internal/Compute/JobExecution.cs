@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Compute;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Compute;
 
