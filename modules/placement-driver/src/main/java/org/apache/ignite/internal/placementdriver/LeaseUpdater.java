@@ -66,6 +66,10 @@ import org.jetbrains.annotations.Nullable;
  * A processor to manger leases. The process is started when placement driver activates and stopped when it deactivates.
  */
 public class LeaseUpdater {
+    /** Negative value means that printing statistics is disabled. */
+    private static final int LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS = IgniteSystemProperties
+            .getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 10);
+
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
@@ -277,7 +281,10 @@ public class LeaseUpdater {
 
     /** Runnable to update lease in Meta storage. */
     private class Updater implements Runnable {
-        private final LeaseUpdateStatistics leaseUpdateStatistics = new LeaseUpdateStatistics();
+        private LeaseStats leaseUpdateStatistics = new LeaseStats();
+
+        /** This field should be accessed only from updater thread. */
+        private int statisticsLogCounter;
 
         @Override
         public void run() {
@@ -313,7 +320,7 @@ public class LeaseUpdater {
         private void updateLeaseBatchInternal() {
             HybridTimestamp now = clock.now();
 
-            leaseUpdateStatistics.onNewIteration();
+            leaseUpdateStatistics = new LeaseStats();
 
             long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
 
@@ -329,12 +336,16 @@ public class LeaseUpdater {
                     && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
 
             int currentAssignmentsSize = currentAssignments.size();
-            int acceptedLeasesCount = 0;
+            int activeLeasesCount = 0;
 
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
 
                 Lease lease = leaseTracker.getLease(grpId);
+
+                if (lease.isAccepted() && !isLeaseOutdated(lease)) {
+                    activeLeasesCount++;
+                }
 
                 if (!lease.isAccepted()) {
                     LeaseAgreement agreement = leaseNegotiator.negotiated(grpId);
@@ -348,6 +359,8 @@ public class LeaseUpdater {
                         ClusterNode candidate = nextLeaseHolder(entry.getValue(), agreement.getRedirectTo());
 
                         if (candidate == null) {
+                            leaseUpdateStatistics.onLeaseWithoutCandidate();
+
                             continue;
                         }
 
@@ -366,6 +379,8 @@ public class LeaseUpdater {
                     );
 
                     if (candidate == null) {
+                        leaseUpdateStatistics.onLeaseWithoutCandidate();
+
                         continue;
                     }
 
@@ -380,23 +395,19 @@ public class LeaseUpdater {
                         prolongLease(grpId, lease, renewedLeases);
                     }
                 }
-
-                if (lease.isAccepted()) {
-                    acceptedLeasesCount++;
-                }
             }
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
             ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
 
-            if (leaseUpdateStatistics.shouldLogLeaseStatistics()) {
+            if (shouldLogLeaseStatistics()) {
                 LOG.info(
-                        "Leases updated (printed once per {} iteration(s)): [currentIteration={}, totalAccepted={}, "
+                        "Leases updated (printed once per {} iteration(s)): [updatedOnCurrentIteration={}, active={}, "
                                 + "currentAssignmentsSize={}].",
-                        LeaseUpdateStatistics.PRINT_ONCE_PER_ITERATIONS,
-                        leaseUpdateStatistics.leasesUpdatedInCurrentIteration(),
-                        acceptedLeasesCount,
+                        LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS,
+                        leaseUpdateStatistics,
+                        activeLeasesCount,
                         currentAssignmentsSize
                 );
             }
@@ -496,40 +507,13 @@ public class LeaseUpdater {
 
             return now.after(lease.getExpirationTime());
         }
-    }
-
-    private static class LeaseUpdateStatistics {
-        /** Negative value means that printing statistics is disabled. */
-        static final int PRINT_ONCE_PER_ITERATIONS = IgniteSystemProperties.getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 10);
-
-        /** This field should be accessed only from updater thread. */
-        private int statisticsLogCounter;
-
-        /** This field is iteration-local and should be accessed only from updater thread. */
-        private LeaseStats iteration = new LeaseStats(0, 0, 0);
-
-        private void onLeaseCreate() {
-            iteration.leasesCreated++;
-        }
-
-        private void onLeasePublish() {
-            iteration.leasesPublished++;
-        }
-
-        private void onLeaseProlong() {
-            iteration.leasesProlonged++;
-        }
-
-        private LeaseStats leasesUpdatedInCurrentIteration() {
-            return new LeaseStats(iteration.leasesCreated, iteration.leasesPublished, iteration.leasesProlonged);
-        }
 
         private boolean shouldLogLeaseStatistics() {
-            if (PRINT_ONCE_PER_ITERATIONS < 0) {
+            if (LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS < 0) {
                 return false;
             }
 
-            boolean result = ++statisticsLogCounter > PRINT_ONCE_PER_ITERATIONS;
+            boolean result = ++statisticsLogCounter > LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
 
             if (result) {
                 statisticsLogCounter = 0;
@@ -537,26 +521,35 @@ public class LeaseUpdater {
 
             return result;
         }
-
-        private void onNewIteration() {
-            iteration = new LeaseStats(0, 0, 0);
-        }
     }
 
     private static class LeaseStats {
         @IgniteToStringInclude
-        long leasesCreated;
+        int leasesCreated;
 
         @IgniteToStringInclude
-        long leasesPublished;
+        int leasesPublished;
 
         @IgniteToStringInclude
-        long leasesProlonged;
+        int leasesProlonged;
 
-        public LeaseStats(long leasesCreated, long leasesPublished, long leasesProlonged) {
-            this.leasesCreated = leasesCreated;
-            this.leasesPublished = leasesPublished;
-            this.leasesProlonged = leasesProlonged;
+        @IgniteToStringInclude
+        int leasesWithoutCandidates;
+
+        private void onLeaseCreate() {
+            leasesCreated++;
+        }
+
+        private void onLeasePublish() {
+            leasesPublished++;
+        }
+
+        private void onLeaseProlong() {
+            leasesProlonged++;
+        }
+
+        private void onLeaseWithoutCandidate() {
+            leasesWithoutCandidates++;
         }
 
         @Override
