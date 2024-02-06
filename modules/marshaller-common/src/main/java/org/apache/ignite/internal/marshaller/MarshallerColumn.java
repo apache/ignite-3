@@ -92,7 +92,9 @@ public class MarshallerColumn {
 
     @Override
     public boolean equals(Object o) {
-        // NOTE: default value supplier does not participate in equality/hashcode.
+        // NOTE: Marshaller by a list of column is used by a client code and it does not provide defValSup.
+        // because of that defValSup  does not participate in equality/hashcode.
+        // It can't do that anyway, since instances of functional interfaces have no identity.
         if (this == o) {
             return true;
         }
@@ -105,7 +107,7 @@ public class MarshallerColumn {
 
     @Override
     public int hashCode() {
-        // NOTE: default value supplier does not participate in equality/hashcode.
+        // See comment in equals method.
         return Objects.hash(name, type, scale);
     }
 }
