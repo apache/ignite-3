@@ -363,9 +363,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Configuration for {@link StorageUpdateHandler}. */
     private final StorageUpdateConfiguration storageUpdateConfig;
 
-    /** Failure processor. */
-    private final FailureProcessor failureProcessor;
-
     /**
      * Creates a new table manager.
      *
@@ -438,7 +435,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.placementDriver = placementDriver;
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
-        this.failureProcessor = failureProcessor;
 
         TopologyService topologyService = clusterService.topologyService();
 
