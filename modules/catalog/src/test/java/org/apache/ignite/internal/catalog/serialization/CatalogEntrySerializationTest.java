@@ -46,6 +46,7 @@ import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
+import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
 import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
@@ -59,13 +60,16 @@ import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnType;
 import org.assertj.core.api.BDDAssertions;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /**
  * Tests to verify catalog storage entries serialization.
@@ -73,8 +77,84 @@ import org.junit.jupiter.api.Test;
 public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     private final UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
 
-    @Test
-    public void alterZoneEntry() {
+    @ParameterizedTest
+    @EnumSource(value = MarshallableEntryType.class, names = "VERSIONED_UPDATE", mode = Mode.EXCLUDE)
+    void test(MarshallableEntryType type) {
+        switch (type) {
+            case ALTER_COLUMN:
+                alterColumnEntry();
+                break;
+
+            case ALTER_ZONE:
+                alterZoneEntry();
+                break;
+
+            case NEW_ZONE:
+                newZoneEntry();
+                break;
+
+            case DROP_COLUMN:
+                dropColumnsEntry();
+                break;
+
+            case DROP_INDEX:
+                dropIndexEntry();
+                break;
+
+            case DROP_TABLE:
+                dropTableEntry();
+                break;
+
+            case DROP_ZONE:
+                dropZoneEntry();
+                break;
+
+            case MAKE_INDEX_AVAILABLE:
+                makeIndexAvailableEntry();
+                break;
+
+            case REMOVE_INDEX:
+                removeIndexEntry();
+                break;
+
+            case START_BUILDING_INDEX:
+                startBuildingIndexEntry();
+                break;
+
+            case NEW_COLUMN:
+                newColumnsEntry();
+                break;
+
+            case NEW_INDEX:
+                newIndexEntry();
+                break;
+
+            case NEW_SYS_VIEW:
+                newSystemViewEntry();
+                break;
+
+            case NEW_TABLE:
+                newTableEntry();
+                break;
+
+            case RENAME_TABLE:
+                renameTableEntry();
+                break;
+
+            case ID_GENERATOR:
+                objectIdGenUpdateEntry();
+                break;
+
+            case SNAPSHOT:
+                snapshotEntry();
+                break;
+
+            default:
+                throw new UnsupportedOperationException("Test not implemented " + type);
+        }
+    }
+
+    private void alterZoneEntry() {
         CatalogDataStorageDescriptor storage = new CatalogDataStorageDescriptor("test-engine", "region");
         UpdateEntry entry1 = new AlterZoneEntry(newCatalogZoneDescriptor("zone1", storage));
 
@@ -83,8 +163,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void newZoneEntry() {
+    private void newZoneEntry() {
         CatalogDataStorageDescriptor storage1 = new CatalogDataStorageDescriptor("test-engine1", "region");
         CatalogDataStorageDescriptor storage2 = new CatalogDataStorageDescriptor("test-engine2", null);
 
@@ -95,8 +174,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void alterColumnEntry() {
+    private void alterColumnEntry() {
         CatalogTableColumnDescriptor desc1 = newCatalogTableColumnDescriptor("c0", null);
         CatalogTableColumnDescriptor desc2 =
                 newCatalogTableColumnDescriptor("c1", DefaultValue.constant(new CustomDefaultValue(Integer.MAX_VALUE)));
@@ -114,8 +192,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void dropColumnsEntry() {
+    private void dropColumnsEntry() {
         DropColumnsEntry entry = new DropColumnsEntry(1, Set.of("C1", "C2"), "PUBLIC");
 
         VersionedUpdate update = newVersionedUpdate(entry);
@@ -123,8 +200,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void dropIndexEntry() {
+    private void dropIndexEntry() {
         DropIndexEntry entry = new DropIndexEntry(231, 23);
 
         VersionedUpdate update = newVersionedUpdate(entry);
@@ -132,8 +208,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void removeIndexEntry() {
+    private void removeIndexEntry() {
         RemoveIndexEntry entry = new RemoveIndexEntry(231);
 
         VersionedUpdate update = newVersionedUpdate(entry);
@@ -141,8 +216,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void dropTableEntry() {
+    private void dropTableEntry() {
         DropTableEntry entry = new DropTableEntry(23, "PUBLIC");
 
         VersionedUpdate update = newVersionedUpdate(entry);
@@ -150,8 +224,15 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void makeIndexAvailableEntry() {
+    private void dropZoneEntry() {
+        DropZoneEntry entry = new DropZoneEntry(1);
+
+        VersionedUpdate update = newVersionedUpdate(entry);
+
+        assertVersionedUpdate(update, serialize(update));
+    }
+
+    private void makeIndexAvailableEntry() {
         MakeIndexAvailableEntry entry = new MakeIndexAvailableEntry(321);
 
         VersionedUpdate update = newVersionedUpdate(entry);
@@ -159,8 +240,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void startBuildingIndexEntry() {
+    private void startBuildingIndexEntry() {
         StartBuildingIndexEntry entry = new StartBuildingIndexEntry(321);
 
         VersionedUpdate update = newVersionedUpdate(entry);
@@ -168,8 +248,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void newColumnsEntry() {
+    private void newColumnsEntry() {
         CatalogTableColumnDescriptor columnDescriptor1 = newCatalogTableColumnDescriptor("c1", DefaultValue.constant(null));
         CatalogTableColumnDescriptor columnDescriptor2 = newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("func"));
 
@@ -180,8 +259,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void newIndexEntry() {
+    private void newIndexEntry() {
         CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor("idx1");
         CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor("idx2");
 
@@ -193,8 +271,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void newTableEntry() {
+    private void newTableEntry() {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c0", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col3 = newCatalogTableColumnDescriptor("c3", null);
@@ -216,8 +293,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertSame(deserializedEntry.descriptor().primaryKeyColumns(), deserializedEntry.descriptor().colocationColumns());
     }
 
-    @Test
-    public void newSystemViewEntry() {
+    private void newSystemViewEntry() {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
@@ -234,8 +310,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void renameTableEntry() {
+    private void renameTableEntry() {
         RenameTableEntry entry = new RenameTableEntry(1, "newName");
 
         VersionedUpdate update = newVersionedUpdate(entry);
@@ -243,8 +318,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void objectIdGenUpdateEntry() {
+    private void objectIdGenUpdateEntry() {
         ObjectIdGenUpdateEntry entry = new ObjectIdGenUpdateEntry(Integer.MAX_VALUE);
 
         VersionedUpdate update = newVersionedUpdate(entry);
@@ -252,8 +326,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    @Test
-    public void snapshotEntry() {
+    private void snapshotEntry() {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
