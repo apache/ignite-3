@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -161,6 +162,8 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
      * Builder.
      */
     public static class Builder  {
+        private static final Pattern LETTER_AND_UNDERSCORE = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]*");
+
         @Nullable
         private String tableName;
 
@@ -233,7 +236,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
                     .append("SELECT");
 
             if (!nullOrBlank(indexName)) {
-                ser.append(" /*+ FORCE_INDEX(").append(indexName).append(") */");
+                ser.append(" /*+ FORCE_INDEX(").append(normalizeIndexName(indexName)).append(") */");
             }
 
             ser.append(" * FROM ").append(quoteIfNeeded(tableName));
@@ -250,6 +253,14 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             }
 
             return ser;
+        }
+
+        private static String normalizeIndexName(String name) {
+            if (!LETTER_AND_UNDERSCORE.matcher(name).matches()) {
+                throw new IllegalArgumentException("Index name must be alphanumeric with underscore and start with letter. Was: " + name);
+            }
+
+            return name.toUpperCase(Locale.ROOT);
         }
     }
 }
