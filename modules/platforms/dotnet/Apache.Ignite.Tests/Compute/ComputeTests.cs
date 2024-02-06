@@ -547,6 +547,16 @@ namespace Apache.Ignite.Tests.Compute
             AssertJobStatus(status, JobState.Canceled, beforeStart);
         }
 
+        [Test]
+        public async Task TestChangePriority()
+        {
+            var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, 5000);
+            var res = await jobExecution.ChangePriorityAsync(123);
+
+            // Job exists, but is already executing.
+            Assert.IsFalse(res);
+        }
+
         private static void AssertJobStatus(JobStatus? status, JobState state, Instant beforeStart)
         {
             Assert.IsNotNull(status);

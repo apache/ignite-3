@@ -168,6 +168,26 @@ namespace Apache.Ignite.Internal.Compute
             return res.GetReader().ReadBooleanNullable();
         }
 
+        /// <summary>
+        /// Changes the job priority. After priority change the job will be the last in the queue of jobs with the same priority.
+        /// </summary>
+        /// <param name="jobId">Job id.</param>
+        /// <param name="priority">New priority.</param>
+        /// <returns>
+        /// Returns <c>true</c> if the priority was successfully changed,
+        /// <c>false</c> when the priority couldn't be changed (job is already executing or completed),
+        /// <c>null</c> if the job was not found (no longer exists due to exceeding the retention time limit).
+        /// </returns>
+        internal async Task<bool?> ChangeJobPriorityAsync(Guid jobId, int priority)
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
+            writer.MessageWriter.Write(priority);
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeChangePriority, writer).ConfigureAwait(false);
+            return res.GetReader().ReadBooleanNullable();
+        }
+
         [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
         private static IClusterNode GetRandomNode(ICollection<IClusterNode> nodes)
         {

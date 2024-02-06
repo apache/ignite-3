@@ -53,4 +53,15 @@ public interface IJobExecution<T>
     /// <c>null</c> if the job was not found (no longer exists due to exceeding the retention time limit).
     /// </returns>
     Task<bool?> CancelAsync();
+
+    /// <summary>
+    /// Changes the job priority. After priority change the job will be the last in the queue of jobs with the same priority.
+    /// </summary>
+    /// <param name="priority">New priority.</param>
+    /// <returns>
+    /// Returns <c>true</c> if the priority was successfully changed,
+    /// <c>false</c> when the priority couldn't be changed (job is already executing or completed),
+    /// <c>null</c> if the job was not found (no longer exists due to exceeding the retention time limit).
+    /// </returns>
+    Task<bool?> ChangePriorityAsync(int priority);
 }

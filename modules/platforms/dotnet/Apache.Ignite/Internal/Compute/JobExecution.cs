@@ -79,7 +79,12 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     }
 
     /// <inheritdoc/>
-    public async Task<bool?> CancelAsync() => await _compute.CancelJobAsync(Id).ConfigureAwait(false);
+    public async Task<bool?> CancelAsync() =>
+        await _compute.CancelJobAsync(Id).ConfigureAwait(false);
+
+    /// <inheritdoc/>
+    public async Task<bool?> ChangePriorityAsync(int priority) =>
+        await _compute.ChangeJobPriorityAsync(Id, priority).ConfigureAwait(false);
 
     private async Task CacheStatusOnCompletion()
     {
