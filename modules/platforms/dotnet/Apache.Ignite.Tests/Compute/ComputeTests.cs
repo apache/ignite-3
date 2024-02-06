@@ -493,9 +493,8 @@ namespace Apache.Ignite.Tests.Compute
             var beforeStart = SystemClock.Instance.GetCurrentInstant();
 
             var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
-            var status = await jobExecution.GetStatusAsync();
 
-            AssertJobStatus(status, JobState.Executing, beforeStart);
+            await AssertJobStatus(jobExecution, JobState.Executing, beforeStart);
         }
 
         [Test]
@@ -506,9 +505,8 @@ namespace Apache.Ignite.Tests.Compute
 
             var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
             await jobExecution.GetResultAsync();
-            JobStatus? status = await jobExecution.GetStatusAsync();
 
-            AssertJobStatus(status, JobState.Completed, beforeStart);
+            await AssertJobStatus(jobExecution, JobState.Completed, beforeStart);
         }
 
         [Test]
@@ -518,9 +516,8 @@ namespace Apache.Ignite.Tests.Compute
 
             var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, ErrorJob, "unused");
             Assert.CatchAsync(async () => await jobExecution.GetResultAsync());
-            JobStatus? status = await jobExecution.GetStatusAsync();
 
-            AssertJobStatus(status, JobState.Failed, beforeStart);
+            await AssertJobStatus(jobExecution, JobState.Failed, beforeStart);
         }
 
         [Test]
@@ -542,9 +539,8 @@ namespace Apache.Ignite.Tests.Compute
 
             var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
             await jobExecution.CancelAsync();
-            JobStatus? status = await jobExecution.GetStatusAsync();
 
-            AssertJobStatus(status, JobState.Canceled, beforeStart);
+            await AssertJobStatus(jobExecution, JobState.Canceled, beforeStart);
         }
 
         [Test]
@@ -557,10 +553,12 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsFalse(res);
         }
 
-        private static void AssertJobStatus(JobStatus? status, JobState state, Instant beforeStart)
+        private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobState state, Instant beforeStart)
         {
+            JobStatus? status = await jobExecution.GetStatusAsync();
+
             Assert.IsNotNull(status);
-            Assert.AreNotEqual(Guid.Empty, status!.Id);
+            Assert.AreEqual(jobExecution.Id, status!.Id);
             Assert.AreEqual(state, status.State);
             Assert.Greater(status.CreateTime, beforeStart);
             Assert.Greater(status.StartTime, status.CreateTime);
