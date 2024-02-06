@@ -408,10 +408,13 @@ public class LeaseUpdater {
                 LeaseStats totalLeases = leaseUpdateStatistics.onSuccessfulIteration(leasesUpdatedInCurrentIteration);
 
                 if (shouldLogLeaseStatistics) {
-                    LOG.info("Leases updated (printed once per " + LeaseUpdateStatistics.PRINT_ONCE_PER_ITERATIONS + " iterations): ["
-                            + "currentIteration=" + leasesUpdatedInCurrentIteration
-                            + ", total=" + totalLeases
-                            + ", currentAssignmentsSize=" + currentAssignmentsSize + "]");
+                    LOG.info(
+                            "Leases updated (printed once per {} iterations): [currentIteration={}, total={}, currentAssignmentsSize={}].",
+                            LeaseUpdateStatistics.PRINT_ONCE_PER_ITERATIONS,
+                            leasesUpdatedInCurrentIteration,
+                            totalLeases,
+                            currentAssignmentsSize
+                    );
                 }
 
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
@@ -495,6 +498,7 @@ public class LeaseUpdater {
     }
 
     private static class LeaseUpdateStatistics {
+        /** Negative value means that printing statistics is disabled. */
         static final int PRINT_ONCE_PER_ITERATIONS = IgniteSystemProperties.getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 10);
 
         /** This field should be accessed only from updater thread. */
@@ -537,6 +541,10 @@ public class LeaseUpdater {
          * Should be called only from the updater thread.
          */
         private boolean shouldLogLeaseStatistics() {
+            if (PRINT_ONCE_PER_ITERATIONS < 0) {
+                return false;
+            }
+
             boolean result = ++statisticsLogCounter > PRINT_ONCE_PER_ITERATIONS;
 
             if (result) {
