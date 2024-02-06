@@ -486,12 +486,38 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestJobExecutionStatus()
+        public async Task TestJobExecutionStatusExecuting()
         {
-            // TODO: Check different statuses.
-            // TODO: Check null result when the job does not exist.
-            await Task.Delay(1);
-            Assert.Fail("TODO");
+            const int sleepMs = 3000;
+            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+
+            var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+            var status = await jobExecution.GetStatusAsync();
+
+            Assert.IsNotNull(status);
+            Assert.AreNotEqual(Guid.Empty, status!.Id);
+            Assert.AreEqual(JobState.Executing, status.State);
+            Assert.Greater(status.CreateTime, beforeStart);
+            Assert.Greater(status.StartTime, status.CreateTime);
+            Assert.IsNull(status.FinishTime);
+        }
+
+        [Test]
+        public async Task TestJobExecutionStatusCompleted()
+        {
+            const int sleepMs = 1;
+            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+
+            var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+            await jobExecution.GetResultAsync();
+            var status = await jobExecution.GetStatusAsync();
+
+            Assert.IsNotNull(status);
+            Assert.AreNotEqual(Guid.Empty, status!.Id);
+            Assert.AreEqual(JobState.Completed, status.State);
+            Assert.Greater(status.CreateTime, beforeStart);
+            Assert.Greater(status.StartTime, status.CreateTime);
+            Assert.Greater(status.FinishTime, status.StartTime);
         }
 
         [Test]
