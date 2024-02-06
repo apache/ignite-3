@@ -65,6 +65,26 @@ class ItSqlReplCommandTest extends CliCommandTestInitializedIntegrationBase {
     }
 
     @Test
+    void multilineCommand() {
+        execute("CREATE TABLE MULTILINE_TABLE(K INT PRIMARY KEY); \n INSERT INTO MULTILINE_TABLE VALUES(1);", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                // The output from CREATE TABLE is: Updated 0 rows.
+                () -> assertOutputContains("Updated 0 rows."),
+                this::assertErrOutputIsEmpty
+        );
+
+        resetOutput();
+
+        execute("SELECT COUNT(*) FROM MULTILINE_TABLE;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertOutputContains("1"),
+                this::assertErrOutputIsEmpty
+        );
+    }
+
+    @Test
     void secondInvocationFile() {
         execute("-f", "nonexisting", "--jdbc-url", JDBC_URL);
 

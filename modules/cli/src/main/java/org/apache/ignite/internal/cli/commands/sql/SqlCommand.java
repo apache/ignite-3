@@ -74,7 +74,7 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new IgniteCliException("File with command not found");
+            throw new IgniteCliException("File [" + file.getAbsolutePath() + "] not found");
         }
     }
 
