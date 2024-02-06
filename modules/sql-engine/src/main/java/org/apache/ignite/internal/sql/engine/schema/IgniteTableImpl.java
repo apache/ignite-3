@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -29,6 +29,7 @@ import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.Statistic;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.Lazy;
 
 /**
  * Table implementation for sql engine.
@@ -39,7 +40,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
 
     private final int partitions;
 
-    private AtomicReference<NativeType[]> colocationColumnTypes = new AtomicReference<>();
+    private final Lazy<NativeType[]> colocationColumnTypes;
 
     /** Constructor. */
     public IgniteTableImpl(String name, int id, int version, TableDescriptor desc,
@@ -48,16 +49,14 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
         super(name, id, version, desc, statistic);
         this.indexMap = indexMap;
         this.partitions = partitions;
+
+        colocationColumnTypes = new Lazy<>(this::evaluateTypes);
     }
 
     /** {@inheritDoc} */
     @Override
     public Supplier<PartitionCalculator> partitionCalculator() {
-        return () -> {
-            colocationColumnTypes.compareAndSet(null, evaluateTypes());
-
-            return new PartitionCalculator(partitions, colocationColumnTypes.get());
-        };
+        return () -> new PartitionCalculator(partitions, Objects.requireNonNull(colocationColumnTypes.get()));
     }
 
     private NativeType[] evaluateTypes() {
