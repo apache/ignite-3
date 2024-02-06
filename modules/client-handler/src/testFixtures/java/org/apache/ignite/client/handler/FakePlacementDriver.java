@@ -77,7 +77,8 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
                 groupId,
                 replica,
                 replica,
-                HybridTimestamp.hybridTimestamp(leaseStartTime)
+                HybridTimestamp.hybridTimestamp(leaseStartTime),
+                HybridTimestamp.MAX_VALUE
         );
 
         fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, params);
