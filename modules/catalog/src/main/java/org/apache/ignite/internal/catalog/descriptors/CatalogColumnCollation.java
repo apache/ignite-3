@@ -27,8 +27,8 @@ public enum CatalogColumnCollation {
     DESC_NULLS_FIRST(false, true),
     DESC_NULLS_LAST(false, false);
 
-    private static final int ASC_BITMASK = 1;
-    private static final int NULLS_FIRST_BITMASK = 1 << 2;
+    private static final int ASC_FLAG_BITMASK = 1;
+    private static final int NULLS_FIRST_FLAG_BITMASK = 1 << 2;
 
     private final boolean asc;
     private final boolean nullsFirst;
@@ -75,13 +75,13 @@ public enum CatalogColumnCollation {
 
     /** Writes collation to byte. */
     static byte pack(CatalogColumnCollation collation) {
-        return  (byte) ((collation.asc() ? ASC_BITMASK : 0) | (collation.nullsFirst() ? NULLS_FIRST_BITMASK : 0));
+        return  (byte) ((collation.asc() ? ASC_FLAG_BITMASK : 0) | (collation.nullsFirst() ? NULLS_FIRST_FLAG_BITMASK : 0));
     }
 
     /** Reads collation from byte. */
     static CatalogColumnCollation unpack(byte collationBits) {
-        boolean asc = (collationBits & ASC_BITMASK) == ASC_BITMASK;
-        boolean nullsFirst = (collationBits & NULLS_FIRST_BITMASK) == NULLS_FIRST_BITMASK;
+        boolean asc = (collationBits & ASC_FLAG_BITMASK) == ASC_FLAG_BITMASK;
+        boolean nullsFirst = (collationBits & NULLS_FIRST_FLAG_BITMASK) == NULLS_FIRST_FLAG_BITMASK;
 
         return get(asc, nullsFirst);
     }
