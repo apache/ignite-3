@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_CLOSED_ERR;
 
 /**
  * Exception is thrown when a data fetch attempt is performed on a closed cursor.
  */
-public class CursorClosedException extends SqlException {
+public class CursorClosedException extends IgniteException {
     /**
      * Creates an exception instance.
      */
