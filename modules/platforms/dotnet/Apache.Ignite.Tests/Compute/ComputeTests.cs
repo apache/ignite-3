@@ -26,6 +26,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Table;
+    using Internal.Compute;
     using Internal.Network;
     using Internal.Proto;
     using Network;
@@ -510,7 +511,7 @@ namespace Apache.Ignite.Tests.Compute
 
             var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
             await jobExecution.GetResultAsync();
-            var status = await jobExecution.GetStatusAsync();
+            JobStatus? status = await jobExecution.GetStatusAsync();
 
             Assert.IsNotNull(status);
             Assert.AreNotEqual(Guid.Empty, status!.Id);
@@ -518,6 +519,15 @@ namespace Apache.Ignite.Tests.Compute
             Assert.Greater(status.CreateTime, beforeStart);
             Assert.Greater(status.StartTime, status.CreateTime);
             Assert.Greater(status.FinishTime, status.StartTime);
+        }
+
+        [Test]
+        public async Task TestJobExecutionStatusNull()
+        {
+            var jobExecution = new JobExecution<int>(Guid.NewGuid(), Task.FromResult(42));
+            var status = await jobExecution.GetStatusAsync();
+
+            Assert.IsNull(status);
         }
 
         [Test]
