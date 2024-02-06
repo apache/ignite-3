@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
@@ -53,18 +54,19 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      * Creates KV marshaller.
      *
      * @param schema Schema descriptor.
+     * @param marshallers Marshallers provider.
      * @param keyMapper Mapper for key objects.
      * @param valueMapper Mapper for value objects.
      */
-    public KvMarshallerImpl(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
+    public KvMarshallerImpl(SchemaDescriptor schema, MarshallersProvider marshallers, Mapper<K> keyMapper, Mapper<V> valueMapper) {
         this.schema = schema;
 
         keyClass = keyMapper.targetType();
         valClass = valueMapper.targetType();
 
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
-        keyMarsh = Marshaller.getKeysMarshaller(marshallerSchema, keyMapper, true, false);
-        valMarsh = Marshaller.getValuesMarshaller(marshallerSchema, valueMapper, true, false);
+        keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, true, false);
+        valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, true, false);
     }
 
     /** {@inheritDoc} */

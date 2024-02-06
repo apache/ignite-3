@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -66,10 +67,17 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
      */
-    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, SchemaVersions schemaVersions, IgniteSql sql) {
-        super(tbl, schemaVersions, schemaReg, sql);
+    public KeyValueBinaryViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaReg,
+            SchemaVersions schemaVersions,
+            MarshallersProvider marshallers,
+            IgniteSql sql
+    ) {
+        super(tbl, schemaVersions, schemaReg, sql, marshallers);
 
         marshallerCache = new TupleMarshallerCache(schemaReg);
     }

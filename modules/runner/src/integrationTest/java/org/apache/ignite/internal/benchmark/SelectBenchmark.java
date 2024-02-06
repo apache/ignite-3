@@ -78,7 +78,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
     private KeyValueView<Tuple, Tuple> keyValueView;
 
-    @Param({"1", "2", "3"})
+    @Param({"1"})//, "2", "3"})
     private int clusterSize;
 
     /**

@@ -27,6 +27,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -70,6 +71,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @param tbl Table.
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param marshallers Marshallers provider.
      * @param mapper Record class mapper.
      * @param sql Ignite SQL facade.
      */
@@ -77,13 +79,14 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
+            MarshallersProvider marshallers,
             Mapper<R> mapper,
             IgniteSql sql
     ) {
-        super(tbl, schemaVersions, schemaRegistry, sql);
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
         this.mapper = mapper;
-        marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
+        marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, marshallers, mapper);
     }
 
     /** {@inheritDoc} */
@@ -542,7 +545,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     @Override
     protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
-        Marshaller marsh = Marshaller.getRowMarshaller(marshallerSchema, mapper, false, true);
+        Marshaller marsh = marshallers.getRowMarshaller(marshallerSchema, mapper, false, true);
         Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
 
         return (row) -> {

@@ -19,14 +19,10 @@ package org.apache.ignite.internal.marshaller;
 
 import static org.apache.ignite.internal.marshaller.FieldAccessor.createIdentityAccessor;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
 import org.apache.ignite.internal.util.Factory;
@@ -41,107 +37,6 @@ import org.jetbrains.annotations.Nullable;
  * Marshaller.
  */
 public abstract class Marshaller {
-
-    /** Marshaller for key columns of a particular schema. Cached by schema version. */
-    private static final MarshallerCache KEYS_MARSHALLER_CACHE = new MarshallerCache();
-
-    /** Marshaller for value columns of a particular schema. Cached by schema version. */
-    private static final MarshallerCache VALUES_MARSHALLER_CACHE = new MarshallerCache();
-
-    /** Marshaller for all columns of a particular schema. Cached by schema version. */
-    private static final MarshallerCache ROW_MARSHALLER_CACHE = new MarshallerCache();
-
-    /** Marshaller for an arbitrary columns. Cached by columns. */
-    private static final MarshallerCache PROJECTION_MARSHALLER_CACHE = new MarshallerCache();
-
-    /**
-     * Returns a marshaller for key columns of the given schema.
-     *
-     * @param schema Schema.
-     * @param mapper Mapper.
-     * @param requireAllFields If specified class should contain fields for all columns.
-     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
-     * @return Marshaller.
-     */
-    public static Marshaller getKeysMarshaller(
-            MarshallerSchema schema,
-            Mapper<?> mapper,
-            boolean requireAllFields,
-            boolean allowUnmappedFields) {
-
-        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
-
-        return KEYS_MARSHALLER_CACHE.put(key, k -> {
-            return createMarshaller(schema.keys(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
-        });
-    }
-
-    /**
-     * Returns a marshaller for value columns of the given schema.
-     *
-     * @param schema Schema.
-     * @param mapper Mapper.
-     * @param requireAllFields If specified class should contain fields for all columns.
-     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
-     * @return Marshaller.
-     */
-    public static Marshaller getValuesMarshaller(
-            MarshallerSchema schema,
-            Mapper<?> mapper,
-            boolean requireAllFields,
-            boolean allowUnmappedFields) {
-
-        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
-
-        return VALUES_MARSHALLER_CACHE.put(key, k -> {
-            return createMarshaller(schema.values(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
-        });
-    }
-
-    /**
-     * Returns a marshaller that includes both key and value columns of the given schema.
-     *
-     * @param schema Schema.
-     * @param mapper Mapper.
-     * @param requireAllFields If specified class should contain fields for all columns.
-     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
-     * @return Marshaller.
-     */
-    public static Marshaller getRowMarshaller(
-            MarshallerSchema schema,
-            Mapper<?> mapper,
-            boolean requireAllFields,
-            boolean allowUnmappedFields) {
-
-        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
-
-        return ROW_MARSHALLER_CACHE.put(key, k -> {
-            return createMarshaller(schema.row(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
-        });
-    }
-
-    /**
-     * Returns a marshaller for the given columns.
-     *
-     * @param columns Columns.
-     * @param mapper Mapper.
-     * @param requireAllFields If specified class should contain fields for all columns.
-     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
-     * @return Marshaller.
-     */
-    public static Marshaller getMarshaller(
-            MarshallerColumn[] columns,
-            Mapper<?> mapper,
-            boolean requireAllFields,
-            boolean allowUnmappedFields) {
-
-        MarshallerCacheKey key = new MarshallerCacheKey(columns, mapper, requireAllFields, allowUnmappedFields);
-
-        return PROJECTION_MARSHALLER_CACHE.put(key, k -> {
-            return createMarshaller(k.columns, k.mapper, k.requireAllFields, k.allowUnmappedFields);
-        });
-    }
-
     /**
      * Creates a marshaller for class.
      *
@@ -151,7 +46,7 @@ public abstract class Marshaller {
      * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Marshaller.
      */
-    private static Marshaller createMarshaller(
+    public static Marshaller createMarshaller(
             MarshallerColumn[] cols,
             Mapper<?> mapper,
             boolean requireAllFields,
@@ -394,66 +289,6 @@ public abstract class Marshaller {
 
         @Override
         public void writeObject(Object obj, MarshallerWriter writer) {
-        }
-    }
-
-    private static class MarshallerCache {
-
-        private final Cache<MarshallerCacheKey, Marshaller> cache = Caffeine.newBuilder()
-                .maximumSize(1024)
-                .build();
-
-        Marshaller put(MarshallerCacheKey key, Function<MarshallerCacheKey, Marshaller> func) {
-            return cache.get(key, func);
-        }
-    }
-
-    private static final class MarshallerCacheKey {
-        private final int schemaVersion;
-
-        private final Mapper<?> mapper;
-
-        private final MarshallerColumn[] columns;
-
-        private final boolean requireAllFields;
-
-        private final boolean allowUnmappedFields;
-
-        MarshallerCacheKey(int schemaVersion, Mapper<?> mapper, boolean requireAllFields, boolean allowUnmappedFields) {
-            this.schemaVersion = schemaVersion;
-            this.columns = null;
-            this.mapper = mapper;
-            this.requireAllFields = requireAllFields;
-            this.allowUnmappedFields = allowUnmappedFields;
-        }
-
-        MarshallerCacheKey(MarshallerColumn[] columns, Mapper<?> mapper, boolean requireAllFields, boolean allowUnmappedFields) {
-            this.schemaVersion = -1;
-            this.columns = columns;
-            this.mapper = mapper;
-            this.requireAllFields = requireAllFields;
-            this.allowUnmappedFields = allowUnmappedFields;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            MarshallerCacheKey that = (MarshallerCacheKey) o;
-            return schemaVersion == that.schemaVersion && requireAllFields == that.requireAllFields
-                    && allowUnmappedFields == that.allowUnmappedFields && Objects.equals(mapper, that.mapper) && Arrays.equals(
-                    columns, that.columns);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = Objects.hash(schemaVersion, mapper, requireAllFields, allowUnmappedFields);
-            result = 31 * result + Arrays.hashCode(columns);
-            return result;
         }
     }
 }

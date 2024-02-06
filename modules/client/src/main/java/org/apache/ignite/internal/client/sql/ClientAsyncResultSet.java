@@ -33,6 +33,7 @@ import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -91,7 +92,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
      * @param in Unpacker.
      * @param mapper Mapper.
      */
-    ClientAsyncResultSet(ClientChannel ch, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
+    ClientAsyncResultSet(ClientChannel ch, MarshallersProvider marshallers, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
         this.ch = ch;
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
@@ -103,7 +104,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         this.mapper = mapper;
         marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
-                ? marshaller(metadata, mapper)
+                ? marshaller(metadata, marshallers, mapper)
                 : null;
 
         if (hasRowSet) {
@@ -306,7 +307,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         }
     }
 
-    private static <T> Marshaller marshaller(ResultSetMetadata metadata, Mapper<T> mapper) {
+    private static <T> Marshaller marshaller(ResultSetMetadata metadata, MarshallersProvider marshallers, Mapper<T> mapper) {
         var schemaColumns = new ClientColumn[metadata.columns().size()];
         List<ColumnMetadata> columns = metadata.columns();
 
@@ -326,7 +327,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             schemaColumns[i] = schemaColumn;
         }
 
-        var schema = new ClientSchema(0, schemaColumns, null);
+        var schema = new ClientSchema(0, schemaColumns, null, marshallers);
         return schema.getMarshaller(mapper);
     }
 }

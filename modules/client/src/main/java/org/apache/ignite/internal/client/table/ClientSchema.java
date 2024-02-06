@@ -24,6 +24,7 @@ import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
@@ -51,6 +52,9 @@ public class ClientSchema {
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
 
+    /** Marshaller provider. */
+    private final MarshallersProvider marshallers;
+
     /** Marshaller schema. */
     private MarshallerSchema marshallerSchema;
 
@@ -60,13 +64,15 @@ public class ClientSchema {
      * @param ver Schema version.
      * @param columns Columns.
      * @param colocationColumns Colocation columns. When null, all key columns are used.
+     * @param marshallers Marshallers provider.
      */
-    public ClientSchema(int ver, ClientColumn[] columns, ClientColumn @Nullable [] colocationColumns) {
+    public ClientSchema(int ver, ClientColumn[] columns, ClientColumn @Nullable [] colocationColumns, MarshallersProvider marshallers) {
         assert ver >= 0;
         assert columns != null;
 
         this.ver = ver;
         this.columns = columns;
+        this.marshallers = marshallers;
         var keyCnt = 0;
 
         for (var col : columns) {
@@ -159,17 +165,17 @@ public class ClientSchema {
     public <T> Marshaller getMarshaller(Mapper mapper) {
         MarshallerColumn[] marshallerColumns = toMarshallerColumns(TuplePart.KEY_AND_VAL);
 
-        return Marshaller.getMarshaller(marshallerColumns, mapper, true, false);
+        return marshallers.getMarshaller(marshallerColumns, mapper, true, false);
     }
 
     <T> Marshaller getMarshaller(Mapper mapper, TuplePart part, boolean allowUnmappedFields) {
         switch (part) {
             case KEY:
-                return Marshaller.getKeysMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+                return marshallers.getKeysMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
             case VAL:
-                return Marshaller.getValuesMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+                return marshallers.getValuesMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
             case KEY_AND_VAL:
-                return Marshaller.getRowMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+                return marshallers.getRowMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
             default:
                 throw new AssertionError("Unexpected tuple part: " + part);
         }

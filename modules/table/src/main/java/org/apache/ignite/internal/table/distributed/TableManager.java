@@ -104,6 +104,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -360,6 +361,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Configuration for {@link StorageUpdateHandler}. */
     private final StorageUpdateConfiguration storageUpdateConfig;
+
+    /** Marshallers provider. */
+    private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     /**
      * Creates a new table manager.
@@ -1222,7 +1226,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitions, clusterService.topologyService(), txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions, sql.get());
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions, sql.get(), marshallers);
 
         // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));

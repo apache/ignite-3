@@ -1,0 +1,177 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.marshaller;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.function.Function;
+import org.apache.ignite.table.mapper.Mapper;
+
+/** Implementation of {@link MarshallersProvider}. */
+public class ReflectionMarshallersProvider implements MarshallersProvider {
+    /** Marshaller cache size per type. */
+    private static final int CACHE_SIZE = 1024;
+
+    /** Marshaller for key columns of a particular schema. Cached by schema version. */
+    private final MarshallerCache keysMarshallerCache;
+
+    /** Marshaller for value columns of a particular schema. Cached by schema version. */
+    private final MarshallerCache valuesMarshallerCache;
+
+    /** Marshaller for all columns of a particular schema. Cached by schema version. */
+    private final MarshallerCache rowMarshallerCache;
+
+    /** Marshaller for an arbitrary columns. Cached by columns. */
+    private final MarshallerCache projectionMarshallerCache;
+
+    /** Constructor. */
+    public ReflectionMarshallersProvider() {
+        this.keysMarshallerCache = new MarshallerCache(CACHE_SIZE);
+        this.valuesMarshallerCache = new MarshallerCache(CACHE_SIZE);
+        this.rowMarshallerCache = new MarshallerCache(CACHE_SIZE);
+        this.projectionMarshallerCache = new MarshallerCache(CACHE_SIZE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Marshaller getKeysMarshaller(
+            MarshallerSchema schema,
+            Mapper<?> mapper,
+            boolean requireAllFields,
+            boolean allowUnmappedFields) {
+
+        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
+
+        return keysMarshallerCache.put(key, k -> {
+            return Marshaller.createMarshaller(schema.keys(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Marshaller getValuesMarshaller(
+            MarshallerSchema schema,
+            Mapper<?> mapper,
+            boolean requireAllFields,
+            boolean allowUnmappedFields) {
+
+        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
+
+        return valuesMarshallerCache.put(key, k -> {
+            return Marshaller.createMarshaller(schema.values(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Marshaller getRowMarshaller(
+            MarshallerSchema schema,
+            Mapper<?> mapper,
+            boolean requireAllFields,
+            boolean allowUnmappedFields) {
+
+        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
+
+        return rowMarshallerCache.put(key, k -> {
+            return Marshaller.createMarshaller(schema.row(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Marshaller getMarshaller(
+            MarshallerColumn[] columns,
+            Mapper<?> mapper,
+            boolean requireAllFields,
+            boolean allowUnmappedFields) {
+
+        MarshallerCacheKey key = new MarshallerCacheKey(columns, mapper, requireAllFields, allowUnmappedFields);
+
+        return projectionMarshallerCache.put(key, k -> {
+            return Marshaller.createMarshaller(k.columns, k.mapper, k.requireAllFields, k.allowUnmappedFields);
+        });
+    }
+
+    private static class MarshallerCache {
+
+        private final Cache<MarshallerCacheKey, Marshaller> cache;
+
+        MarshallerCache(int maximumSize) {
+            cache = Caffeine.newBuilder()
+                    .maximumSize(maximumSize)
+                    .build();
+        }
+
+        Marshaller put(MarshallerCacheKey key, Function<MarshallerCacheKey, Marshaller> func) {
+            return cache.get(key, func);
+        }
+    }
+
+    private static final class MarshallerCacheKey {
+        private static final MarshallerColumn[] NO_COLUMNS = new MarshallerColumn[0];
+
+        private final int schemaVersion;
+
+        private final Mapper<?> mapper;
+
+        private final MarshallerColumn[] columns;
+
+        private final boolean requireAllFields;
+
+        private final boolean allowUnmappedFields;
+
+        MarshallerCacheKey(int schemaVersion, Mapper<?> mapper, boolean requireAllFields, boolean allowUnmappedFields) {
+            this.schemaVersion = schemaVersion;
+            this.columns = NO_COLUMNS;
+            this.mapper = mapper;
+            this.requireAllFields = requireAllFields;
+            this.allowUnmappedFields = allowUnmappedFields;
+        }
+
+        MarshallerCacheKey(MarshallerColumn[] columns, Mapper<?> mapper, boolean requireAllFields, boolean allowUnmappedFields) {
+            this.schemaVersion = -1;
+            this.columns = columns;
+            this.mapper = mapper;
+            this.requireAllFields = requireAllFields;
+            this.allowUnmappedFields = allowUnmappedFields;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MarshallerCacheKey that = (MarshallerCacheKey) o;
+            return schemaVersion == that.schemaVersion && requireAllFields == that.requireAllFields
+                    && allowUnmappedFields == that.allowUnmappedFields && Objects.equals(mapper, that.mapper) && Arrays.equals(
+                    columns, that.columns);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(schemaVersion, mapper, requireAllFields, allowUnmappedFields);
+            result = 31 * result + Arrays.hashCode(columns);
+            return result;
+        }
+    }
+}

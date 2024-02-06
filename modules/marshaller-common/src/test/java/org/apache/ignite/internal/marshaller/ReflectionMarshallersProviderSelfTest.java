@@ -28,8 +28,10 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-/** Tests for {@link Marshaller} method result caching. */
-public class MarshallerTest {
+/** Tests for {@link ReflectionMarshallersProvider}. */
+public class ReflectionMarshallersProviderSelfTest {
+
+    private final MarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     @ParameterizedTest
     @EnumSource(MarshallerType.class)
@@ -44,9 +46,9 @@ public class MarshallerTest {
 
         // Same schema - same versions, same content
         {
-            Marshaller m1 = marshallerType.get(schema1, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m2 = marshallerType.get(schema1, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m3 = marshallerType.get(schema1, Mapper.of(TestPoJo.class), true, true);
+            Marshaller m1 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), false, true);
+            Marshaller m2 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), false, true);
+            Marshaller m3 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), true, true);
 
             assertSame(m1, m2);
             assertNotSame(m1, m3);
@@ -62,9 +64,9 @@ public class MarshallerTest {
 
         // Different schemas - different versions, different content
         {
-            Marshaller m1 = marshallerType.get(schema1, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m2 = marshallerType.get(schema2, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m3 = marshallerType.get(schema2, Mapper.of(TestPoJo.class), true, true);
+            Marshaller m1 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), false, true);
+            Marshaller m2 = marshallerType.get(marshallers, schema2, Mapper.of(TestPoJo.class), false, true);
+            Marshaller m3 = marshallerType.get(marshallers, schema2, Mapper.of(TestPoJo.class), true, true);
 
             assertNotSame(m1, m2);
             assertNotSame(m1, m3);
@@ -78,9 +80,9 @@ public class MarshallerTest {
 
         // Different schemas - different versions, same content
         {
-            Marshaller m1 = marshallerType.get(schema1, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m2 = marshallerType.get(schema3, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m3 = marshallerType.get(schema3, Mapper.of(TestPoJo.class), true, true);
+            Marshaller m1 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), false, true);
+            Marshaller m2 = marshallerType.get(marshallers, schema3, Mapper.of(TestPoJo.class), false, true);
+            Marshaller m3 = marshallerType.get(marshallers, schema3, Mapper.of(TestPoJo.class), true, true);
 
             if (marshallerType.cacheBySchemaColumns()) {
                 assertSame(m1, m2);
@@ -103,20 +105,20 @@ public class MarshallerTest {
         PROJECTION
         ;
 
-        Marshaller get(TestMarshallerSchema schema,
+        Marshaller get(MarshallersProvider marshallers, TestMarshallerSchema schema,
                 Mapper<?> mapper,
                 boolean requireAllFields,
                 boolean allowUnmappedFields) {
 
             switch (this) {
                 case KEYS:
-                    return Marshaller.getKeysMarshaller(schema.schema, mapper, requireAllFields, allowUnmappedFields);
+                    return marshallers.getKeysMarshaller(schema.schema, mapper, requireAllFields, allowUnmappedFields);
                 case VALUES:
-                    return Marshaller.getValuesMarshaller(schema.schema, mapper, requireAllFields, allowUnmappedFields);
+                    return marshallers.getValuesMarshaller(schema.schema, mapper, requireAllFields, allowUnmappedFields);
                 case ROW:
-                    return Marshaller.getRowMarshaller(schema.schema, mapper, requireAllFields, allowUnmappedFields);
+                    return marshallers.getRowMarshaller(schema.schema, mapper, requireAllFields, allowUnmappedFields);
                 case PROJECTION:
-                    return Marshaller.getMarshaller(schema.columns, mapper, requireAllFields, allowUnmappedFields);
+                    return marshallers.getMarshaller(schema.columns, mapper, requireAllFields, allowUnmappedFields);
                 default:
                     throw new UnsupportedOperationException("Unexpected marshaller type " + this);
             }

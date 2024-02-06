@@ -21,6 +21,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
@@ -54,9 +55,10 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * Creates KV marshaller.
      *
      * @param schema Schema descriptor.
+     * @param marshallers Marshaller provider.
      * @param mapper Mapper for record objects.
      */
-    public RecordMarshallerImpl(SchemaDescriptor schema, Mapper<R> mapper) {
+    public RecordMarshallerImpl(SchemaDescriptor schema, MarshallersProvider marshallers, Mapper<R> mapper) {
         assert mapper instanceof PojoMapper;
 
         this.schema = schema;
@@ -65,9 +67,9 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
 
-        keyMarsh = Marshaller.getKeysMarshaller(marshallerSchema, mapper, true, true);
-        valMarsh = Marshaller.getValuesMarshaller(marshallerSchema, mapper, false, true);
-        recMarsh = Marshaller.getRowMarshaller(marshallerSchema, mapper, false, false);
+        keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, mapper, true, true);
+        valMarsh = marshallers.getValuesMarshaller(marshallerSchema, mapper, false, true);
+        recMarsh = marshallers.getRowMarshaller(marshallerSchema, mapper, false, false);
     }
 
     /** {@inheritDoc} */

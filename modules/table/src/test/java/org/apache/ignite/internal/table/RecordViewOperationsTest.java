@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -353,8 +354,9 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
         RecordView<TestObjectWithAllTypes> view = recordView();
 
         TestObjectWithAllTypes expectedRecord = TestObjectWithAllTypes.randomObject(rnd);
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
-        BinaryRow resultRow = new RecordMarshallerImpl<>(schema, recMapper)
+        BinaryRow resultRow = new RecordMarshallerImpl<>(schema, marshallers, recMapper)
                 .marshal(expectedRecord);
 
         doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
@@ -386,10 +388,13 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
 
         assertEquals(Collections.emptySet(), missedTypes);
 
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
         return new RecordViewImpl<>(
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
+                marshallers,
                 recMapper,
                 mock(IgniteSql.class)
         );
