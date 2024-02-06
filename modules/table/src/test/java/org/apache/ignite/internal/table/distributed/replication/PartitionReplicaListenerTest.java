@@ -2812,10 +2812,22 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
     }
 
+    @Test
+    void testBuildIndexReplicaRequestWithoutRwTxOperations() {
+        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(1, 1);
+
+        assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
+
+        fireHashIndexStartBuildingEventForStaleTxOperation();
+
+        assertThat(invokeBuildIndexReplicaRequestFuture, willCompleteSuccessfully());
+        assertThat(invokeBuildIndexReplicaRequestAsync(1, 1), willCompleteSuccessfully());
+    }
+
     @ParameterizedTest(name = "failCmd = {0}")
     @ValueSource(booleans = {false, true})
     void testBuildIndexReplicaRequest(boolean failCmd) {
-        var continueRwCmdFuture = new CompletableFuture<Void>();
+        var continueNotBuildIndexCmdFuture = new CompletableFuture<Void>();
 
         when(mockRaftClient.run(any())).thenAnswer(invocation -> {
             Command cmd = invocation.getArgument(0);
@@ -2824,7 +2836,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 return raftClientFutureClosure.apply(cmd);
             }
 
-            return continueRwCmdFuture.thenCompose(unused -> raftClientFutureClosure.apply(cmd));
+            return continueNotBuildIndexCmdFuture.thenCompose(unused -> raftClientFutureClosure.apply(cmd));
         });
 
         UUID txId = newTxId();
@@ -2837,26 +2849,22 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<ReplicaResult> upsertFuture = upsertAsync(txId, row, true);
         CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(1, 1);
 
-        assertFalse(upsertFuture.isDone());
-        assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
-
         fireHashIndexStartBuildingEventForStaleTxOperation();
 
         assertFalse(upsertFuture.isDone());
         assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
 
         if (failCmd) {
-            continueRwCmdFuture.completeExceptionally(new RuntimeException("error from test"));
+            continueNotBuildIndexCmdFuture.completeExceptionally(new RuntimeException("error from test"));
 
             assertThat(upsertFuture, willThrow(RuntimeException.class));
         } else {
-            continueRwCmdFuture.complete(null);
+            continueNotBuildIndexCmdFuture.complete(null);
 
             assertThat(upsertFuture, willCompleteSuccessfully());
         }
 
         assertThat(invokeBuildIndexReplicaRequestFuture, willCompleteSuccessfully());
-        assertThat(invokeBuildIndexReplicaRequestAsync(1, 1), willCompleteSuccessfully());
     }
 
     private void fireHashIndexStartBuildingEventForStaleTxOperation() {
