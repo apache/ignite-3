@@ -161,6 +161,7 @@ class IndexBuildTask {
         try {
             List<RowId> batchRowIds = createBatchRowIds();
 
+            // TODO: IGNITE-21111 вот тут мне теперь надо чутка поменять мол мы можем таймаутится...
             return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds))
                     .thenComposeAsync(unused -> {
                         if (indexStorage.getNextRowIdToBuild() == null) {
