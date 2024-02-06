@@ -263,12 +263,12 @@ public class ClientSchema {
 
     private MarshallerSchema marshallerSchema() {
         if (marshallerSchema == null) {
-            marshallerSchema = new ClientSideMarshallerSchema(this);
+            marshallerSchema = new ClientMarshallerSchema(this);
         }
         return marshallerSchema;
     }
 
-    private static class ClientSideMarshallerSchema implements MarshallerSchema {
+    private static class ClientMarshallerSchema implements MarshallerSchema {
 
         private final ClientSchema schema;
 
@@ -278,7 +278,7 @@ public class ClientSchema {
 
         private MarshallerColumn[] row;
 
-        private ClientSideMarshallerSchema(ClientSchema schema) {
+        private ClientMarshallerSchema(ClientSchema schema) {
             this.schema = schema;
         }
 

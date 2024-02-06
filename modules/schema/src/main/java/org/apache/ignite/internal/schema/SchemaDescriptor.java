@@ -282,12 +282,12 @@ public class SchemaDescriptor {
     /** Returns marshaller schema. */
     public MarshallerSchema marshallerSchema() {
         if (marshallerSchema == null) {
-            marshallerSchema = new ServerSideMarshallerSchema(this);
+            marshallerSchema = new ServerMarshallerSchema(this);
         }
         return marshallerSchema;
     }
 
-    private static class ServerSideMarshallerSchema implements MarshallerSchema {
+    private static class ServerMarshallerSchema implements MarshallerSchema {
 
         private final SchemaDescriptor schema;
 
@@ -297,7 +297,7 @@ public class SchemaDescriptor {
 
         private MarshallerColumn[] row;
 
-        private ServerSideMarshallerSchema(SchemaDescriptor schema) {
+        private ServerMarshallerSchema(SchemaDescriptor schema) {
             this.schema = schema;
         }
 

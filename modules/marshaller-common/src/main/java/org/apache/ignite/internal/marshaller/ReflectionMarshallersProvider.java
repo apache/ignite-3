@@ -27,7 +27,7 @@ import org.apache.ignite.table.mapper.Mapper;
 /** Implementation of {@link MarshallersProvider}. */
 public class ReflectionMarshallersProvider implements MarshallersProvider {
     /** Marshaller cache size per type. */
-    private static final int CACHE_SIZE = 1024;
+    private static final int CACHE_SIZE = 256;
 
     /** Marshaller for key columns of a particular schema. Cached by schema version. */
     private final MarshallerCache keysMarshallerCache;
@@ -59,7 +59,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
 
         MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
 
-        return keysMarshallerCache.put(key, k -> {
+        return keysMarshallerCache.getOrAdd(key, k -> {
             return Marshaller.createMarshaller(schema.keys(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
         });
     }
@@ -74,7 +74,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
 
         MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
 
-        return valuesMarshallerCache.put(key, k -> {
+        return valuesMarshallerCache.getOrAdd(key, k -> {
             return Marshaller.createMarshaller(schema.values(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
         });
     }
@@ -89,7 +89,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
 
         MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
 
-        return rowMarshallerCache.put(key, k -> {
+        return rowMarshallerCache.getOrAdd(key, k -> {
             return Marshaller.createMarshaller(schema.row(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
         });
     }
@@ -104,7 +104,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
 
         MarshallerCacheKey key = new MarshallerCacheKey(columns, mapper, requireAllFields, allowUnmappedFields);
 
-        return projectionMarshallerCache.put(key, k -> {
+        return projectionMarshallerCache.getOrAdd(key, k -> {
             return Marshaller.createMarshaller(k.columns, k.mapper, k.requireAllFields, k.allowUnmappedFields);
         });
     }
@@ -119,7 +119,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
                     .build();
         }
 
-        Marshaller put(MarshallerCacheKey key, Function<MarshallerCacheKey, Marshaller> func) {
+        Marshaller getOrAdd(MarshallerCacheKey key, Function<MarshallerCacheKey, Marshaller> func) {
             return cache.get(key, func);
         }
     }
