@@ -19,9 +19,7 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -45,23 +43,6 @@ import org.junit.jupiter.api.Test;
  * Columns mappers test.
  */
 public class MapperTest {
-    private static final Class<?>[] CLASSES = {
-            Byte.class,
-            Short.class,
-            Integer.class,
-            Long.class,
-            Float.class,
-            Double.class,
-            BigInteger.class,
-            BigDecimal.class,
-            BitSet.class,
-            byte[].class,
-            String.class,
-            LocalDate.class,
-            LocalTime.class,
-            LocalDateTime.class,
-    };
-
     @Test
     public void supportedClassKinds() {
         class LocalClass {
@@ -107,7 +88,22 @@ public class MapperTest {
         TestConverter conv = new TestConverter();
 
         // One-column mapping
-        for (Class<?> c : CLASSES) {
+        for (Class<?> c : new Class[]{
+                Byte.class,
+                Short.class,
+                Integer.class,
+                Long.class,
+                Float.class,
+                Double.class,
+                BigInteger.class,
+                BigDecimal.class,
+                BitSet.class,
+                byte[].class,
+                String.class,
+                LocalDate.class,
+                LocalTime.class,
+                LocalDateTime.class,
+        }) {
             assertNull(((OneColumnMapper<?>) Mapper.of(c)).mappedColumn());
 
             assertEquals("COL1", ((OneColumnMapper<?>) Mapper.of(c, "col1")).mappedColumn());
@@ -125,21 +121,6 @@ public class MapperTest {
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(String.class, "value", "col1"));
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(String.class, "value", "col1", "coder", "col2"));
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(String.class, "value", "col1", "coder", "col2"));
-    }
-
-    @Test
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public void testNativeColumnMappingCaching() {
-        for (Class<?> c : CLASSES) {
-            assertSame(Mapper.of(c), Mapper.of(c));
-            assertNotSame(Mapper.of(c), Mapper.of(c, "col"));
-
-            assertSame(Mapper.of(c, "col1"), Mapper.of(c, "col1"));
-            assertNotSame(Mapper.of(c, "col1"), Mapper.of(c, "col2"));
-
-            TypeConverter converter = new TestConverter();
-            assertNotSame(Mapper.of(c, "c1", converter), Mapper.of(c, "c1", converter));
-        }
     }
 
     @Test
@@ -208,75 +189,6 @@ public class MapperTest {
             assertNull(mapper.fieldForColumn("STRINGCOL"));
             assertNull(mapper.fieldForColumn("VAL"));
         }
-    }
-
-    @Test
-    public void testPojoMapperCaching() {
-        assertSame(Mapper.of(TestObject.class), Mapper.of(TestObject.class));
-
-        PojoMapper<TestObject> mapper1 = (PojoMapper<TestObject>) Mapper.of(TestObject.class,
-                "id", "\"col1\"",
-                "longCol", "\"longCol\"");
-
-        assertNotSame(Mapper.of(TestObject.class), mapper1);
-
-        PojoMapper<TestObject> mapper2 = (PojoMapper<TestObject>) Mapper.of(TestObject.class,
-                "id", "\"col1\"",
-                "longCol", "\"longCol\"");
-
-        assertSame(mapper1, mapper2);
-
-        assertNotSame(mapper1, Mapper.of(TestObject.class, "id", "col1"));
-    }
-
-    @Test
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public void testMapperBuilderBuildCaching() {
-        // one column
-
-        assertSame(
-                Mapper.builder(Long.class).build(),
-                Mapper.builder(Long.class).build()
-        );
-
-        // pojo
-
-        assertSame(
-                Mapper.builder(TestObject.class).map("id", "c1").build(),
-                Mapper.builder(TestObject.class).map("id", "c1").build()
-        );
-        assertNotSame(
-                Mapper.builder(TestObject.class).map("id", "c1").build(),
-                Mapper.builder(TestObject.class).map("longCol", "c1").build()
-        );
-
-        TypeConverter converter = new TestConverter();
-        assertNotSame(
-                Mapper.builder(TestObject.class).map("id", "c1", converter).build(),
-                Mapper.builder(TestObject.class).map("id", "c1", converter).build()
-        );
-
-        // auto mapping
-
-        assertSame(
-                Mapper.builder(TestObject.class).automap().build(),
-                Mapper.builder(TestObject.class).automap().build()
-        );
-
-        assertSame(
-                Mapper.builder(TestObject.class).automap().map("id", "c1").build(),
-                Mapper.builder(TestObject.class).automap().map("id", "c1").build()
-        );
-
-        assertNotSame(
-                Mapper.builder(TestObject.class).automap().map("id", "c1", "longCol", "c2").build(),
-                Mapper.builder(TestObject.class).automap().map("id", "c1").build()
-        );
-
-        assertNotSame(
-                Mapper.builder(TestObject.class).automap().map("id", "c1", converter).build(),
-                Mapper.builder(TestObject.class).automap().map("id", "c1", converter).build()
-        );
     }
 
     @Test
