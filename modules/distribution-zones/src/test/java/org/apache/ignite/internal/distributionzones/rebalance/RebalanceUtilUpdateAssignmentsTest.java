@@ -19,8 +19,8 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -94,7 +94,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             List.of(new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null)),
             List.of("k1"),
             null,
-            DUMMY_STORAGE_PROFILE
+            DEFAULT_STORAGE_PROFILE
     );
 
     private static final int partNum = 2;

@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -176,7 +176,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 + "partitions=1, replicas=3, "
                 + "data_nodes_auto_adjust_scale_up=0, "
                 + "data_nodes_auto_adjust_scale_down=0"
-                + "storage_profiles='" + DUMMY_STORAGE_PROFILE + "'";
+                + "storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql2 = "create table test (id int primary key, value varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
 

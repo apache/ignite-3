@@ -144,7 +144,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -369,7 +369,8 @@ public class IgniteImpl implements Ignite {
 
         LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
                 configPath,
-                localConfigurationGenerator
+                localConfigurationGenerator,
+                modules.local()
         );
 
         ConfigurationValidator localConfigurationValidator =
@@ -463,7 +464,7 @@ public class IgniteImpl implements Ignite {
         NodeAttributesCollector nodeAttributesCollector =
                 new NodeAttributesCollector(
                         nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
-                        nodeConfigRegistry.getConfiguration(StoragesConfiguration.KEY)
+                        nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
                 );
 
         cmgMgr = new ClusterManagementGroupManager(

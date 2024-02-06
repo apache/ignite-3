@@ -1290,6 +1290,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param zoneDescriptor Catalog distributed zone descriptor.
      */
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21385 we must use table storage profile instead
         CatalogDataStorageDescriptor dataStorage = zoneDescriptor.dataStorage();
 
         StorageEngine engine = dataStorageMgr.engine(dataStorage.engine());

@@ -17,31 +17,27 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 
 /**
@@ -55,7 +51,9 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private final String igniteInstanceName;
 
-    private final VolatilePageMemoryStorageEngineConfiguration engineConfig;
+    private final StorageConfiguration storageConfiguration;
+
+    private final VolatilePageMemoryProfileStorageEngineConfiguration engineConfig;
 
     private final PageIoRegistry ioRegistry;
 
@@ -74,11 +72,13 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
-            VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            VolatilePageMemoryProfileStorageEngineConfiguration engineConfig,
+            StorageConfiguration storageConfiguration,
             PageIoRegistry ioRegistry,
             PageEvictionTracker pageEvictionTracker) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
+        this.storageConfiguration = storageConfiguration;
         this.ioRegistry = ioRegistry;
         this.pageEvictionTracker = pageEvictionTracker;
     }
@@ -90,16 +90,9 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        addDataRegion(DEFAULT_DATA_REGION_NAME);
-
-        // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
-            /** {@inheritDoc} */
-            @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<VolatilePageMemoryDataRegionView> ctx) {
-                addDataRegion(ctx.newName(VolatilePageMemoryDataRegionView.class));
-
-                return nullCompletedFuture();
+        storageConfiguration.profiles().value().stream().forEach(p -> {
+            if (p instanceof VolatilePageMemoryProfileView) {
+                addDataRegion(p.name());
             }
         });
 
@@ -148,14 +141,13 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      * @param name Data region name.
      */
     private void addDataRegion(String name) {
-        VolatilePageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
-                ? engineConfig.defaultRegion()
-                : engineConfig.regions().get(name);
+        VolatilePageMemoryProfileConfiguration storageProfileConfiguration =
+                (VolatilePageMemoryProfileConfiguration) storageConfiguration.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
-                dataRegionConfig,
+                storageProfileConfiguration,
                 ioRegistry,
                 pageSize,
                 pageEvictionTracker

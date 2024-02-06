@@ -26,6 +26,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 /**
  * Annotation for checking the existence of a data region in {@link RocksDbStorageEngineConfigurationSchema}.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-21385 remove it
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RocksDbDataRegionName {

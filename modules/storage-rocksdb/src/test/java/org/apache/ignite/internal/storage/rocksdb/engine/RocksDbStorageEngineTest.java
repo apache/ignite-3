@@ -20,10 +20,11 @@ package org.apache.ignite.internal.storage.rocksdb.engine;
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,7 +36,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
     @InjectConfiguration("mock.flushDelayMillis = 0")
-    private RocksDbStorageEngineConfiguration engineConfiguration;
+    private RocksDbProfileStorageEngineConfiguration engineConfiguration;
+
+    @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
+    StorageConfiguration storageConfiguration;
 
     @WorkDirectory
     private Path workDir;
@@ -45,6 +49,7 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
         return new RocksDbStorageEngine(
                 "test",
                 engineConfiguration,
+                storageConfiguration,
                 workDir
         );
     }

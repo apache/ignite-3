@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.configurations;
+package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurationSchema;
 
 /**
- * Dummy storage engine configuration schema to prevent the errors from configuration framework, while
- * TODO: https://issues.apache.org/jira/browse/IGNITE-20990 is not implemented yet.
+ * Storages configuration extension for rocksdb storage.
  */
-@PolymorphicConfigInstance("dummy")
-public class DummyStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
+@ConfigurationExtension
+public class RocksDbStorageEngineExtensionConfigurationSchema extends StorageEngineConfigurationSchema {
+
+    @ConfigValue
+    public RocksDbProfileStorageEngineConfigurationSchema rocksdb;
 }

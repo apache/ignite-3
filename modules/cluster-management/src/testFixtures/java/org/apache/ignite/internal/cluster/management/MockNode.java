@@ -38,7 +38,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -86,7 +86,7 @@ public class MockNode {
             RaftConfiguration raftConfiguration,
             ClusterManagementConfiguration cmgConfiguration,
             NodeAttributesConfiguration nodeAttributes,
-            StoragesConfiguration storageProfilesConfiguration
+            StorageConfiguration storageProfilesConfiguration
     ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;

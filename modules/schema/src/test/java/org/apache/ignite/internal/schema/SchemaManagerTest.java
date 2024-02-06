@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -131,7 +131,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null, DUMMY_STORAGE_PROFILE
+                TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null, DEFAULT_STORAGE_PROFILE
         );
 
         CompletableFuture<Boolean> future = tableCreatedListener()
@@ -167,13 +167,13 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 columns,
                 List.of("k1", "k2"),
                 null,
-                DUMMY_STORAGE_PROFILE
+                DEFAULT_STORAGE_PROFILE
         ).newDescriptor(
                 TABLE_NAME,
                 INITIAL_TABLE_VERSION + 1,
                 columns,
                 INITIAL_CAUSALITY_TOKEN,
-                DUMMY_STORAGE_PROFILE
+                DEFAULT_STORAGE_PROFILE
         );
     }
 

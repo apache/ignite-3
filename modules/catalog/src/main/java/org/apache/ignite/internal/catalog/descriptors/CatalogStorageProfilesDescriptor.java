@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.io.Serializable;
 import java.util.List;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Storage profiles descriptor.
@@ -56,5 +57,10 @@ public class CatalogStorageProfilesDescriptor implements Serializable {
      */
     public CatalogStorageProfileDescriptor defaultProfile() {
         return defaultStorageProfile;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

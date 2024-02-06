@@ -86,7 +86,7 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator);
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, null);
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),

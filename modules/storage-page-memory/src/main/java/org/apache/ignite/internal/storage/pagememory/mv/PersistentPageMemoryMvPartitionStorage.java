@@ -43,7 +43,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
@@ -172,7 +172,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             } else {
                 var persistentTableStorage = (PersistentPageMemoryTableStorage) tableStorage;
 
-                PersistentPageMemoryStorageEngineView engineCfg = persistentTableStorage.engine().configuration().value();
+                PersistentPageMemoryProfileStorageEngineView engineCfg = persistentTableStorage.engine().configuration().value();
 
                 int checkpointDelayMillis = engineCfg.checkpoint().checkpointDelayMillis();
                 scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");

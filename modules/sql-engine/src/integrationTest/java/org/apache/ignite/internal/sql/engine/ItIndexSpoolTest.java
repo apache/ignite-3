@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -102,7 +102,7 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
                     "CREATE ZONE %s with replicas=2, partitions=%d, storage_profiles='%s'",
                     "ZONE_" + name.toUpperCase(),
                     parts,
-                    DUMMY_STORAGE_PROFILE
+                    DEFAULT_STORAGE_PROFILE
             ));
             sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'",
                     name, "ZONE_" + name.toUpperCase()));

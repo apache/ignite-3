@@ -60,7 +60,8 @@ public class TestIgnitionManager {
             "network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
             "aipersist.defaultRegion.size", Integer.toString(256 * MiB),
             "aimem.defaultRegion.initSize", Integer.toString(256 * MiB),
-            "aimem.defaultRegion.maxSize", Integer.toString(256 * MiB)
+            "aimem.defaultRegion.maxSize", Integer.toString(256 * MiB),
+            "storage.profiles.default.engine", "aipersist"
     );
 
     /** Map with default cluster configuration values. */

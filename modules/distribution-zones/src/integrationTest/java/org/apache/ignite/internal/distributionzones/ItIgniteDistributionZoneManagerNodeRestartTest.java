@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -40,7 +41,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -128,21 +128,21 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
             Map.of(),
-            List.of(DUMMY_STORAGE_PROFILE)
+            List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
             new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
             Map.of(),
-            List.of(DUMMY_STORAGE_PROFILE)
+            List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
             new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
-            List.of(DUMMY_STORAGE_PROFILE)
+            List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final String ZONE_NAME = "zone1";
@@ -188,7 +188,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
-                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator),
+                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
                 localConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
@@ -324,7 +324,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(B);
         node.logicalTopology().putNode(C);
 
-        createZone(getCatalogManager(node), ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, DUMMY_STORAGE_PROFILE);
+        createZone(getCatalogManager(node), ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, DEFAULT_STORAGE_PROFILE);
 
         int zoneId = getZoneId(node, ZONE_NAME);
 
@@ -602,7 +602,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             return dataNodeKeyOptional.isPresent();
         }));
 
-        createZone(getCatalogManager(node), "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, DUMMY_STORAGE_PROFILE);
+        createZone(getCatalogManager(node), "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, DEFAULT_STORAGE_PROFILE);
 
         // Assert that after creation of a zone, data nodes are still tombstone, but not the logical topology, as for default zone.
         assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
@@ -802,7 +802,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isDone(), TIMEOUT_MILLIS));
             }
         } else {
-            createZone(getCatalogManager(node), ZONE_NAME, scaleUp, scaleDown, null, DUMMY_STORAGE_PROFILE);
+            createZone(getCatalogManager(node), ZONE_NAME, scaleUp, scaleDown, null, DEFAULT_STORAGE_PROFILE);
         }
     }
 

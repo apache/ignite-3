@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.configurations;
+package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 
 /**
- * Dummy storage profile configuration schema to prevent the errors from configuration framework, while
- * TODO: https://issues.apache.org/jira/browse/IGNITE-20990 is not implemented yet.
+ * Root configuration for {@link RocksDbStorageEngine}.
  */
-@PolymorphicConfigInstance("dummy")
-public class DummyStorageProfileConfigurationSchema extends StorageProfileConfigurationSchema {
+@Config
+public class RocksDbProfileStorageEngineConfigurationSchema {
+    /** Delay before executing a flush triggered by RAFT. */
+    @Range(min = 0)
+    @Value(hasDefault = true)
+    public int flushDelayMillis = 100;
 }

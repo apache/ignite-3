@@ -21,10 +21,11 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,8 +36,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngineTest {
-    @InjectConfiguration("mock {checkpoint.checkpointDelayMillis = 0, defaultRegion.size = 1048576}")
-    private PersistentPageMemoryStorageEngineConfiguration engineConfiguration;
+    @InjectConfiguration("mock {checkpoint.checkpointDelayMillis = 0}")
+    private PersistentPageMemoryProfileStorageEngineConfiguration engineConfiguration;
+
+    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\", size = 1048576}")
+    private StorageConfiguration storageConfiguration;
 
     @WorkDirectory
     private Path workDir;
@@ -50,6 +54,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
         return new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfiguration,
+                storageConfiguration,
                 ioRegistry,
                 workDir,
                 null

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -73,6 +73,11 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "    nodeFinder: {\n"
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
+            + "  },\n"
+            + "  storage.profiles: {"
+            + "        default_aipersist.engine: aipersist, "
+            + "        default_aimem.engine: aimem, "
+            + "        default_rocksdb.engine: rocksDb"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {}\n"
@@ -185,7 +190,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, @Nullable String storageEngine) {
         sql(format(
                 "CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
-                zoneName, Objects.requireNonNullElse(storageEngine, DEFAULT_STORAGE_ENGINE), replicas, partitions, DUMMY_STORAGE_PROFILE
+                zoneName, Objects.requireNonNullElse(storageEngine, DEFAULT_STORAGE_ENGINE), replicas, partitions, DEFAULT_STORAGE_PROFILE
         ));
     }
 

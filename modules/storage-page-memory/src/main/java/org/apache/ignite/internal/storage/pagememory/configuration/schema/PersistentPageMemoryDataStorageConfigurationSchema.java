@@ -29,6 +29,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryDat
 /**
  * Data storage configuration for {@link PersistentPageMemoryStorageEngine}.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-21385 remove it
 @PolymorphicConfigInstance(ENGINE_NAME)
 public class PersistentPageMemoryDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
     /** Data region. */

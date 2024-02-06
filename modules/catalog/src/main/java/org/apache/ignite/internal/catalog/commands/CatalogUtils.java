@@ -44,7 +44,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -153,7 +152,7 @@ public class CatalogUtils {
                 DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
 
         List<StorageProfileParams> storageProfiles =
-                List.of(StorageProfileParams.builder().storageProfile(Constants.DUMMY_STORAGE_PROFILE).build());
+                List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build());
 
         return new CatalogZoneDescriptor(
                 id,

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
@@ -50,7 +50,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
     private static final CatalogZoneDescriptor DEFAULT_ZONE = new CatalogZoneDescriptor(
             0, ZONE_NAME, 1, -1, -1, -1, -1, "", null,
-            fromParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+            fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
     );
 
     static Stream<Arguments> nullAndBlankStrings() {
@@ -131,7 +131,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static CatalogCommand createZoneCommand(String zoneName) {
         return CreateZoneCommand.builder()
                 .zoneName(zoneName)
-                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
     }
 

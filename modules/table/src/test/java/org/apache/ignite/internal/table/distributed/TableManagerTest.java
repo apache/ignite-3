@@ -99,6 +99,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -198,6 +199,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
+
+    @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
+    private StorageConfiguration storageConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -763,7 +767,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             Path storagePath,
             PersistentPageMemoryStorageEngineConfiguration config
     ) {
-        when(mockedRegistry.getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
+        when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(storageConfiguration);
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
 

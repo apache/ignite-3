@@ -31,6 +31,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 /**
  * Root configuration for {@link RocksDbStorageEngine}.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-21385 remove it
 @ConfigurationRoot(rootName = "rocksDb", type = LOCAL)
 public class RocksDbStorageEngineConfigurationSchema {
     /** Name of the default data region. */

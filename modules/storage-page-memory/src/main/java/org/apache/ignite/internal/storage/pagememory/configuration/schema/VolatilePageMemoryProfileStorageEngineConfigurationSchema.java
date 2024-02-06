@@ -15,29 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.configurations;
+package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.PowerOfTwo;
+import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 
 /**
- * Root for the storage engine and storage profiles configurations.
+ * Configuration for {@link VolatilePageMemoryStorageEngine}.
  */
-@ConfigurationRoot(rootName = "storages", type = LOCAL)
-public class StoragesConfigurationSchema {
-
-    /**
-     * Storage engines configuration.
-     */
-    @NamedConfigValue
-    public StorageEngineConfigurationSchema engines;
-
-    /**
-     * Storage profiles configuration.
-     */
-    @NamedConfigValue
-    public StorageProfileConfigurationSchema profiles;
-
+@Config
+public class VolatilePageMemoryProfileStorageEngineConfigurationSchema {
+    /** Page size in bytes. */
+    @Immutable
+    @PowerOfTwo
+    @Range(min = 1024, max = 16 * 1024)
+    @Value(hasDefault = true)
+    public int pageSize = 16 * 1024;
 }

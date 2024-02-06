@@ -27,8 +27,10 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,9 +52,9 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) throws StorageException {
-        VolatilePageMemoryStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(
-                VolatilePageMemoryStorageEngineConfiguration.KEY
-        );
+        VolatilePageMemoryProfileStorageEngineConfiguration engineConfig =
+                ((VolatilePageMemoryStorageEngineExtensionConfiguration) configRegistry
+                        .getConfiguration(StorageConfiguration.KEY).engines()).aimem();
 
         assert engineConfig != null;
 
@@ -60,6 +62,7 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig,
+                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
     }
 }
