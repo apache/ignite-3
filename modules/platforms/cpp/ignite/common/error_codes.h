@@ -128,6 +128,7 @@ enum class code : underlying_t {
     TX_INCOMPATIBLE_SCHEMA = 0x7000c,
     TX_PRIMARY_REPLICA_EXPIRED = 0x7000d,
     TX_ALREADY_FINISHED = 0x7000e,
+    TX_STALE_OPERATION = 0x7000f,
 
     // Replicator group. Group code: 8
     REPLICA_COMMON = 0x80001,

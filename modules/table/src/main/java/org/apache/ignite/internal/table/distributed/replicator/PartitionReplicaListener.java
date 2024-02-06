@@ -3829,9 +3829,13 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
         if (request instanceof ReadWriteReplicaRequest) {
+            int rwTxActiveCatalogVersion = rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request);
+
             // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
             // otherwise there may be races/errors and the index will not be able to start building.
-            txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request));
+            if (!txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion)) {
+                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
+            }
         }
 
         return processOperationRequest(request, isPrimary, opStartTsIfDirectRo)
