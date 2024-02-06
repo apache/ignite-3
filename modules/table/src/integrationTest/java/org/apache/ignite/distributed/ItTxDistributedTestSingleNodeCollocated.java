@@ -25,7 +25,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Distributed transaction test using a single partition table, collocated on a leader.
  */
-public class ItTxDistributedTestSingleNodeCollocated extends ItTxDistributedTestSingleNode {
+public class ItTxDistributedTestSingleNodeCollocated extends ItTxDistributedTestSingleNodeAbstract {
     /**
      * The constructor.
      *

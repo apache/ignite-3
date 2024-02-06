@@ -22,9 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -50,10 +48,8 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Flow;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -93,7 +89,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -2156,144 +2151,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         // Try to update the same key with the second normal priority transaction.
         assertThrows(TransactionException.class, () -> keyValueView.put(youngNormalTx, 1L, "normal"));
-    }
-
-    @RepeatedTest(10)
-    public void testTransactionMultiThreadedCommit() {
-        testTransactionMultiThreadedFinish(1, false);
-    }
-
-    @RepeatedTest(10)
-    public void testTransactionMultiThreadedCommitEmpty() {
-        testTransactionMultiThreadedFinish(1, true);
-    }
-
-    @RepeatedTest(10)
-    public void testTransactionMultiThreadedRollback() {
-        testTransactionMultiThreadedFinish(0, false);
-    }
-
-    @RepeatedTest(10)
-    public void testTransactionMultiThreadedRollbackEmpty() {
-        testTransactionMultiThreadedFinish(0, true);
-    }
-
-    @RepeatedTest(10)
-    public void testTransactionMultiThreadedMixed() {
-        testTransactionMultiThreadedFinish(-1, false);
-    }
-
-    @RepeatedTest(10)
-    public void testTransactionMultiThreadedMixedEmpty() {
-        testTransactionMultiThreadedFinish(-1, true);
-    }
-
-    /**
-     * Test trying to finish a tx in multiple threads simultaneously, and enlist new operations right after the first finish.
-     *
-     * @param finishMode 1 is commit, 0 is rollback, otherwise random outcome.
-     * @param checkEmptyTx Whether the tx should be empty on finishing (no enlisted operations).
-     */
-    private void testTransactionMultiThreadedFinish(int finishMode, boolean checkEmptyTx) {
-        var rv = accounts.recordView();
-
-        rv.upsert(null, makeValue(1, 1.));
-
-        Transaction tx = igniteTransactions.begin();
-
-        var txId = ((ReadWriteTransactionImpl) tx).id();
-
-        log.info("Started transaction {}", txId);
-
-        if (!checkEmptyTx) {
-            rv.upsert(tx, makeValue(1, 100.));
-            rv.upsert(tx, makeValue(2, 200.));
-        }
-
-        int threadNum = Runtime.getRuntime().availableProcessors() * 5;
-
-        CyclicBarrier b = new CyclicBarrier(threadNum);
-        CountDownLatch finishLatch = new CountDownLatch(1);
-
-        var futEnlists = runMultiThreadedAsync(() -> {
-            finishLatch.await();
-            var rnd = ThreadLocalRandom.current();
-
-            assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR, () -> {
-                if (rnd.nextBoolean()) {
-                    rv.upsert(tx, makeValue(2, 200.));
-                } else {
-                    rv.get(tx, makeKey(1));
-                }
-            }, "Transaction is already finished");
-
-            return null;
-        }, threadNum, "txCommitTestThread");
-
-        var futFinishes = runMultiThreadedAsync(() -> {
-            b.await();
-
-            finishTx(tx, finishMode);
-
-            finishLatch.countDown();
-
-            return null;
-        }, threadNum, "txCommitTestThread");
-
-        assertThat(futFinishes, willSucceedFast());
-        assertThat(futEnlists, willSucceedFast());
-
-        assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
-    }
-
-    /**
-     * Test trying to finish a read only tx in multiple threads simultaneously.
-     */
-    @RepeatedTest(10)
-    public void testReadOnlyTransactionMultiThreadedFinish() {
-        var rv = accounts.recordView();
-
-        rv.upsert(null, makeValue(1, 1.));
-
-        Transaction tx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
-
-        rv.get(tx, makeKey(1));
-
-        int threadNum = Runtime.getRuntime().availableProcessors();
-
-        CyclicBarrier b = new CyclicBarrier(threadNum);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21411 Check enlists are prohibited.
-        var futFinishes = runMultiThreadedAsync(() -> {
-            b.await();
-
-            finishTx(tx, -1);
-
-            return null;
-        }, threadNum, "txCommitTestThread");
-
-        assertThat(futFinishes, willSucceedFast());
-    }
-
-    /**
-     * Finish the tx.
-     *
-     * @param tx Transaction.
-     * @param finishMode 1 is commit, 0 is rollback, otherwise random outcome.
-     */
-    private void finishTx(Transaction tx, int finishMode) {
-        if (finishMode == 0) {
-            tx.rollback();
-        } else if (finishMode == 1) {
-            tx.commit();
-        } else {
-            var rnd = ThreadLocalRandom.current();
-            if (rnd.nextBoolean()) {
-                tx.commit();
-            } else {
-                tx.rollback();
-            }
-        }
     }
 
     /**

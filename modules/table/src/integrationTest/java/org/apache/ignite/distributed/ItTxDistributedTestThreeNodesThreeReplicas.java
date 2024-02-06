@@ -36,7 +36,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Distributed transaction test using a single partition table, 3 nodes and 3 replicas.
  */
-public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedTestSingleNode {
+public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxAbstractDistributedTest {
     /**
      * The constructor.
      *

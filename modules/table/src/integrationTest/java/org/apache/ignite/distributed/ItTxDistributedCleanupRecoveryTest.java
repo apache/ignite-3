@@ -26,7 +26,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Durable cleanup test with successful recovery after the failures.
  */
-public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingleNode {
+public class ItTxDistributedCleanupRecoveryTest extends ItTxAbstractDistributedTest {
 
     private AtomicInteger defaultRetryCount;
 
