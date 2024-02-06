@@ -554,7 +554,15 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(state, status.State);
             Assert.Greater(status.CreateTime, beforeStart);
             Assert.Greater(status.StartTime, status.CreateTime);
-            Assert.Greater(status.FinishTime, status.StartTime);
+
+            if (state is JobState.Canceled or JobState.Completed or JobState.Failed)
+            {
+                Assert.Greater(status.FinishTime, status.StartTime);
+            }
+            else
+            {
+                Assert.IsNull(status.FinishTime);
+            }
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
