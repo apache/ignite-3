@@ -495,12 +495,7 @@ namespace Apache.Ignite.Tests.Compute
             var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
             var status = await jobExecution.GetStatusAsync();
 
-            Assert.IsNotNull(status);
-            Assert.AreNotEqual(Guid.Empty, status!.Id);
-            Assert.AreEqual(JobState.Executing, status.State);
-            Assert.Greater(status.CreateTime, beforeStart);
-            Assert.Greater(status.StartTime, status.CreateTime);
-            Assert.IsNull(status.FinishTime);
+            AssertJobStatus(status, JobState.Executing, beforeStart);
         }
 
         [Test]
@@ -513,12 +508,7 @@ namespace Apache.Ignite.Tests.Compute
             await jobExecution.GetResultAsync();
             JobStatus? status = await jobExecution.GetStatusAsync();
 
-            Assert.IsNotNull(status);
-            Assert.AreNotEqual(Guid.Empty, status!.Id);
-            Assert.AreEqual(JobState.Completed, status.State);
-            Assert.Greater(status.CreateTime, beforeStart);
-            Assert.Greater(status.StartTime, status.CreateTime);
-            Assert.Greater(status.FinishTime, status.StartTime);
+            AssertJobStatus(status, JobState.Completed, beforeStart);
         }
 
         [Test]
@@ -530,12 +520,7 @@ namespace Apache.Ignite.Tests.Compute
             Assert.CatchAsync(async () => await jobExecution.GetResultAsync());
             JobStatus? status = await jobExecution.GetStatusAsync();
 
-            Assert.IsNotNull(status);
-            Assert.AreNotEqual(Guid.Empty, status!.Id);
-            Assert.AreEqual(JobState.Failed, status.State);
-            Assert.Greater(status.CreateTime, beforeStart);
-            Assert.Greater(status.StartTime, status.CreateTime);
-            Assert.Greater(status.FinishTime, status.StartTime);
+            AssertJobStatus(status, JobState.Failed, beforeStart);
         }
 
         [Test]
@@ -559,9 +544,14 @@ namespace Apache.Ignite.Tests.Compute
             await jobExecution.CancelAsync();
             JobStatus? status = await jobExecution.GetStatusAsync();
 
+            AssertJobStatus(status, JobState.Canceled, beforeStart);
+        }
+
+        private static void AssertJobStatus(JobStatus? status, JobState state, Instant beforeStart)
+        {
             Assert.IsNotNull(status);
             Assert.AreNotEqual(Guid.Empty, status!.Id);
-            Assert.AreEqual(JobState.Canceled, status.State);
+            Assert.AreEqual(state, status.State);
             Assert.Greater(status.CreateTime, beforeStart);
             Assert.Greater(status.StartTime, status.CreateTime);
             Assert.Greater(status.FinishTime, status.StartTime);
