@@ -46,20 +46,21 @@ import org.jetbrains.annotations.TestOnly;
  * ------------------------------
  *     2  | data format version ({@link #PROTOCOL_VERSION})
  *     2  | entry type ({@link VersionedUpdate} or {@link SnapshotEntry})
- * <list> | fields of the corresponding event follow (for example, {@link VersionedUpdate}
+ * &lt;list&gt; | fields of the corresponding event follow (for example, {@link VersionedUpdate}
  * </pre>
  * 
  * Versioned Update format description:
  * <pre>
  *     4  | version
  *     8  | delayDurationMs
+ * &lt;list&gt; | list of {@link MarshallableEntry}
+ * </pre>
  *
- * [list of entries follow]
- *
+ * MarshallableEntry format:
+ * <pre>
  *     4  | entries size
  *     2  | entry type (see {@link MarshallableEntryType#id()})
- *
- * [entry fields follow]
+ *        | other entry fields
  *
  *     ...
  * </pre>

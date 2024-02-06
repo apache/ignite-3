@@ -27,8 +27,8 @@ public enum CatalogColumnCollation {
     DESC_NULLS_FIRST(false, true),
     DESC_NULLS_LAST(false, false);
 
-    private static final int ASC_BIT_POS = 0;
-    private static final int NULLS_FIRST_BIT_POS = 1;
+    private static final int ASC_BITMASK = 1;
+    private static final int NULLS_FIRST_BITMASK = 1 << 2;
 
     private final boolean asc;
     private final boolean nullsFirst;
@@ -75,22 +75,14 @@ public enum CatalogColumnCollation {
 
     /** Writes collation to byte. */
     static byte pack(CatalogColumnCollation collation) {
-        return  (byte) (setBit(collation.asc(), ASC_BIT_POS) | setBit(collation.nullsFirst(), NULLS_FIRST_BIT_POS));
+        return  (byte) ((collation.asc() ? ASC_BITMASK : 0) | (collation.nullsFirst() ? NULLS_FIRST_BITMASK : 0));
     }
 
     /** Reads collation from byte. */
     static CatalogColumnCollation unpack(byte collationBits) {
-        boolean asc = isBitSet(collationBits, ASC_BIT_POS);
-        boolean nullsFirst = isBitSet(collationBits, NULLS_FIRST_BIT_POS);
+        boolean asc = (collationBits & ASC_BITMASK) == ASC_BITMASK;
+        boolean nullsFirst = (collationBits & NULLS_FIRST_BITMASK) == NULLS_FIRST_BITMASK;
 
         return get(asc, nullsFirst);
-    }
-
-    private static int setBit(boolean set, int pos) {
-        return set ? 1 << pos : 0;
-    }
-
-    private static boolean isBitSet(byte byteValue, int pos) {
-        return ((byteValue >>> pos) & 1) == 1;
     }
 }
