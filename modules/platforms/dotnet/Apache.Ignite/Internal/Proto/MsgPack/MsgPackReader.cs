@@ -82,6 +82,12 @@ internal ref struct MsgPackReader
         };
 
     /// <summary>
+    /// Reads a nullable boolean value.
+    /// </summary>
+    /// <returns>The value.</returns>
+    public bool ReadBooleanNullable() => TryReadNil() ? default : ReadBoolean();
+
+    /// <summary>
     /// Reads a short value.
     /// </summary>
     /// <returns>The value.</returns>

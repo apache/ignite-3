@@ -151,6 +151,23 @@ namespace Apache.Ignite.Internal.Compute
             JobStatus? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadJobStatus(reader);
         }
 
+        /// <summary>
+        /// Cancels the job.
+        /// </summary>
+        /// <param name="jobId">Job id.</param>
+        /// <returns>
+        /// <c>true</c> when the job is cancelled, <c>false</c> when the job couldn't be cancelled
+        /// (either it's not yet started, or it's already completed), or <c> null</c> if there's no job with the specified id.
+        /// </returns>
+        internal async Task<bool?> CancelJobAsync(Guid jobId)
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeCancel, writer).ConfigureAwait(false);
+            return res.GetReader().ReadBooleanNullable();
+        }
+
         [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
         private static IClusterNode GetRandomNode(ICollection<IClusterNode> nodes)
         {
