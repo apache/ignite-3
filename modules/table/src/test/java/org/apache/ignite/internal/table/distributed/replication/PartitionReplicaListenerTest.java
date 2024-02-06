@@ -63,7 +63,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -637,7 +636,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testTxStateReplicaRequestCommitState() throws Exception {
         UUID txId = newTxId();
 
-        txStateStorage.put(txId, new TxMeta(COMMITTED, singletonList(grpId), clock.now()));
+        txStateStorage.put(txId, new TxMeta(COMMITTED, clock.now()));
 
         HybridTimestamp readTimestamp = clock.now();
 
@@ -1420,7 +1419,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             HybridTimestamp now = clock.now();
 
             // Imitation of tx commit.
-            txStateStorage.put(txId, new TxMeta(COMMITTED, new ArrayList<>(), now));
+            txStateStorage.put(txId, new TxMeta(COMMITTED, now));
             txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID().toString(), commitPartitionId, now));
 
             CompletableFuture<?> replicaCleanupFut = partitionReplicaListener.invoke(

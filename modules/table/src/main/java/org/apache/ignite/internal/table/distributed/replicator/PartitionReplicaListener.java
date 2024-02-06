@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -1560,7 +1559,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
         }
 
-        return finishTransaction(enlistedPartitions.keySet(), txId, commit, commitTimestamp)
+        return finishTransaction(txId, commit, commitTimestamp)
                 .thenCompose(txResult ->
                         txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
                                 .thenApply(v -> txResult)
@@ -1570,14 +1569,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Finishes a transaction. This operation is idempotent.
      *
-     * @param aggregatedGroupIds Partition identifies which are enlisted in the transaction.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
      * @param commitTimestamp Commit timestamp, if applicable.
      * @return Future to wait of the finish.
      */
     private CompletableFuture<TransactionResult> finishTransaction(
-            Collection<TablePartitionId> aggregatedGroupIds,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -1591,10 +1588,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 txId,
                                 commit,
                                 commitTimestamp,
-                                catalogVersion,
-                                aggregatedGroupIds.stream()
-                                        .map(PartitionReplicaListener::tablePartitionId)
-                                        .collect(toList())
+                                catalogVersion
                         )
                 )
                 .handle((txOutcome, ex) -> {
@@ -1625,16 +1619,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
-            int catalogVersion,
-            List<TablePartitionIdMessage> tablePartitionIds
+            int catalogVersion
     ) {
         synchronized (commandProcessingLinearizationMutex) {
             FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
                     .txId(transactionId)
                     .commit(commit)
                     .safeTimeLong(hybridClock.nowLong())
-                    .requiredCatalogVersion(catalogVersion)
-                    .tablePartitionIds(tablePartitionIds);
+                    .requiredCatalogVersion(catalogVersion);
 
             if (commit) {
                 finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());
