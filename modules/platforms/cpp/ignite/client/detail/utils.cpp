@@ -17,6 +17,8 @@
 
 #include "utils.h"
 
+#include <ignite/client/detail/client_error_flags.h>
+
 #include <ignite/common/bits.h>
 #include <ignite/common/uuid.h>
 #include <ignite/protocol/utils.h>
@@ -237,8 +239,8 @@ std::vector<std::byte> pack_tuple(
         unmapped_columns_str.pop_back();
 
         assert(!unmapped_columns_str.empty());
-        throw ignite_error("Key tuple doesn't match schema: schemaVersion=" + std::to_string(sch.version)
-            + ", extraColumns=" + unmapped_columns_str);
+        throw ignite_error("Tuple doesn't match schema: schemaVersion=" + std::to_string(sch.version)
+            + ", extraColumns=" + unmapped_columns_str, std::int32_t(error_flag::UNMAPPED_COLUMNS_PRESENT));
     }
 
     return builder.build();
