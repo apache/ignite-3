@@ -60,7 +60,10 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterNodeResolver;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,6 +80,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private static final String LEASEHOLDER_1 = "leaseholder1";
 
     private static final String LEASEHOLDER_ID_1 = "leaseholder1_id";
+
+    private static final ClusterNode FAKE_NODE = new ClusterNodeImpl(LEASEHOLDER_ID_1, LEASEHOLDER_1, mock(NetworkAddress.class));
 
     private static final Lease LEASE_FROM_1_TO_5_000 = new Lease(
             LEASEHOLDER_1,
@@ -537,6 +542,16 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private LeaseTracker createPlacementDriver() {
-        return new LeaseTracker(metastore, mock(ClusterNodeResolver.class));
+        return new LeaseTracker(metastore, new ClusterNodeResolver() {
+            @Override
+            public @Nullable ClusterNode getByConsistentId(String consistentId) {
+                return FAKE_NODE;
+            }
+
+            @Override
+            public @Nullable ClusterNode getById(String id) {
+                return FAKE_NODE;
+            }
+        });
     }
 }
