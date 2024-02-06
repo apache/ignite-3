@@ -38,14 +38,14 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
+import org.apache.ignite.internal.network.RecipientLeftException;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
+import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
-import org.apache.ignite.network.RecipientLeftException;
-import org.apache.ignite.network.UnresolvableConsistentIdException;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
-import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 
 /**

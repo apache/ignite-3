@@ -200,7 +200,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         WriteIntentSwitchCommand readCmd = copyCommand(cmd);
@@ -226,8 +225,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
-                .tablePartitionIds(grps)
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         FinishTxCommand readCmd = copyCommand(cmd);
@@ -235,7 +232,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         assertEquals(cmd.txId(), readCmd.txId());
         assertEquals(cmd.commit(), readCmd.commit());
         assertEquals(cmd.commitTimestamp(), readCmd.commitTimestamp());
-        assertEquals(cmd.tablePartitionIds(), readCmd.tablePartitionIds());
     }
 
     private <T extends Command> T copyCommand(T cmd) {
@@ -247,9 +243,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             return (T) msgFactory.finishTxCommand()
                     .txId(finishTxCommand.txId())
                     .commit(finishTxCommand.commit())
-                    .tablePartitionIds(finishTxCommand.tablePartitionIds())
                     .commitTimestampLong(finishTxCommand.commitTimestampLong())
-                    .txCoordinatorId(finishTxCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof WriteIntentSwitchCommand) {
             WriteIntentSwitchCommand writeIntentSwitchCommand = (WriteIntentSwitchCommand) cmd;
@@ -258,7 +252,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txId(writeIntentSwitchCommand.txId())
                     .commit(writeIntentSwitchCommand.commit())
                     .commitTimestampLong(writeIntentSwitchCommand.commitTimestampLong())
-                    .txCoordinatorId(writeIntentSwitchCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof UpdateCommand) {
             UpdateCommand updateCommand = (UpdateCommand) cmd;

@@ -61,7 +61,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -331,10 +330,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                cmd.tablePartitionIds()
-                        .stream()
-                        .map(TablePartitionIdMessage::asTablePartitionId)
-                        .collect(toList()),
                 cmd.commitTimestamp()
         );
 
@@ -348,7 +343,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 commandTerm
         );
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
@@ -375,7 +370,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
         storageUpdateHandler.switchWriteIntents(txId, cmd.commit(), cmd.commitTimestamp(),
                 () -> storage.lastApplied(commandIndex, commandTerm));
@@ -596,10 +591,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         ));
     }
 
-    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, String txCoordinatorId) {
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 commit ? COMMITTED : ABORTED,
-                txCoordinatorId,
+                old == null ? null : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
         ));

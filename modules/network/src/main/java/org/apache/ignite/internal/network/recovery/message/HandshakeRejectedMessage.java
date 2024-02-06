@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.recovery.message;
 
 import static org.apache.ignite.internal.network.NetworkMessageTypes.HANDSHAKE_REJECTED;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Handshake rejected message, contains the reason for a rejection.

@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.network.message;
 
 import java.util.Collection;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.SerializationType;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /** Message for the {@link ClassDescriptor}. */

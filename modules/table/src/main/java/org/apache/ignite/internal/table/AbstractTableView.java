@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -213,12 +214,15 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                         return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
                     })
-                    .exceptionally(th -> {
-                        session.closeAsync();
-
-                        throw new CompletionException(unwrapCause(th));
+                    .whenComplete((ignore, err) -> {
+                        if (err != null) {
+                            session.closeAsync();
+                        }
                     });
-        });
+        })
+                .exceptionally(th -> {
+                    throw new CompletionException(mapToPublicCriteriaException(unwrapCause(th)));
+                });
     }
 
 

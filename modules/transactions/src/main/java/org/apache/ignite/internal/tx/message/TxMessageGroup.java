@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Message types for transactions.

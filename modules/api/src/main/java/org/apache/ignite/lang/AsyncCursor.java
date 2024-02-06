@@ -49,7 +49,7 @@ public interface AsyncCursor<T> {
      *
      * @return A future which will be completed when next page will be fetched and set as the current page.
      *     The future will return {@code this} for chaining.
-     * @throws IgniteException If resource is closed or if there are no more results.
+     * @throws CursorClosedException If cursor is closed.
      */
     CompletableFuture<? extends AsyncCursor<T>> fetchNextPage();
 

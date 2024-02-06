@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -35,12 +36,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.Set;
+import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -52,8 +56,6 @@ import org.apache.ignite.internal.tx.impl.TxCleanupRequestSender;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.WriteIntentSwitchProcessor;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.BeforeEach;
@@ -115,15 +117,15 @@ public class TxCleanupTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testPrimaryFoundForAllPartitions() {
+    void testCleanupAllNodes() {
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Set<TablePartitionId> partitions = Set.of(tablePartitionId1, tablePartitionId2, tablePartitionId3);
-
-        when(placementDriver.getPrimaryReplica(any(), any()))
-                .thenReturn(completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+        Map<TablePartitionId, String> partitions = Map.of(
+                tablePartitionId1, LOCAL_NODE.name(),
+                tablePartitionId2, LOCAL_NODE.name(),
+                tablePartitionId3, LOCAL_NODE.name());
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = idGenerator.transactionIdFor(beginTimestamp);
@@ -140,12 +142,19 @@ public class TxCleanupTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testPrimaryNotFoundForSome() {
+    void testPrimaryNotFoundForSomeAfterException() {
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Set<TablePartitionId> partitions = Set.of(tablePartitionId1, tablePartitionId2, tablePartitionId3);
+        Map<TablePartitionId, String> partitions = Map.of(
+                tablePartitionId1, LOCAL_NODE.name(),
+                tablePartitionId2, LOCAL_NODE.name(),
+                tablePartitionId3, LOCAL_NODE.name());
+
+        // First cleanup fails:
+        when(messagingService.invoke(anyString(), any(), anyLong()))
+                .thenReturn(failedFuture(new IOException("Test failure")), nullCompletedFuture());
 
         when(placementDriver.getPrimaryReplica(any(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
@@ -165,7 +174,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
         assertThat(cleanup, willCompleteSuccessfully());
 
         verify(txMessageSender, times(1)).switchWriteIntents(any(), any(), any(), anyBoolean(), any());
-        verify(txMessageSender, times(1)).cleanup(any(), any(), any(), anyBoolean(), any());
+        verify(txMessageSender, times(2)).cleanup(any(), any(), any(), anyBoolean(), any());
         verifyNoMoreInteractions(txMessageSender);
     }
 
@@ -175,7 +184,14 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Set<TablePartitionId> partitions = Set.of(tablePartitionId1, tablePartitionId2, tablePartitionId3);
+        Map<TablePartitionId, String> partitions = Map.of(
+                tablePartitionId1, LOCAL_NODE.name(),
+                tablePartitionId2, LOCAL_NODE.name(),
+                tablePartitionId3, LOCAL_NODE.name());
+
+        // First cleanup fails:
+        when(messagingService.invoke(anyString(), any(), anyLong()))
+                .thenReturn(failedFuture(new IOException("Test failure")), nullCompletedFuture());
 
         when(placementDriver.getPrimaryReplica(any(), any()))
                 .thenReturn(nullCompletedFuture());
@@ -193,6 +209,8 @@ public class TxCleanupTest extends IgniteAbstractTest {
         assertThat(cleanup, willCompleteSuccessfully());
 
         verify(txMessageSender, times(3)).switchWriteIntents(any(), any(), any(), anyBoolean(), any());
+        verify(txMessageSender, times(1)).cleanup(any(), any(), any(), anyBoolean(), any());
+
         verifyNoMoreInteractions(txMessageSender);
     }
 }

@@ -26,13 +26,23 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
+import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
  * A command that drops index with specified name.
+ *
+ * <ul>
+ *     <li>If the index never was {@link CatalogIndexStatus#AVAILABLE}, it removes it from the Catalog right away.</li>
+ *     <li>If it is currently {@link CatalogIndexStatus#AVAILABLE}, moves it to {@link CatalogIndexStatus#STOPPING}</li>
+ *     <li>If it is already {@link CatalogIndexStatus#STOPPING}, fails (as the index is already dropped).</li>
+ * </ul>
+ *
+ * <p>Not to be confused with {@link RemoveIndexCommand}.
  */
 public class DropIndexCommand extends AbstractIndexCommand {
     /** Returns builder to create a command to drop index with specified name. */
@@ -66,9 +76,17 @@ public class DropIndexCommand extends AbstractIndexCommand {
             throw new CatalogValidationException("Dropping primary key index is not allowed");
         }
 
-        return List.of(
-                new DropIndexEntry(index.id(), index.tableId(), schemaName)
-        );
+        switch (index.status()) {
+            case REGISTERED:
+            case BUILDING:
+                return List.of(new RemoveIndexEntry(index.id()));
+            case AVAILABLE:
+                return List.of(new DropIndexEntry(index.id(), index.tableId()));
+            case STOPPING:
+                throw new CatalogValidationException("Dropping an already dropped index is not allowed");
+            default:
+                throw new IllegalStateException("Unknown index status: " + index.status());
+        }
     }
 
     private static class Builder implements DropIndexCommandBuilder {

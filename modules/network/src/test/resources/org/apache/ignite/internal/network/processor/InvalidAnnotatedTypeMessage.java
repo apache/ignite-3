@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.processor;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 @Transferable(1)
 public interface InvalidAnnotatedTypeMessage {

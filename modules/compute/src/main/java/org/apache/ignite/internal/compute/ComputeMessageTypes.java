@@ -30,7 +30,7 @@ import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.apache.ignite.internal.compute.message.JobStatusesRequest;
 import org.apache.ignite.internal.compute.message.JobStatusesResponse;
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Message types for the Compute module.

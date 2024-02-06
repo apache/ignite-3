@@ -32,7 +32,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**

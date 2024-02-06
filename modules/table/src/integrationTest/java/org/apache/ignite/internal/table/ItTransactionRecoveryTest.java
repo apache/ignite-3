@@ -42,6 +42,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
@@ -63,9 +67,6 @@ import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.DefaultMessagingService;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -614,7 +615,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 new HybridTimestampTracker(),
                 ((InternalTransaction) rwTx1).commitPartition(),
                 false,
-                Map.of(((InternalTransaction) rwTx1).commitPartition(), 0L),
+                Map.of(((InternalTransaction) rwTx1).commitPartition(), new IgniteBiTuple<>(txCrdNode2.node(), 0L)),
                 rwTx1Id
         );
 

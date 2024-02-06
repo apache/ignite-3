@@ -20,11 +20,11 @@ package org.apache.ignite.internal.network.file;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.network.AbstractMessagingService;
-import org.apache.ignite.network.ChannelType;
+import org.apache.ignite.internal.network.AbstractMessagingService;
+import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**

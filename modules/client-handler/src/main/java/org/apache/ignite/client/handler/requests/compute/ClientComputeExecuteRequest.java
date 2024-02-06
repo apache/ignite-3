@@ -20,18 +20,20 @@ package org.apache.ignite.client.handler.requests.compute;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Compute execute request.
@@ -50,27 +52,38 @@ public class ClientComputeExecuteRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteCompute compute,
+            IgniteComputeInternal compute,
             ClusterService cluster,
-            NotificationSender notificationSender) {
-        var nodeName = in.tryUnpackNil() ? null : in.unpackString();
-
-        var node = nodeName == null
-                ? cluster.topologyService().localMember()
-                : cluster.topologyService().getByConsistentId(nodeName);
-
-        if (node == null) {
-            throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
-        }
+            NotificationSender notificationSender
+    ) {
+        Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
 
         List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
         String jobClassName = in.unpackString();
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
         Object[] args = unpackArgs(in);
 
-        JobExecution<Object> execution = compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, options, args);
+        JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
         sendResultAndStatus(execution, notificationSender);
         return execution.idAsync().thenAccept(out::packUuid);
+    }
+
+    private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
+        int size = in.unpackInt();
+        Set<ClusterNode> nodes = new HashSet<>(size);
+
+        for (int i = 0; i < size; i++) {
+            String nodeName = in.unpackString();
+            ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
+
+            if (node == null) {
+                throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
+            }
+
+            nodes.add(node);
+        }
+
+        return nodes;
     }
 
     static void sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {

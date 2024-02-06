@@ -20,8 +20,8 @@ package org.apache.ignite.internal.replicator.command;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.WithSetter;
 
 /**
  * Common interface for commands carrying safe time.

@@ -18,12 +18,8 @@
 package org.apache.ignite.internal.replicator.listener;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.util.CompletableFutures;
-import org.jetbrains.annotations.Nullable;
 
 /** Replica listener. */
 @FunctionalInterface
@@ -36,20 +32,6 @@ public interface ReplicaListener {
      * @return Listener response.
      */
     CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
-
-    /**
-     * Invoked by {@link ReplicaManager} when current replica is elected as primary.
-     */
-    default CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        return CompletableFutures.falseCompletedFuture();
-    }
-
-    /**
-     * Invoked by {@link ReplicaManager} then current replica stops being a primary replica.
-     */
-    default CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        return CompletableFutures.falseCompletedFuture();
-    }
 
     /** Callback on replica shutdown. */
     default void onShutdown() {

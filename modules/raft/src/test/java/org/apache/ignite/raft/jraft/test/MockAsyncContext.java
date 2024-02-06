@@ -17,9 +17,9 @@
 package org.apache.ignite.raft.jraft.test;
 
 import java.util.UUID;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.Message;

@@ -35,11 +35,13 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 
@@ -69,6 +71,8 @@ class IndexBuildTask {
 
     private final long enlistmentConsistencyToken;
 
+    private final int creationCatalogVersion;
+
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean taskStopGuard = new AtomicBoolean();
@@ -85,7 +89,8 @@ class IndexBuildTask {
             int batchSize,
             ClusterNode node,
             List<IndexBuildCompletionListener> listeners,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            int creationCatalogVersion
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -98,6 +103,7 @@ class IndexBuildTask {
         // We do not intentionally make a copy of the list, we want to see changes in the passed list.
         this.listeners = listeners;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
+        this.creationCatalogVersion = creationCatalogVersion;
     }
 
     /** Starts building the index. */
@@ -158,8 +164,15 @@ class IndexBuildTask {
             List<RowId> batchRowIds = createBatchRowIds();
 
             return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds))
-                    .thenComposeAsync(unused -> {
-                        if (indexStorage.getNextRowIdToBuild() == null) {
+                    .handleAsync((unused, throwable) -> {
+                        if (throwable != null) {
+                            Throwable cause = unwrapCause(throwable);
+
+                            // Read-write transaction operations have not yet completed, let's try to send the batch again.
+                            if (!(cause instanceof ReplicationTimeoutException)) {
+                                return CompletableFuture.<Void>failedFuture(cause);
+                            }
+                        } else if (indexStorage.getNextRowIdToBuild() == null) {
                             // Index has been built.
                             LOG.info("Index build completed: [{}]", createCommonIndexInfo());
 
@@ -167,11 +180,12 @@ class IndexBuildTask {
                                 listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
                             }
 
-                            return nullCompletedFuture();
+                            return CompletableFutures.<Void>nullCompletedFuture();
                         }
 
                         return handleNextBatch();
-                    }, executor);
+                    }, executor)
+                    .thenCompose(Function.identity());
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -208,6 +222,7 @@ class IndexBuildTask {
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
+                .creationCatalogVersion(creationCatalogVersion)
                 .build();
     }
 

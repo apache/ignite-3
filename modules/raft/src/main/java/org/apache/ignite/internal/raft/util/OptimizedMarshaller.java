@@ -22,15 +22,15 @@ import static org.apache.ignite.internal.network.direct.DirectMessageWriter.EMPT
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.direct.DirectMessageReader;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**

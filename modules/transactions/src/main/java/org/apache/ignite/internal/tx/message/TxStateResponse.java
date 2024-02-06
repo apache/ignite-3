@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.tx.TransactionMeta;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -72,7 +72,7 @@ class ItClusterCommandTest extends AbstractCliTest {
         CountDownLatch allNodesAreInPhysicalTopology = new CountDownLatch(1);
 
         LogInspector topologyLogInspector = new LogInspector(
-                "org.apache.ignite.network.scalecube.ScaleCubeTopologyService",
+                "org.apache.ignite.internal.network.scalecube.ScaleCubeTopologyService",
                 evt -> {
                     String msg = evt.getMessage().getFormattedMessage();
                     if (msg.startsWith(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX)) {

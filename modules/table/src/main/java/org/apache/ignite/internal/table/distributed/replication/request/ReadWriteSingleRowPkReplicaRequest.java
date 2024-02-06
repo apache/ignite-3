@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Read-write single-row replica request involving a table's Primary Key..
  */
 @Transferable(TableMessageGroup.RW_SINGLE_ROW_PK_REPLICA_REQUEST)
-public interface ReadWriteSingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+public interface ReadWriteSingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadWriteReplicaRequest {
 }
