@@ -214,7 +214,18 @@ namespace Apache.Ignite.Internal.Compute
             });
         }
 
-        private static IJobExecution<T> GetJobExecution<T>(PooledBuffer computeExecuteResult, bool readSchema)
+        private static JobStatus ReadJobStatus(MsgPackReader reader)
+        {
+            var id = reader.ReadGuid();
+            var state = (JobState)reader.ReadInt32();
+            var createTime = reader.ReadInstantNullable();
+            var startTime = reader.ReadInstantNullable();
+            var endTime = reader.ReadInstantNullable();
+
+            return new JobStatus(id, state, createTime.GetValueOrDefault(), startTime, endTime);
+        }
+
+        private IJobExecution<T> GetJobExecution<T>(PooledBuffer computeExecuteResult, bool readSchema)
         {
             var reader = computeExecuteResult.GetReader();
 
@@ -226,7 +237,7 @@ namespace Apache.Ignite.Internal.Compute
             var jobId = reader.ReadGuid();
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
 
-            return new JobExecution<T>(jobId, resultTask);
+            return new JobExecution<T>(jobId, resultTask, this);
 
             static async Task<(T, JobStatus)> GetResult(NotificationHandler handler)
             {
@@ -241,17 +252,6 @@ namespace Apache.Ignite.Internal.Compute
 
                 return (res, status);
             }
-        }
-
-        private static JobStatus ReadJobStatus(MsgPackReader reader)
-        {
-            var id = reader.ReadGuid();
-            var state = (JobState)reader.ReadInt32();
-            var createTime = reader.ReadInstantNullable();
-            var startTime = reader.ReadInstantNullable();
-            var endTime = reader.ReadInstantNullable();
-
-            return new JobStatus(id, state, createTime.GetValueOrDefault(), startTime, endTime);
         }
 
         private async Task<IJobExecution<T>> ExecuteOnNodes<T>(

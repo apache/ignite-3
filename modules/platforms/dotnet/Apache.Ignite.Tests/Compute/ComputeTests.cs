@@ -541,7 +541,9 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJobExecutionStatusNull()
         {
-            var fakeJobExecution = new JobExecution<int>(Guid.NewGuid(), Task.FromException<(int, JobStatus)>(new Exception("x")));
+            var fakeJobExecution = new JobExecution<int>(
+                Guid.NewGuid(), Task.FromException<(int, JobStatus)>(new Exception("x")), (Compute)Client.Compute);
+
             var status = await fakeJobExecution.GetStatusAsync();
 
             Assert.IsNull(status);

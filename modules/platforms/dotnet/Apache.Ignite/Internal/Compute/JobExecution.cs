@@ -26,8 +26,9 @@ using Ignite.Compute;
 /// </summary>
 /// <param name="Id">Job ID.</param>
 /// <param name="ResultTask">Result task.</param>
+/// <param name="Compute">Compute.</param>
 /// <typeparam name="T"></typeparam>
-internal sealed record JobExecution<T>(Guid Id, Task<(T Result, JobStatus Status)> ResultTask) : IJobExecution<T>
+internal sealed record JobExecution<T>(Guid Id, Task<(T Result, JobStatus Status)> ResultTask, Compute Compute) : IJobExecution<T>
 {
     /// <inheritdoc/>
     public async Task<T> GetResultAsync()
@@ -46,8 +47,8 @@ internal sealed record JobExecution<T>(Guid Id, Task<(T Result, JobStatus Status
             return status;
         }
 
-        // TODO
-        throw new NotImplementedException();
+        // TODO: Cache the result when it is final (i.e. not running or waiting).
+        return await Compute.GetJobStatusAsync(Id).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
