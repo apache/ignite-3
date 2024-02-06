@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 
 class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
     @Override
-    protected String nodeBootstrapConfigTemplate() {
+    protected String getNodeBootstrapConfigTemplate() {
         return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
     }
 
@@ -119,8 +119,7 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
         // Then wait for node names
         await().until(() -> !nodeNameRegistry.names().isEmpty());
 
-        List<String> urls = CLUSTER_NODES.stream()
-                .map(IgniteImpl.class::cast)
+        List<String> urls = CLUSTER.runningNodes()
                 .map(IgniteImpl::restHttpsAddress)
                 .map(address -> "https://" + address)
                 .collect(Collectors.toList());

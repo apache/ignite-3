@@ -54,7 +54,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "}\n";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
-    protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
