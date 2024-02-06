@@ -92,8 +92,8 @@ public class MarshallerColumn {
 
     @Override
     public boolean equals(Object o) {
-        // NOTE: Marshaller by a list of column is used by a client code and it does not provide defValSup.
-        // because of that defValSup  does not participate in equality/hashcode.
+        // NOTE: This code ries on the fact that marshaller for a list of columns is used by client code
+        // and client code does not provide `defValSup`. Because of that `defValSup`  does not participate in equality/hashcode.
         // It can't do that anyway, since instances of functional interfaces have no identity.
         if (this == o) {
             return true;
