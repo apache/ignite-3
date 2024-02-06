@@ -41,7 +41,7 @@ class ItSqlReplCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 this::assertOutputIsEmpty,
                 // Actual output starts with exception since this test doesn't use ReplExecutor and exception is handled by picocli.
-                () -> assertErrOutputContains("File with command not found")
+                () -> assertErrOutputContains("nonexisting] not found")
         );
     }
 
@@ -90,7 +90,7 @@ class ItSqlReplCommandTest extends CliCommandTestInitializedIntegrationBase {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("File with command not found")
+                () -> assertErrOutputContains("nonexisting] not found")
         );
 
         resetOutput();

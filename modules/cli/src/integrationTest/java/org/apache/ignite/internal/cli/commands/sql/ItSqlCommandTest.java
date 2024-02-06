@@ -36,7 +36,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("File with command not found")
+                () -> assertErrOutputContains("nonexisting] not found")
         );
     }
 
