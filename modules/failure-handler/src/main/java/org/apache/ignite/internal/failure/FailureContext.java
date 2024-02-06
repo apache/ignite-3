@@ -42,7 +42,7 @@ public class FailureContext {
     }
 
     /**
-     * Gets the failure type.
+     * Returns the failure type.
      *
      * @return Failure type.
      */
@@ -51,7 +51,7 @@ public class FailureContext {
     }
 
     /**
-     * Gets the exception.
+     * Returns the exception.
      *
      * @return Exception or {@code null}.
      */
@@ -59,7 +59,6 @@ public class FailureContext {
         return err;
     }
 
-    /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(FailureContext.class, this);
     }

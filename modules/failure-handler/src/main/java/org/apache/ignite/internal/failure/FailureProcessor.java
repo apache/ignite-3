@@ -70,14 +70,12 @@ public class FailureProcessor implements IgniteComponent {
         this.handler = new NoOpFailureHandler();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> start() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-20450
         return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() {
     }

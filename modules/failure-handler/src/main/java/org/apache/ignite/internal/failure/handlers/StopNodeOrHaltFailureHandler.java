@@ -59,7 +59,6 @@ public class StopNodeOrHaltFailureHandler implements FailureHandler {
         this.timeout = timeout;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean onFailure(String nodeName, FailureContext failureCtx) {
         if (tryStop) {
@@ -94,7 +93,7 @@ public class StopNodeOrHaltFailureHandler implements FailureHandler {
     }
 
     /**
-     * Get stop node timeout in milliseconds.
+     * Returns stop node timeout in milliseconds.
      *
      * @return Stop node timeout.
      */
@@ -103,7 +102,8 @@ public class StopNodeOrHaltFailureHandler implements FailureHandler {
     }
 
     /**
-     * Get try stop.
+     * Returns {@code true} if this handler should try to stop the node
+     * before terminating JVM process using {@code Runtime.getRuntime().halt()}.
      *
      * @return Try stop.
      */
@@ -111,7 +111,6 @@ public class StopNodeOrHaltFailureHandler implements FailureHandler {
         return tryStop;
     }
 
-    /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(StopNodeOrHaltFailureHandler.class, this);
     }

@@ -24,13 +24,11 @@ import org.apache.ignite.internal.tostring.S;
  * Just ignores any failure. It's useful for tests and debugging.
  */
 public class NoOpFailureHandler implements FailureHandler {
-    /** {@inheritDoc} */
     @Override
     public boolean onFailure(String nodeName, FailureContext failureCtx) {
         return false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(NoOpFailureHandler.class, this);

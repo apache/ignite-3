@@ -25,7 +25,6 @@ import org.apache.ignite.internal.tostring.S;
  * Handler will stop node in case of critical error using {@code IgnitionManager.stop(nodeName)} call.
  */
 public class StopNodeFailureHandler implements FailureHandler {
-    /** {@inheritDoc} */
     @Override
     public boolean onFailure(String nodeName, FailureContext failureCtx) {
         new Thread(
@@ -36,7 +35,6 @@ public class StopNodeFailureHandler implements FailureHandler {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(StopNodeFailureHandler.class, this);
