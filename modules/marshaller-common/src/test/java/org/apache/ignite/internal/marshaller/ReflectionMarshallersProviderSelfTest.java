@@ -99,7 +99,7 @@ public class ReflectionMarshallersProviderSelfTest {
 
     @ParameterizedTest
     @EnumSource(MarshallerType.class)
-    public void testMapperIsNotPartOfAKey(MarshallerType marshallerType) {
+    public void testMapperIsNotPartOfaKey(MarshallerType marshallerType) {
         Mapper<TestPoJo> mapper1 = Mapper.of(TestPoJo.class);
         Mapper<TestPoJo> mapper2 = Mapper.of(TestPoJo.class);
 
