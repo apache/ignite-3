@@ -56,7 +56,7 @@ protected:
     record_view<ignite_tuple> tuple_view;
 };
 
-TEST_F(schema_synchronization_test, insert_alter_insert) {
+TEST_F(schema_synchronization_test, upsert_alter_upsert_record_view) {
     auto val1 = ignite_tuple{{"ID", std::int32_t(1)}, {"VAL1", std::int32_t(2)}};
     tuple_view.upsert(nullptr, val1);
 
