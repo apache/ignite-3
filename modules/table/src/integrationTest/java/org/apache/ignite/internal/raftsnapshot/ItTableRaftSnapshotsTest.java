@@ -462,7 +462,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * (and can install a RAFT snapshot on the ex-leader).
      */
     @Test
-    //@Disabled("IGNITE-21181")
     void nodeCanInstallSnapshotsAfterSnapshotInstalledToIt() throws Exception {
         feedNode2WithSnapshotOfOneRow();
 
@@ -474,11 +473,11 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         knockoutNode(0);
 
-        waitForCondition(() -> {
+/*        waitForCondition(() -> {
             var n = cluster.node(2);
             var fut = n.placementDriver().awaitPrimaryReplica(new TablePartitionId(7, 0), n.clock().now(), 10, TimeUnit.SECONDS);
             return !fut.join().getLeaseholder().equals(n0name);
-        }, 10_000);
+        }, 10_000);*/
 
         putToNode(2, 2, "two");
 

@@ -73,7 +73,8 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         replicaId,
                         replicaMeta.getLeaseholderId(),
                         replicaMeta.getLeaseholder(),
-                        replicaMeta.getStartTime()
+                        replicaMeta.getStartTime(),
+                        replicaMeta.getExpirationTime()
                 )
         ));
     }
