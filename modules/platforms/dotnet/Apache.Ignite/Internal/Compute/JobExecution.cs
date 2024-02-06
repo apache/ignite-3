@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Compute;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Compute;
 
@@ -27,14 +28,26 @@ using Ignite.Compute;
 /// <param name="Id">Job ID.</param>
 /// <param name="ResultTask">Result task.</param>
 /// <typeparam name="T"></typeparam>
-internal sealed record JobExecution<T>(Guid Id, Task<T> ResultTask) : IJobExecution<T>
+internal sealed record JobExecution<T>(Guid Id, Task<(T Result, JobStatus Status)> ResultTask) : IJobExecution<T>
 {
     /// <inheritdoc/>
-    public Task<T> GetResultAsync() => ResultTask;
+    public async Task<T> GetResultAsync()
+    {
+        var (result, _) = await ResultTask.ConfigureAwait(false);
+        return result;
+    }
 
     /// <inheritdoc/>
-    public Task<JobStatus?> GetStatusAsync()
+    public async Task<JobStatus?> GetStatusAsync()
     {
+        if (ResultTask.IsCompletedSuccessfully)
+        {
+            // TODO: What if the task failed, how do we cache the failed result?
+            var (_, status) = await ResultTask.ConfigureAwait(false);
+            return status;
+        }
+
+        // TODO
         throw new NotImplementedException();
     }
 
