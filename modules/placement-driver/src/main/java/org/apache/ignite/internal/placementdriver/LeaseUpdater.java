@@ -329,6 +329,7 @@ public class LeaseUpdater {
                     && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
 
             int currentAssignmentsSize = currentAssignments.size();
+            int acceptedLeasesCount = 0;
 
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
@@ -379,14 +380,26 @@ public class LeaseUpdater {
                         prolongLease(grpId, lease, renewedLeases);
                     }
                 }
+
+                if (lease.isAccepted()) {
+                    acceptedLeasesCount++;
+                }
             }
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
             ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
 
-            boolean shouldLogLeaseStatistics = leaseUpdateStatistics.shouldLogLeaseStatistics();
-            LeaseStats leasesUpdatedInCurrentIteration = leaseUpdateStatistics.leasesUpdatedInCurrentIteration();
+            if (leaseUpdateStatistics.shouldLogLeaseStatistics()) {
+                LOG.info(
+                        "Leases updated (printed once per {} iteration(s)): [currentIteration={}, totalAccepted={}, "
+                                + "currentAssignmentsSize={}].",
+                        LeaseUpdateStatistics.PRINT_ONCE_PER_ITERATIONS,
+                        leaseUpdateStatistics.leasesUpdatedInCurrentIteration(),
+                        acceptedLeasesCount,
+                        currentAssignmentsSize
+                );
+            }
 
             msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
@@ -403,18 +416,6 @@ public class LeaseUpdater {
                     LOG.debug("Lease update invocation failed");
 
                     return;
-                }
-
-                LeaseStats totalLeases = leaseUpdateStatistics.onSuccessfulIteration(leasesUpdatedInCurrentIteration);
-
-                if (shouldLogLeaseStatistics) {
-                    LOG.info(
-                            "Leases updated (printed once per {} iterations): [currentIteration={}, total={}, currentAssignmentsSize={}].",
-                            LeaseUpdateStatistics.PRINT_ONCE_PER_ITERATIONS,
-                            leasesUpdatedInCurrentIteration,
-                            totalLeases,
-                            currentAssignmentsSize
-                    );
                 }
 
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
@@ -507,39 +508,22 @@ public class LeaseUpdater {
         /** This field is iteration-local and should be accessed only from updater thread. */
         private LeaseStats iteration = new LeaseStats(0, 0, 0);
 
-        private final LeaseStats total = new LeaseStats(0, 0, 0);
-
-        /**
-         * Should be called only from the updater thread.
-         */
         private void onLeaseCreate() {
             iteration.leasesCreated++;
         }
 
-        /**
-         * Should be called only from the updater thread.
-         */
         private void onLeasePublish() {
             iteration.leasesPublished++;
         }
 
-        /**
-         * Should be called only from the updater thread.
-         */
         private void onLeaseProlong() {
             iteration.leasesProlonged++;
         }
 
-        /**
-         * Should be called only from the updater thread.
-         */
         private LeaseStats leasesUpdatedInCurrentIteration() {
             return new LeaseStats(iteration.leasesCreated, iteration.leasesPublished, iteration.leasesProlonged);
         }
 
-        /**
-         * Should be called only from the updater thread.
-         */
         private boolean shouldLogLeaseStatistics() {
             if (PRINT_ONCE_PER_ITERATIONS < 0) {
                 return false;
@@ -554,25 +538,8 @@ public class LeaseUpdater {
             return result;
         }
 
-        /**
-         * Should be called only from the updater thread.
-         */
         private void onNewIteration() {
             iteration = new LeaseStats(0, 0, 0);
-        }
-
-        /**
-         * Updates the total count of updated leases after the successful update.
-         *
-         * @param iterationParameters Leases updated in current iteration.
-         * @return Updated value of total updated leases.
-         */
-        private synchronized LeaseStats onSuccessfulIteration(LeaseStats iterationParameters) {
-            total.leasesCreated += iterationParameters.leasesCreated;
-            total.leasesPublished += iterationParameters.leasesPublished;
-            total.leasesProlonged += iterationParameters.leasesProlonged;
-
-            return total;
         }
     }
 
