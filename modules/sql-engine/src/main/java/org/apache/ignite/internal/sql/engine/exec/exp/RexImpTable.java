@@ -318,7 +318,6 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SLICE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SOME;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.STRUCT_ACCESS;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBMULTISET_OF;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBSTRING;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUM;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUM0;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SYSTEM_USER;

@@ -82,7 +82,7 @@ public abstract class CatalogObjectDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogObjectDescriptor.class, this);
     }
 
     /** Catalog object type. */

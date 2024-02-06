@@ -59,6 +59,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -107,7 +108,6 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -643,7 +643,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -686,7 +685,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -724,7 +722,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -773,7 +770,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build()));
     }
 
@@ -816,7 +812,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build()));
     }
 
@@ -893,7 +888,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                         .commit(true)
                         .commitTimestampLong(commitTimestamp)
                         .safeTimeLong(hybridClock.nowLong())
-                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build()));
     }
 

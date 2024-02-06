@@ -110,7 +110,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogHashIndexDescriptor.class, this, super.toString());
     }
 
     private static class HashIndexDescriptorSerializer implements CatalogObjectSerializer<CatalogHashIndexDescriptor> {
