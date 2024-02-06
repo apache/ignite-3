@@ -1770,7 +1770,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21391")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21457")
     public void testSetPeer2() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 
