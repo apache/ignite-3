@@ -373,7 +373,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
         ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
-        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), marshallers));
+        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1), marshallers, mock(IgniteSql.class)));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {

@@ -88,10 +88,11 @@ public class TableImpl implements TableViewInternal {
      * @param tbl The table.
      * @param lockManager Lock manager.
      * @param schemaVersions Schema versions access.
+     * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions, IgniteSql sql,
-            MarshallersProvider marshallers) {
+    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions, MarshallersProvider marshallers,
+            IgniteSql sql) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.schemaVersions = schemaVersions;
@@ -110,7 +111,7 @@ public class TableImpl implements TableViewInternal {
      */
     @TestOnly
     public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions, IgniteSql sql) {
-        this(tbl, lockManager, schemaVersions, sql, new ReflectionMarshallersProvider());
+        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql);
 
         this.schemaReg = schemaReg;
     }
