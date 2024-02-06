@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.table.criteria;
 
+import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -57,13 +60,21 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     /** {@inheritDoc} */
     @Override
     public Iterable<T> currentPage() {
-        return mapIterable(ars.currentPage(), mapper, null);
+        try {
+            return mapIterable(ars.currentPage(), mapper, null);
+        } catch (NoRowSetExpectedException e) {
+            throw sneakyThrow(mapToPublicCriteriaException(e));
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public int currentPageSize() {
-        return ars.currentPageSize();
+        try {
+            return ars.currentPageSize();
+        } catch (NoRowSetExpectedException e) {
+            throw sneakyThrow(mapToPublicCriteriaException(e));
+        }
     }
 
     /** {@inheritDoc} */

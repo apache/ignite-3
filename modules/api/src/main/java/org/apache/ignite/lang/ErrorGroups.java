@@ -133,6 +133,9 @@ public class ErrorGroups {
         /** Operation failed because a node has left the cluster. */
         public static final int NODE_LEFT_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 5);
 
+        /** Cursor is already closed error. */
+        public static final int CURSOR_CLOSED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 6);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
          * In general, this error code should be considered as a non-recoverable error
@@ -211,17 +214,11 @@ public class ErrorGroups {
         /** SQL error group. */
         public static final ErrorGroup SQL_ERR_GROUP = registerGroup("SQL", (short) 4);
 
-        /** No more pages in the cursor error. */
-        public static final int CURSOR_NO_MORE_PAGES_ERR = SQL_ERR_GROUP.registerErrorCode((short) 1);
-
         /** Query without a result set error. */
         public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Schema not found. */
         public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 3);
-
-        /** Cursor is already closed error. */
-        public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Statement parsing error. This error is returned when an SQL statement string is not valid according to syntax rules. */
         public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);

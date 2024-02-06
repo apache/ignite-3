@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 
 class ItSqlConnectSslTest extends CliSqlConnectCommandTestBase {
     @Override
-    protected String nodeBootstrapConfigTemplate() {
+    protected String getNodeBootstrapConfigTemplate() {
         return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
     }
 

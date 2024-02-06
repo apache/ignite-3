@@ -63,6 +63,7 @@ enum class code : underlying_t {
     ILLEGAL_ARGUMENT = 0x10003,
     SSL_CONFIGURATION = 0x10004,
     NODE_LEFT = 0x10005,
+    CURSOR_CLOSED = 0x10006,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -87,10 +88,8 @@ enum class code : underlying_t {
     HANDSHAKE_HEADER = 0x3000a,
 
     // Sql group. Group code: 4
-    CURSOR_NO_MORE_PAGES = 0x40001,
     QUERY_NO_RESULT_SET = 0x40002,
     SCHEMA_NOT_FOUND = 0x40003,
-    CURSOR_CLOSED = 0x40004,
     STMT_PARSE = 0x40005,
     STMT_VALIDATION = 0x40006,
     CONSTRAINT_VIOLATION = 0x40007,

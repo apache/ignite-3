@@ -21,13 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Replaces;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link SqlReplCommand}. */
-class ItSqlReplCommandTest extends CliCommandTestInitializedIntegrationBase {
+class ItSqlReplCommandTest extends CliIntegrationTest {
     @Override
     protected Class<?> getCommandClass() {
         return SqlReplCommand.class;

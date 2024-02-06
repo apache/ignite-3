@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 
 class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     @Override
-    protected String nodeBootstrapConfigTemplate() {
+    protected String getNodeBootstrapConfigTemplate() {
         return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
     }
 

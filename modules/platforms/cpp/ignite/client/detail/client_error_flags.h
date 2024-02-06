@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
+#pragma once
 
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.CliIntegrationTest;
+
+namespace ignite::detail {
 
 /**
- * Test base for SSL tests with client connector. The cluster is initialized with SSL enabled for clients.
+ * Error flags.
  */
-public class CliSslClientConnectorIntegrationTestBase extends CliIntegrationTest {
+enum class error_flag {
+    /** Unmapped columns present. */
+    UNMAPPED_COLUMNS_PRESENT = 1,
+};
 
-    @Override
-    protected String getNodeBootstrapConfigTemplate() {
-        return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
-    }
-}
+} // namespace ignite::detail
