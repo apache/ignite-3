@@ -868,6 +868,7 @@ public class IgniteImpl implements Ignite {
             lifecycleManager.startComponents(
                     threadPoolsManager,
                     clockWaiter,
+                    failureProcessor,
                     criticalWorkerRegistry,
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,
