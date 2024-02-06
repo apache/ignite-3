@@ -82,21 +82,21 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         HASH(0),
         SORTED(1);
 
-        private final int id;
+        private final int typeId;
 
-        CatalogIndexDescriptorType(int id) {
-            this.id = id;
+        CatalogIndexDescriptorType(int typeId) {
+            this.typeId = typeId;
         }
 
         public int id() {
-            return id;
+            return typeId;
         }
 
         /** Returns catalog index descriptor type by identifier. */
         public static CatalogIndexDescriptorType forId(int id) {
-            assert id == HASH.id || id == SORTED.id : "Unknown index descriptor type ID: " + id;
+            assert id == HASH.typeId || id == SORTED.typeId : "Unknown index descriptor type ID: " + id;
 
-            if (id == HASH.id) {
+            if (id == HASH.typeId) {
                 return HASH;
             } else {
                 return SORTED;
