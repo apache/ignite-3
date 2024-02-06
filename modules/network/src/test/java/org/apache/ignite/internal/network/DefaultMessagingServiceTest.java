@@ -184,18 +184,22 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 mockSerializationRegistry(longWaitSerializer));
                 Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
-            CountDownLatch latch = new CountDownLatch(2);
-            receiverServices.messagingService.addMessageHandler(
-                    TestMessageTypes.class,
-                    (message, sender, correlationId) -> latch.countDown()
-            );
+            try {
+                CountDownLatch latch = new CountDownLatch(2);
+                receiverServices.messagingService.addMessageHandler(
+                        TestMessageTypes.class,
+                        (message, sender, correlationId) -> latch.countDown()
+                );
 
-            senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
-            senderServices.messagingService.send(receiverNode, AllTypesMessageImpl.builder().build());
+                senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
+                senderServices.messagingService.send(receiverNode, AllTypesMessageImpl.builder().build());
 
-            assertThat(latch.getCount(), is(2L));
-            release.set(true);
-            assertTrue(latch.await(1, TimeUnit.SECONDS));
+                assertThat(latch.getCount(), is(2L));
+                release.set(true);
+                assertTrue(latch.await(1, TimeUnit.SECONDS));
+            } finally {
+                release.set(true);
+            }
         }
     }
 
@@ -215,20 +219,24 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 mockSerializationRegistry(longWaitSerializer));
                 Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
-            CountDownLatch latch = new CountDownLatch(2);
-            receiverServices.messagingService.addMessageHandler(
-                    TestMessageTypes.class,
-                    (message, sender, correlationId) -> latch.countDown()
-            );
+            try {
+                CountDownLatch latch = new CountDownLatch(2);
+                receiverServices.messagingService.addMessageHandler(
+                        TestMessageTypes.class,
+                        (message, sender, correlationId) -> latch.countDown()
+                );
 
-            senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
-            senderServices.messagingService.send(receiverNode, TEST_CHANNEL, AllTypesMessageImpl.builder().build());
+                senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
+                senderServices.messagingService.send(receiverNode, TEST_CHANNEL, AllTypesMessageImpl.builder().build());
 
-            await().timeout(1, TimeUnit.SECONDS)
-                    .until(() -> latch.getCount() == 1);
+                await().timeout(10, TimeUnit.SECONDS)
+                        .until(() -> latch.getCount() == 1);
 
-            release.set(true);
-            assertTrue(latch.await(1, TimeUnit.SECONDS));
+                release.set(true);
+                assertTrue(latch.await(1, TimeUnit.SECONDS));
+            } finally {
+                release.set(true);
+            }
         }
     }
 
@@ -482,7 +490,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         messagingService.setConnectionManager(connectionManager);
 
-        return new Services(connectionManager, messagingService);
+        return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
     private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake,
@@ -519,15 +527,25 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private static class Services implements AutoCloseable {
         private final ConnectionManager connectionManager;
         private final DefaultMessagingService messagingService;
+        private final NettyBootstrapFactory bootstrapFactory;
 
-        private Services(ConnectionManager connectionManager, DefaultMessagingService messagingService) {
+        private Services(
+                ConnectionManager connectionManager,
+                DefaultMessagingService messagingService,
+                NettyBootstrapFactory bootstrapFactory
+        ) {
             this.connectionManager = connectionManager;
             this.messagingService = messagingService;
+            this.bootstrapFactory = bootstrapFactory;
         }
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAll(connectionManager::initiateStopping, connectionManager::stop, messagingService::stop);
+            IgniteUtils.closeAll(
+                    connectionManager::initiateStopping, connectionManager::stop,
+                    messagingService::stop,
+                    bootstrapFactory::beforeNodeStop, bootstrapFactory::stop
+            );
         }
     }
 

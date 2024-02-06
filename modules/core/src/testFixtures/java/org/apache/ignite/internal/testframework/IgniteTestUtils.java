@@ -23,6 +23,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -270,12 +271,12 @@ public final class IgniteTestUtils {
      * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
      * @return Thrown throwable.
      */
-    public static <T extends Throwable> T assertThrows(
-            Class<T> cls,
+    public static Throwable assertThrows(
+            Class<? extends Throwable> cls,
             Executable run,
             @Nullable String errorMessageFragment
     ) {
-        T throwable = Assertions.assertThrows(cls, run);
+        Throwable throwable = Assertions.assertThrows(cls, run);
 
         if (errorMessageFragment != null) {
             assertThat(throwable.getMessage(), containsString(errorMessageFragment));
@@ -285,25 +286,36 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Checks whether runnable throws exception, which is itself of a specified class.
+     * Checks whether runnable throws the correct {@link IgniteException}, which is itself of a specified class.
      *
-     * @param cls Expected exception class.
+     * @param expectedClass Expected exception class.
+     * @param expectedErrorCode Expected error code of the {@link IgniteException}.
      * @param run Runnable to check.
-     * @param errorCode Error code to be checked.
      * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
      * @return Thrown throwable.
      */
-    public static <T extends IgniteException> T assertThrows(
-            Class<T> cls,
+    public static Throwable assertThrowsWithCode(
+            Class<? extends IgniteException> expectedClass,
+            int expectedErrorCode,
             Executable run,
-            int errorCode,
             @Nullable String errorMessageFragment
     ) {
-        T ie = assertThrows(cls, run, errorMessageFragment);
+        try {
+            run.execute();
+        } catch (Throwable throwable) {
+            assertInstanceOf(expectedClass, throwable);
 
-        assertEquals(errorCode, ie.code(), "Error code doesn't match");
+            IgniteException igniteException = (IgniteException) throwable;
+            assertEquals(expectedErrorCode, igniteException.code());
 
-        return ie;
+            if (errorMessageFragment != null) {
+                assertThat(throwable.getMessage(), containsString(errorMessageFragment));
+            }
+
+            return throwable;
+        }
+
+        throw new AssertionError("Exception has not been thrown.");
     }
 
     /**

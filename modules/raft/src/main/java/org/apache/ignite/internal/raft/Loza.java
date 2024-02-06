@@ -259,6 +259,33 @@ public class Loza implements RaftManager {
         }
     }
 
+    /**
+     * Starts a Raft group on the current node without starting raft service.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param groupOptions Options to apply to the group.
+     */
+    public void startRaftGroupNodeWithoutService(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftGroupOptions groupOptions
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            startRaftGroupNodeInternalWithoutService(nodeId, configuration, lsnr, eventsLsnr, groupOptions);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     @Override
     public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
             RaftNodeId nodeId,
@@ -361,6 +388,22 @@ public class Loza implements RaftManager {
             RaftGroupOptions groupOptions,
             @Nullable RaftServiceFactory<T> raftServiceFactory
     ) {
+        startRaftGroupNodeInternalWithoutService(nodeId, configuration, lsnr, raftGrpEvtsLsnr, groupOptions);
+
+        Marshaller cmdMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), opts.getCommandsMarshaller());
+
+        return raftServiceFactory == null
+                ? (CompletableFuture<T>) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller)
+                : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor, cmdMarshaller);
+    }
+
+    private void startRaftGroupNodeInternalWithoutService(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener raftGrpEvtsLsnr,
+            RaftGroupOptions groupOptions
+    ) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
         }
@@ -373,12 +416,6 @@ public class Loza implements RaftManager {
                     nodeId
             ));
         }
-
-        Marshaller cmdMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), opts.getCommandsMarshaller());
-
-        return raftServiceFactory == null
-                ? (CompletableFuture<T>) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller)
-                : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor, cmdMarshaller);
     }
 
     private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(

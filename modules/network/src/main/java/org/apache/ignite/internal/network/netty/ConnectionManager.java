@@ -448,7 +448,7 @@ public class ConnectionManager implements ChannelCreationListener {
         CompletableFuture<Void> finalStopFuture = allOf(stopFutures.toArray(CompletableFuture<?>[]::new));
 
         try {
-            finalStopFuture.join();
+            finalStopFuture.get();
         } catch (Exception e) {
             LOG.warn("Failed to stop connection manager [reason={}]", e.getMessage());
         }

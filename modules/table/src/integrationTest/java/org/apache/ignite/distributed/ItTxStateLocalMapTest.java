@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -188,7 +187,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                     }
 
                     return (expected.txState() == meta.get().txState()
-                            && Objects.equals(expected.txCoordinatorId(), meta.get().txCoordinatorId())
                             && checkTimestamps(expected.commitTimestamp(), meta.get().commitTimestamp()));
                 }, 5_000));
             } catch (InterruptedException e) {

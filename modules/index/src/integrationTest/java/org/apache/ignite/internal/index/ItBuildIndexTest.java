@@ -339,10 +339,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
                     RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
 
-                    Stream<Peer> allPeers = Stream.concat(Stream.of(raftGroupService.leader()), raftGroupService.peers().stream());
+                    List<Peer> allPeers = raftGroupService.peers();
 
                     // Let's check if there is a node in the partition assignments.
-                    if (allPeers.map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
+                    if (allPeers.stream().map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
                         continue;
                     }
 

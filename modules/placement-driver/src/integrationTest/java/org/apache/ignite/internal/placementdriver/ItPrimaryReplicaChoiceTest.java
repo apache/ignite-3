@@ -307,6 +307,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
                     PART_ID,
                     rwTx.id(),
                     rwTx.commitPartition(),
+                    rwTx.coordinatorId(),
                     new PrimaryReplica(primaryNode, primaryReplicaFut.get().getStartTime().longValue()),
                     idxId,
                     exactKey,

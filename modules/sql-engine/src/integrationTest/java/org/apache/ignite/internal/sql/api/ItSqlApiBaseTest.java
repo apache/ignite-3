@@ -255,7 +255,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         // Outdated tx.
         Transaction outerTx0 = outerTx;
         assertThrowsSqlException(
-                Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+                Transactions.TX_ALREADY_FINISHED_ERR,
                 "Transaction is already finished",
                 () -> checkDml(1, outerTx0, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
 
@@ -481,10 +481,10 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         ses.close();
 
-        IgniteTestUtils.assertThrows(
+        IgniteTestUtils.assertThrowsWithCode(
                 CursorClosedException.class,
-                () -> rs.forEachRemaining(System.out::println),
                 Common.CURSOR_CLOSED_ERR,
+                () -> rs.forEachRemaining(System.out::println),
                 "Cursor is closed");
 
         assertThrowsSqlException(Sql.SESSION_CLOSED_ERR, "Session is closed", () -> execute(ses, "SELECT ID FROM TEST"));
@@ -539,10 +539,10 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
             rs.close();
 
-            IgniteTestUtils.assertThrows(
+            IgniteTestUtils.assertThrowsWithCode(
                     CursorClosedException.class,
-                    () -> rs.forEachRemaining(Object::hashCode),
                     Common.CURSOR_CLOSED_ERR,
+                    () -> rs.forEachRemaining(Object::hashCode),
                     "Cursor is closed");
         }
     }
@@ -686,7 +686,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 }
             });
 
-            assertEquals(Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, err.code(), err.toString());
+            assertEquals(Transactions.TX_ALREADY_FINISHED_ERR, err.code(), err.toString());
         }
     }
 
@@ -717,7 +717,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 }
             });
 
-            assertEquals(Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, err.code(), err.toString());
+            assertEquals(Transactions.TX_ALREADY_FINISHED_ERR, err.code(), err.toString());
         }
     }
 
@@ -737,7 +737,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             tx.rollback();
 
             assertThrowsSqlException(
-                    Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    Transactions.TX_ALREADY_FINISHED_ERR,
                     "Transaction is already finished",
                     () -> session.execute(tx, "INSERT INTO tst VALUES (1, 1)")
             );

@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
@@ -434,12 +435,12 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
         assertNotNull(ars1);
         await(ars1.closeAsync());
-        assertThrows(CursorClosedException.class, () -> await(ars1.fetchNextPage()), Common.CURSOR_CLOSED_ERR, "Cursor is closed");
+        assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_CLOSED_ERR, () -> await(ars1.fetchNextPage()), "Cursor is closed");
 
         AsyncCursor<TestObject> ars2 = await(view.queryAsync(null, null, builder().pageSize(3).build()));
 
         assertNotNull(ars2);
-        assertThrows(CursorClosedException.class, () -> await(ars2.fetchNextPage()), Common.CURSOR_CLOSED_ERR, "Cursor is closed");
+        assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_CLOSED_ERR, () -> await(ars2.fetchNextPage()), "Cursor is closed");
     }
 
     @ParameterizedTest
