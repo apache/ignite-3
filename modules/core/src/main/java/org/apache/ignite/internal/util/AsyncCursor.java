@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.CursorClosedException;
 
 /**
  * Asynchronous cursor.
@@ -31,11 +32,11 @@ public interface AsyncCursor<T> {
      *
      * <p>Several calls to this method should be chained and resulting stages should be completed in the order of invocation. Any call
      * to this method after call to {@link #closeAsync()} should be completed immediately with
-     * {@link org.apache.ignite.sql.CursorClosedException} even if the future returned by {@link #closeAsync()}
-     * is not completed yet.
+     * {@link CursorClosedException} even if the future returned by {@link #closeAsync()} is not completed yet.
      *
      * @param rows Desired amount of rows.
      * @return A completion stage that will be completed with batch of size {@code rows} or less if there is no more data.
+     * @throws CursorClosedException If cursor is closed.
      */
     CompletableFuture<BatchedResult<T>> requestNextAsync(int rows);
 

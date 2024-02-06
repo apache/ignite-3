@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Test message types.

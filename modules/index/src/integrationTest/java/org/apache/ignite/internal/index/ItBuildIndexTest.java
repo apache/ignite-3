@@ -48,6 +48,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -59,8 +61,6 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
@@ -339,10 +339,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
                     RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
 
-                    Stream<Peer> allPeers = Stream.concat(Stream.of(raftGroupService.leader()), raftGroupService.peers().stream());
+                    List<Peer> allPeers = raftGroupService.peers();
 
                     // Let's check if there is a node in the partition assignments.
-                    if (allPeers.map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
+                    if (allPeers.stream().map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
                         continue;
                     }
 

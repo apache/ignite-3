@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -112,6 +113,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Loza;
@@ -189,7 +191,6 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.sql.IgniteSql;
@@ -256,7 +257,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
      *
-     * <p>Only explicitly updated in {@link #startLocalPartitionsAndUpdateClients(CompletableFuture, TableImpl)}.
+     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl)}.
      *
      * <p>Completed strictly after {@link #localPartsByTableIdVv}.
      */
@@ -737,7 +738,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param table Initialized table entity.
      * @return future, which will be completed when the partitions creations done.
      */
-    private CompletableFuture<Void> startLocalPartitionsAndUpdateClients(
+    private CompletableFuture<Void> startLocalPartitionsAndClients(
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
             TableImpl table
     ) {
@@ -830,7 +831,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         CompletableFuture<Boolean> startGroupFut;
 
-        // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
         if (localMemberAssignment != null) {
             CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
                     ? partitionReplicatorNodeRecovery.shouldStartGroup(
@@ -1223,8 +1223,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableName,
                 tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterService.topologyService(), txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
+                partitions,
+                clusterService.topologyService(),
+                txManager,
+                tableStorage,
+                txStateStorage,
+                replicaSvc,
+                clock,
+                observableTimestampTracker,
+                placementDriver
+        );
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get());
 
@@ -1281,7 +1289,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return localPartsUpdateFuture.thenCompose(unused ->
                     tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(
                             busyLock,
-                            () -> startLocalPartitionsAndUpdateClients(assignmentsFuture, table)
+                            () -> startLocalPartitionsAndClients(assignmentsFuture, table)
                     ), ioExecutor)
             );
         });
@@ -1824,7 +1832,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             localServicesStartFuture = nullCompletedFuture();
         }
 
-        return localServicesStartFuture;
+        return localServicesStartFuture.thenRunAsync(
+                () -> tbl.internalTable()
+                        .partitionRaftGroupService(replicaGrpId.partitionId())
+                        .updateConfiguration(configurationFromAssignments(union(pendingAssignments, stableAssignments))),
+                ioExecutor
+        );
     }
 
     private CompletableFuture<Void> changePeersOnRebalance(
@@ -1915,7 +1928,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-        ((Loza) raftMgr).startRaftGroupNode(
+        ((Loza) raftMgr).startRaftGroupNodeWithoutService(
                 raftNodeId,
                 stableConfiguration,
                 raftGrpLsnr,

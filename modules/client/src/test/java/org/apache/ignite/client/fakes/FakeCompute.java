@@ -24,6 +24,7 @@ import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -231,6 +232,11 @@ public class FakeCompute implements IgniteComputeInternal {
                 return trueCompletedFuture();
             }
         };
+    }
+
+    @Override
+    public CompletableFuture<Collection<JobStatus>> statusesAsync() {
+        return completedFuture(statuses.values());
     }
 
     @Override

@@ -20,7 +20,6 @@ package org.apache.ignite.table.criteria;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,7 +35,7 @@ public interface CriteriaQuerySource<T> {
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return Iterator with query results.
-     * @throws IgniteException If failed.
+     * @throws CriteriaException If failed.
      */
     default Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return query(tx, criteria, null);
@@ -49,7 +48,7 @@ public interface CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @param opts Criteria query options or {@code null} to use default.
      * @return Iterator with query results.
-     * @throws IgniteException If failed.
+     * @throws CriteriaException If failed.
      */
     Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts);
 
@@ -59,7 +58,7 @@ public interface CriteriaQuerySource<T> {
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return Future that represents the pending completion of the operation.
-     * @throws IgniteException If failed.
+     * @throws CriteriaException If failed.
      */
     default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return queryAsync(tx, criteria, null);
@@ -72,7 +71,7 @@ public interface CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @param opts Criteria query options or {@code null} to use default.
      * @return Future that represents the pending completion of the operation.
-     * @throws IgniteException If failed.
+     * @throws CriteriaException If failed.
      */
     CompletableFuture<AsyncCursor<T>> queryAsync(
             @Nullable Transaction tx,

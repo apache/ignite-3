@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -53,6 +54,13 @@ public interface IgniteComputeInternal extends IgniteCompute {
             JobExecutionOptions options,
             Object... args
     );
+
+    /**
+     * Retrieves the current status of all jobs on all nodes in the cluster.
+     *
+     * @return The collection of job statuses.
+     */
+    CompletableFuture<Collection<JobStatus>> statusesAsync();
 
     /**
      * Gets job status by id.

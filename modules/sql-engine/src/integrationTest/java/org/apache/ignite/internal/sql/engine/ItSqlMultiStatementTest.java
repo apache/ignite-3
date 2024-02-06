@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -190,7 +190,7 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
             tx.commit();
 
             assertThrowsSqlException(
-                    TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    TX_ALREADY_FINISHED_ERR,
                     "Transaction is already finished",
                     () -> executeScript(
                             "INSERT INTO test VALUES(3); INSERT INTO test VALUES(4);",

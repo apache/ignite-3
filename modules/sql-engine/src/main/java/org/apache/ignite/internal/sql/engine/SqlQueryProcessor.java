@@ -37,7 +37,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -54,10 +53,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -66,6 +62,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -127,7 +124,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -310,7 +306,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         var executionTargetProvider = new ExecutionTargetProvider() {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-                return primaryReplicas(table.id())
+                return primaryReplicas(table)
                         .thenApply(replicas -> factory.partitioned(replicas));
             }
 
@@ -371,16 +367,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
-    private CompletableFuture<List<NodeWithConsistencyToken>> primaryReplicas(int tableId) {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        Catalog catalog = catalogManager.catalog(catalogVersion);
-
-        CatalogTableDescriptor tblDesc = Objects.requireNonNull(catalog.table(tableId), "table");
-
-        CatalogZoneDescriptor zoneDesc = Objects.requireNonNull(catalog.zone(tblDesc.zoneId()), "zone");
-
-        int partitions = zoneDesc.partitions();
+    private CompletableFuture<List<NodeWithConsistencyToken>> primaryReplicas(IgniteTable table) {
+        int partitions = table.partitions();
 
         List<CompletableFuture<NodeWithConsistencyToken>> result = new ArrayList<>(partitions);
 
@@ -389,7 +377,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         // no need to wait all partitions after pruning was implemented.
         for (int partId = 0; partId < partitions; ++partId) {
             int partitionId = partId;
-            ReplicationGroupId partGroupId = new TablePartitionId(tableId, partitionId);
+            ReplicationGroupId partGroupId = new TablePartitionId(table.id(), partitionId);
 
             CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
                     partGroupId,
