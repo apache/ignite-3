@@ -83,7 +83,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 + "  nodeAttributes: {\n"
                 + "    nodeAttributes: " + nodeAttributes
                 + "  },\n"
-                + "  storages: {\n"
+                + "  storage: {\n"
                 + "    profiles: " + storageProfiles
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"

@@ -43,7 +43,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -71,13 +71,13 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void setUp(
             @InjectConfiguration VolatilePageMemoryProfileStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
-            StoragesConfiguration storagesConfiguration
+            StorageConfiguration storageConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storagesConfiguration, ioRegistry, pageEvictionTracker);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration, ioRegistry, pageEvictionTracker);
 
         engine.start();
 

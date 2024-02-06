@@ -99,7 +99,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "  },\n"
             + "  raft: " + RAFT_CFG + ",\n"
             + "  clientConnector.port: {},\n"
-            + "  storages: {\n"
+            + "  storage: {\n"
             + "    profiles: {default_aimem: { engine: \"aimem\"}}\n"
             + "  },\n"
             + "  rest: {\n"

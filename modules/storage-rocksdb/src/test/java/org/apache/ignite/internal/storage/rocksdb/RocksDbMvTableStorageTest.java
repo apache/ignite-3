@@ -34,7 +34,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -61,9 +61,9 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             @InjectConfiguration("mock {flushDelayMillis = 0}")
             RocksDbProfileStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
-            StoragesConfiguration storagesConfiguration
+            StorageConfiguration storageConfiguration
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir);
 
         engine.start();
 

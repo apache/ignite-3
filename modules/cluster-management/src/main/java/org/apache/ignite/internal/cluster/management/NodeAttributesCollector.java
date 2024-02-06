@@ -25,8 +25,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributeView;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 
 /**
  * This class is responsible for retrieving local node attributes
@@ -37,11 +37,11 @@ public class NodeAttributesCollector implements NodeAttributes {
 
     private final NodeAttributesConfiguration nodeAttributesConfiguration;
 
-    private final StoragesConfiguration storageProfilesConfiguration;
+    private final StorageConfiguration storageProfilesConfiguration;
 
     public NodeAttributesCollector(
             NodeAttributesConfiguration nodeAttributesConfiguration,
-            StoragesConfiguration storageProfilesConfiguration
+            StorageConfiguration storageProfilesConfiguration
     ) {
         this.nodeAttributesConfiguration = nodeAttributesConfiguration;
         this.storageProfilesConfiguration = storageProfilesConfiguration;

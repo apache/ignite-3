@@ -28,7 +28,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -56,7 +56,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final RocksDbProfileStorageEngineConfiguration engineConfig;
 
-    private final StoragesConfiguration storagesConfiguration;
+    private final StorageConfiguration storageConfiguration;
 
     private final Path storagePath;
 
@@ -81,9 +81,9 @@ public class RocksDbStorageEngine implements StorageEngine {
      * @param storagePath Storage path.
      */
     public RocksDbStorageEngine(String nodeName, RocksDbProfileStorageEngineConfiguration engineConfig,
-            StoragesConfiguration storagesConfiguration, Path storagePath) {
+            StorageConfiguration storageConfiguration, Path storagePath) {
         this.engineConfig = engineConfig;
-        this.storagesConfiguration = storagesConfiguration;
+        this.storageConfiguration = storageConfiguration;
         this.storagePath = storagePath;
 
         threadPool = Executors.newFixedThreadPool(
@@ -125,7 +125,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     @Override
     public void start() throws StorageException {
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storagesConfiguration.profiles().value().stream().forEach(p -> {
+        storageConfiguration.profiles().value().stream().forEach(p -> {
             if (p instanceof RocksDbProfileView) {
                 registerDataRegion(p.name());
             }
@@ -134,7 +134,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private void registerDataRegion(String name) {
         RocksDbProfileConfiguration storageProfileConfiguration =
-                (RocksDbProfileConfiguration) storagesConfiguration.profiles().get(name);
+                (RocksDbProfileConfiguration) storageConfiguration.profiles().get(name);
 
         var region = new RocksDbDataRegion(storageProfileConfiguration);
 

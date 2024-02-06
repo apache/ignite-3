@@ -26,7 +26,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistPageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
@@ -53,9 +53,9 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
     ) throws StorageException {
         PersistentPageMemoryProfileStorageEngineConfiguration engineConfig =
                 ((PersistPageMemoryStorageEngineExtensionConfiguration) configRegistry
-                        .getConfiguration(StoragesConfiguration.KEY).engines()).aipersist();
+                        .getConfiguration(StorageConfiguration.KEY).engines()).aipersist();
 
-        StoragesConfiguration storagesConfig = configRegistry.getConfiguration(StoragesConfiguration.KEY);
+        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
 
         assert engineConfig != null;
 
@@ -63,7 +63,7 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PersistentPageMemoryStorageEngine(igniteInstanceName, engineConfig, storagesConfig,
+        return new PersistentPageMemoryStorageEngine(igniteInstanceName, engineConfig, storageConfig,
                 ioRegistry, storagePath, longJvmPauseDetector);
     }
 }

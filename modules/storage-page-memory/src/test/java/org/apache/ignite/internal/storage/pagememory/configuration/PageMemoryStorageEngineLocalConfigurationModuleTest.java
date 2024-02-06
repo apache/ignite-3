@@ -30,8 +30,8 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
-import org.apache.ignite.internal.storage.configurations.StoragesView;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageView;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -51,7 +51,7 @@ public class PageMemoryStorageEngineLocalConfigurationModuleTest {
             }};
 
         ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
-                List.of(StoragesConfiguration.KEY),
+                List.of(StorageConfiguration.KEY),
                 module.schemaExtensions(),
                 polymorphicSchemaExtensions
         );
@@ -65,10 +65,10 @@ public class PageMemoryStorageEngineLocalConfigurationModuleTest {
     void setDefaultStorageProfile() {
         module.patchConfigurationWithDynamicDefaults(rootChange);
 
-        StoragesView storagesConfigurationView = rootChange.viewRoot(StoragesConfiguration.KEY);
+        StorageView storageConfigurationView = rootChange.viewRoot(StorageConfiguration.KEY);
 
-        assertEquals(1, storagesConfigurationView.profiles().size());
+        assertEquals(1, storageConfigurationView.profiles().size());
 
-        assertThat(storagesConfigurationView.profiles().get("default"), instanceOf(PersistentPageMemoryProfileView.class));
+        assertThat(storageConfigurationView.profiles().get("default"), instanceOf(PersistentPageMemoryProfileView.class));
     }
 }

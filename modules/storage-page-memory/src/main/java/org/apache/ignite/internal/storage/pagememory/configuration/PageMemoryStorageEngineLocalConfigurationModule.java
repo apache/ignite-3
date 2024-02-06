@@ -29,7 +29,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
@@ -79,7 +79,7 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
 
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
-        rootChange.changeRoot(StoragesConfiguration.KEY).changeProfiles(ch -> ch.createOrUpdate("default", p -> {
+        rootChange.changeRoot(StorageConfiguration.KEY).changeProfiles(ch -> ch.createOrUpdate("default", p -> {
             p.convert(PersistentPageMemoryProfileChange.class);
         }));
     }

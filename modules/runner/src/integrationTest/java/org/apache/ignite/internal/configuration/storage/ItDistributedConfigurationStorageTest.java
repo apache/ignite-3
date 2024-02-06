@@ -53,7 +53,7 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -84,7 +84,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
     private static NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
-    private static StoragesConfiguration storagesConfiguration;
+    private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -145,7 +145,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storagesConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

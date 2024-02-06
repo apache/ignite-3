@@ -36,7 +36,7 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -54,7 +54,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final PersistentPageMemoryProfileStorageEngineConfiguration engineConfig;
 
-    private final StoragesConfiguration storagesConfiguration;
+    private final StorageConfiguration storageConfiguration;
 
     private final PageIoRegistry ioRegistry;
 
@@ -86,14 +86,14 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
             PersistentPageMemoryProfileStorageEngineConfiguration engineConfig,
-            StoragesConfiguration storagesConfiguration,
+            StorageConfiguration storageConfiguration,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
-        this.storagesConfiguration = storagesConfiguration;
+        this.storageConfiguration = storageConfiguration;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
@@ -153,7 +153,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         }
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storagesConfiguration.profiles().value().stream().forEach(p -> {
+        storageConfiguration.profiles().value().stream().forEach(p -> {
             if (p instanceof PersistentPageMemoryProfileView) {
                 addDataRegion(p.name());
             }
@@ -210,7 +210,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      */
     private void addDataRegion(String name) {
         PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
-                (PersistentPageMemoryProfileConfiguration) storagesConfiguration.profiles().get(name);
+                (PersistentPageMemoryProfileConfiguration) storageConfiguration.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 

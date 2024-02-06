@@ -46,7 +46,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  storages: {\n"
+            + "  storage: {\n"
             + "    profiles: {default_aipersist: { engine: \"aipersist\"}, "
             +                "default_aimem: { engine: \"aimem\"}, default_rocksdb: { engine: \"rocksDb\"}}\n"
             + "  },\n"

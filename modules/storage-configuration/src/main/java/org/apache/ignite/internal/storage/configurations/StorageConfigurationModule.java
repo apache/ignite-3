@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
  * Storages configuration module.
  */
 @AutoService(ConfigurationModule.class)
-public class StoragesConfigurationModule implements ConfigurationModule {
+public class StorageConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
@@ -38,6 +38,6 @@ public class StoragesConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(StoragesConfiguration.KEY);
+        return List.of(StorageConfiguration.KEY);
     }
 }

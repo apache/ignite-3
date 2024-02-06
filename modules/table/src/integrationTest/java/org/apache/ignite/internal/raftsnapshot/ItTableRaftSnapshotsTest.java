@@ -124,7 +124,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             + "    }\n"
             + "  },\n"
             + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
-            + "  storages: {\n"
+            + "  storage: {\n"
             + "    profiles: {default_aipersist: { engine: \"aipersist\"}, "
             +                "default_aimem: { engine: \"aimem\"}, default_rocksdb: { engine: \"rocksDb\"}}\n"
             + "  },\n"

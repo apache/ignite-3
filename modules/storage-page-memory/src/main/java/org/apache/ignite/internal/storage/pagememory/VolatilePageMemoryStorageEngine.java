@@ -33,7 +33,7 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -51,7 +51,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private final String igniteInstanceName;
 
-    private final StoragesConfiguration storagesConfiguration;
+    private final StorageConfiguration storageConfiguration;
 
     private final VolatilePageMemoryProfileStorageEngineConfiguration engineConfig;
 
@@ -73,12 +73,12 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
             VolatilePageMemoryProfileStorageEngineConfiguration engineConfig,
-            StoragesConfiguration storagesConfiguration,
+            StorageConfiguration storageConfiguration,
             PageIoRegistry ioRegistry,
             PageEvictionTracker pageEvictionTracker) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
-        this.storagesConfiguration = storagesConfiguration;
+        this.storageConfiguration = storageConfiguration;
         this.ioRegistry = ioRegistry;
         this.pageEvictionTracker = pageEvictionTracker;
     }
@@ -90,7 +90,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        storagesConfiguration.profiles().value().stream().forEach(p -> {
+        storageConfiguration.profiles().value().stream().forEach(p -> {
             if (p instanceof VolatilePageMemoryProfileView) {
                 addDataRegion(p.name());
             }
@@ -142,7 +142,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      */
     private void addDataRegion(String name) {
         VolatilePageMemoryProfileConfiguration storageProfileConfiguration =
-                (VolatilePageMemoryProfileConfiguration) storagesConfiguration.profiles().get(name);
+                (VolatilePageMemoryProfileConfiguration) storageConfiguration.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 

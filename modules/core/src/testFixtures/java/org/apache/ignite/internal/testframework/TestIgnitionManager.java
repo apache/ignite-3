@@ -61,7 +61,7 @@ public class TestIgnitionManager {
             "aipersist.defaultRegion.size", Integer.toString(256 * MiB),
             "aimem.defaultRegion.initSize", Integer.toString(256 * MiB),
             "aimem.defaultRegion.maxSize", Integer.toString(256 * MiB),
-            "storages.profiles.default.engine", "aipersist"
+            "storage.profiles.default.engine", "aipersist"
     );
 
     /** Map with default cluster configuration values. */

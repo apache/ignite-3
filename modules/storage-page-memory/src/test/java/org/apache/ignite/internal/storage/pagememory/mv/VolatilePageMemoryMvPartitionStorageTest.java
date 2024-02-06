@@ -26,7 +26,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
@@ -43,7 +43,7 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
     private VolatilePageMemoryProfileStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
-    private StoragesConfiguration storagesConfiguration;
+    private StorageConfiguration storageConfiguration;
 
     private VolatilePageMemoryStorageEngine engine;
 
@@ -55,7 +55,7 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storagesConfiguration,
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration,
                 ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
         engine.start();

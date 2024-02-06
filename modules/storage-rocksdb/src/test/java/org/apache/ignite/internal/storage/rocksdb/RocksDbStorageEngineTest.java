@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -40,7 +40,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
     RocksDbProfileStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
-    StoragesConfiguration storagesConfiguration;
+    StorageConfiguration storageConfiguration;
 
     private RocksDbStorageEngine engine;
 
@@ -48,7 +48,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir);
 
         engine.start();
     }

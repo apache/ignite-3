@@ -21,7 +21,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -40,7 +40,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
     private PersistentPageMemoryProfileStorageEngineConfiguration engineConfiguration;
 
     @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\", size = 1048576}")
-    private StoragesConfiguration storagesConfiguration;
+    private StorageConfiguration storageConfiguration;
 
     @WorkDirectory
     private Path workDir;
@@ -54,7 +54,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
         return new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfiguration,
-                storagesConfiguration,
+                storageConfiguration,
                 ioRegistry,
                 workDir,
                 null

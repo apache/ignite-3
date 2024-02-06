@@ -77,7 +77,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: " + NODE_ATTRIBUTES
             + "  },\n"
-            + "  storages: {\n"
+            + "  storage: {\n"
             + "    profiles: " + STORAGE_PROFILES
             + "  },\n"
             + "  clientConnector: { port:{} },\n"

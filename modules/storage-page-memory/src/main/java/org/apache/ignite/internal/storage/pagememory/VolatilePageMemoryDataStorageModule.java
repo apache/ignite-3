@@ -27,7 +27,7 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
@@ -54,7 +54,7 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
     ) throws StorageException {
         VolatilePageMemoryProfileStorageEngineConfiguration engineConfig =
                 ((VolatilePageMemoryStorageEngineExtensionConfiguration) configRegistry
-                        .getConfiguration(StoragesConfiguration.KEY).engines()).aimem();
+                        .getConfiguration(StorageConfiguration.KEY).engines()).aimem();
 
         assert engineConfig != null;
 
@@ -63,6 +63,6 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
         ioRegistry.loadFromServiceLoader();
 
         return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig,
-                configRegistry.getConfiguration(StoragesConfiguration.KEY), ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
     }
 }

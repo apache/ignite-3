@@ -25,7 +25,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
@@ -50,12 +50,12 @@ public class RocksDbDataStorageModule implements DataStorageModule {
     ) throws StorageException {
         RocksDbProfileStorageEngineConfiguration engineConfig =
                 ((RocksDbStorageEngineExtensionConfiguration) configRegistry
-                        .getConfiguration(StoragesConfiguration.KEY).engines()).rocksdb();
+                        .getConfiguration(StorageConfiguration.KEY).engines()).rocksdb();
 
-        StoragesConfiguration storagesConfig = configRegistry.getConfiguration(StoragesConfiguration.KEY);
+        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
 
         assert engineConfig != null;
 
-        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storagesConfig, storagePath);
+        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storageConfig, storagePath);
     }
 }
