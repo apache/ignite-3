@@ -474,8 +474,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             return marsh;
         }
 
-        // TODO: Cache marshaller for schema version or upgrade row?
-
         SchemaRegistry registry = rowConverter.registry();
 
         marsh = marshallerFactory.apply(registry.schema(schemaVersion));
