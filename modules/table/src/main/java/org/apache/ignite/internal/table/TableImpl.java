@@ -91,8 +91,13 @@ public class TableImpl implements TableViewInternal {
      * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions, MarshallersProvider marshallers,
-            IgniteSql sql) {
+    public TableImpl(
+            InternalTable tbl,
+            LockManager lockManager,
+            SchemaVersions schemaVersions,
+            MarshallersProvider marshallers,
+            IgniteSql sql
+    ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.schemaVersions = schemaVersions;
