@@ -552,8 +552,19 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJobExecutionCancel()
         {
-            await Task.Delay(1);
-            Assert.Fail("TODO");
+            const int sleepMs = 5000;
+            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+
+            var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+            await jobExecution.CancelAsync();
+            JobStatus? status = await jobExecution.GetStatusAsync();
+
+            Assert.IsNotNull(status);
+            Assert.AreNotEqual(Guid.Empty, status!.Id);
+            Assert.AreEqual(JobState.Canceled, status.State);
+            Assert.Greater(status.CreateTime, beforeStart);
+            Assert.Greater(status.StartTime, status.CreateTime);
+            Assert.Greater(status.FinishTime, status.StartTime);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
