@@ -46,9 +46,11 @@ import org.jetbrains.annotations.TestOnly;
  * ------------------------------
  *     2  | data format version ({@link #PROTOCOL_VERSION})
  *     2  | entry type ({@link VersionedUpdate} or {@link SnapshotEntry})
- *
- * [fields of the corresponding event follow (for example, {@link VersionedUpdate}]
- *
+ * <list> | fields of the corresponding event follow (for example, {@link VersionedUpdate}
+ * </pre>
+ * 
+ * Versioned Update format description:
+ * <pre>
  *     4  | version
  *     8  | delayDurationMs
  *
