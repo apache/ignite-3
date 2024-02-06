@@ -26,7 +26,6 @@ import io.netty.util.concurrent.SingleThreadEventExecutor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -55,7 +54,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
 
     private final CriticalWorkersConfiguration criticalWorkersConfiguration;
 
-    private volatile List<NettyWorker> workers = new CopyOnWriteArrayList<>();
+    private volatile List<NettyWorker> workers;
 
     @Nullable
     private volatile ScheduledFuture<?> sendHearbeatsTaskFuture;
@@ -122,8 +121,11 @@ public class NettyWorkersRegistrar implements IgniteComponent {
             heartBeatsTaskFuture.cancel(false);
         }
 
-        for (NettyWorker worker : workers) {
-            criticalWorkerRegistry.unregister(worker);
+        List<NettyWorker> registeredWorkers = workers;
+        if (registeredWorkers != null) {
+            for (NettyWorker worker : registeredWorkers) {
+                criticalWorkerRegistry.unregister(worker);
+            }
         }
     }
 

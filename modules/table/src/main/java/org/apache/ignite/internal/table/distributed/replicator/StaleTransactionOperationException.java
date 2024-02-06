@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.internal.table.distributed.replicator;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STALE_OPERATION_ERR;
 
-/**
- * Exception is thrown when a data fetch attempt is performed on a closed cursor.
- */
-public class CursorClosedException extends SqlException {
+import java.util.UUID;
+import org.apache.ignite.tx.TransactionException;
+
+/** Error that occurs when a stale operation of a completed transaction is detected. */
+public class StaleTransactionOperationException extends TransactionException {
     /**
-     * Creates an exception instance.
+     * Constructor.
+     *
+     * @param txId Transaction ID.
      */
-    public CursorClosedException() {
-        super(CURSOR_CLOSED_ERR, "Cursor is closed");
+    public StaleTransactionOperationException(UUID txId) {
+        super(TX_STALE_OPERATION_ERR, format("Stale operation of a completed transaction was detected: [txId={}]", txId));
     }
 }

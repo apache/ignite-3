@@ -391,8 +391,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
-        // with using read timestamp could see that this transaction is finishing, see #transactionMetaReadTimestampAware(txId, timestamp).
-        // None of them now are able to update node's clock with read timestamp and we can create the commit timestamp that is greater
+        // with using read timestamp could see that this transaction is finishing (e.g. see TransactionStateResolver#processTxStateRequest).
+        // None of them are now able to update node's clock with read timestamp and we can create the commit timestamp that is greater
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.

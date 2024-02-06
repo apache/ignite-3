@@ -44,12 +44,13 @@ import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -1871,7 +1872,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
 
         if (cleanupReadyFut.isCompletedExceptionally()) {
-            return failedFuture(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
+            return failedFuture(new TransactionException(TX_ALREADY_FINISHED_ERR, "Transaction is already finished."));
         }
 
         CompletableFuture<T> fut = op.get();
@@ -2192,17 +2193,36 @@ public class PartitionReplicaListener implements ReplicaListener {
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
 
                 Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                BitSet deleted = request.deleted();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
 
-                    rowIdFuts[i] = resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
+                    boolean isDelete = deleted != null && deleted.get(i);
+
+                    BinaryTuple pk = isDelete
+                            ? resolvePk(searchRow.tupleSlice())
+                            : extractPk(searchRow);
+
+                    rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
+                        if (isDelete && rowId == null) {
+                            // Does not exist, nothing to delete.
+                            return nullCompletedFuture();
+                        }
+
                         boolean insert = rowId == null;
 
                         RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
 
                         if (lastCommitTime != null) {
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
+                        }
+
+                        if (isDelete) {
+                            assert row != null;
+
+                            return takeLocksForDelete(row, rowId0, txId)
+                                    .thenApply(id -> new IgniteBiTuple<>(id, null));
                         }
 
                         return insert
@@ -2216,13 +2236,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                     List<RowId> rows = new ArrayList<>();
 
                     for (int i = 0; i < searchRows.size(); i++) {
-                        RowId lockedRow = rowIdFuts[i].join().get1();
+                        IgniteBiTuple<RowId, Collection<Lock>> locks = rowIdFuts[i].join();
+                        if (locks == null) {
+                            continue;
+                        }
 
-                        rowsToUpdate.put(lockedRow.uuid(),
-                                MSG_FACTORY.timedBinaryRowMessage()
-                                        .binaryRowMessage(binaryRowMessage(searchRows.get(i)))
-                                        .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())))
-                                        .build());
+                        RowId lockedRow = locks.get1();
+
+                        TimedBinaryRowMessageBuilder timedBinaryRowMessageBuilder = MSG_FACTORY.timedBinaryRowMessage()
+                                .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())));
+
+                        if (deleted == null || !deleted.get(i)) {
+                            timedBinaryRowMessageBuilder.binaryRowMessage(binaryRowMessage(searchRows.get(i)));
+                        }
+
+                        rowsToUpdate.put(lockedRow.uuid(), timedBinaryRowMessageBuilder.build());
 
                         rows.add(lockedRow);
                     }
@@ -2243,8 +2271,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenApply(res -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
-                                    rowIdFut.join().get2()
-                                            .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                    IgniteBiTuple<RowId, Collection<Lock>> futRes = rowIdFut.join();
+                                    Collection<Lock> locks = futRes == null ? null : futRes.get2();
+
+                                    if (locks != null) {
+                                        locks.forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                    }
                                 }
 
                                 return new ReplicaResult(null, res);
@@ -3707,9 +3739,13 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
         if (request instanceof ReadWriteReplicaRequest) {
+            int rwTxActiveCatalogVersion = rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request);
+
             // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
             // otherwise there may be races/errors and the index will not be able to start building.
-            txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request));
+            if (!txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion)) {
+                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
+            }
         }
 
         return processOperationRequest(request, isPrimary, opStartTsIfDirectRo)
