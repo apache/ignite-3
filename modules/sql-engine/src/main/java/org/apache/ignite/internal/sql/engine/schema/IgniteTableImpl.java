@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -38,6 +39,8 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
 
     private final int partitions;
 
+    private AtomicReference<NativeType[]> colocationColumnTypes = new AtomicReference<>();
+
     /** Constructor. */
     public IgniteTableImpl(String name, int id, int version, TableDescriptor desc,
             Statistic statistic, Map<String, IgniteIndex> indexMap, int partitions) {
@@ -51,19 +54,25 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     @Override
     public Supplier<PartitionCalculator> partitionCalculator() {
         return () -> {
-            int fieldCnt = descriptor().distribution().getKeys().size();
-            NativeType[] fieldTypes = new NativeType[fieldCnt];
+            colocationColumnTypes.compareAndSet(null, evaluateTypes());
 
-            int[] colocationColumns = descriptor().distribution().getKeys().toIntArray();
-
-            for (int i = 0; i < fieldCnt; i++) {
-                ColumnDescriptor colDesc = descriptor().columnDescriptor(colocationColumns[i]);
-
-                fieldTypes[i] = colDesc.physicalType();
-            }
-
-            return new PartitionCalculator(partitions, fieldTypes);
+            return new PartitionCalculator(partitions, colocationColumnTypes.get());
         };
+    }
+
+    private NativeType[] evaluateTypes() {
+        int fieldCnt = descriptor().distribution().getKeys().size();
+        NativeType[] fieldTypes = new NativeType[fieldCnt];
+
+        int[] colocationColumns = descriptor().distribution().getKeys().toIntArray();
+
+        for (int i = 0; i < fieldCnt; i++) {
+            ColumnDescriptor colDesc = descriptor().columnDescriptor(colocationColumns[i]);
+
+            fieldTypes[i] = colDesc.physicalType();
+        }
+
+        return fieldTypes;
     }
 
     /** {@inheritDoc} */
