@@ -31,6 +31,8 @@ internal sealed record JobExecution<T> : IJobExecution<T>
 
     private readonly Compute _compute;
 
+    private volatile JobStatus? _finalStatus;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="JobExecution{T}"/> class.
     /// </summary>
@@ -42,6 +44,9 @@ internal sealed record JobExecution<T> : IJobExecution<T>
         Id = id;
         _resultTask = resultTask;
         _compute = compute;
+
+        // Wait for completion in background and cache the status.
+        _ = CacheStatusOnCompletion();
     }
 
     /// <inheritdoc/>
@@ -57,20 +62,32 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     /// <inheritdoc/>
     public async Task<JobStatus?> GetStatusAsync()
     {
-        if (_resultTask.IsCompletedSuccessfully)
+        var finalStatus = _finalStatus;
+        if (finalStatus != null)
         {
-            // TODO: What if the task failed, how do we cache the failed result?
-            var (_, status) = await _resultTask.ConfigureAwait(false);
-            return status;
+            return finalStatus;
         }
 
-        // TODO: Cache the result when it is final (i.e. not running or waiting).
-        return await _compute.GetJobStatusAsync(Id).ConfigureAwait(false);
+        var status = await _compute.GetJobStatusAsync(Id).ConfigureAwait(false);
+        if (status is { State: JobState.Completed or JobState.Failed or JobState.Canceled })
+        {
+            // Can't be transitioned to another state, cache it.
+            _finalStatus = status;
+        }
+
+        return status;
     }
 
     /// <inheritdoc/>
     public Task<bool?> CancelAsync()
     {
         throw new NotImplementedException();
+    }
+
+    private async Task CacheStatusOnCompletion()
+    {
+        var (_, status) = await _resultTask.ConfigureAwait(false);
+
+        _finalStatus = status;
     }
 }
