@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -140,7 +141,7 @@ public class TxMessageSender {
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
             TablePartitionId commitPartition,
-            Collection<ReplicationGroupId> replicationGroupIds,
+            Map<ReplicationGroupId, String> replicationGroupIds,
             UUID txId,
             Long consistencyToken,
             boolean commit,

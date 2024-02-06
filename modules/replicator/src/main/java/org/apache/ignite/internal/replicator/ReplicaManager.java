@@ -21,8 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -57,8 +55,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -232,9 +228,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "replica", LOG)
         );
-
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryReplicaElected);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
@@ -532,6 +525,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .thenCompose(v -> replicaFuture);
     }
 
+    private static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
+        return future.isDone() && !future.isCompletedExceptionally();
+    }
+
     /**
      * Stops a replica by the partition group id.
      *
@@ -747,51 +744,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .errorReplicaResponse()
                     .throwable(ex)
                     .build();
-        }
-    }
-
-
-    /**
-     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}. Propagates execution to the
-     *      {@link ReplicaListener#onPrimaryElected(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
-     *      to a given {@link PrimaryReplicaEventParameters#groupId()}.
-     */
-    private CompletableFuture<Boolean> onPrimaryReplicaElected(
-            PrimaryReplicaEventParameters primaryReplicaEventParameters,
-            Throwable throwable
-    ) {
-        CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
-
-        if (replica == null) {
-            return falseCompletedFuture();
-        }
-
-        if (replica.isDone() && !replica.isCompletedExceptionally()) {
-            return replica.join().replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable);
-        } else {
-            return replica.thenCompose(r -> r.replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable));
-        }
-    }
-
-    /**
-     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED}. Propagates execution to the
-     *      {@link ReplicaListener#onPrimaryExpired(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
-     *      to a given {@link PrimaryReplicaEventParameters#groupId()}.
-     */
-    private CompletableFuture<Boolean> onPrimaryReplicaExpired(
-            PrimaryReplicaEventParameters primaryReplicaEventParameters,
-            Throwable throwable
-    ) {
-        CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
-
-        if (replica == null) {
-            return falseCompletedFuture();
-        }
-
-        if (replica.isDone() && !replica.isCompletedExceptionally()) {
-            return replica.join().replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable);
-        } else {
-            return replica.thenCompose(r -> r.replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable));
         }
     }
 
