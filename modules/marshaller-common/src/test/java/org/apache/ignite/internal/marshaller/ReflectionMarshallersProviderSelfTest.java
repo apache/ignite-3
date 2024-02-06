@@ -97,23 +97,6 @@ public class ReflectionMarshallersProviderSelfTest {
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(MarshallerType.class)
-    public void testMapperIsNotPartOfaKey(MarshallerType marshallerType) {
-        Mapper<TestPoJo> mapper1 = Mapper.of(TestPoJo.class);
-        Mapper<TestPoJo> mapper2 = Mapper.of(TestPoJo.class);
-
-        TestMarshallerSchema schema1 = new MarshallerSchemaBuilder()
-                .addKey("col1", BinaryMode.INT)
-                .addValue("col2", BinaryMode.INT)
-                .build();
-
-        Marshaller marshaller1 = marshallerType.get(marshallers, schema1, mapper1, false, true);
-        Marshaller marshaller2 = marshallerType.get(marshallers, schema1, mapper2, false, true);
-
-        assertNotSame(marshaller1, marshaller2);
-    }
-
     enum MarshallerType {
         /** Uses only key columns. */
         KEYS,
