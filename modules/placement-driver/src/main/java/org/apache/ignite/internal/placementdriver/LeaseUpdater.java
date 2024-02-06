@@ -403,7 +403,7 @@ public class LeaseUpdater {
 
             if (shouldLogLeaseStatistics()) {
                 LOG.info(
-                        "Leases updated (printed once per {} iteration(s)): [updatedOnCurrentIteration={}, active={}, "
+                        "Leases updated (printed once per {} iteration(s)): [inCurrentIteration={}, active={}, "
                                 + "currentAssignmentsSize={}].",
                         LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS,
                         leaseUpdateStatistics,
