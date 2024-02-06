@@ -24,12 +24,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for ignite node commands with a provided node name. */
-public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
+public class ItNodeNameTest extends CliIntegrationTest {
 
     @Override
     protected Class<?> getCommandClass() {
@@ -46,8 +47,7 @@ public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
 
     @Test
     void nodeUrls() {
-        List<String> urls = CLUSTER_NODES.stream()
-                .map(IgniteImpl.class::cast)
+        List<String> urls = CLUSTER.runningNodes()
                 .map(IgniteImpl::restHttpAddress)
                 .map(address -> "http://" + address)
                 .collect(Collectors.toList());

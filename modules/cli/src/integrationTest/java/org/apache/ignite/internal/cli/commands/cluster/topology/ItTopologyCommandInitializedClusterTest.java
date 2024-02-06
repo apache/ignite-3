@@ -19,14 +19,14 @@ package org.apache.ignite.internal.cli.commands.cluster.topology;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link TopologyCommand}.
  */
-class ItTopologyCommandInitializedClusterTest extends CliCommandTestInitializedIntegrationBase {
+class ItTopologyCommandInitializedClusterTest extends CliIntegrationTest {
 
     @Test
     @DisplayName("Should print physical topology when valid cluster url is provided")
