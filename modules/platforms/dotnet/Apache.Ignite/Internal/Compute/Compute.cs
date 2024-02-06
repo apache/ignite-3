@@ -135,6 +135,22 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
+        /// <summary>
+        /// Gets the job status.
+        /// </summary>
+        /// <param name="jobId">Job ID.</param>
+        /// <returns>Status.</returns>
+        internal async Task<JobStatus?> GetJobStatusAsync(Guid jobId)
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeGetStatus, writer).ConfigureAwait(false);
+            return Read(res.GetReader());
+
+            JobStatus? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadJobStatus(reader);
+        }
+
         [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
         private static IClusterNode GetRandomNode(ICollection<IClusterNode> nodes)
         {
