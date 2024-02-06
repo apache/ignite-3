@@ -79,10 +79,7 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     }
 
     /// <inheritdoc/>
-    public Task<bool?> CancelAsync()
-    {
-        throw new NotImplementedException();
-    }
+    public async Task<bool?> CancelAsync() => await _compute.CancelJobAsync(Id).ConfigureAwait(false);
 
     private async Task CacheStatusOnCompletion()
     {
