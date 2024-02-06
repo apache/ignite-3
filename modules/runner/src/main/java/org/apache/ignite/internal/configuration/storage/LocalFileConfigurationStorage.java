@@ -66,6 +66,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link ConfigurationStorage} based on local file configuration storage.
@@ -112,7 +113,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      * @param generator Configuration tree generator.
      * @param module Configuration module, which provides configuration patches.
      */
-    public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator, ConfigurationModule module) {
+    public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
@@ -122,20 +123,12 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     /**
-     * Constructor.
+     * Patch the local configs with defaults from provided {@link ConfigurationModule}.
      *
-     * @param configPath Path to node bootstrap configuration file.
-     * @param generator Configuration tree generator.
+     * @param hocon Config string in Hocon format.
+     * @param module Configuration module, which provides configuration patches.
+     * @return Patched config string in Hocon format.
      */
-    public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator) {
-        this.configPath = configPath;
-        this.generator = generator;
-        this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
-        this.module = null;
-
-        checkAndRestoreConfigFile();
-    }
-
     private String patch(String hocon, ConfigurationModule module) {
         if (module == null) {
             return hocon;

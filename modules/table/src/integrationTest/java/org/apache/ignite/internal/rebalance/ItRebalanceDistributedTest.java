@@ -897,7 +897,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             StorageConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
-                    new LocalFileConfigurationStorage(configPath, nodeCfgGenerator),
+                    new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                     nodeCfgGenerator,
                     new TestConfigurationValidator()
             );
