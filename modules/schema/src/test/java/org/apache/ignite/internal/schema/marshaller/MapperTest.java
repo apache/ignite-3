@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
  * Columns mappers test.
  */
 public class MapperTest {
-    private static final Class[] CLASSES = {
+    private static final Class<?>[] CLASSES = {
             Byte.class,
             Short.class,
             Integer.class,
