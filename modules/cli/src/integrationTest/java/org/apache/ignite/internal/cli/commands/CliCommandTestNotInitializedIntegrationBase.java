@@ -17,197 +17,23 @@
 
 package org.apache.ignite.internal.cli.commands;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import io.micronaut.configuration.picocli.MicronautFactory;
-import io.micronaut.context.ApplicationContext;
-import jakarta.inject.Inject;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import org.apache.ignite.internal.cli.CliIntegrationTestBase;
-import org.apache.ignite.internal.cli.call.connect.ConnectCall;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
-import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
-import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
-import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
-import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
-import org.apache.ignite.internal.cli.event.EventPublisher;
-import org.apache.ignite.internal.cli.event.Events;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
+import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-import picocli.CommandLine;
 
 /**
  * Integration test base for cli commands. Setup commands, ignite cluster, and provides useful fixtures and assertions. Note: ignite cluster
- * won't be initialized. If you want to use initialized cluster use {@link CliCommandTestInitializedIntegrationBase}.
+ * won't be initialized. If you want to use initialized cluster use {@link CliIntegrationTest} directly.
  */
-public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationTestBase {
-    /** Correct ignite jdbc url. */
-    protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:10800";
-
-    @Inject
-    private ConfigDefaultValueProvider configDefaultValueProvider;
-
-    @Inject
-    protected TestConfigManagerProvider configManagerProvider;
-
-    @Inject
-    private ApplicationContext context;
-
-    @Inject
-    protected NodeNameRegistry nodeNameRegistry;
-
-    @Inject
-    protected JdbcUrlRegistry jdbcUrlRegistry;
-
-    @Inject
-    protected ConnectCall connectCall;
-
-    private CommandLine cmd;
-
-    private StringWriter sout;
-
-    private StringWriter serr;
-
-    private int exitCode = Integer.MIN_VALUE;
-
-    @Inject
-    private EventPublisher eventPublisher;
-
-    @Inject
-    private EventListeningActivationPoint eventListeningActivationPoint;
-
-    @BeforeEach
-    public void setUp() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
-        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
-        cmd.setDefaultValueProvider(configDefaultValueProvider);
-        eventListeningActivationPoint.subscribe();
-        resetOutput();
-        CommandLineContextProvider.setCmd(cmd);
-    }
-
-    @AfterEach
-    public void tearDown() {
-        eventPublisher.publish(Events.disconnect());
-    }
-
-    protected void resetOutput() {
-        sout = new StringWriter();
-        serr = new StringWriter();
-        cmd.setOut(new PrintWriter(sout));
-        cmd.setErr(new PrintWriter(serr));
-    }
-
+public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationTest {
     @BeforeAll
-    void beforeAll(TestInfo testInfo) {
-        startNodes(testInfo);
-    }
+    @Override
+    protected void beforeAll(TestInfo testInfo) {
+        CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
-    @AfterAll
-    void afterAll(TestInfo testInfo) throws Exception {
-        stopNodes(testInfo);
-    }
-
-    protected Class<?> getCommandClass() {
-        return TopLevelCliCommand.class;
-    }
-
-    protected void execute(String... args) {
-        exitCode = cmd.execute(args);
-    }
-
-    protected CommandLine commandLine() {
-        return cmd;
-    }
-
-    protected void assertExitCodeIs(int expectedExitCode) {
-        assertThat(exitCode)
-                .as("Expected exit code to be: " + expectedExitCode + " but was " + exitCode)
-                .isEqualTo(expectedExitCode);
-    }
-
-    protected void assertExitCodeIsZero() {
-        assertExitCodeIs(0);
-    }
-
-    protected void assertOutputIsNotEmpty() {
-        assertThat(sout.toString())
-                .as("Expected command output not to be empty")
-                .isNotEmpty();
-    }
-
-    protected void assertOutputIs(String expectedOutput) {
-        assertThat(sout.toString())
-                .as("Expected command output to be: " + expectedOutput + " but was " + sout.toString())
-                .isEqualTo(expectedOutput);
-    }
-
-    protected void assertOutputContains(String expectedOutput) {
-        assertThat(sout.toString())
-                .as("Expected command output to contain: " + expectedOutput + " but was " + sout.toString())
-                .contains(expectedOutput);
-    }
-
-    protected void assertOutputMatches(String regex) {
-        assertThat(sout.toString())
-                .as("Expected command output to match regex: " + regex + " but it is not: " + sout.toString())
-                .matches(regex);
-    }
-
-    protected void assertOutputIsEmpty() {
-        assertThat(sout.toString())
-                .as("Expected command output to be empty")
-                .isEmpty();
-    }
-
-    protected void assertErrOutputIsNotEmpty() {
-        assertThat(serr.toString())
-                .as("Expected command error output not to be empty")
-                .isNotEmpty();
-    }
-
-    protected void assertErrOutputIsEmpty() {
-        assertThat(serr.toString())
-                .as("Expected command error output to be empty")
-                .isEmpty();
-    }
-
-    protected void assertErrOutputIs(String expectedErrOutput) {
-        assertThat(serr.toString())
-                .as("Expected command error output to be equal to: " + expectedErrOutput)
-                .isEqualTo(expectedErrOutput);
-    }
-
-    protected void assertErrOutputContains(String expectedErrOutput) {
-        assertThat(serr.toString())
-                .as("Expected command error output to contain: " + expectedErrOutput)
-                .contains(expectedErrOutput);
-    }
-
-    protected void setConfigProperty(CliConfigKeys key, String value) {
-        configManagerProvider.configManager.setProperty(key.value(), value);
-    }
-
-    protected String getConfigProperty(CliConfigKeys key) {
-        return configManagerProvider.get().getCurrentProperty(key.value());
-    }
-
-    /** Mimics non-REPL "connect" command without starting REPL mode. Overriding getCommandClass and returning TopLevelCliReplCommand
-     * wouldn't help because it will start to ask questions.
-     */
-    protected void connect(String url) {
-        Flows.from(ConnectCallInput.builder().url(url).build())
-                .then(Flows.fromCall(connectCall))
-                .print()
-                .start();
+        for (int i = 0; i < initialNodes(); i++) {
+            CLUSTER.startNodeAsync(i);
+        }
     }
 }

@@ -21,18 +21,18 @@ import static org.apache.ignite.internal.NodeConfig.clientConnectorSslBootstrapC
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Tests for JDBC SSL. */
-public class ItJdbcSslCustomCipherTest extends CliCommandTestInitializedIntegrationBase {
+public class ItJdbcSslCustomCipherTest extends CliIntegrationTest {
     private static final String CIPHER1 = "TLS_AES_256_GCM_SHA384";
     private static final String CIPHER2 = "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384";
 
     @Override
-    protected String nodeBootstrapConfigTemplate() {
+    protected String getNodeBootstrapConfigTemplate() {
         return clientConnectorSslBootstrapConfig(CIPHER1);
     }
 

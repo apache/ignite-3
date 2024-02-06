@@ -31,7 +31,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -76,8 +75,8 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     private final TablePartitionId partition1Id = new TablePartitionId(1, 1);
     private final TablePartitionId partition2Id = new TablePartitionId(2, 2);
 
-    private final TxMeta meta1 = new TxMeta(TxState.ABORTED, List.of(partition1Id), clock.now());
-    private final TxMeta meta2 = new TxMeta(TxState.COMMITTED, List.of(partition1Id, partition2Id), clock.now());
+    private final TxMeta meta1 = new TxMeta(TxState.ABORTED, clock.now());
+    private final TxMeta meta2 = new TxMeta(TxState.COMMITTED,  clock.now());
 
     private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
@@ -101,11 +100,9 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
         assertThat(response.txMeta(), hasSize(2));
 
         assertThat(response.txMeta().get(0).txState(), is(TxState.ABORTED));
-        assertThat(new ArrayList<>(response.txMeta().get(0).enlistedPartitions()), is(List.of(partition1Id)));
         assertThat(response.txMeta().get(0).commitTimestamp(), is(meta1.commitTimestamp()));
 
         assertThat(response.txMeta().get(1).txState(), is(TxState.COMMITTED));
-        assertThat(new ArrayList<>(response.txMeta().get(1).enlistedPartitions()), is(List.of(partition1Id, partition2Id)));
         assertThat(response.txMeta().get(1).commitTimestamp(), is(meta2.commitTimestamp()));
     }
 

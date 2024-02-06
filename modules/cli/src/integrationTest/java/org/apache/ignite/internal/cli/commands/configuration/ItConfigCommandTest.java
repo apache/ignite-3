@@ -20,14 +20,14 @@ package org.apache.ignite.internal.cli.commands.configuration;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for cluster/node config commands.
  */
-class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
+class ItConfigCommandTest extends CliIntegrationTest {
     @Test
     @DisplayName("Should read config when valid cluster-endpoint-url is given")
     void readDefaultConfig() {
