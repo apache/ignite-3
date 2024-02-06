@@ -24,31 +24,48 @@ using Ignite.Compute;
 /// <summary>
 /// Job execution.
 /// </summary>
-/// <param name="Id">Job ID.</param>
-/// <param name="ResultTask">Result task.</param>
-/// <param name="Compute">Compute.</param>
-/// <typeparam name="T"></typeparam>
-internal sealed record JobExecution<T>(Guid Id, Task<(T Result, JobStatus Status)> ResultTask, Compute Compute) : IJobExecution<T>
+/// <typeparam name="T">Job result type.</typeparam>
+internal sealed record JobExecution<T> : IJobExecution<T>
 {
+    private readonly Task<(T Result, JobStatus Status)> _resultTask;
+
+    private readonly Compute _compute;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JobExecution{T}"/> class.
+    /// </summary>
+    /// <param name="id">Job id.</param>
+    /// <param name="resultTask">Result task.</param>
+    /// <param name="compute">Compute.</param>
+    public JobExecution(Guid id, Task<(T Result, JobStatus Status)> resultTask, Compute compute)
+    {
+        Id = id;
+        _resultTask = resultTask;
+        _compute = compute;
+    }
+
+    /// <inheritdoc/>
+    public Guid Id { get; }
+
     /// <inheritdoc/>
     public async Task<T> GetResultAsync()
     {
-        var (result, _) = await ResultTask.ConfigureAwait(false);
+        var (result, _) = await _resultTask.ConfigureAwait(false);
         return result;
     }
 
     /// <inheritdoc/>
     public async Task<JobStatus?> GetStatusAsync()
     {
-        if (ResultTask.IsCompletedSuccessfully)
+        if (_resultTask.IsCompletedSuccessfully)
         {
             // TODO: What if the task failed, how do we cache the failed result?
-            var (_, status) = await ResultTask.ConfigureAwait(false);
+            var (_, status) = await _resultTask.ConfigureAwait(false);
             return status;
         }
 
         // TODO: Cache the result when it is final (i.e. not running or waiting).
-        return await Compute.GetJobStatusAsync(Id).ConfigureAwait(false);
+        return await _compute.GetJobStatusAsync(Id).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
