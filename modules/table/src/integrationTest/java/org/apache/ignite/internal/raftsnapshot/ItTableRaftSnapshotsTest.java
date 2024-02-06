@@ -94,7 +94,6 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -469,15 +468,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        var n0name = cluster.node(0).name();
-
         knockoutNode(0);
-
-/*        waitForCondition(() -> {
-            var n = cluster.node(2);
-            var fut = n.placementDriver().awaitPrimaryReplica(new TablePartitionId(7, 0), n.clock().now(), 10, TimeUnit.SECONDS);
-            return !fut.join().getLeaseholder().equals(n0name);
-        }, 10_000);*/
 
         putToNode(2, 2, "two");
 
