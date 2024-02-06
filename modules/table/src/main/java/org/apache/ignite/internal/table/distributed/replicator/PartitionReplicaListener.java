@@ -645,7 +645,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
         } else if (request instanceof BuildIndexReplicaRequest) {
-            return raftClient.run(toBuildIndexCommand((BuildIndexReplicaRequest) request));
+            return processBuildIndexReplicaRequest((BuildIndexReplicaRequest) request);
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
             return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
@@ -3795,5 +3795,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private CompletableFuture<?> processBuildIndexReplicaRequest(BuildIndexReplicaRequest request) {
+        return txRwOperationTracker.awaitCompleteTxRwOperations(request.creationCatalogVersion())
+                .thenCompose(unused -> raftClient.run(toBuildIndexCommand(request)));
     }
 }
