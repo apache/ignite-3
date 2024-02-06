@@ -22,6 +22,7 @@ using System.Buffers.Binary;
 using System.IO;
 using BinaryTuple;
 using Ignite.Sql;
+using NodaTime;
 
 /// <summary>
 /// MsgPack reader.
@@ -213,6 +214,14 @@ internal ref struct MsgPackReader
 
         return UuidSerializer.Read(GetSpan(16));
     }
+
+    /// <summary>
+    /// Reads Instant value.
+    /// </summary>
+    /// <returns>Instant.</returns>
+    public Instant? ReadInstantNullable() => TryReadNil()
+        ? null
+        : Instant.FromUnixTimeSeconds(ReadInt64()).PlusNanoseconds(ReadInt32());
 
     /// <summary>
     /// Skips a value.

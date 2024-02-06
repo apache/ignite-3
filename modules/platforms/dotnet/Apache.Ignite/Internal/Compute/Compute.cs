@@ -212,11 +212,30 @@ namespace Apache.Ignite.Internal.Compute
 
             return new JobExecution<T>(jobId, resultTask);
 
-            static async Task<T> GetResult(NotificationHandler handler)
+            static async Task<(T, JobStatus)> GetResult(NotificationHandler handler)
             {
                 using var notificationRes = await handler.Task.ConfigureAwait(false);
-                return (T)notificationRes.GetReader().ReadObjectFromBinaryTuple()!;
+                return Read(notificationRes.GetReader());
             }
+
+            static (T, JobStatus) Read(MsgPackReader reader)
+            {
+                var res = (T)reader.ReadObjectFromBinaryTuple()!;
+                var status = ReadJobStatus(reader);
+
+                return (res, status);
+            }
+        }
+
+        private static JobStatus ReadJobStatus(MsgPackReader reader)
+        {
+            var id = reader.ReadGuid();
+            var state = (JobState)reader.ReadInt32();
+            var createTime = reader.ReadInstantNullable();
+            var startTime = reader.ReadInstantNullable();
+            var endTime = reader.ReadInstantNullable();
+
+            return new JobStatus(id, state, createTime.GetValueOrDefault(), startTime, endTime);
         }
 
         private async Task<IJobExecution<T>> ExecuteOnNodes<T>(
