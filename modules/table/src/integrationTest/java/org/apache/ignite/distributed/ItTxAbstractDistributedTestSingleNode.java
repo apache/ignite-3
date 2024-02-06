@@ -38,13 +38,13 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Test class that is used for the tests that should be run on single node cluster only.
  */
-public abstract class ItTxDistributedTestSingleNodeAbstract extends ItTxAbstractDistributedTest {
+public abstract class ItTxAbstractDistributedTestSingleNode extends ItTxAbstractDistributedTest {
     /**
      * The constructor.
      *
      * @param testInfo Test info.
      */
-    public ItTxDistributedTestSingleNodeAbstract(TestInfo testInfo) {
+    public ItTxAbstractDistributedTestSingleNode(TestInfo testInfo) {
         super(testInfo);
     }
 

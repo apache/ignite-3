@@ -22,7 +22,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Distributed transaction test using a single partition table.
  */
-public class ItTxDistributedTestSingleNode extends ItTxDistributedTestSingleNodeAbstract {
+public class ItTxDistributedTestSingleNode extends ItTxAbstractDistributedTestSingleNode {
     /**
      * The constructor.
      *
