@@ -302,13 +302,14 @@ namespace Apache.Ignite.Tests
 
                         using var resWriter = new PooledArrayBuffer();
 
+                        var rw = resWriter.MessageWriter;
                         if (opCode == ClientOp.ComputeExecuteColocated)
                         {
                             // Schema version.
-                            resWriter.MessageWriter.Write(1);
+                            rw.Write(1);
                         }
 
-                        resWriter.MessageWriter.Write(Guid.NewGuid());
+                        rw.Write(Guid.NewGuid());
 
                         Send(handler, requestId, resWriter);
                         Send(handler, requestId, pooledArrayBuffer, isNotification: true);
@@ -666,6 +667,14 @@ namespace Apache.Ignite.Tests
             var writer = new MsgPackWriter(arrayBufferWriter);
 
             writer.Write(builder.Build().Span);
+
+            // Status
+            writer.Write(Guid.NewGuid());
+            writer.Write(0); // State.
+            writer.Write(0L); // Create time.
+            writer.Write(0);
+            writer.WriteNil(); // Start time.
+            writer.WriteNil(); // Finish time.
 
             return arrayBufferWriter;
         }
