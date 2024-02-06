@@ -20,7 +20,7 @@ package org.apache.ignite.internal.replicator.message;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * Message with a timestamp to adjust a hybrid logical clock.

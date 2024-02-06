@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.network.message;
 
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 
 /** Message for the {@link FieldDescriptor}. */
 @Transferable(NetworkMessageTypes.FIELD_DESCRIPTOR_MESSAGE)

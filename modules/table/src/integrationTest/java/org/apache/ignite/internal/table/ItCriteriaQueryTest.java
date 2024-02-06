@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
@@ -63,10 +64,12 @@ import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.CursorClosedException;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.CriteriaException;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -152,7 +155,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @MethodSource
     public <T> void testRecordViewQuery(CriteriaQuerySource<T> view, Function<T, Tuple> mapper) {
         assertThrows(
-                IgniteException.class,
+                CriteriaException.class,
                 () -> view.query(null, columnValue("id", equalTo("2"))),
                 "Dynamic parameter requires adding explicit type cast"
         );
@@ -257,7 +260,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @MethodSource
     public <T> void testKeyValueView(CriteriaQuerySource<T> view, Function<T, Entry<Tuple, Tuple>> mapper) {
         assertThrows(
-                IgniteException.class,
+                CriteriaException.class,
                 () -> view.query(null, columnValue("id", equalTo("2"))),
                 "Dynamic parameter requires adding explicit type cast"
         );
@@ -413,6 +416,40 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         await(ars.closeAsync());
     }
 
+    private static Stream<Arguments> allViews() {
+        Table table = CLUSTER.aliveNode().tables().table(TABLE_NAME);
+        Table clientTable = CLIENT.tables().table(TABLE_NAME);
+
+        return Stream.of(
+                Arguments.of(table.keyValueView()),
+                Arguments.of(table.keyValueView(TestObjectKey.class, TestObject.class)),
+                Arguments.of(clientTable.keyValueView()),
+                Arguments.of(clientTable.keyValueView(TestObjectKey.class, TestObject.class))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("allViews")
+    void testFetchCursorIsClosed(CriteriaQuerySource<TestObject> view) {
+        AsyncCursor<TestObject> ars1 = await(view.queryAsync(null, null, builder().pageSize(2).build()));
+
+        assertNotNull(ars1);
+        await(ars1.closeAsync());
+        assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_CLOSED_ERR, () -> await(ars1.fetchNextPage()), "Cursor is closed");
+
+        AsyncCursor<TestObject> ars2 = await(view.queryAsync(null, null, builder().pageSize(3).build()));
+
+        assertNotNull(ars2);
+        assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_CLOSED_ERR, () -> await(ars2.fetchNextPage()), "Cursor is closed");
+    }
+
+    @ParameterizedTest
+    @MethodSource("allViews")
+    <T> void testInvalidColumnName(CriteriaQuerySource<T> view) {
+        assertThrows(CriteriaException.class, () -> await(view.queryAsync(null, columnValue("id1", equalTo(2)))),
+                "Unexpected column name: ID1");
+    }
+
     private static Stream<Arguments> testRecordViewWithQuotes() {
         Table table = CLUSTER.aliveNode().tables().table(QUOTED_TABLE_NAME);
         Table clientTable = CLIENT.tables().table(QUOTED_TABLE_NAME);
@@ -494,7 +531,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         int baseSessionsCount = activeSessionsCount();
 
         assertThrows(
-                IgniteException.class,
+                CriteriaException.class,
                 () -> view.query(tx, columnValue("id", equalTo(2))),
                 "Transaction is already finished"
         );

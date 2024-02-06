@@ -20,6 +20,7 @@ package org.apache.ignite.internal.lang;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.SqlException;
@@ -36,6 +37,7 @@ public class SqlExceptionMapperUtil {
      * <ul>
      *     <li>any instance of {@link Error} is returned as is, except {@link AssertionError}
      *     that will always be mapped to {@link SqlException} with the {@link Common#INTERNAL_ERR} error code.</li>
+     *     <li>any instance of {@link SqlException}, {@link CursorClosedException} is returned as is</li>
      *     <li>any instance of {@link TraceableException} is wrapped into {@link SqlException}
      *         with the original {@link TraceableException#traceId() traceUd} and {@link TraceableException#code() code}.</li>
      *     <li>if there are no any mappers that can do a mapping from the given error to a public exception,
@@ -50,7 +52,7 @@ public class SqlExceptionMapperUtil {
         if (e instanceof Error) {
             return e;
         }
-        if (e instanceof SqlException) {
+        if (e instanceof SqlException || e instanceof CursorClosedException) {
             return e;
         }
 

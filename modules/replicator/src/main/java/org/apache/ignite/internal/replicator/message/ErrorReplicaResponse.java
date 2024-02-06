@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * The message can be sent as a response to any {@link ReplicaRequest} if an unhandled exception has been thrown during a request

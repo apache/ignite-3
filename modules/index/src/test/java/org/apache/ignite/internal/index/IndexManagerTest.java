@@ -95,6 +95,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -415,6 +416,10 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         return CatalogTestUtils.index(catalogManager, catalogVersion, indexName);
     }
 
+    private @Nullable CatalogIndexDescriptor indexOrNull(int catalogVersion, String indexName) {
+        return CatalogTestUtils.indexOrNull(catalogManager, catalogVersion, indexName);
+    }
+
     private void createTable(String tableName) {
         TestIndexManagementUtils.createTable(catalogManager, tableName, COLUMN_NAME);
     }
@@ -465,9 +470,14 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         var res = new ArrayList<CatalogIndexDescriptor>(indexNames.length);
 
         for (String indexName : indexNames) {
-            res.add(index(catalogManager.latestCatalogVersion(), indexName));
+            int versionBeforeDrop = catalogManager.latestCatalogVersion();
+            CatalogIndexDescriptor indexBeforeDropping = index(versionBeforeDrop, indexName);
 
             dropIndex(indexName);
+
+            CatalogIndexDescriptor indexAfterDropping = indexOrNull(versionBeforeDrop + 1, indexName);
+
+            res.add(indexAfterDropping != null ? indexAfterDropping : indexBeforeDropping);
         }
 
         return res;

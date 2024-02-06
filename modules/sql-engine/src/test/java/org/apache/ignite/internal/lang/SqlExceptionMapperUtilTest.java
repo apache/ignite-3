@@ -25,9 +25,14 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.util.stream.Stream;
+import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests mapping internal exceptions to public SqlException.
@@ -49,16 +54,22 @@ class SqlExceptionMapperUtilTest {
         assertThat("Mapped exception shouldn't have the same error code.", mappedSqlErr.code(), is(INTERNAL_ERR));
     }
 
+    private static Stream<Arguments> testSqlInternalExceptionDefaultMappingForPublicException() {
+        return Stream.of(
+                Arguments.of(new NoRowSetExpectedException()),
+                Arguments.of(new CursorClosedException())
+        );
+    }
+
     /**
      * Tests a default mapping of internal exceptions passed from the sql engine.
      */
-    @Test
-    public void testSqlInternalExceptionDefaultMappingForSqlException() {
-        NoRowSetExpectedException sqlErr = new NoRowSetExpectedException();
+    @ParameterizedTest
+    @MethodSource
+    public void testSqlInternalExceptionDefaultMappingForPublicException(Throwable err) {
+        Throwable mappedErr = mapToPublicSqlException(err);
 
-        Throwable mappedErr = mapToPublicSqlException(sqlErr);
-
-        assertSame(sqlErr, mappedErr);
+        assertSame(err, mappedErr);
     }
 
     /**

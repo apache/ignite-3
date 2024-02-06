@@ -92,6 +92,13 @@ public interface InternalTransaction extends Transaction {
     HybridTimestamp startTimestamp();
 
     /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return Transaction coordinator inconsistent ID.
+     */
+    String coordinatorId();
+
+    /**
      * Finishes a read-only transaction with a specific execution timestamp.
      *
      * @param commit Commit flag. The flag is ignored for read-only transactions.

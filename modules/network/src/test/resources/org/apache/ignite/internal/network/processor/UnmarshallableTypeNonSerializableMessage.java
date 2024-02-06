@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.network.processor;
 
 import java.util.ArrayList;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 @Transferable(value = 1, autoSerializable = false)
 public interface UnmarshallableTypeNonSerializableMessage extends NetworkMessage {

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
-import org.apache.ignite.network.OutNetworkObject;
 
 /** Outbound handler that adds outgoing message to the recovery descriptor. */
 public class OutboundRecoveryHandler extends ChannelOutboundHandlerAdapter {

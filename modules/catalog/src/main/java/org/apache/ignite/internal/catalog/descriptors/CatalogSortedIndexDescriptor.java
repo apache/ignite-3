@@ -85,7 +85,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogSortedIndexDescriptor.class, this, super.toString());
     }
 }
 

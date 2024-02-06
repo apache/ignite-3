@@ -26,10 +26,10 @@ import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.network.OutNetworkObject;
 import org.jetbrains.annotations.TestOnly;
 
 /**

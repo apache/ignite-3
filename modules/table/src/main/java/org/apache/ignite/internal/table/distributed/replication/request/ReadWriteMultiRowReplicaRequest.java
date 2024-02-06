@@ -17,18 +17,28 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.util.BitSet;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write multi-row replica request.
  */
 @Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest {
     /**
      * Disable delayed ack optimization.
      *
      * @return {@code True} to disable the delayed ack optimization.
      */
     boolean skipDelayedAck();
+
+    /**
+     * Deleted flags (one for every tuple in {@link #binaryTuples()}.
+     *
+     * @return A bit for every tuple in {@link #binaryTuples()} indicating a delete operation.
+     */
+    @Nullable
+    BitSet deleted();
 }

@@ -15,10 +15,6 @@
  * limitations under the License.
  */
 
-plugins {
-    alias(libs.plugins.shadow)
-}
-
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
@@ -64,13 +60,4 @@ test {
         excludeTestsMatching "*VariableSourceTest\$*"
         excludeTestsMatching "*WorkDirectoryExtensionTest\$*"
     }
-}
-
-shadowJar {
-    archiveAppendix.set('shaded')
-    archiveClassifier.set('shaded')
-
-    minimize()
-
-    relocate('it.unimi.dsi.fastutil', 'it.unimi.dsi.shaded.fastutil')
 }
