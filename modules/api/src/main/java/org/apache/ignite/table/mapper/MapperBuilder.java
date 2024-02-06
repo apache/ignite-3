@@ -259,7 +259,7 @@ public final class MapperBuilder<T> {
         isStale = true;
 
         if (columnToFields == null) {
-            return OneColumnMapperImpl.getInstance(targetType, mappedToColumn, (TypeConverter<T, ?>) columnConverters.get(mappedToColumn));
+            return new OneColumnMapperImpl<>(targetType, mappedToColumn, (TypeConverter<T, ?>) columnConverters.get(mappedToColumn));
         }
 
         Map<String, String> mapping = this.columnToFields;
@@ -280,6 +280,6 @@ public final class MapperBuilder<T> {
                     .forEach(fldName -> mapping.putIfAbsent(fldName.toUpperCase(), fldName));
         }
 
-        return PojoMapperImpl.getInstance(targetType, mapping, columnConverters);
+        return new PojoMapperImpl<>(targetType, mapping, columnConverters);
     }
 }

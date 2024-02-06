@@ -36,6 +36,8 @@ public class ReflectionMarshallersProviderSelfTest {
     @ParameterizedTest
     @EnumSource(MarshallerType.class)
     public void testMarshallerCache(MarshallerType marshallerType) {
+        Mapper<TestPoJo> mapper = Mapper.of(TestPoJo.class);
+
         // This test assumes that Mappers are cached.
 
         TestMarshallerSchema schema1 = new MarshallerSchemaBuilder()
@@ -45,10 +47,11 @@ public class ReflectionMarshallersProviderSelfTest {
                 .build();
 
         // Same schema - same versions, same content
+
         {
-            Marshaller m1 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m2 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m3 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), true, true);
+            Marshaller m1 = marshallerType.get(marshallers, schema1, mapper, false, true);
+            Marshaller m2 = marshallerType.get(marshallers, schema1, mapper, false, true);
+            Marshaller m3 = marshallerType.get(marshallers, schema1, mapper, true, true);
 
             assertSame(m1, m2);
             assertNotSame(m1, m3);
@@ -64,9 +67,9 @@ public class ReflectionMarshallersProviderSelfTest {
 
         // Different schemas - different versions, different content
         {
-            Marshaller m1 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m2 = marshallerType.get(marshallers, schema2, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m3 = marshallerType.get(marshallers, schema2, Mapper.of(TestPoJo.class), true, true);
+            Marshaller m1 = marshallerType.get(marshallers, schema1, mapper, false, true);
+            Marshaller m2 = marshallerType.get(marshallers, schema2, mapper, false, true);
+            Marshaller m3 = marshallerType.get(marshallers, schema2, mapper, true, true);
 
             assertNotSame(m1, m2);
             assertNotSame(m1, m3);
@@ -80,9 +83,9 @@ public class ReflectionMarshallersProviderSelfTest {
 
         // Different schemas - different versions, same content
         {
-            Marshaller m1 = marshallerType.get(marshallers, schema1, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m2 = marshallerType.get(marshallers, schema3, Mapper.of(TestPoJo.class), false, true);
-            Marshaller m3 = marshallerType.get(marshallers, schema3, Mapper.of(TestPoJo.class), true, true);
+            Marshaller m1 = marshallerType.get(marshallers, schema1, mapper, false, true);
+            Marshaller m2 = marshallerType.get(marshallers, schema3, mapper, false, true);
+            Marshaller m3 = marshallerType.get(marshallers, schema3, mapper, true, true);
 
             if (marshallerType.cacheBySchemaColumns()) {
                 assertSame(m1, m2);
@@ -92,6 +95,23 @@ public class ReflectionMarshallersProviderSelfTest {
                 assertNotSame(m1, m3);
             }
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(MarshallerType.class)
+    public void testMapperIsNotPartOfAKey(MarshallerType marshallerType) {
+        Mapper<TestPoJo> mapper1 = Mapper.of(TestPoJo.class);
+        Mapper<TestPoJo> mapper2 = Mapper.of(TestPoJo.class);
+
+        TestMarshallerSchema schema1 = new MarshallerSchemaBuilder()
+                .addKey("col1", BinaryMode.INT)
+                .addValue("col2", BinaryMode.INT)
+                .build();
+
+        Marshaller marshaller1 = marshallerType.get(marshallers, schema1, mapper1, false, true);
+        Marshaller marshaller2 = marshallerType.get(marshallers, schema1, mapper2, false, true);
+
+        assertNotSame(marshaller1, marshaller2);
     }
 
     enum MarshallerType {
