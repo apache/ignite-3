@@ -21,7 +21,6 @@ import org.apache.ignite.table.mapper.Mapper;
 
 /** Provides marshaller instances. */
 public interface MarshallersProvider {
-
     /**
      * Returns a marshaller for key columns of the given schema.
      *

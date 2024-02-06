@@ -19,7 +19,6 @@ package org.apache.ignite.internal.marshaller;
 
 /** Marshaller schema. */
 public interface MarshallerSchema {
-
     /** Schema version. */
     int schemaVersion();
 
