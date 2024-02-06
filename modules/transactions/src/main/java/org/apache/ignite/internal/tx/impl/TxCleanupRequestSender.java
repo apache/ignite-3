@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -76,26 +76,6 @@ public class TxCleanupRequestSender {
         return sendCleanupMessageWithRetries(false, null, txId, node, null);
     }
 
-    private CompletableFuture<Void> cleanup(
-            Collection<TablePartitionId> partitionIds,
-            Map<TablePartitionId, String> originalPartitions,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId
-    ) {
-        return placementDriverHelper.findPrimaryReplicas(partitionIds)
-                .thenCompose(partitionData -> {
-                    switchWriteIntentsOnPartitions(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
-
-                    Map<String, Set<TablePartitionId>> partitions = partitionData.partitionsByNode;
-
-                    originalPartitions.forEach((partitionId, nodeId) ->
-                            partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
-
-                    return cleanupPartitions(partitions, commit, commitTimestamp, txId);
-                });
-    }
-
     /**
      * Sends cleanup request to the primary nodes of each one of {@code partitions}.
      *
@@ -111,7 +91,25 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return cleanup(enlistedPartitions.keySet(), enlistedPartitions, commit, commitTimestamp, txId);
+        Map<String, Set<TablePartitionId>> partitions = new HashMap<>();
+        enlistedPartitions.forEach((partitionId, nodeId) ->
+                partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
+
+        return cleanupPartitions(partitions, commit, commitTimestamp, txId);
+    }
+
+    private CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> partitionIds,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
+        return placementDriverHelper.findPrimaryReplicas(partitionIds)
+                .thenCompose(partitionData -> {
+                    switchWriteIntentsOnPartitions(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
+
+                    return cleanupPartitions(partitionData.partitionsByNode, commit, commitTimestamp, txId);
+                });
     }
 
     private void switchWriteIntentsOnPartitions(
@@ -172,7 +170,7 @@ public class TxCleanupRequestSender {
                                 return sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, partitions);
                             }
 
-                            return cleanup(partitions, emptyMap(), commit, commitTimestamp, txId);
+                            return cleanup(partitions, commit, commitTimestamp, txId);
                         }
 
                         return CompletableFuture.<Void>failedFuture(throwable);

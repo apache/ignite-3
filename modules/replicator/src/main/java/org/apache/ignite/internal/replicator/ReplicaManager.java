@@ -526,7 +526,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
-        return future.isDone() && !future.isCancelled() && !future.isCompletedExceptionally();
+        return future.isDone() && !future.isCompletedExceptionally();
     }
 
     /**
