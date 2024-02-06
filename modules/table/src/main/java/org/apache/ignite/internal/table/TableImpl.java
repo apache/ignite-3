@@ -96,8 +96,8 @@ public class TableImpl implements TableViewInternal {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.schemaVersions = schemaVersions;
-        this.sql = sql;
         this.marshallers = marshallers;
+        this.sql = sql;
     }
 
     /**
