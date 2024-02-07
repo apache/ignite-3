@@ -56,14 +56,14 @@ class SqlSerializerIndexHintTest extends AbstractPlannerTest {
     void testForceIndexHint() throws Exception {
         SqlSerializer ser = new SqlSerializer.Builder()
                 .tableName(TBL1)
-                .indexName("IDX_NAME")
+                .indexName("idx_name")
                 .columns(Set.of("ID", "NAME"))
                 .where(and(columnValue("id", equalTo(1)), columnValue("name", equalTo("v"))))
                 .build();
 
         String sql = ser.toString();
 
-        assertThat(sql, startsWith(format("SELECT /*+ FORCE_INDEX({}) */ * FROM", "IDX_NAME")));
+        assertThat(sql, startsWith(format("SELECT /*+ FORCE_INDEX(\"{}\") */ * FROM", "IDX_NAME")));
         assertArrayEquals(new Object[]{1, "v"}, ser.getArguments());
 
         assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "IDX_NAME")));
