@@ -170,7 +170,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
-            cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
+            cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
         }
 
         /**
