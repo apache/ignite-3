@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.thread;
 
+import static java.util.Collections.unmodifiableSet;
+
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
@@ -24,17 +29,19 @@ import org.apache.ignite.internal.util.worker.IgniteWorker;
 /**
  * This class adds some necessary plumbing on top of the {@link Thread} class. Specifically, it adds:
  * <ul>
- *      <li>Consistent naming of threads</li>;
- *      <li>Name of the ignite node this thread belongs to</li>.
+ *      <li>Consistent naming of threads;</li>
+ *      <li>Name of the ignite node this thread belongs to.</li>
  * </ul>
  * <b>Note</b>: this class is intended for internal use only.
  */
-public class IgniteThread extends Thread {
+public class IgniteThread extends Thread implements ThreadAttributes {
     /** Number of all ignite threads in the system. */
     private static final AtomicLong THREAD_COUNTER = new AtomicLong();
 
     /** The name of the Ignite instance this thread belongs to. */
     protected final String igniteInstanceName;
+
+    private final Set<ThreadOperation> allowedOperations;
 
     /**
      * Creates thread with given worker.
@@ -61,11 +68,16 @@ public class IgniteThread extends Thread {
      * @param nodeName   Name of the Ignite instance this thread is created for.
      * @param threadName Name of thread.
      * @param r          Runnable to execute.
+     * @param allowedOperations Operations which this thread allows to execute.
      */
-    public IgniteThread(String nodeName, String threadName, Runnable r) {
+    public IgniteThread(String nodeName, String threadName, Runnable r, ThreadOperation... allowedOperations) {
         super(r, createName(THREAD_COUNTER.incrementAndGet(), threadName, nodeName));
 
         this.igniteInstanceName = nodeName;
+
+        Set<ThreadOperation> operations = EnumSet.noneOf(ThreadOperation.class);
+        Collections.addAll(operations, allowedOperations);
+        this.allowedOperations = unmodifiableSet(operations);
     }
 
     /**
@@ -112,5 +124,10 @@ public class IgniteThread extends Thread {
     @Override
     public String toString() {
         return S.toString(IgniteThread.class, this, "name", getName());
+    }
+
+    @Override
+    public Set<ThreadOperation> allowedOperations() {
+        return allowedOperations;
     }
 }

@@ -58,6 +58,9 @@ namespace Apache.Ignite
                 ClientOperationType.ComputeExecute => false,
                 ClientOperationType.SqlExecute => false,
                 ClientOperationType.SqlExecuteScript => false,
+                ClientOperationType.ComputeCancel => false,
+                ClientOperationType.ComputeChangePriority => false,
+                ClientOperationType.ComputeGetStatus => true,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
             };
         }

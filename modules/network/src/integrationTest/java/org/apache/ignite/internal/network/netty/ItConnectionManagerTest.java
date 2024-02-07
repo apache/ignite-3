@@ -389,6 +389,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                 ConnectionManagerWrapper manager2 = startManager(4001)
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+            waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
 
             OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
 
@@ -401,6 +402,22 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             assertThat(sendFuture, willCompleteSuccessfully());
         }
+    }
+
+    private static void waitTillChannelAppearsInMapOnAcceptor(
+            NettySender senderFromOpener,
+            ConnectionManagerWrapper opener,
+            ConnectionManagerWrapper acceptor
+    ) throws InterruptedException {
+        assertTrue(
+                waitForCondition(
+                        () -> acceptor.channels().values().stream().anyMatch(acceptorSender
+                                -> acceptorSender.consistentId().equals(opener.connectionManager.consistentId())
+                                        && acceptorSender.channelId() == senderFromOpener.channelId()),
+                        TimeUnit.SECONDS.toMillis(10)
+                ),
+                "Did not observe the sender appearing in the acceptor's sender map in time"
+        );
     }
 
     @Test

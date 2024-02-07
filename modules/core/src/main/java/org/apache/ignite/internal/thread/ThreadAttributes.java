@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.internal.thread;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
+import java.util.Set;
 
 /**
- * Exception is thrown when a data fetch attempt is performed on a closed cursor.
+ * Holds some thread attributes.
  */
-public class CursorClosedException extends SqlException {
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ThreadAttributes {
     /**
-     * Creates an exception instance.
+     * Returns all operations that this thread allows to execute.
      */
-    public CursorClosedException() {
-        super(CURSOR_CLOSED_ERR, "Cursor is closed");
+    Set<ThreadOperation> allowedOperations();
+
+    /**
+     * Returns {@code true} if the given operation is allowed by this thread.
+     *
+     * @param operation Operation to check.
+     */
+    default boolean allows(ThreadOperation operation) {
+        return allowedOperations().contains(operation);
     }
 }

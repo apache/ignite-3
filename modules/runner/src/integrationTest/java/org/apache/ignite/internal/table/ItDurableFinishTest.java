@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -287,7 +286,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,
-                asList(new TablePartitionId(tbl.tableId(), 0)),
                 null
         );
         storage.put(tx.id(), txMetaToSet);

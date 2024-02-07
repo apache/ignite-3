@@ -112,6 +112,8 @@ environment_attribute environment_attribute_to_internal(int32_t attr) {
 sql_state error_code_to_sql_state(error::code code) {
     switch (code) {
         // Common group. Group code: 1
+        case error::code::CURSOR_CLOSED:
+            return sql_state::S24000_INVALID_CURSOR_STATE;
         case error::code::NODE_STOPPING:
         case error::code::COMPONENT_NOT_STARTED:
         case error::code::ILLEGAL_ARGUMENT:
@@ -150,10 +152,6 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::S08004_CONNECTION_REJECTED;
 
         // Sql group. Group code: 4
-        case error::code::CURSOR_CLOSED:
-            return sql_state::S24000_INVALID_CURSOR_STATE;
-        case error::code::CURSOR_NO_MORE_PAGES:
-            return sql_state::S24000_INVALID_CURSOR_STATE;
         case error::code::SCHEMA_NOT_FOUND:
             return sql_state::S3F000_INVALID_SCHEMA_NAME;
         case error::code::PLANNING_TIMEOUT:
@@ -206,6 +204,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_INCOMPATIBLE_SCHEMA:
         case error::code::TX_PRIMARY_REPLICA_EXPIRED:
         case error::code::TX_ALREADY_FINISHED:
+        case error::code::TX_STALE_OPERATION:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8

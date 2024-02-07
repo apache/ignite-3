@@ -82,9 +82,9 @@ public class Cluster {
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
-    private static final int BASE_CLIENT_PORT = 10800;
+    public static final int BASE_CLIENT_PORT = 10800;
 
-    private static final int BASE_HTTP_PORT = 10300;
+    public static final int BASE_HTTP_PORT = 10300;
 
     private static final int BASE_HTTPS_PORT = 10400;
 

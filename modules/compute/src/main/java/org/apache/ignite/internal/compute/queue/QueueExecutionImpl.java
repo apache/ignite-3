@@ -23,7 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
@@ -42,13 +41,14 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private final UUID jobId;
     private final Callable<R> job;
-    private final AtomicInteger priority;
     private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
 
-    private final AtomicReference<QueueEntry<R>> queueEntry = new AtomicReference<>();
+    @Nullable
+    private volatile QueueEntry<R> queueEntry;
+    private volatile int priority;
 
     private final AtomicInteger retries = new AtomicInteger();
 
@@ -69,7 +69,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             ComputeStateMachine stateMachine) {
         this.jobId = jobId;
         this.job = job;
-        this.priority = new AtomicInteger(priority);
+        this.priority = priority;
         this.executor = executor;
         this.stateMachine = stateMachine;
     }
@@ -89,7 +89,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         try {
             stateMachine.cancelingJob(jobId);
 
-            QueueEntry<R> queueEntry = this.queueEntry.get();
+            QueueEntry<R> queueEntry = this.queueEntry;
             if (queueEntry != null) {
                 if (executor.remove(queueEntry)) {
                     result.cancel(true);
@@ -106,13 +106,15 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     @Override
     public boolean changePriority(int newPriority) {
-        if (newPriority == priority.get()) {
+        if (newPriority == priority) {
             return false;
         }
-        QueueEntry<R> queueEntry = this.queueEntry.get();
+
+        QueueEntry<R> queueEntry = this.queueEntry;
+
         if (executor.removeFromQueue(queueEntry)) {
-            this.priority.set(newPriority);
-            this.queueEntry.set(null);
+            this.priority = newPriority;
+            this.queueEntry = null;
             run();
             return true;
         }
@@ -134,11 +136,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
             stateMachine.executeJob(jobId);
             return job.call();
-        }, priority.get());
+        }, priority);
 
         // Ignoring previous value since it can't be running because we are calling run
         // either after the construction or after the failure.
-        this.queueEntry.set(queueEntry);
+        this.queueEntry = queueEntry;
 
         try {
             executor.execute(queueEntry);

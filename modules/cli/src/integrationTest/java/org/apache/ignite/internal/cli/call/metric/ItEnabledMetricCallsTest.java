@@ -22,12 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import java.util.List;
-import org.apache.ignite.internal.cli.call.CallInitializedIntegrationTestBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.rest.client.model.Metric;
 import org.apache.ignite.rest.client.model.MetricSet;
 import org.apache.ignite.rest.client.model.MetricSource;
@@ -36,7 +37,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for metrics calls with enabled "jvm" metrics source. */
-class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
+class ItEnabledMetricCallsTest extends CliIntegrationTest {
+    private final UrlCallInput urlInput = new UrlCallInput(NODE_URL);
 
     @Inject
     NodeMetricSourceEnableCall nodeMetricSourceEnableCall;

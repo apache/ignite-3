@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,7 +32,6 @@ import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Tuple;
@@ -44,9 +41,6 @@ import org.jetbrains.annotations.Nullable;
  * Asynchronous result set implementation.
  */
 public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
-    private static final CompletableFuture<? extends AsyncResultSet<?>> HAS_NO_MORE_PAGE_FUTURE =
-            CompletableFuture.failedFuture(new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
-
     private final IdleExpirationTracker expirationTracker;
 
     private final AsyncSqlCursor<InternalSqlRow> cursor;
@@ -141,20 +135,16 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
         expirationTracker.touch();
 
-        if (!hasMorePages()) {
-            return (CompletableFuture<? extends AsyncResultSet<T>>) HAS_NO_MORE_PAGE_FUTURE;
-        } else {
-            return cursor.requestNextAsync(pageSize)
-                    .thenApply(page -> {
-                        curPage = page;
+        return cursor.requestNextAsync(pageSize)
+                .thenApply(page -> {
+                    curPage = page;
 
-                        if (!curPage.hasMore()) {
-                            closeAsync();
-                        }
+                    if (!curPage.hasMore()) {
+                        closeAsync();
+                    }
 
-                        return this;
-                    });
-        }
+                    return this;
+                });
     }
 
     /** {@inheritDoc} */

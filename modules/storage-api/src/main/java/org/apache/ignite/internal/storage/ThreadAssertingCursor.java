@@ -15,31 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands;
+package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 
-import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInfo;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.worker.ThreadAssertions;
 
 /**
- * Extends {@link CliCommandTestNotInitializedIntegrationBase} and initializes ignite cluster.
+ * {@link Cursor} that performs thread assertions when doing read operations.
+ *
+ * @see ThreadAssertions
  */
-public class CliCommandTestInitializedIntegrationBase extends CliCommandTestNotInitializedIntegrationBase {
+public class ThreadAssertingCursor<T> implements Cursor<T> {
+    private final Cursor<T> cursor;
 
-    @BeforeAll
+    /** Constructor. */
+    public ThreadAssertingCursor(Cursor<T> cursor) {
+        this.cursor = cursor;
+    }
+
     @Override
-    void beforeAll(TestInfo testInfo) {
-        startNodes(testInfo);
-        initializeCluster(metaStorageNodeName(testInfo));
+    public void close() {
+        cursor.close();
     }
 
-    protected static String metaStorageNodeName(TestInfo testInfo) {
-        return testNodeName(testInfo, 0);
+    @Override
+    public boolean hasNext() {
+        assertThreadAllowsToRead();
+
+        return cursor.hasNext();
     }
 
-    protected static List<String> allNodeNames() {
-        return CLUSTER_NODE_NAMES;
+    @Override
+    public T next() {
+        assertThreadAllowsToRead();
+
+        return cursor.next();
     }
 }

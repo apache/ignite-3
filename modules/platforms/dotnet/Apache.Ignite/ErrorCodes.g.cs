@@ -76,6 +76,9 @@ namespace Apache.Ignite
             /// <summary> NodeLeft error. </summary>
             public const int NodeLeft = (GroupCode << 16) | (5 & 0xFFFF);
 
+            /// <summary> CursorClosed error. </summary>
+            public const int CursorClosed = (GroupCode << 16) | (6 & 0xFFFF);
+
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
         }
@@ -160,17 +163,11 @@ namespace Apache.Ignite
             /// <summary> Sql group name. </summary>
             public const String GroupName = "SQL";
 
-            /// <summary> CursorNoMorePages error. </summary>
-            public const int CursorNoMorePages = (GroupCode << 16) | (1 & 0xFFFF);
-
             /// <summary> QueryNoResultSet error. </summary>
             public const int QueryNoResultSet = (GroupCode << 16) | (2 & 0xFFFF);
 
             /// <summary> SchemaNotFound error. </summary>
             public const int SchemaNotFound = (GroupCode << 16) | (3 & 0xFFFF);
-
-            /// <summary> CursorClosed error. </summary>
-            public const int CursorClosed = (GroupCode << 16) | (4 & 0xFFFF);
 
             /// <summary> StmtParse error. </summary>
             public const int StmtParse = (GroupCode << 16) | (5 & 0xFFFF);
@@ -294,6 +291,9 @@ namespace Apache.Ignite
 
             /// <summary> TxAlreadyFinished error. </summary>
             public const int TxAlreadyFinished = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> TxStaleOperation error. </summary>
+            public const int TxStaleOperation = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>

@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NA
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
+import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -191,7 +192,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         startBuildIndex(indexId);
 
-        finishBuildingIndexForPartition(indexId, 0);
+        finishBuildingIndexForPartition(indexId, 0, indexCreationCatalogVersion(INDEX_NAME));
 
         awaitTillGlobalMetastoreRevisionIsApplied();
 
@@ -262,7 +263,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        finishBuildingIndexForPartition(indexId, 0);
+        finishBuildingIndexForPartition(indexId, 0, indexCreationCatalogVersion(INDEX_NAME));
 
         dropIndex(INDEX_NAME);
 
@@ -282,7 +283,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         int indexId = indexId(INDEX_NAME);
 
         for (int partitionId = 1; partitionId < partitions; partitionId++) {
-            finishBuildingIndexForPartition(indexId, partitionId);
+            finishBuildingIndexForPartition(indexId, partitionId, indexCreationCatalogVersion(INDEX_NAME));
         }
 
         dropIndex(INDEX_NAME);
@@ -303,7 +304,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         int indexId = indexId(INDEX_NAME);
 
         for (int partitionId = 2; partitionId < partitions; partitionId++) {
-            finishBuildingIndexForPartition(indexId, partitionId);
+            finishBuildingIndexForPartition(indexId, partitionId, indexCreationCatalogVersion(INDEX_NAME));
         }
 
         dropIndex(INDEX_NAME);
@@ -354,7 +355,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         partitions = newPartitions;
     }
 
-    private void finishBuildingIndexForPartition(int indexId, int partitionId) {
+    private void finishBuildingIndexForPartition(int indexId, int partitionId, int indexCreationCatalogVersion) {
         // It may look complicated, but the other method through mocking IndexBuilder seems messier.
         IndexStorage indexStorage = mock(IndexStorage.class);
 
@@ -369,7 +370,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexStorage,
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
+                indexCreationCatalogVersion
         );
 
         CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
@@ -429,5 +431,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private static String partitionBuildIndexKey(int indexId, int partitionId) {
         return "indexBuild.partition." + indexId + "." + partitionId;
+    }
+
+    private int indexCreationCatalogVersion(String indexName) {
+        return getIndexStrict(catalogManager, indexName, clock.nowLong()).creationCatalogVersion();
     }
 }

@@ -27,7 +27,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -158,6 +161,8 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -181,6 +186,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
+import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -562,15 +568,14 @@ public class IgniteImpl implements Ignite {
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
-        dataStorageMgr = new DataStorageManager(
-                dataStorageModules.createStorageEngines(
-                        name,
-                        nodeConfigRegistry,
-                        storagePath,
-                        longJvmPauseDetector,
-                        failureProcessor
-                )
+        Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
+                name,
+                nodeConfigRegistry,
+                storagePath,
+                longJvmPauseDetector,
+                failureProcessor
         );
+        dataStorageMgr = new DataStorageManager(applyThreadAssertionsIfNeeded(storageEngines));
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
@@ -754,6 +759,20 @@ public class IgniteImpl implements Ignite {
         );
 
         restComponent = createRestComponent(name);
+    }
+
+    private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
+        if (!ThreadAssertions.enabled()) {
+            return storageEngines;
+        }
+
+        Map<String, StorageEngine> decoratedEngines = new HashMap<>();
+
+        for (Entry<String, StorageEngine> entry : storageEngines.entrySet()) {
+            decoratedEngines.put(entry.getKey(), new ThreadAssertingStorageEngine(entry.getValue()));
+        }
+
+        return Map.copyOf(decoratedEngines);
     }
 
     private static SameValueLongSupplier delayDurationMsSupplier(SchemaSynchronizationConfiguration schemaSyncConfig) {

@@ -23,6 +23,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.config.TestStateConfigProvider;
 import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
@@ -37,7 +38,7 @@ import picocli.CommandLine.Help.Ansi;
 /**
  * Base class for testing 'connect' command.
  */
-public class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegrationBase {
+public class ItConnectToClusterTestBase extends CliIntegrationTest {
     @Inject
     protected TestStateConfigProvider stateConfigProvider;
     @Inject
@@ -73,7 +74,7 @@ public class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegra
     }
 
     protected String nodeName() {
-        return CLUSTER_NODES.get(0).name();
+        return CLUSTER.node(0).name();
     }
 
     protected void bindAnswers(String... answers) throws IOException {

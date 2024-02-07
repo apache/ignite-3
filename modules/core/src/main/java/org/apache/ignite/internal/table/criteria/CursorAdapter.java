@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.table.criteria;
 
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Iterator;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 
@@ -54,9 +54,13 @@ public class CursorAdapter<T> implements Cursor<T> {
     @Override
     public void close() {
         try {
-            convertToPublicFuture(ac.closeAsync().toCompletableFuture()).join();
-        } catch (Throwable e) {
-            throw sneakyThrow(mapToPublicException(unwrapCause(e)));
+            ac.closeAsync().toCompletableFuture().get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupt flag.
+
+            throw sneakyThrow(unwrapCause(e));
+        } catch (ExecutionException e) {
+            throw sneakyThrow(copyExceptionWithCause(e));
         }
     }
 
@@ -92,8 +96,8 @@ public class CursorAdapter<T> implements Cursor<T> {
             } else if (nextPageStage != null) {
                 try {
                     curRes = nextPageStage.toCompletableFuture().join();
-                } catch (CompletionException ex) {
-                    throw sneakyThrow(unwrapCause(ex));
+                } catch (CompletionException e) {
+                    throw sneakyThrow(copyExceptionWithCause(e));
                 }
 
                 advance();

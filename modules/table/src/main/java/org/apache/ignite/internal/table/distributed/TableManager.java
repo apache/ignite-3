@@ -171,6 +171,7 @@ import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -655,8 +656,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .invoke(condition, partitionAssignments, Collections.emptyList())
                     .thenCompose(invokeResult -> {
                         if (invokeResult) {
-                            LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully "
-                                            + "written to meta storage [tableId={}, assignments={}]", tableId, newAssignments));
+                            LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully written"
+                                    + " to meta storage [tableId={}, assignments={}]", tableId, assignmentListToString(newAssignments)));
 
                             return completedFuture(newAssignments);
                         } else {
@@ -682,7 +683,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 }
 
                                 LOG.info(IgniteStringFormatter.format("Assignments picked up from meta storage [tableId={}, "
-                                        + "assignments={}]", tableId, realAssignments));
+                                        + "assignments={}]", tableId, assignmentListToString(realAssignments)));
 
                                 return realAssignments;
                             });
@@ -1170,7 +1171,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assignmentsFuture.thenAccept(assignmentsList -> {
                     LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
-                                    + "revision={}]", tableDescriptor.name(), tableId, assignmentsList, causalityToken));
+                            + "revision={}]", tableDescriptor.name(), tableId, assignmentListToString(assignmentsList), causalityToken));
                 });
             }
 
@@ -1304,6 +1305,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenApply(ignore -> null);
+    }
+
+    /**
+     * Creates a string representation of the given assignments list to use it for logging.
+     *
+     * @param assignments List of assignments.
+     * @return String representation of the given assignments list to use it for logging.
+     */
+    private static String assignmentListToString(List<Set<Assignment>> assignments) {
+        return S.toString(assignments, (sb, e, i) -> sb.app(i).app('=').app(e));
     }
 
     /**
