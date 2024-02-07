@@ -22,6 +22,8 @@ import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -43,6 +45,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -142,12 +146,16 @@ public class Checkpointer extends IgniteWorker {
     /** Delta file compactor. */
     private final Compactor compactor;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
      * @param igniteInstanceName Name of the Ignite instance.
      * @param workerListener Listener for life-cycle worker events.
      * @param detector Long JVM pause detector.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param checkpointWorkFlow Implementation of checkpoint.
      * @param factory Page writer factory.
      * @param filePageStoreManager File page store manager.
@@ -158,6 +166,7 @@ public class Checkpointer extends IgniteWorker {
             String igniteInstanceName,
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector detector,
+            FailureProcessor failureProcessor,
             CheckpointWorkflow checkpointWorkFlow,
             CheckpointPagesWriterFactory factory,
             FilePageStoreManager filePageStoreManager,
@@ -172,6 +181,7 @@ public class Checkpointer extends IgniteWorker {
         this.checkpointPagesWriterFactory = factory;
         this.filePageStoreManager = filePageStoreManager;
         this.compactor = compactor;
+        this.failureProcessor = failureProcessor;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
@@ -219,8 +229,12 @@ public class Checkpointer extends IgniteWorker {
         } catch (Throwable t) {
             scheduledCheckpointProgress.fail(t);
 
-            // TODO: IGNITE-16899 By analogy with 2.0, we need to handle the exception (err) by the FailureProcessor
             // We need to handle OutOfMemoryError and the rest in different ways
+            if (t instanceof OutOfMemoryError) {
+                failureProcessor.process(new FailureContext(CRITICAL_ERROR, t));
+            } else {
+                failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
+            }
 
             throw new IgniteInternalException(t);
         }
@@ -297,8 +311,8 @@ public class Checkpointer extends IgniteWorker {
                     currentCheckpointProgress.fail(e);
                 }
 
-                // TODO: IGNITE-16899 By analogy with 2.0, we need to handle the exception by the FailureProcessor
                 // In case of checkpoint initialization error node should be invalidated and stopped.
+                failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
 
                 // Re-throw as unchecked exception to force stopping checkpoint thread.
                 throw new IgniteInternalCheckedException(e);
@@ -369,7 +383,7 @@ public class Checkpointer extends IgniteWorker {
                 chp.progress.fail(e);
             }
 
-            // TODO: IGNITE-16899 By analogy with 2.0, we need to handle the exception by the FailureProcessor
+            failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
 
             throw e;
         }

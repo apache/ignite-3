@@ -47,6 +47,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -95,6 +97,9 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Mock
     private CriticalWorkerRegistry criticalWorkerRegistry;
+
+    @Mock
+    private FailureProcessor failureProcessor;
 
     @InjectConfiguration("mock.port=" + SENDER_PORT)
     private NetworkConfiguration senderNetworkConfig;
@@ -382,7 +387,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 node.name(),
                 bootstrapFactory,
                 staleIdDetector,
-                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector)
+                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector),
+                failureProcessor
         );
         connectionManager.start();
 
@@ -391,8 +397,11 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
-    private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake,
-            NettyBootstrapFactory bootstrapFactory, StaleIdDetector staleIdDetector) {
+    private RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(
+            Runnable beforeHandshake,
+            NettyBootstrapFactory bootstrapFactory,
+            StaleIdDetector staleIdDetector
+    ) {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
             public RecoveryClientHandshakeManager create(
@@ -409,7 +418,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         bootstrapFactory,
                         staleIdDetector,
                         channel -> {},
-                        () -> false
+                        () -> false,
+                        failureProcessor
                 ) {
                     @Override
                     protected void finishHandshake() {

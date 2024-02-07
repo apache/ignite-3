@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.io.Serializable;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 
 /**
  * Update log event.
  */
-public interface UpdateLogEvent extends Serializable {
+public interface UpdateLogEvent extends MarshallableEntry {
 }

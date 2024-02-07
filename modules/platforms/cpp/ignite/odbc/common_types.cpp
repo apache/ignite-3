@@ -287,6 +287,11 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::PRIMARY_REPLICA_AWAIT:
             return sql_state::SHY000_GENERAL_ERROR;
+
+        // CriticalWorkers group. Group code: 19
+        case error::code::SYSTEM_WORKER_BLOCKED:
+        case error::code::SYSTEM_CRITICAL_OPERATION_TIMEOUT:
+            return sql_state::SHY000_GENERAL_ERROR;
     }
 
     return sql_state::SHY000_GENERAL_ERROR;

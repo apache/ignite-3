@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery;
-
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+package org.apache.ignite.internal.failure;
 
 /**
- * A placeholder 'failure handler' to make it easier to recall where a real failure handler should be used.
+ * Types of failures.
  */
-// TODO: IGNITE-16899 Replace with a real FailureHandler
-class FailureHandler {
-    private static final IgniteLogger LOG = Loggers.forClass(FailureHandler.class);
+public enum FailureType {
+    /** System worker termination. */
+    SYSTEM_WORKER_TERMINATION,
 
-    void handleFailure(Throwable t) {
-        LOG.error("Critical failure", t);
-    }
+    /** System worker has not updated its heartbeat for a long time. */
+    SYSTEM_WORKER_BLOCKED,
+
+    /** Critical error - error which leads to the system's inoperability. */
+    CRITICAL_ERROR,
+
+    /** System-critical operation has been timed out. */
+    SYSTEM_CRITICAL_OPERATION_TIMEOUT
 }

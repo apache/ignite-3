@@ -106,6 +106,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -296,7 +297,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var threadPools = new ThreadPoolsManager(name);
 
-        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler());
+        var failureProcessor = new FailureProcessor(name);
+
+        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler(), failureProcessor);
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         var nettyWorkersRegistrar = new NettyWorkersRegistrar(
@@ -312,7 +315,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
                 new VaultStaleIds(vault),
-                workerRegistry
+                workerRegistry,
+                failureProcessor
         );
 
         var hybridClock = new HybridClockImpl();
@@ -451,7 +455,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         name,
                         nodeCfgMgr.configurationRegistry(),
                         storagePath,
-                        null
+                        null,
+                        failureProcessor
                 )
         );
 
@@ -519,7 +524,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 catalogManager,
                 new HybridTimestampTracker(),
                 placementDriverManager.placementDriver(),
-                sqlRef::get
+                sqlRef::get,
+                failureProcessor
         );
 
         var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
@@ -562,6 +568,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
                 threadPools,
+                failureProcessor,
                 workerRegistry,
                 nettyBootstrapFactory,
                 nettyWorkersRegistrar,
