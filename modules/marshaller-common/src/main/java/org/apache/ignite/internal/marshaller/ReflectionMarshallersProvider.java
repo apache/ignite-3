@@ -30,7 +30,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
     private static final int KV_CACHE_SIZE = 32;
 
     /** Marshaller cache size for column based marshallers (columns, mapper, flags). */
-    private static final int PROJECTION_CACHE_SIZE = 128;
+    private static final int PROJECTION_CACHE_SIZE = 64;
 
     /** Marshaller for key columns of a particular schema. Cached by schema version. */
     private final MarshallerCache keysMarshallerCache;
