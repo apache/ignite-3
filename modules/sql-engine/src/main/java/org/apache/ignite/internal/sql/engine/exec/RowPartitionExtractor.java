@@ -15,31 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.schema;
+package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.Map;
-import java.util.function.Supplier;
-
-/**
- * Table representation as object in SQL schema.
- */
-public interface IgniteTable extends IgniteDataSource {
+/** Calculate partition according to supplied row. */
+@FunctionalInterface
+public interface RowPartitionExtractor<RowT> {
     /**
-     * Return partition correspondence calculator.
-     */
-    Supplier<PartitionCalculator> partitionCalculator();
-
-    /**
-     * Returns all table indexes.
+     * Calculate partition based on supplied row.
      *
-     * @return Indexes for the current table.
+     * @return Resolved partition.
      */
-    Map<String, IgniteIndex> indexes();
-
-    /**
-     * Returns the number of partitions for this table.
-     *
-     * @return Number of partitions.
-     */
-    int partitions();
+    int partition(RowT row);
 }

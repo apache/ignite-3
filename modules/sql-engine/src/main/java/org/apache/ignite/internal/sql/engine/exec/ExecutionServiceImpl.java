@@ -109,7 +109,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -193,8 +192,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExecutionDependencyResolver dependencyResolver,
             long shutdownTimeout
     ) {
-        HashFunctionFactoryImpl<RowT> rowHashFunctionFactory = new HashFunctionFactoryImpl<>(handler);
-
         return new ExecutionServiceImpl<>(
                 msgSrvc,
                 topSrvc,
@@ -207,7 +204,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
-                        rowHashFunctionFactory,
                         mailboxRegistry,
                         exchangeSrvc,
                         deps),

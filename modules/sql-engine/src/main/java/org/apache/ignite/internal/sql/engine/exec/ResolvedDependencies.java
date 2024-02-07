@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Map;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /**
@@ -60,6 +62,15 @@ public class ResolvedDependencies {
     public TableDescriptor tableDescriptor(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
         return executableTable.tableDescriptor();
+    }
+
+    /**
+     * Returns partitions extractor.
+     */
+    public Supplier<PartitionCalculator> partitionCalculator(int tableId) {
+        ExecutableTable executableTable = getTable(tableId);
+
+        return executableTable.partitionCalculator();
     }
 
     /** Returns data source instance by given id. */
