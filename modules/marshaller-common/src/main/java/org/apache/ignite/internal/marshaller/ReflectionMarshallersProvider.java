@@ -27,10 +27,10 @@ import org.apache.ignite.table.mapper.Mapper;
 /** Implementation of {@link MarshallersProvider}. */
 public class ReflectionMarshallersProvider implements MarshallersProvider {
     /** Marshaller cache size for schema based marshallers (schema version, mapper, flags). */
-    private static final int KV_CACHE_SIZE = 128;
+    private static final int KV_CACHE_SIZE = 32;
 
     /** Marshaller cache size for column based marshallers (columns, mapper, flags). */
-    private static final int PROJECTION_CACHE_SIZE = 256;
+    private static final int PROJECTION_CACHE_SIZE = 128;
 
     /** Marshaller for key columns of a particular schema. Cached by schema version. */
     private final MarshallerCache keysMarshallerCache;
