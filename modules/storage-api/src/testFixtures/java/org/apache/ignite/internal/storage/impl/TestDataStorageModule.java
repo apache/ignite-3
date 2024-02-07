@@ -23,6 +23,7 @@ import com.google.auto.service.AutoService;
 import java.nio.file.Path;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -45,7 +46,8 @@ public class TestDataStorageModule implements DataStorageModule {
             String igniteInstanceName,
             ConfigurationRegistry configRegistry,
             Path storagePath,
-            @Nullable LongJvmPauseDetector longJvmPauseDetector
+            @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            FailureProcessor failureProcessor
     ) throws StorageException {
         return new TestStorageEngine();
     }

@@ -129,6 +129,21 @@ namespace Apache.Ignite
         /// <summary>
         /// SQL script (<see cref="ISql.ExecuteScriptAsync"/>).
         /// </summary>
-        SqlExecuteScript
+        SqlExecuteScript,
+
+        /// <summary>
+        /// Get status of a compute job (<see cref="IJobExecution{T}.GetStatusAsync"/>).
+        /// </summary>
+        ComputeGetStatus,
+
+        /// <summary>
+        /// Cancel compute job (<see cref="IJobExecution{T}.CancelAsync"/>).
+        /// </summary>
+        ComputeCancel,
+
+        /// <summary>
+        /// Change compute job priority (<see cref="IJobExecution{T}.ChangePriorityAsync"/>).
+        /// </summary>
+        ComputeChangePriority
     }
 }

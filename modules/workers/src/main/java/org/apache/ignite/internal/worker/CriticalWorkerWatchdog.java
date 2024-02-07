@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.worker;
 
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_WORKER_BLOCKED_ERR;
 
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
@@ -32,13 +34,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
-// TODO: IGNITE-16899 - update the javadoc to mention that the failure handler is invoked.
 /**
  * A watchdog that monitors liveness of the registered workers and, if a worker is suspected to be blocked, logs the corresponding
  * information (including the stack trace corresponding to the worker's thread).
@@ -51,7 +55,7 @@ import org.jetbrains.annotations.Nullable;
  * NOT_MONITORED state, then a logging is triggered.
  */
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
-    private final IgniteLogger log = Loggers.forClass(CriticalWorkerWatchdog.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CriticalWorkerWatchdog.class);
 
     private final CriticalWorkersConfiguration configuration;
 
@@ -64,9 +68,23 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     private final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
-    public CriticalWorkerWatchdog(CriticalWorkersConfiguration configuration, ScheduledExecutorService scheduler) {
+    private final FailureProcessor failureProcessor;
+
+    /**
+     * Creates a new instance of the watchdog.
+     *
+     * @param configuration Configuration.
+     * @param scheduler Scheduler.
+     * @param failureProcessor Failure processor.
+     */
+    public CriticalWorkerWatchdog(
+            CriticalWorkersConfiguration configuration,
+            ScheduledExecutorService scheduler,
+            FailureProcessor failureProcessor
+    ) {
         this.configuration = configuration;
         this.scheduler = scheduler;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -102,13 +120,25 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
             return;
         }
 
-        ThreadInfo[] threadInfos = threadMxBean.getThreadInfo(delayedThreadIdsToDelays.keySet().toLongArray(), true, true);
+        ThreadInfo[] threadInfos = threadMxBean.getThreadInfo(
+                delayedThreadIdsToDelays.keySet().toLongArray(),
+                threadMxBean.isObjectMonitorUsageSupported(),
+                threadMxBean.isSynchronizerUsageSupported());
+
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
-                log.error("A critical thread is blocked for {} ms that is more than the allowed {} ms, it is {}",
-                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()), maxAllowedLag, toString(threadInfo));
+                String message = String.format(
+                        "A critical thread is blocked for %d ms that is more than the allowed %d ms, it is %s",
+                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()),
+                        maxAllowedLag,
+                        toString(threadInfo));
 
-                // TODO: IGNITE-16899 - invoke failure handler.
+                LOG.error(message);
+
+                failureProcessor.process(
+                        new FailureContext(
+                                SYSTEM_WORKER_BLOCKED,
+                                new IgniteException(SYSTEM_WORKER_BLOCKED_ERR, message)));
             }
         }
     }

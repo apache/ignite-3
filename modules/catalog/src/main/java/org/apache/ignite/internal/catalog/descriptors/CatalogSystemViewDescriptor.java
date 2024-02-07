@@ -18,17 +18,22 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * System view descriptor.
  */
 public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
-
-    private static final long serialVersionUID = -245956820725588288L;
+    public static CatalogObjectSerializer<CatalogSystemViewDescriptor> SERIALIZER = new SystemViewDescriptorSerializer();
 
     private final List<CatalogTableColumnDescriptor> columns;
 
@@ -40,9 +45,29 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      * @param id View id.
      * @param name View name.
      * @param columns View columns.
+     * @param systemViewType View type.
      */
     public CatalogSystemViewDescriptor(int id, String name, List<CatalogTableColumnDescriptor> columns, SystemViewType systemViewType) {
-        super(id, Type.SYSTEM_VIEW, name, INITIAL_CAUSALITY_TOKEN);
+        this(id, name, columns, systemViewType, INITIAL_CAUSALITY_TOKEN);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param id View id.
+     * @param name View name.
+     * @param columns View columns.
+     * @param systemViewType View type.
+     * @param causalityToken Token of the update of the descriptor.
+     */
+    public CatalogSystemViewDescriptor(
+            int id,
+            String name,
+            List<CatalogTableColumnDescriptor> columns,
+            SystemViewType systemViewType,
+            long causalityToken
+    ) {
+        super(id, Type.SYSTEM_VIEW, name, causalityToken);
 
         this.columns = Objects.requireNonNull(columns, "columns");
         this.systemViewType = Objects.requireNonNull(systemViewType, "viewType");
@@ -104,10 +129,58 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
         /**
          * Node system view.
          */
-        NODE,
+        NODE(0),
         /**
          * Cluster-wide system view.
          */
-        CLUSTER
+        CLUSTER(1);
+
+        private final int id;
+
+        SystemViewType(int id) {
+            this.id = id;
+        }
+
+        public int id() {
+            return id;
+        }
+
+        /** Returns system view type by identifier. */
+        private static SystemViewType forId(int id) {
+            if (id == 0) {
+                return NODE;
+            } else {
+                assert id == 1;
+
+                return CLUSTER;
+            }
+        }
+    }
+
+    /**
+     * Serializer for {@link CatalogSystemViewDescriptor}.
+     */
+    private static class SystemViewDescriptorSerializer implements CatalogObjectSerializer<CatalogSystemViewDescriptor> {
+        @Override
+        public CatalogSystemViewDescriptor readFrom(IgniteDataInput input) throws IOException {
+            int id = input.readInt();
+            String name = input.readUTF();
+            long updateToken = input.readLong();
+            List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
+
+            byte sysViewTypeId = input.readByte();
+            SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
+
+            return new CatalogSystemViewDescriptor(id, name, columns, sysViewType, updateToken);
+        }
+
+        @Override
+        public void writeTo(CatalogSystemViewDescriptor descriptor, IgniteDataOutput output) throws IOException {
+            output.writeInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeLong(descriptor.updateToken());
+            writeList(descriptor.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);
+            output.writeByte(descriptor.systemViewType().id());
+        }
     }
 }

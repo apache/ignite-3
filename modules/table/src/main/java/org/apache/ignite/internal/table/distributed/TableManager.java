@@ -96,6 +96,7 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -170,6 +171,7 @@ import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -382,6 +384,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
+     * @param failureProcessor Failure processor that is used to process critical errors.
      */
     public TableManager(
             String nodeName,
@@ -409,7 +412,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogService catalogService,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
-            Supplier<IgniteSql> sql
+            Supplier<IgniteSql> sql,
+            FailureProcessor failureProcessor
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -493,7 +497,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         mvGc = new MvGc(nodeName, gcConfig);
 
-        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
+        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc, failureProcessor);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 
@@ -652,8 +656,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .invoke(condition, partitionAssignments, Collections.emptyList())
                     .thenCompose(invokeResult -> {
                         if (invokeResult) {
-                            LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully "
-                                            + "written to meta storage [tableId={}, assignments={}]", tableId, newAssignments));
+                            LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully written"
+                                    + " to meta storage [tableId={}, assignments={}]", tableId, assignmentListToString(newAssignments)));
 
                             return completedFuture(newAssignments);
                         } else {
@@ -679,7 +683,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 }
 
                                 LOG.info(IgniteStringFormatter.format("Assignments picked up from meta storage [tableId={}, "
-                                        + "assignments={}]", tableId, realAssignments));
+                                        + "assignments={}]", tableId, assignmentListToString(realAssignments)));
 
                                 return realAssignments;
                             });
@@ -1167,7 +1171,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assignmentsFuture.thenAccept(assignmentsList -> {
                     LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
-                                    + "revision={}]", tableDescriptor.name(), tableId, assignmentsList, causalityToken));
+                            + "revision={}]", tableDescriptor.name(), tableId, assignmentListToString(assignmentsList), causalityToken));
                 });
             }
 
@@ -1301,6 +1305,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenApply(ignore -> null);
+    }
+
+    /**
+     * Creates a string representation of the given assignments list to use it for logging.
+     *
+     * @param assignments List of assignments.
+     * @return String representation of the given assignments list to use it for logging.
+     */
+    private static String assignmentListToString(List<Set<Assignment>> assignments) {
+        return S.toString(assignments, (sb, e, i) -> sb.app(i).app('=').app(e));
     }
 
     /**

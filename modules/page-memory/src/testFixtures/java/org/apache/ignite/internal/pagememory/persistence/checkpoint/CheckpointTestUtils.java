@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
@@ -61,7 +62,8 @@ public class CheckpointTestUtils {
                 mock(CheckpointReadWriteLock.class),
                 Long.MAX_VALUE,
                 () -> CheckpointUrgency.NOT_REQUIRED,
-                mock(Checkpointer.class)
+                mock(Checkpointer.class),
+                mock(FailureProcessor.class)
         ) {
             @Override
             public boolean checkpointLockIsHeldByThread() {
