@@ -19,34 +19,29 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.storage.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link SortedIndexStorage} that performs thread assertions when doing read/write operations.
+ * {@link PeekCursor} that performs thread assertions when doing read operations.
  *
  * @see ThreadAssertions
  */
-public class ThreadAssertingSortedIndexStorage extends ThreadAssertingIndexStorage implements SortedIndexStorage {
-    private final SortedIndexStorage indexStorage;
+public class ThreadAssertingPeekCursor<T> extends ThreadAssertingCursor<T> implements PeekCursor<T> {
+    private final PeekCursor<T> cursor;
 
     /** Constructor. */
-    public ThreadAssertingSortedIndexStorage(SortedIndexStorage indexStorage) {
-        super(indexStorage);
+    public ThreadAssertingPeekCursor(PeekCursor<T> cursor) {
+        super(cursor);
 
-        this.indexStorage = indexStorage;
+        this.cursor = cursor;
     }
 
     @Override
-    public StorageSortedIndexDescriptor indexDescriptor() {
-        return indexStorage.indexDescriptor();
-    }
-
-    @Override
-    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+    public @Nullable T peek() {
         assertThreadAllowsToRead();
 
-        return new ThreadAssertingPeekCursor<>(indexStorage.scan(lowerBound, upperBound, flags));
+        return cursor.peek();
     }
 }

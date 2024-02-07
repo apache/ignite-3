@@ -119,14 +119,14 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage {
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         assertThreadAllowsToRead();
 
-        return partitionStorage.scanVersions(rowId);
+        return new ThreadAssertingCursor<>(partitionStorage.scanVersions(rowId));
     }
 
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         assertThreadAllowsToRead();
 
-        return partitionStorage.scan(timestamp);
+        return new ThreadAssertingPartitionTimestampCursor(partitionStorage.scan(timestamp));
     }
 
     @Override

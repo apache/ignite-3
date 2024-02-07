@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAll
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.ThreadAssertingCursor;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
@@ -44,7 +45,7 @@ abstract class ThreadAssertingIndexStorage implements IndexStorage {
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         assertThreadAllowsToRead();
 
-        return indexStorage.get(key);
+        return new ThreadAssertingCursor<>(indexStorage.get(key));
     }
 
     @Override
