@@ -556,9 +556,7 @@ public class DistributionZonesUtil {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 is not implemented yet.
         // We need to handle properly situation when nodesAttributes is empty, because it can lead to NPE in both filterNodeAttributes and
         // filterStorageProfiles
-        if (nodesAttributes.isEmpty()) {
-            return dataNodes.stream().map(Node::nodeName).collect(toSet());
-        }
+        assert !nodesAttributes.isEmpty() : "Nodes attributes is empty";
 
         return dataNodes.stream()
                 .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).userAttributes(), zoneDescriptor.filter()))
