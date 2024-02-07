@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.worker;
 
-import java.util.Set;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.ThreadAttributes;
@@ -65,8 +64,7 @@ public class ThreadAssertions {
             return;
         }
 
-        Set<ThreadOperation> threadOperations = ((ThreadAttributes) currentThread).allowedOperations();
-        if (!threadOperations.contains(requestedOperation)) {
+        if (!((ThreadAttributes) currentThread).allows(requestedOperation)) {
             LOG.debug("Thread {} is not allowed to {}", trackerException(), currentThread, requestedOperation);
         }
     }

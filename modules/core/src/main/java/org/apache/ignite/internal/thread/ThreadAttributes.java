@@ -28,4 +28,13 @@ public interface ThreadAttributes {
      * Returns all operations that this thread allows to execute.
      */
     Set<ThreadOperation> allowedOperations();
+
+    /**
+     * Returns {@code true} if the given operation is allowed by this thread.
+     *
+     * @param operation Operation to check.
+     */
+    default boolean allows(ThreadOperation operation) {
+        return allowedOperations().contains(operation);
+    }
 }
