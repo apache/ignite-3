@@ -436,4 +436,9 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
+
+    public CompletableFuture<Void> streamData(Collection<Tuple> items, int partitionId) {
+        return withSchemaSync(null,
+                schemaVersion -> this.tbl.updateAll(mapToBinary(items, schemaVersion, false), null, partitionId));
+    }
 }

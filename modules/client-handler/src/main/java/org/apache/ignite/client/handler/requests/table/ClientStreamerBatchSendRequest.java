@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -44,11 +45,12 @@ public class ClientStreamerBatchSendRequest {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-        // TODO: Pack partition id with every tuple? Or group by partition id on client?
         return readTableAsync(in, tables).thenCompose(table -> {
+            int partition = in.unpackInt();
             return readTuples(in, table, false).thenCompose(tuples -> {
-                return table.recordView().upsertAllAsync(null, tuples)
-                        .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+                RecordBinaryViewImpl recordView = (RecordBinaryViewImpl) table.recordView();
+
+                return recordView.streamData(tuples, partition);
             });
         });
     }
