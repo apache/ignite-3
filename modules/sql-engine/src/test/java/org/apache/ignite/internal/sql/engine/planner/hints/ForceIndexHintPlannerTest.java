@@ -70,6 +70,8 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSingleTable() throws Exception {
+        assertPlan("SELECT /*+ FORCE_INDEX() */ * FROM TBL2 WHERE val2 = 'v'", SCHEMA, nodeOrAnyChild(isIndexScan(TBL2, "IDX_VAL2")));
+
         var sql = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE val2 = 'v' AND val3 = 'v'";
 
         assertCertainIndex(format(sql, "unexisting, idx_val3"), TBL1, "IDX_VAL3");
@@ -88,7 +90,6 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
     public void testSubquery() throws Exception {
         var sql1 = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 t2, (SELECT * FROM TBL1 WHERE val2='v' AND val3='v') t1 WHERE t2.val2='v'";
 
-        assertPlan(format(sql1, ""), SCHEMA, nodeOrAnyChild(isTableScan(TBL1)));
         assertCertainIndex(format(sql1, "IDX_VAL2_VAL3"), TBL1, "IDX_VAL2_VAL3");
         assertCertainIndex(format(sql1, "IDX_VAL3"), TBL1, "IDX_VAL3");
 
