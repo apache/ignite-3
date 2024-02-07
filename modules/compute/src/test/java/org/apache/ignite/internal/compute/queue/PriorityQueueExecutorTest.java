@@ -451,6 +451,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task3.isDone(), is(false));
         assertThat(task4.isDone(), is(false));
 
+        //Change priority on task3, it should be executed before task2 and task4
+        assertThat(runningExecution.changePriority(20), is(true));
 
         //Task 1 should be completed
         latch1.countDown();
@@ -458,9 +460,6 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
         assertThat(task4.isDone(), is(false));
-
-        //Change priority on task3, it should be executed before task2 and task4
-        assertThat(runningExecution.changePriority(20), is(true));
 
         //Current executing task is 3 because we changed priority
         latch2.countDown();
