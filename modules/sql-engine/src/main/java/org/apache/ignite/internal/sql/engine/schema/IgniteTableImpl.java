@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
@@ -26,6 +28,8 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.Statistic;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.Lazy;
 
 /**
  * Table implementation for sql engine.
@@ -34,18 +38,52 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
 
     private final Map<String, IgniteIndex> indexMap;
 
+    private final int partitions;
+
+    private final Lazy<NativeType[]> colocationColumnTypes;
+
     /** Constructor. */
     public IgniteTableImpl(String name, int id, int version, TableDescriptor desc,
-            Statistic statistic, Map<String, IgniteIndex> indexMap) {
+            Statistic statistic, Map<String, IgniteIndex> indexMap, int partitions) {
 
         super(name, id, version, desc, statistic);
         this.indexMap = indexMap;
+        this.partitions = partitions;
+
+        colocationColumnTypes = new Lazy<>(this::evaluateTypes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Supplier<PartitionCalculator> partitionCalculator() {
+        return () -> new PartitionCalculator(partitions, Objects.requireNonNull(colocationColumnTypes.get()));
+    }
+
+    private NativeType[] evaluateTypes() {
+        int fieldCnt = descriptor().distribution().getKeys().size();
+        NativeType[] fieldTypes = new NativeType[fieldCnt];
+
+        int[] colocationColumns = descriptor().distribution().getKeys().toIntArray();
+
+        for (int i = 0; i < fieldCnt; i++) {
+            ColumnDescriptor colDesc = descriptor().columnDescriptor(colocationColumns[i]);
+
+            fieldTypes[i] = colDesc.physicalType();
+        }
+
+        return fieldTypes;
     }
 
     /** {@inheritDoc} */
     @Override
     public Map<String, IgniteIndex> indexes() {
         return indexMap;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partitions() {
+        return partitions;
     }
 
     /** {@inheritDoc} */

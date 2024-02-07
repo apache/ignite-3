@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -252,6 +254,11 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         @Override
         public TableDescriptor tableDescriptor() {
             return updates.descriptor();
+        }
+
+        @Override
+        public Supplier<PartitionCalculator> partitionCalculator() {
+            return null;
         }
     }
 

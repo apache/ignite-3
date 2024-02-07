@@ -40,29 +40,31 @@ repositories {
 
 ext {
     repos = [
-            'apache-release'   : "https://repo.maven.apache.org/maven2/",
-            'apache-snapshot'  : "https://repository.apache.org/snapshots",
-            'apache-staging'   : 'https://repository.apache.org/service/local/staging/deploy/maven2'
+            'apache-release' : "https://repo.maven.apache.org/maven2/",
+            'apache-snapshot': "https://repository.apache.org/snapshots",
+            'apache-staging' : 'https://repository.apache.org/service/local/staging/deploy/maven2'
     ]
 
-    defaultJvmArgs = ["--add-opens=java.base/java.lang=ALL-UNNAMED",
-                      "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-                      "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-                      "--add-opens=java.base/java.io=ALL-UNNAMED",
-                      "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                      "--add-opens=java.base/java.math=ALL-UNNAMED",
-                      "--add-opens=java.base/java.util=ALL-UNNAMED",
-                      "--add-opens=java.base/java.time=ALL-UNNAMED",
-                      "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
-                      "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-                      "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
-                      "-Dio.netty.tryReflectionSetAccessible=true",
-                      "-XX:+HeapDumpOnOutOfMemoryError"]
-}
+    defaultJvmArgs = [
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+            "--add-opens=java.base/java.io=ALL-UNNAMED",
+            "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--add-opens=java.base/java.math=ALL-UNNAMED",
+            "--add-opens=java.base/java.util=ALL-UNNAMED",
+            "--add-opens=java.base/java.time=ALL-UNNAMED",
+            "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+            "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
+            "-Dio.netty.tryReflectionSetAccessible=true",
+            "-XX:+HeapDumpOnOutOfMemoryError"
+    ]
 
-def compilerArgs = [
-        "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
-]
+    compilerArgs = [
+            "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
+    ]
+}
 
 allprojects {
     group 'org.apache.ignite'
@@ -91,7 +93,7 @@ allprojects {
     }
 
     tasks.withType(Javadoc) {
-        options.tags = [ "apiNote" ]
+        options.tags = ["apiNote"]
         options.addStringOption('bottom', javadocFooter())
     }
 
@@ -141,5 +143,10 @@ idea.project.settings {
     compiler.javac {
         // Workaround on https://youtrack.jetbrains.com/issue/IDEA-154038.
         javacAdditionalOptions = compilerArgs.join(' ')
+    }
+    runConfigurations {
+        defaults(org.jetbrains.gradle.ext.JUnit) {
+            vmParameters = defaultJvmArgs.join(' ')
+        }
     }
 }

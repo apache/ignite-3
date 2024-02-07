@@ -29,6 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -40,12 +42,8 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
 
-/**
- * The service is intended to execute requests on replicas.
- */
+/** The service is intended to execute requests on replicas. */
 public class ReplicaService {
     /** Network timeout. */
     private static final long RPC_TIMEOUT = 3000;
@@ -84,6 +82,7 @@ public class ReplicaService {
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
         CompletableFuture<R> res = new CompletableFuture<>();
@@ -190,6 +189,7 @@ public class ReplicaService {
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
         return sendToReplica(node.name(), request);
@@ -203,6 +203,7 @@ public class ReplicaService {
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(String replicaConsistentId, ReplicaRequest request) {
         return sendToReplica(replicaConsistentId, request);
@@ -217,6 +218,7 @@ public class ReplicaService {
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
         return sendToReplica(node.name(), request);

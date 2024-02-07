@@ -26,10 +26,12 @@ import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.network.OutNetworkObject;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -49,6 +51,7 @@ public class NettySender {
 
     private final short channelId;
 
+    @IgniteToStringExclude
     private final RecoveryDescriptor recoveryDescriptor;
 
     /**
@@ -233,5 +236,10 @@ public class NettySender {
     @TestOnly
     public RecoveryDescriptor recoveryDescriptor() {
         return recoveryDescriptor;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

@@ -22,12 +22,14 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
@@ -80,6 +82,9 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     TableDescriptor tableDescriptor = sqlTable.descriptor();
 
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
+                    // TODO Can be removed after https://issues.apache.org/jira/browse/IGNITE-20680
+                    assert schemaRegistry != null : "SchemaRegistry does not exist: " + sqlTable.id();
+
                     SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
                     TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(schemaRegistry, schemaDescriptor);
 
@@ -90,7 +95,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     UpdatableTableImpl updatableTable = new UpdatableTableImpl(sqlTable.id(), tableDescriptor, internalTable.partitions(),
                             replicaService, clock, rowConverter);
 
-                    return new ExecutableTableImpl(scannableTable, updatableTable);
+                    return new ExecutableTableImpl(scannableTable, updatableTable, sqlTable.partitionCalculator());
                 });
     }
 
@@ -99,12 +104,16 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
         private final UpdatableTable updatableTable;
 
+        private final Supplier<PartitionCalculator> partitionCalculator;
+
         private ExecutableTableImpl(
                 ScannableTable scannableTable,
-                UpdatableTable updatableTable
+                UpdatableTable updatableTable,
+                Supplier<PartitionCalculator> partitionCalculator
         ) {
             this.scannableTable = scannableTable;
             this.updatableTable = updatableTable;
+            this.partitionCalculator = partitionCalculator;
         }
 
         /** {@inheritDoc} */
@@ -123,6 +132,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         @Override
         public TableDescriptor tableDescriptor() {
             return updatableTable.descriptor();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Supplier<PartitionCalculator> partitionCalculator() {
+            return partitionCalculator;
         }
     }
 

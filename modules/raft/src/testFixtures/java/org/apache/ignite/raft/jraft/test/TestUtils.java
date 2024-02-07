@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;

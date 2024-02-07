@@ -28,13 +28,13 @@ import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
 import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
-import org.apache.ignite.network.OutNetworkObject;
 
 class HandshakeManagerUtils {
     private static final IgniteLogger LOG = Loggers.forClass(HandshakeManagerUtils.class);

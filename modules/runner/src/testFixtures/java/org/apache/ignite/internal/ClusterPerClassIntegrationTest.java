@@ -35,6 +35,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -88,7 +89,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
     /** Work directory. */
     @WorkDirectory
-    private static Path WORK_DIR;
+    protected static Path WORK_DIR;
 
     /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
     @BeforeEach
@@ -107,7 +108,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {
-            CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes());
+            CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
         }
     }
 
@@ -125,6 +126,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * This method can be overridden to add custom init parameters during cluster initialization.
+     */
+    protected void configureInitParameters(InitParametersBuilder builder) {
+    }
+
+    /**
      * Returns node bootstrap config template.
      *
      * @return Node bootstrap config template.
@@ -137,7 +144,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * After all.
      */
     @AfterAll
-    void afterAll() throws Exception {
+    void afterAll() {
         CLUSTER.shutdown();
     }
 

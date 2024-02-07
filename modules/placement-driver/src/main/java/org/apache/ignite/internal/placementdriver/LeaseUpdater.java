@@ -42,6 +42,9 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -53,17 +56,20 @@ import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A processor to manger leases. The process is started when placement driver activates and stopped when it deactivates.
  */
 public class LeaseUpdater {
+    /** Negative value means that printing statistics is disabled. */
+    private static final int LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS = IgniteSystemProperties
+            .getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 10);
+
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
@@ -275,6 +281,11 @@ public class LeaseUpdater {
 
     /** Runnable to update lease in Meta storage. */
     private class Updater implements Runnable {
+        private LeaseStats leaseUpdateStatistics = new LeaseStats();
+
+        /** This field should be accessed only from updater thread. */
+        private int statisticsLogCounter;
+
         @Override
         public void run() {
             while (active() && !Thread.interrupted()) {
@@ -285,6 +296,13 @@ public class LeaseUpdater {
                 try {
                     if (active()) {
                         updateLeaseBatchInternal();
+                    }
+                } catch (Throwable e) {
+                    LOG.error("Error occurred when updating the leases.", e);
+
+                    if (e instanceof Error) {
+                        // TODO IGNITE-20368 The node should be halted in case of an error here.
+                        throw (Error) e;
                     }
                 } finally {
                     stateChangingLock.leaveBusy();
@@ -302,6 +320,8 @@ public class LeaseUpdater {
         private void updateLeaseBatchInternal() {
             HybridTimestamp now = clock.now();
 
+            leaseUpdateStatistics = new LeaseStats();
+
             long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
@@ -315,10 +335,17 @@ public class LeaseUpdater {
             renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now)
                     && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
 
+            int currentAssignmentsSize = currentAssignments.size();
+            int activeLeasesCount = 0;
+
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
 
                 Lease lease = leaseTracker.getLease(grpId);
+
+                if (lease.isAccepted() && !isLeaseOutdated(lease)) {
+                    activeLeasesCount++;
+                }
 
                 if (!lease.isAccepted()) {
                     LeaseAgreement agreement = leaseNegotiator.negotiated(grpId);
@@ -332,6 +359,8 @@ public class LeaseUpdater {
                         ClusterNode candidate = nextLeaseHolder(entry.getValue(), agreement.getRedirectTo());
 
                         if (candidate == null) {
+                            leaseUpdateStatistics.onLeaseWithoutCandidate();
+
                             continue;
                         }
 
@@ -350,6 +379,8 @@ public class LeaseUpdater {
                     );
 
                     if (candidate == null) {
+                        leaseUpdateStatistics.onLeaseWithoutCandidate();
+
                         continue;
                     }
 
@@ -368,7 +399,18 @@ public class LeaseUpdater {
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
-            var key = PLACEMENTDRIVER_LEASES_KEY;
+            ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
+
+            if (shouldLogLeaseStatistics()) {
+                LOG.info(
+                        "Leases updated (printed once per {} iteration(s)): [inCurrentIteration={}, active={}, "
+                                + "currentAssignmentsSize={}].",
+                        LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS,
+                        leaseUpdateStatistics,
+                        activeLeasesCount,
+                        currentAssignmentsSize
+                );
+            }
 
             msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
@@ -416,6 +458,8 @@ public class LeaseUpdater {
             renewedLeases.put(grpId, renewedLease);
 
             toBeNegotiated.put(grpId, !lease.isAccepted() && Objects.equals(lease.getLeaseholder(), candidate.name()));
+
+            leaseUpdateStatistics.onLeaseCreate();
         }
 
         /**
@@ -430,6 +474,8 @@ public class LeaseUpdater {
             Lease renewedLease = lease.prolongLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
+
+            leaseUpdateStatistics.onLeaseProlong();
         }
 
         /**
@@ -445,6 +491,8 @@ public class LeaseUpdater {
             Lease renewedLease = lease.acceptLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
+
+            leaseUpdateStatistics.onLeasePublish();
         }
 
         /**
@@ -458,6 +506,55 @@ public class LeaseUpdater {
             HybridTimestamp now = clock.now();
 
             return now.after(lease.getExpirationTime());
+        }
+
+        private boolean shouldLogLeaseStatistics() {
+            if (LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS < 0) {
+                return false;
+            }
+
+            boolean result = ++statisticsLogCounter > LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
+
+            if (result) {
+                statisticsLogCounter = 0;
+            }
+
+            return result;
+        }
+    }
+
+    private static class LeaseStats {
+        @IgniteToStringInclude
+        int leasesCreated;
+
+        @IgniteToStringInclude
+        int leasesPublished;
+
+        @IgniteToStringInclude
+        int leasesProlonged;
+
+        @IgniteToStringInclude
+        int leasesWithoutCandidates;
+
+        private void onLeaseCreate() {
+            leasesCreated++;
+        }
+
+        private void onLeasePublish() {
+            leasesPublished++;
+        }
+
+        private void onLeaseProlong() {
+            leasesProlonged++;
+        }
+
+        private void onLeaseWithoutCandidate() {
+            leasesWithoutCandidates++;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
         }
     }
 

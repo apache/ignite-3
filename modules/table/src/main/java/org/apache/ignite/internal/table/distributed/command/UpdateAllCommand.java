@@ -22,10 +22,10 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimes
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * State machine command for updating a batch of entries.

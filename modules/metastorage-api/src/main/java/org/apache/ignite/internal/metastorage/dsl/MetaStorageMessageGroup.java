@@ -21,7 +21,7 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.RevisionCondit
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.ValueCondition;
 import org.apache.ignite.internal.metastorage.dsl.Statement.IfStatement;
 import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Message group for Meta Storage messages.

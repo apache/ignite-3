@@ -52,6 +52,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -143,7 +144,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 throw new IgniteInternalException(Common.INTERNAL_ERR, "Table with given id not found: " + tableId);
             }
 
-            return createTable(tableDescriptor, createTableDescriptorForTable(tableDescriptor), Map.of());
+            int zoneId = tableDescriptor.zoneId();
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+
+            if (zoneDescriptor == null) {
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Zone with given id not found: " + zoneId);
+            }
+
+            return createTable(tableDescriptor, createTableDescriptorForTable(tableDescriptor), Map.of(), zoneDescriptor.partitions());
         });
     }
 
@@ -157,14 +165,15 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         SchemaPlus rootSchema = Frameworks.createRootSchema(false);
 
         for (CatalogSchemaDescriptor schemaDescriptor : catalog.schemas()) {
-            IgniteSchema igniteSchema = createSqlSchema(catalog.version(), schemaDescriptor);
+            IgniteSchema igniteSchema = createSqlSchema(catalog, schemaDescriptor);
             rootSchema.add(igniteSchema.getName(), igniteSchema);
         }
 
         return rootSchema;
     }
 
-    private static IgniteSchema createSqlSchema(int catalogVersion, CatalogSchemaDescriptor schemaDescriptor) {
+    private static IgniteSchema createSqlSchema(Catalog catalog, CatalogSchemaDescriptor schemaDescriptor) {
+        int catalogVersion = catalog.version();
         String schemaName = schemaDescriptor.name();
 
         int numTables = schemaDescriptor.tables().length;
@@ -208,7 +217,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
 
-            IgniteTable schemaTable = createTable(tableDescriptor, descriptor, tableIndexMap);
+            int zoneId = tableDescriptor.zoneId();
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+            assert zoneDescriptor != null : "Zone is not found in schema: " + zoneId;
+
+            IgniteTable schemaTable = createTable(tableDescriptor, descriptor, tableIndexMap, zoneDescriptor.partitions());
 
             schemaDataSources.add(schemaTable);
         }
@@ -358,7 +371,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private static IgniteTable createTable(
             CatalogTableDescriptor catalogTableDescriptor,
             TableDescriptor tableDescriptor,
-            Map<String, IgniteIndex> indexes
+            Map<String, IgniteIndex> indexes,
+            int parititions
     ) {
         int tableId = catalogTableDescriptor.id();
         String tableName = catalogTableDescriptor.name();
@@ -373,7 +387,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 catalogTableDescriptor.tableVersion(),
                 tableDescriptor,
                 statistic,
-                indexes
+                indexes,
+                parititions
         );
     }
 }

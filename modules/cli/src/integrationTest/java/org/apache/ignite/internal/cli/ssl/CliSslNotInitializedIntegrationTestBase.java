@@ -26,7 +26,7 @@ import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedInteg
 public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
 
     @Override
-    protected String nodeBootstrapConfigTemplate() {
+    protected String getNodeBootstrapConfigTemplate() {
         return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
     }
 }
