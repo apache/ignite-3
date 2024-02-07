@@ -15,31 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands;
+package org.apache.ignite.internal.thread;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-
-import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInfo;
+import java.util.Set;
 
 /**
- * Extends {@link CliCommandTestNotInitializedIntegrationBase} and initializes ignite cluster.
+ * Holds some thread attributes.
  */
-public class CliCommandTestInitializedIntegrationBase extends CliCommandTestNotInitializedIntegrationBase {
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ThreadAttributes {
+    /**
+     * Returns all operations that this thread allows to execute.
+     */
+    Set<ThreadOperation> allowedOperations();
 
-    @BeforeAll
-    @Override
-    void beforeAll(TestInfo testInfo) {
-        startNodes(testInfo);
-        initializeCluster(metaStorageNodeName(testInfo));
-    }
-
-    protected static String metaStorageNodeName(TestInfo testInfo) {
-        return testNodeName(testInfo, 0);
-    }
-
-    protected static List<String> allNodeNames() {
-        return CLUSTER_NODE_NAMES;
+    /**
+     * Returns {@code true} if the given operation is allowed by this thread.
+     *
+     * @param operation Operation to check.
+     */
+    default boolean allows(ThreadOperation operation) {
+        return allowedOperations().contains(operation);
     }
 }

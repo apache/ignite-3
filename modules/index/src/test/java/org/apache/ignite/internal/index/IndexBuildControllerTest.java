@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NA
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -128,7 +129,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong()
+                anyLong(),
+                eq(indexCreationCatalogVersion(INDEX_NAME))
         );
     }
 
@@ -149,7 +151,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong()
+                anyLong(),
+                eq(indexCreationCatalogVersion(INDEX_NAME))
         );
     }
 
@@ -168,7 +171,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong()
+                anyLong(),
+                eq(indexCreationCatalogVersion(INDEX_NAME))
         );
     }
 
@@ -183,7 +187,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong()
+                anyLong(),
+                eq(indexCreationCatalogVersion(pkIndexName(TABLE_NAME)))
         );
     }
 
@@ -202,7 +207,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong()
+                anyLong(),
+                eq(indexCreationCatalogVersion(pkIndexName(tableName)))
         );
     }
 
@@ -244,7 +250,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 eq(LOCAL_NODE),
-                anyLong()
+                anyLong(),
+                anyInt()
         );
     }
 
@@ -295,5 +302,9 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 startTime.addPhysicalTime(1_000),
                 new TablePartitionId(tableId(), PARTITION_ID)
         );
+    }
+
+    private int indexCreationCatalogVersion(String indexName) {
+        return getIndexStrict(catalogManager, indexName, clock.nowLong()).creationCatalogVersion();
     }
 }

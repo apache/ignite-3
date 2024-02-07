@@ -267,9 +267,11 @@ public class HeapUnboundedLockManager extends AbstractEventProducer<LockEvent, L
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    conflictFound(waiter.txId(), tmp.txId());
+                    if (conflictFound(waiter.txId(), tmp.txId())) {
+                        waiter.fail(abandonedLockException(waiter, tmp));
 
-                    if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
+                        return true;
+                    } else if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(lockException(waiter, tmp));
 
                         return true;
@@ -284,11 +286,13 @@ public class HeapUnboundedLockManager extends AbstractEventProducer<LockEvent, L
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    conflictFound(waiter.txId(), tmp.txId());
-
                     if (skipFail) {
                         return false;
-                    } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
+                    } else if (conflictFound(waiter.txId(), tmp.txId())) {
+                        waiter.fail(abandonedLockException(waiter, tmp));
+
+                        return true;
+                    }  else if (deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(lockException(waiter, tmp));
 
                         return true;
@@ -313,6 +317,18 @@ public class HeapUnboundedLockManager extends AbstractEventProducer<LockEvent, L
         private LockException lockException(Waiter locker, Waiter holder) {
             return new LockException(ACQUIRE_LOCK_ERR,
                     "Failed to acquire a lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
+        }
+
+        /**
+         * Create lock exception when lock holder is believed to be missing.
+         *
+         * @param locker Locker.
+         * @param holder Lock holder.
+         * @return Lock exception.
+         */
+        private LockException abandonedLockException(WaiterImpl locker, WaiterImpl holder) {
+            return new LockException(ACQUIRE_LOCK_ERR,
+                    "Failed to acquire an abandoned lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
         }
 
         /**
@@ -500,8 +516,13 @@ public class HeapUnboundedLockManager extends AbstractEventProducer<LockEvent, L
          * @param acquirerTx Transaction which tries to acquire the lock.
          * @param holderTx Transaction which holds the lock.
          */
-        private void conflictFound(UUID acquirerTx, UUID holderTx) {
-            fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
+        private boolean conflictFound(UUID acquirerTx, UUID holderTx) {
+            CompletableFuture<Void> eventResult = fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
+            // No async handling is expected.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
+            assert eventResult.isDone() : "Async lock conflict handling is not supported";
+
+            return eventResult.isCompletedExceptionally();
         }
     }
 

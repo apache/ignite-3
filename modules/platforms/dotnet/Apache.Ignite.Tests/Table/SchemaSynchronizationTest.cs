@@ -292,8 +292,11 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 break;
 
             case TestMode.Compute:
-                await Client.Compute.ExecuteColocatedAsync<string, Poco>(
+                var jobExecution = await Client.Compute.ExecuteColocatedAsync<string, Poco>(
                     table.Name, new Poco(1, "foo"), Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+
+                await jobExecution.GetResultAsync();
+
                 break;
 
             default:

@@ -96,6 +96,7 @@ class IndexBuilder implements ManuallyCloseable {
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
      *      to the replica.
+     * @param creationCatalogVersion Catalog version in which the index was created.
      */
     // TODO: IGNITE-19498 Perhaps we need to start building the index only once
     public void scheduleBuildIndex(
@@ -105,7 +106,8 @@ class IndexBuilder implements ManuallyCloseable {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ClusterNode node,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            int creationCatalogVersion
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -128,7 +130,8 @@ class IndexBuilder implements ManuallyCloseable {
                     BATCH_SIZE,
                     node,
                     listeners,
-                    enlistmentConsistencyToken
+                    enlistmentConsistencyToken,
+                    creationCatalogVersion
             );
 
             IndexBuildTask previousTask = indexBuildTaskById.putIfAbsent(taskId, newTask);

@@ -194,12 +194,14 @@ public class ColocationHashTests : IgniteTestsBase
             using var writer = ProtoCommon.GetMessageWriter();
             var clientColocationHash = ser.Write(writer, null, schema, key);
 
-            var serverColocationHash = await Client.Compute.ExecuteAsync<int>(
+            var serverColocationHashExec = await Client.Compute.ExecuteAsync<int>(
                 clusterNodes,
                 Array.Empty<DeploymentUnit>(),
                 TableRowColocationHashJob,
                 tableName,
                 i);
+
+            var serverColocationHash = await serverColocationHashExec.GetResultAsync();
 
             Assert.AreEqual(serverColocationHash, clientColocationHash, key.ToString());
         }
@@ -327,7 +329,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var nodes = await Client.GetClusterNodesAsync();
 
-        return await Client.Compute.ExecuteAsync<int>(
+        IJobExecution<int> jobExecution = await Client.Compute.ExecuteAsync<int>(
             nodes,
             Array.Empty<DeploymentUnit>(),
             ColocationHashJob,
@@ -335,6 +337,8 @@ public class ColocationHashTests : IgniteTestsBase
             bytes,
             timePrecision,
             timestampPrecision);
+
+        return await jobExecution.GetResultAsync();
     }
 
     private record TestIndexProvider(Func<int, int> ColumnOrderDelegate, int HashedColumnCount) : IHashedColumnIndexProvider

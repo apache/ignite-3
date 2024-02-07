@@ -60,6 +60,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -176,7 +177,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
                     boolean commitIntent,
-                    Map<TablePartitionId, Long> enlistedGroups,
+                    Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();
