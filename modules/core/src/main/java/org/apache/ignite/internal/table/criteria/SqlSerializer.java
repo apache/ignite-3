@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
 import java.util.Arrays;
@@ -162,7 +163,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
      * Builder.
      */
     public static class Builder  {
-        private static final Pattern LETTER_AND_UNDERSCORE = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]*");
+        private static final Pattern CANONICAL_NAME = Pattern.compile("^(?:\\p{Alpha}[\\w_]*\\.)?\\p{Alpha}[\\w_]*$");
 
         @Nullable
         private String tableName;
@@ -256,11 +257,11 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         }
 
         private static String normalizeIndexName(String name) {
-            if (!LETTER_AND_UNDERSCORE.matcher(name).matches()) {
+            if (!CANONICAL_NAME.matcher(name).matches()) {
                 throw new IllegalArgumentException("Index name must be alphanumeric with underscore and start with letter. Was: " + name);
             }
 
-            return name.toUpperCase(Locale.ROOT);
+            return quote(name.toUpperCase(Locale.ROOT));
         }
     }
 }
