@@ -150,7 +150,9 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
-/** Class that allows to mock a cluster for transaction tests' purposes. */
+/**
+ * Class that allows to mock a cluster for transaction tests' purposes.
+ */
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
 

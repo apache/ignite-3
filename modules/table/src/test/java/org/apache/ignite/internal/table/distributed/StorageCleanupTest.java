@@ -62,7 +62,9 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Test write intent cleanups via {@link StorageUpdateHandler}. */
+/**
+ * Test write intent cleanups via {@link StorageUpdateHandler}.
+ */
 public class StorageCleanupTest extends BaseMvStoragesTest {
 
     private static final HybridClock CLOCK = new HybridClockImpl();

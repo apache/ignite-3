@@ -44,7 +44,9 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.junit.jupiter.api.Test;
 
-/** For {@link PartitionAccessImpl} testing. */
+/**
+ * For {@link PartitionAccessImpl} testing.
+ */
 public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 

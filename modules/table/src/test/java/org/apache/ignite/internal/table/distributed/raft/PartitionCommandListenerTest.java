@@ -122,7 +122,9 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/** Tests for the table command listener. */
+/**
+ * Tests for the table command listener.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)

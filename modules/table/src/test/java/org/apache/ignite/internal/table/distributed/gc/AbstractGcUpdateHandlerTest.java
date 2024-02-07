@@ -51,7 +51,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** Abstract class for testing {@link GcUpdateHandler} using different implementations of {@link MvPartitionStorage}. */
+/**
+ * Abstract class for testing {@link GcUpdateHandler} using different implementations of {@link MvPartitionStorage}.
+ */
 abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 1000;

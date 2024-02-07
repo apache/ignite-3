@@ -43,10 +43,17 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 
-/** Utility class provides various method to work with collections. */
+/**
+ * Utility class provides various method to work with collections.
+ */
 public final class CollectionUtils {
     /** Special object for determining that there is no next element. */
     private static final Object NO_NEXT_ELEMENT = new Object();
+
+    /** Stub. */
+    private CollectionUtils() {
+        // No op.
+    }
 
     /**
      * Tests if the given collection is either {@code null} or empty.

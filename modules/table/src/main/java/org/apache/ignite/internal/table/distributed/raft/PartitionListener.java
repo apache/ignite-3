@@ -78,7 +78,9 @@ import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
-/** Partition command handler. */
+/**
+ * Partition command handler.
+ */
 public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
     /** Transaction manager. */
     private final TxManager txManager;

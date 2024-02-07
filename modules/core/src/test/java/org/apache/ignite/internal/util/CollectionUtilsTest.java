@@ -56,7 +56,9 @@ import java.util.Spliterators;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Test;
 
-/** Testing the {@link CollectionUtils}. */
+/**
+ * Testing the {@link CollectionUtils}.
+ */
 public class CollectionUtilsTest {
     @Test
     void testConcatIterables() {
