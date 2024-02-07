@@ -95,6 +95,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexBuildingManager;
@@ -252,6 +253,9 @@ public class IgniteImpl implements Ignite {
 
     private final CriticalWorkerWatchdog criticalWorkerRegistry;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
 
@@ -396,11 +400,15 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20450
+        failureProcessor = new FailureProcessor(name);
+
         CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry.getConfiguration(CriticalWorkersConfiguration.KEY);
 
         criticalWorkerRegistry = new CriticalWorkerWatchdog(
                 criticalWorkersConfiguration,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                failureProcessor
         );
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
@@ -417,7 +425,8 @@ public class IgniteImpl implements Ignite {
                 nettyBootstrapFactory,
                 serializationRegistry,
                 new VaultStaleIds(vaultMgr),
-                criticalWorkerRegistry
+                criticalWorkerRegistry,
+                failureProcessor
         );
 
         clock = new HybridClockImpl();
@@ -563,7 +572,8 @@ public class IgniteImpl implements Ignite {
                 name,
                 nodeConfigRegistry,
                 storagePath,
-                longJvmPauseDetector
+                longJvmPauseDetector,
+                failureProcessor
         );
         dataStorageMgr = new DataStorageManager(applyThreadAssertionsIfNeeded(storageEngines));
 
@@ -655,7 +665,8 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
-                this::sql
+                this::sql,
+                failureProcessor
         );
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
@@ -876,6 +887,7 @@ public class IgniteImpl implements Ignite {
             lifecycleManager.startComponents(
                     threadPoolsManager,
                     clockWaiter,
+                    failureProcessor,
                     criticalWorkerRegistry,
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,

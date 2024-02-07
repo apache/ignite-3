@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -176,8 +178,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     nettyBootstrapFactory,
                     defaultSerializationRegistry(),
                     new InMemoryStaleIds(),
-                    new NoOpCriticalWorkerRegistry()
-            );
+                    new NoOpCriticalWorkerRegistry(),
+                    mock(FailureProcessor.class));
 
             clusterSvc.start();
             cleanup.add(clusterSvc::stop);
