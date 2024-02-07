@@ -59,6 +59,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -453,6 +454,9 @@ public class ItTxTestCluster {
 
         lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
+        List<CatalogIndexDescriptor> indexDescriptors = List.of(mock(CatalogIndexDescriptor.class));
+        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(indexDescriptors);
+
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
@@ -554,7 +558,8 @@ public class ItTxTestCluster {
                         storageUpdateHandler,
                         txStateStorage,
                         safeTime,
-                        storageIndexTracker
+                        storageIndexTracker,
+                        catalogService
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(

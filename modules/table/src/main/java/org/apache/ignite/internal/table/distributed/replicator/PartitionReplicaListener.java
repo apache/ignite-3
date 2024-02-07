@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
@@ -1728,7 +1729,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
-        storageUpdateHandler.switchWriteIntents(transactionId, commit, commitTimestamp);
+        storageUpdateHandler.switchWriteIntents(
+                transactionId,
+                commit,
+                commitTimestamp,
+                indexIdsAtRwTxBeginTs(catalogService, transactionId, tableId())
+        );
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
@@ -2528,7 +2534,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                             true,
                             null,
                             null,
-                            null);
+                            null,
+                            indexIdsAtRwTxBeginTs(catalogService, txId, tableId())
+                    );
 
                     updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                 }
@@ -2564,7 +2572,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     false,
                                     null,
                                     cmd.safeTime(),
-                                    null);
+                                    null,
+                                    indexIdsAtRwTxBeginTs(catalogService, txId, tableId())
+                            );
 
                             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                         }
@@ -2647,7 +2657,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 cmd.tablePartitionId().asTablePartitionId(),
                                 true,
                                 null,
-                                null
+                                null,
+                                indexIdsAtRwTxBeginTs(catalogService, transactionId, tableId())
                         );
 
                         updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -2663,7 +2674,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 cmd.tablePartitionId().asTablePartitionId(),
                                 true,
                                 null,
-                                null
+                                null,
+                                indexIdsAtRwTxBeginTs(catalogService, transactionId, tableId())
                         );
 
                         updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -2696,7 +2708,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             cmd.tablePartitionId().asTablePartitionId(),
                                             false,
                                             null,
-                                            cmd.safeTime()
+                                            cmd.safeTime(),
+                                            indexIdsAtRwTxBeginTs(catalogService, transactionId, tableId())
                                     );
 
                                     updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -3456,9 +3469,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<?> future = rowCleanupMap.computeIfAbsent(rowId, k -> {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
-            return txManager.executeCleanupAsync(() ->
-                    inBusyLock(busyLock, () -> storageUpdateHandler.switchWriteIntents(txId, txState == COMMITTED, commitTimestamp))
-            ).whenComplete((unused, e) -> {
+            return txManager.executeCleanupAsync(() -> inBusyLock(busyLock,
+                    () -> storageUpdateHandler.switchWriteIntents(
+                            txId,
+                            txState == COMMITTED,
+                            commitTimestamp,
+                            indexIdsAtRwTxBeginTs(catalogService, txId, tableId())
+                    )
+            )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
                 }
