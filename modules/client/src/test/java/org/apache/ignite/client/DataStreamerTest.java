@@ -250,7 +250,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
 
         assertThrows(ExecutionException.class, () -> streamFut.get(5, TimeUnit.SECONDS));
-        logger.assertLogContains("Not retrying operation [opCode=13, opType=TUPLE_UPSERT_ALL, attempt=3");
+        logger.assertLogContains("Not retrying operation [opCode=62, opType=STREAMER_BATCH_SEND, attempt=3");
         logger.assertLogContains("Failed to send batch to partition");
     }
 
