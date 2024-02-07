@@ -198,7 +198,7 @@ public class FakeInternalTable implements InternalTable {
             i++;
         }
 
-        onDataAccess("upsertAll", rows);
+        onDataAccess("updateAll", rows);
         return nullCompletedFuture();
     }
 
