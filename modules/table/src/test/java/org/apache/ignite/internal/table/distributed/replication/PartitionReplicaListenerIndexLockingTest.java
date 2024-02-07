@@ -46,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -212,6 +213,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());
 
         when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+        when(indexDescriptor.id()).thenReturn(PK_INDEX_ID);
+
+        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
 
         ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
