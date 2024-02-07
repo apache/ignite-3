@@ -106,6 +106,9 @@ import org.mockito.verification.VerificationMode;
 public class TxManagerTest extends IgniteAbstractTest {
     private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("local_id", "local", new NetworkAddress("127.0.0.1", 2004), null);
 
+    private static final ClusterNode REMOTE_NODE =
+            new ClusterNodeImpl("remote_id", "remote", new NetworkAddress("127.1.1.1", 2024), null);
+
     private HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
 
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier = () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
@@ -267,11 +270,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        ClusterNode node = mock(ClusterNode.class);
-
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
         tx.assignCommitPartition(tablePartitionId1);
 
         tx.commit();
@@ -290,11 +291,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        ClusterNode node = mock(ClusterNode.class);
-
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
         tx.assignCommitPartition(tablePartitionId1);
 
         tx.rollback();
@@ -318,11 +317,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        ClusterNode node = mock(ClusterNode.class);
-
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
         tx.assignCommitPartition(tablePartitionId1);
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
@@ -348,11 +345,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        ClusterNode node = mock(ClusterNode.class);
-
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
         tx.assignCommitPartition(tablePartitionId1);
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
@@ -737,10 +732,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     private InternalTransaction prepareTransaction() {
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        ClusterNode node = mock(ClusterNode.class);
-
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
+
+        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
         tx.assignCommitPartition(tablePartitionId1);
 
         return tx;

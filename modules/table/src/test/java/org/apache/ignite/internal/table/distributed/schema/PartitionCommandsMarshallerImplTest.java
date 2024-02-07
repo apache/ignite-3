@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -97,7 +96,6 @@ class PartitionCommandsMarshallerImplTest {
     private FinishTxCommand commandWithRequiredCatalogVersion(int requiredCatalogVersion) {
         return tableMessagesFactory.finishTxCommand()
                 .txId(UUID.randomUUID())
-                .tablePartitionIds(List.of())
                 .requiredCatalogVersion(requiredCatalogVersion)
                 .build();
     }

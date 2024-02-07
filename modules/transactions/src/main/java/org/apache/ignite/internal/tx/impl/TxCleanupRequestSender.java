@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -77,19 +79,32 @@ public class TxCleanupRequestSender {
     /**
      * Sends cleanup request to the primary nodes of each one of {@code partitions}.
      *
-     * @param partitions Enlisted partition groups.
+     * @param enlistedPartitions Map of enlisted partition group to the initial primary node.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            Collection<TablePartitionId> partitions,
+            Map<TablePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return placementDriverHelper.findPrimaryReplicas(partitions)
+        Map<String, Set<TablePartitionId>> partitions = new HashMap<>();
+        enlistedPartitions.forEach((partitionId, nodeId) ->
+                partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
+
+        return cleanupPartitions(partitions, commit, commitTimestamp, txId);
+    }
+
+    private CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> partitionIds,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
+        return placementDriverHelper.findPrimaryReplicas(partitionIds)
                 .thenCompose(partitionData -> {
                     switchWriteIntentsOnPartitions(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
 
