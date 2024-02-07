@@ -74,7 +74,7 @@ public class ClientTableCommon {
             return;
         }
 
-        var colCnt = schema.columnNames().size();
+        var colCnt = schema.columns().size();
         packer.packInt(colCnt);
 
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
@@ -138,7 +138,7 @@ public class ClientTableCommon {
         assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
         BinaryTupleReader binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
 
-        int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : schema.length();
+        int elementCount = part == TuplePart.KEY ? schema.keyColumns().size() : schema.length();
 
         if (binaryTuple != null) {
             assert elementCount == binaryTuple.elementCount() :
@@ -288,7 +288,7 @@ public class ClientTableCommon {
             boolean keyOnly,
             SchemaDescriptor schema
     ) {
-        var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
+        var cnt = keyOnly ? schema.keyColumns().size() : schema.length();
 
         // NOTE: noValueSet is only present for client -> server communication.
         // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.

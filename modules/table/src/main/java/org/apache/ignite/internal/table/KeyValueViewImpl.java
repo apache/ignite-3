@@ -698,8 +698,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
-        Column[] keyCols = schema.keyColumns().columns();
-        Column[] valCols = schema.valueColumns().columns();
+        List<Column> keyCols = schema.keyColumns();
+        List<Column> valCols = schema.valueColumns();
 
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
         Marshaller keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, false, true);

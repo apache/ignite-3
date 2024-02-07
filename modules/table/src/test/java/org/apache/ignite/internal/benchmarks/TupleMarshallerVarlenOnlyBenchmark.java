@@ -22,11 +22,11 @@ import static org.apache.ignite.internal.type.NativeTypes.INT64;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -140,12 +140,12 @@ public class TupleMarshallerVarlenOnlyBenchmark {
      */
     @Benchmark
     public void measureTupleBuildAndMarshallerCost(Blackhole bh) throws TupleMarshallerException {
-        final Columns cols = schema.valueColumns();
+        List<Column> cols = schema.valueColumns();
 
-        final Tuple valBld = Tuple.create(cols.length());
+        final Tuple valBld = Tuple.create(cols.size());
 
-        for (int i = 0; i < cols.length(); i++) {
-            valBld.set(cols.column(i).name(), val);
+        for (int i = 0; i < cols.size(); i++) {
+            valBld.set(cols.get(i).name(), val);
         }
 
         Tuple keyTuple = Tuple.create(1).set("key", rnd.nextLong());

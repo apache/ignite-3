@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Arrays;
-import java.util.Comparator;
+import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
@@ -49,23 +48,16 @@ public class SchemaUtils {
             SchemaDescriptor oldDesc,
             SchemaDescriptor newDesc
     ) {
-        Column[] cols = oldDesc.valueColumns().columns();
-        Column[] oldCols = Arrays.copyOf(cols, cols.length);
-
-        Arrays.sort(oldCols, Comparator.comparingInt(Column::columnOrder));
-
-        cols = newDesc.valueColumns().columns();
-        Column[] newCols = Arrays.copyOf(cols, cols.length);
-
-        Arrays.sort(newCols, Comparator.comparingInt(Column::columnOrder));
+        List<Column> oldCols = oldDesc.columns();
+        List<Column> newCols = newDesc.columns();
 
         ColumnMapper mapper = null;
 
-        for (int i = 0; i < newCols.length; ++i) {
-            Column newCol = newCols[i];
+        for (int i = 0; i < newCols.size(); ++i) {
+            Column newCol = newCols.get(i);
 
-            if (i < oldCols.length) {
-                Column oldCol = oldCols[i];
+            if (i < oldCols.size()) {
+                Column oldCol = oldCols.get(i);
 
                 if (newCol.schemaIndex() == oldCol.schemaIndex()) {
                     if (!newCol.name().equals(oldCol.name())) {
@@ -115,8 +107,7 @@ public class SchemaUtils {
      * @return {@code True} if schemas are equal, {@code false} otherwise.
      */
     public static boolean equalSchemas(SchemaDescriptor exp, SchemaDescriptor actual) {
-        if (exp.keyColumns().length() != actual.keyColumns().length()
-                || exp.valueColumns().length() != actual.valueColumns().length()) {
+        if (exp.columns().size() != actual.columns().size()) {
             return false;
         }
 

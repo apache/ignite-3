@@ -575,8 +575,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     @Override
     protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
         return (row) -> new IgniteBiTuple<>(
-                new SqlRowProjection(row, meta, columnNames(schema.keyColumns().columns())),
-                new SqlRowProjection(row, meta, columnNames(schema.valueColumns().columns()))
+                new SqlRowProjection(row, meta, columnNames(schema.keyColumns())),
+                new SqlRowProjection(row, meta, columnNames(schema.valueColumns()))
         );
     }
 }

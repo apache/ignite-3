@@ -43,7 +43,7 @@ class PojoStreamerPartitionAwarenessProvider<R> extends AbstractClientStreamerPa
         try {
             HashCalculator hashCalc = new HashCalculator();
 
-            for (Column c : schema.colocationColumns()) {
+            for (Column c : schema.fullRowColocationColumns()) {
                 Object val = marsh.value(item, c.schemaIndex());
                 ColocationUtils.append(hashCalc, val, c.type());
             }

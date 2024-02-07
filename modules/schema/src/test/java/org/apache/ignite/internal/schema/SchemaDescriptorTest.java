@@ -86,7 +86,7 @@ public class SchemaDescriptorTest {
         for (int i = 0; i < columns.size(); i++) {
             Column col = desc.column(i);
 
-            assertEquals(columns.get(col.columnOrder()), col);
+            assertEquals(columns.get(col.order()), col);
         }
 
         assertArrayEquals(columns.stream().map(Column::name).toArray(String[]::new), desc.columnNames().toArray(String[]::new));

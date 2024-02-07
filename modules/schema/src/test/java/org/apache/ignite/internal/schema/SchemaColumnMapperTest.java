@@ -20,7 +20,9 @@ package org.apache.ignite.internal.schema;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -42,7 +44,7 @@ public class SchemaColumnMapperTest extends BaseIgniteAbstractTest {
     private static final int TOTAL_ITERATIONS = 30;
 
     private static final SchemaDescriptor INITIAL_SCHEMA =
-            new SchemaDescriptor(0, new Column[]{new Column("ID", NativeTypes.INT32, false)}, new Column[0]);
+            new SchemaDescriptor(0, new Column[]{new Column(0, "ID", NativeTypes.INT32, false)}, new Column[0]);
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
@@ -90,7 +92,7 @@ public class SchemaColumnMapperTest extends BaseIgniteAbstractTest {
 
         Random rnd = new Random(seed);
 
-        SchemaDescriptor newSchema = addColumns(INITIAL_SCHEMA, makeColumns(0, TOTAL_ITERATIONS));
+        SchemaDescriptor newSchema = addColumns(INITIAL_SCHEMA, makeColumns(INITIAL_SCHEMA.length(), TOTAL_ITERATIONS));
 
         for (int i = TOTAL_ITERATIONS - 1; i >= batchSize; i -= batchSize) {
             int[] idxs = rnd.ints(i - batchSize, i).distinct().limit(batchSize).toArray();
@@ -103,11 +105,11 @@ public class SchemaColumnMapperTest extends BaseIgniteAbstractTest {
     }
 
     private static void verifyMapping(SchemaDescriptor oldSchema, SchemaDescriptor newSchema) {
-        Column[] oldCols = allColumns(oldSchema);
-        Column[] newCols = allColumns(newSchema);
+        List<Column> oldCols = oldSchema.columns();
+        List<Column> newCols = newSchema.columns();
         ColumnMapper mapper = SchemaUtils.columnMapper(oldSchema, newSchema);
 
-        Map<Integer, Column> schemaIndexMap = Arrays.stream(oldCols)
+        Map<Integer, Column> schemaIndexMap = oldCols.stream()
                 .collect(Collectors.toMap(Column::schemaIndex, Function.identity()));
 
         for (Column column : newCols) {
@@ -121,26 +123,23 @@ public class SchemaColumnMapperTest extends BaseIgniteAbstractTest {
     }
 
     private static SchemaDescriptor addColumns(SchemaDescriptor schema, Column ... newColumns) {
-        Column[] oldColumns = schema.valueColumns().columns();
-        Column[] columns = Arrays.copyOf(oldColumns, oldColumns.length + newColumns.length);
-        System.arraycopy(newColumns, 0, columns, oldColumns.length, newColumns.length);
+        List<Column> columns = new ArrayList<>(schema.valueColumns());
+        columns.addAll(List.of(newColumns));
 
-        return new SchemaDescriptor(schema.version() + 1, schema.keyColumns().columns(), columns);
+        return new SchemaDescriptor(schema.version() + 1, schema.keyColumns().toArray(new Column[0]), columns.toArray(new Column[0]));
     }
 
-    private static SchemaDescriptor removeColumns(SchemaDescriptor schema, int ... idxs) {
-        Column[] oldColumns = schema.valueColumns().columns();
-        Column[] newColumns = new Column[oldColumns.length - idxs.length];
+    private static SchemaDescriptor removeColumns(SchemaDescriptor schema, int... idxs) {
+        List<Column> newColumns = new ArrayList<>();
         Set<Integer> colIdxsSet = Arrays.stream(idxs).boxed().collect(Collectors.toSet());
 
-        int n = 0;
-        for (int i = 0; i < oldColumns.length; i++) {
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
             if (!colIdxsSet.contains(i)) {
-                newColumns[n++] = oldColumns[i];
+                newColumns.add(schema.valueColumns().get(i));
             }
         }
 
-        return new SchemaDescriptor(schema.version() + 1, schema.keyColumns().columns(), newColumns);
+        return new SchemaDescriptor(schema.version() + 1, schema.keyColumns().toArray(new Column[0]), newColumns.toArray(new Column[0]));
     }
 
     private static Column[] makeColumns(int offset, int count) {
@@ -153,16 +152,6 @@ public class SchemaColumnMapperTest extends BaseIgniteAbstractTest {
 
             columns[i] = new Column(index, "COL" + index, type, false);
         }
-
-        return columns;
-    }
-
-    private static Column[] allColumns(SchemaDescriptor schemaDescriptor) {
-        Column[] keyColumns = schemaDescriptor.keyColumns().columns();
-        Column[] valueColumns = schemaDescriptor.valueColumns().columns();
-
-        Column[] columns = Arrays.copyOf(keyColumns, keyColumns.length + valueColumns.length);
-        System.arraycopy(valueColumns, 0, columns, keyColumns.length, valueColumns.length);
 
         return columns;
     }

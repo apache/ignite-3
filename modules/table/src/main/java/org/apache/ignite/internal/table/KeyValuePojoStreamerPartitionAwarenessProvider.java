@@ -44,7 +44,7 @@ class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClien
         try {
             HashCalculator hashCalc = new HashCalculator();
 
-            for (Column c : schema.colocationColumns()) {
+            for (Column c : schema.fullRowColocationColumns()) {
                 // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
                 Object val = marsh.value(item.getKey(), c.schemaIndex());
                 ColocationUtils.append(hashCalc, val, c.type());

@@ -522,7 +522,7 @@ public class ItTxTestCluster {
                 StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
 
                 when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
-                        schemaDescriptor.keyColumns().columns().length,
+                        schemaDescriptor.keyColumns().size(),
                         mock(StorageHashIndexColumnDescriptor.class)
                 ));
 

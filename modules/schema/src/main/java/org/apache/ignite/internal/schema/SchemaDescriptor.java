@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.util.IgniteUtils.newLinkedHashMap;
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
@@ -36,7 +38,7 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.TemporalNativeType;
-import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,27 +48,27 @@ public class SchemaDescriptor {
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
+    private final List<Column> columns;
+
     /** Key columns in serialization order. */
-    private final Columns keyCols;
+    private final List<Column> keyCols;
 
     /** Value columns in serialization order. */
-    private final Columns valCols;
+    private final List<Column> valCols;
 
     /** Colocation columns. */
-    private final Column[] colocationCols;
+    private final List<Column> fullRowColocationCols;
 
-    private final List<Column> columns;
+    private final List<Column> keyOnlyColocationCols;
 
     /** Colocation columns. */
     private final @Nullable Map<Column, Integer> colocationColIndexes;
 
     /** Mapping 'Column name' -&gt; Column. */
-    private final Map<String, Column> colMap;
+    private final Map<String, Column> columnsByName;
 
     /** Whether schema contains time or timestamp columns. */
     private final boolean hasTemporalColumns;
-
-    private final boolean physicalOrderMatchesLogical;
 
     /** Column mapper. */
     private ColumnMapper colMapper = ColumnMapping.identityMapping();
@@ -85,60 +87,91 @@ public class SchemaDescriptor {
         this(ver, keyCols, null, valCols);
     }
 
-    /**
-     * Constructor.
-     *
-     * @param ver     Schema version.
-     * @param keyCols Key columns.
-     * @param colocationCols Colocation column names.
-     * @param valCols Value columns.
-     */
+    /** Constructor. */
     public SchemaDescriptor(int ver, Column[] keyCols, String @Nullable[] colocationCols, Column[] valCols) {
-        assert keyCols.length > 0 : "No key columns are configured.";
+        this(
+                ver,
+                Stream.concat(Arrays.stream(keyCols), Arrays.stream(valCols)).collect(Collectors.toList()),
+                Arrays.stream(keyCols).map(Column::name).collect(Collectors.toList()),
+                colocationCols != null
+                        ? Arrays.stream(keyCols).map(Column::name).collect(Collectors.toList())
+                        : null
+        );
+    }
+
+    /** Constructor. */
+    public SchemaDescriptor(int ver, List<Column> columns, List<String> keyColumns, @Nullable List<String> colocationColumns) {
+        assert !keyColumns.isEmpty() : "No key columns are configured.";
 
         this.ver = ver;
-        this.keyCols = new Columns(0, keyCols);
-        this.valCols = new Columns(keyCols.length, valCols);
+        Map<String, Column> columnsByName = new HashMap<>();
+        List<Column> orderedColumns = new ArrayList<>(columns.size());
 
-        this.columns = Stream.concat(
-                Arrays.stream(this.keyCols.columns()),
-                Arrays.stream(this.valCols.columns())
-        ).collect(Collectors.toList());
+        boolean hasTemporalColumns = false;
+        int order = 0;
+        for (Column column : columns) {
+            Column orderedColumn = column.copy(order++);
 
-        assert this.keyCols.nullMapSize() == 0 : "Primary key cannot contain nullable column [cols=" + this.keyCols + ']';
+            columnsByName.put(orderedColumn.name(), orderedColumn);
+            orderedColumns.add(orderedColumn);
 
-        colMap = newLinkedHashMap(keyCols.length + valCols.length);
-        var hasTemporalColumns = new AtomicBoolean(false);
-
-        Stream.concat(Arrays.stream(this.keyCols.columns()), Arrays.stream(this.valCols.columns()))
-                .sorted(Comparator.comparingInt(Column::columnOrder))
-                .forEach(c -> {
-                    if (c.type() instanceof TemporalNativeType) {
-                        hasTemporalColumns.set(true);
-                    }
-
-                    colMap.put(c.name(), c);
-                });
-
-        this.physicalOrderMatchesLogical = colMap.values().stream().allMatch(col -> col.columnOrder() == col.schemaIndex());
-
-        this.hasTemporalColumns = hasTemporalColumns.get();
-
-        // Preserving key chunk column order is not actually required.
-        // It is sufficient to has same column order for all nodes.
-        if (ArrayUtils.nullOrEmpty(colocationCols)) {
-            this.colocationCols = this.keyCols.columns();
-            this.colocationColIndexes = null;
-        } else {
-            this.colocationCols = new Column[colocationCols.length];
-            this.colocationColIndexes = new HashMap<>(colocationCols.length);
-
-            for (int i = 0; i < colocationCols.length; i++) {
-                Column col = colMap.get(colocationCols[i]);
-                this.colocationCols[i] = col;
-                this.colocationColIndexes.put(col, i);
+            if (column.type() instanceof TemporalNativeType) {
+                hasTemporalColumns = true;
             }
         }
+
+        this.columns = List.copyOf(orderedColumns);
+        this.columnsByName = Map.copyOf(columnsByName);
+        this.hasTemporalColumns = hasTemporalColumns;
+
+        List<Column> tmpKeyColumns = new ArrayList<>(keyColumns.size());
+
+        BitSet keyColumnsBitSet = new BitSet(columns.size());
+        Object2IntMap<String> keyColumnToPositionInKey = new Object2IntOpenHashMap<>(keyColumns.size());
+        int idx = 0;
+        for (String name : keyColumns) {
+            keyColumnToPositionInKey.put(name, idx++);
+
+            Column column = columnsByName.get(name);
+
+            assert column != null : name;
+
+            tmpKeyColumns.add(column);
+            keyColumnsBitSet.set(column.order());
+        }
+
+        this.keyCols = List.copyOf(tmpKeyColumns);
+
+        List<Column> tmpValueColumns = new ArrayList<>(columns.size() - keyColumnsBitSet.cardinality());
+        for (Column column : orderedColumns) {
+            if (!keyColumnsBitSet.get(column.order())) {
+                tmpValueColumns.add(column);
+            }
+        }
+
+        this.valCols = List.copyOf(tmpValueColumns);
+
+        if (!CollectionUtils.nullOrEmpty(colocationColumns)) {
+            this.fullRowColocationCols = colocationColumns.stream()
+                    .map(columnsByName::get)
+                    .collect(Collectors.toList());
+
+            this.colocationColIndexes = newHashMap(fullRowColocationCols.size());
+            for (int i = 0; i < fullRowColocationCols.size(); i++) {
+                colocationColIndexes.put(fullRowColocationCols.get(i), i);
+            }
+        } else {
+            this.fullRowColocationCols = this.keyCols;
+            this.colocationColIndexes = null;
+        }
+
+        List<Column> tmp = new ArrayList<>(fullRowColocationCols.size());
+
+        for (Column col : fullRowColocationCols) {
+            tmp.add(col.copy(keyColumnToPositionInKey.getInt(col.name())));
+        }
+
+        this.keyOnlyColocationCols = List.copyOf(tmp);
     }
 
     /**
@@ -159,7 +192,7 @@ public class SchemaDescriptor {
     public boolean isKeyColumn(int idx) {
         validateColumnIndex(idx);
 
-        return idx < keyCols.length();
+        return idx < keyCols.size();
     }
 
     /**
@@ -181,7 +214,7 @@ public class SchemaDescriptor {
      * @return Column.
      */
     public @Nullable Column column(String name) {
-        return colMap.get(name);
+        return columnsByName.get(name);
     }
 
     /** Returns columns in the order their appear in serialized tuple. */
@@ -198,18 +231,13 @@ public class SchemaDescriptor {
         Objects.checkIndex(colIdx, length());
     }
 
-    /** Returns true if physical order matches the logical order, false otherwise. */
-    public boolean physicalOrderMatchesLogical() {
-        return physicalOrderMatchesLogical;
-    }
-
     /**
      * Gets columns names.
      *
      * @return Columns names.
      */
     public Collection<String> columnNames() {
-        return colMap.keySet();
+        return columns.stream().map(Column::name).collect(Collectors.toList());
     }
 
     /**
@@ -217,7 +245,7 @@ public class SchemaDescriptor {
      *
      * @return Key columns chunk.
      */
-    public Columns keyColumns() {
+    public List<Column> keyColumns() {
         return keyCols;
     }
 
@@ -226,8 +254,12 @@ public class SchemaDescriptor {
      *
      * @return Key colocation columns chunk.
      */
-    public Column[] colocationColumns() {
-        return colocationCols;
+    public List<Column> fullRowColocationColumns() {
+        return fullRowColocationCols;
+    }
+
+    public List<Column> keyOnlyColocationColumns() {
+        return keyOnlyColocationCols;
     }
 
     /**
@@ -247,7 +279,7 @@ public class SchemaDescriptor {
      *
      * @return Value columns chunk.
      */
-    public Columns valueColumns() {
+    public List<Column> valueColumns() {
         return valCols;
     }
 
@@ -323,7 +355,7 @@ public class SchemaDescriptor {
         @Override
         public MarshallerColumn[] keys() {
             if (keys == null) {
-                keys = MarshallerUtil.toMarshallerColumns(schema.keyColumns().columns());
+                keys = MarshallerUtil.toMarshallerColumns(schema.keyColumns());
             }
             return keys;
         }
@@ -331,7 +363,7 @@ public class SchemaDescriptor {
         @Override
         public MarshallerColumn[] values() {
             if (values == null) {
-                values = MarshallerUtil.toMarshallerColumns(schema.valueColumns().columns());
+                values = MarshallerUtil.toMarshallerColumns(schema.valueColumns());
             }
             return values;
         }
@@ -339,8 +371,7 @@ public class SchemaDescriptor {
         @Override
         public MarshallerColumn[] row() {
             if (row == null) {
-                Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-                row = MarshallerUtil.toMarshallerColumns(cols);
+                row = MarshallerUtil.toMarshallerColumns(schema.columns());
             }
             return row;
         }

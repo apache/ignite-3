@@ -344,7 +344,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
 
         when(pkIndexDescriptor.columns()).then(
-                invocation -> Collections.nCopies(schema.keyColumns().columns().length, mock(StorageHashIndexColumnDescriptor.class))
+                invocation -> Collections.nCopies(schema.keyColumns().size(), mock(StorageHashIndexColumnDescriptor.class))
         );
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(

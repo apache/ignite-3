@@ -105,7 +105,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(keyColumns(), keyTuple, valuesWithStatistics);
+            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != keyTuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -115,7 +115,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             boolean keyOnly = valTuple == null;
             if (!keyOnly) {
-                gatherStatistics(valueColumns(), valTuple, valuesWithStatistics);
+                gatherStatistics(schema.valueColumns(), valTuple, valuesWithStatistics);
 
                 if ((valuesWithStatistics.knownColumns - keyTuple.columnCount()) != valTuple.columnCount()) {
                     throw new SchemaMismatchException(
@@ -136,7 +136,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(keyColumns(), keyTuple, valuesWithStatistics);
+            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns < keyTuple.columnCount()) {
                 throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
@@ -148,19 +148,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
     }
 
-    private List<Column> keyColumns() {
-        return List.of(schema.keyColumns().columns());
-    }
-
-    private List<Column> valueColumns() {
-        return List.of(schema.valueColumns().columns());
-    }
-
     private Row buildRow(
             boolean keyOnly,
             ValuesWithStatistics values
     ) throws SchemaMismatchException {
-        List<Column> columns = keyOnly ? keyColumns() : schema.columns();
+        List<Column> columns = keyOnly ? schema.keyColumns() : schema.columns();
         RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize);
 
         for (Column col : columns) {

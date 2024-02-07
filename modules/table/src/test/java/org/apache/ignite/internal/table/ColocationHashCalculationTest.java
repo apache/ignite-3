@@ -71,7 +71,7 @@ public class ColocationHashCalculationTest {
                         new Column(1, "id1", INT32, false),
                         new Column(2, "id2", STRING, false),
                 },
-                new Column[]{new Column(3, "val", INT32, true).copy(3)});
+                new Column[]{new Column(3, "val", INT32, true)});
 
         RowAssembler rasm = new RowAssembler(schema, -1);
 
@@ -106,7 +106,7 @@ public class ColocationHashCalculationTest {
                 .toArray(Column[]::new);
 
         SchemaDescriptor schema = new SchemaDescriptor(42, keyCols,
-                new Column[]{new Column("val", INT32, true).copy(keyCols.length)});
+                new Column[]{new Column("val", INT32, true)});
 
         Row r = generateRandomRow(rnd, schema);
         assertEquals(colocationHash(r), r.colocationHash());
@@ -196,7 +196,7 @@ public class ColocationHashCalculationTest {
 
     private static int colocationHash(Row r) {
         HashCalculator hashCalc = new HashCalculator();
-        for (Column c : r.schema().colocationColumns()) {
+        for (Column c : r.schema().fullRowColocationColumns()) {
             var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;
             var precision = c.type() instanceof TemporalNativeType ? ((TemporalNativeType) c.type()).precision() : 0;
             hashCalc.append(r.value(c.schemaIndex()), scale, precision);

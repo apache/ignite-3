@@ -30,7 +30,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -162,8 +161,8 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
         TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, null);
         BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, true);
 
-        Columns keyColumns = schema.keyColumns();
-        BinaryTupleReader reader = new BinaryTupleReader(keyColumns.length(), convertedRow.tupleSlice());
+        List<Column> keyColumns = schema.keyColumns();
+        BinaryTupleReader reader = new BinaryTupleReader(keyColumns.size(), convertedRow.tupleSlice());
 
         // Schema stores in key columns in the following order: c2, c1
         assertEquals(true, reader.booleanValue(0));
@@ -207,8 +206,8 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
         TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, null);
         BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, true);
 
-        Columns keyColumns = schema.keyColumns();
-        BinaryTupleReader reader = new BinaryTupleReader(keyColumns.length(), convertedRow.tupleSlice());
+        List<Column> keyColumns = schema.keyColumns();
+        BinaryTupleReader reader = new BinaryTupleReader(keyColumns.size(), convertedRow.tupleSlice());
 
         // Schema stores in key columns in the following order: c2, c4
         assertEquals(2, reader.intValue(0));
