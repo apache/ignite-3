@@ -20,7 +20,9 @@ package org.apache.ignite.client;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.Transaction;
@@ -157,5 +159,10 @@ public enum ClientOperationType {
     /**
      * SQL Cursor Next Page ({@link AsyncResultSet#fetchNextPage()}).
      */
-    SQL_CURSOR_NEXT_PAGE
+    SQL_CURSOR_NEXT_PAGE,
+
+    /**
+     * Send streamer batch ({@link org.apache.ignite.table.DataStreamerTarget#streamData}).
+     */
+    STREAMER_BATCH_SEND
 }
