@@ -238,6 +238,34 @@ public class ClientTupleSerializer {
     }
 
     /**
+     * Writes pairs {@link Tuple}.
+     *
+     * @param partitionId Partition id.
+     * @param pairs Tuples.
+     * @param deleted Deleted bit set (one bit per tuple).
+     * @param schema Schema.
+     * @param out Out.
+     */
+    void writeStreamerKvTuples(
+            int partitionId,
+            Collection<Entry<Tuple, Tuple>> pairs,
+            @Nullable BitSet deleted,
+            ClientSchema schema,
+            PayloadOutputChannel out) {
+        ClientMessagePacker w = out.out();
+
+        w.packInt(tableId);
+        w.packInt(partitionId);
+        w.packBitSetNullable(deleted);
+        w.packInt(schema.version());
+        w.packInt(pairs.size());
+
+        for (Map.Entry<Tuple, Tuple> pair : pairs) {
+            writeKvTuple(null, pair.getKey(), pair.getValue(), schema, out, true);
+        }
+    }
+
+    /**
      * Writes {@link Tuple}'s.
      *
      * @param tuples Tuples.
@@ -282,13 +310,7 @@ public class ClientTupleSerializer {
 
         w.packInt(tableId);
         w.packInt(partitionId);
-
-        if (deleted == null) {
-            w.packNil();
-        } else {
-            w.packBitSet(deleted);
-        }
-
+        w.packBitSetNullable(deleted);
         w.packInt(schema.version());
         w.packInt(tuples.size());
 
