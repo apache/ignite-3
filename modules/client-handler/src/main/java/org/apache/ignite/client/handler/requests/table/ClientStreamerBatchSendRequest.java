@@ -44,6 +44,7 @@ public class ClientStreamerBatchSendRequest {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
+        // TODO: Pack partition id with every tuple? Or group by partition id on client?
         return readTableAsync(in, tables).thenCompose(table -> {
             return readTuples(in, table, false).thenCompose(tuples -> {
                 return table.recordView().upsertAllAsync(null, tuples)
