@@ -286,7 +286,7 @@ public class ItTxTestCluster {
     /**
      * Initialize the test state.
      */
-    protected void prepareCluster() throws Exception {
+    public void prepareCluster() throws Exception {
         assertTrue(nodes > 0);
         assertTrue(replicas > 0);
 
@@ -887,5 +887,29 @@ public class ItTxTestCluster {
 
         clientTxStateResolver.start();
         clientTxManager.start();
+    }
+
+    public Map<String, Loza> raftServers() {
+        return raftServers;
+    }
+
+    public Map<String, TxManager> txManagers() {
+        return txManagers;
+    }
+
+    public PlacementDriver placementDriver() {
+        return placementDriver;
+    }
+
+    public TxManager clientTxManager() {
+        return clientTxManager;
+    }
+
+    public String localNodeName() {
+        return localNodeName;
+    }
+
+    public Map<String, HybridClock> clocks() {
+        return clocks;
     }
 }

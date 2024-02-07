@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tx.TxState.FINISHING;
-import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import java.util.Map;
@@ -120,20 +118,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * Checks that this transaction was not finished and will be able to enlist another partition.
      */
     private void checkEnlistPossibility() {
-        if (hasTxFinalizationBegun()) {
+        if (finishFuture != null) {
+            // This means that the transaction is either in final or FINISHING state.
             throw new TransactionException(
                     TX_ALREADY_FINISHED_ERR,
                     format("Transaction is already finished [id={}, state={}].", id(), state()));
         }
-    }
-
-    /**
-     * Checks the transaction state and makes a decision depends on it.
-     *
-     * @return True when the transaction started to finalize, false otherwise.
-     */
-    private boolean hasTxFinalizationBegun() {
-        return isFinalState(state()) || state() == FINISHING;
     }
 
     /** {@inheritDoc} */
@@ -146,9 +136,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         enlistPartitionLock.writeLock().lock();
 
         try {
-            if (!hasTxFinalizationBegun()) {
-                assert finishFuture == null : "Transaction is already finished [id=" + id() + ", state=" + state() + "].";
-
+            if (finishFuture == null) {
                 CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
 
                 finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
