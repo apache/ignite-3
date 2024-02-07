@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -196,7 +195,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(3L));
         assertThat(event.node.userAttributes(), is(Collections.emptyMap()));
-        assertThat(event.node.storageProfiles(), is(List.of(DEFAULT_STORAGE_PROFILE)));
+        assertThat(event.node.storageProfiles(), is(Collections.emptyList()));
 
         assertThat(events, is(empty()));
     }
