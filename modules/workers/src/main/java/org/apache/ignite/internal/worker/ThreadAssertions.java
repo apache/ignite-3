@@ -26,7 +26,7 @@ import org.apache.ignite.internal.thread.ThreadOperation;
  * Tools to assert that the current thread allows to perform a requested operation.
  */
 public class ThreadAssertions {
-    public static final String ENABLED_PROPERTY = "thread.assertions.enabled";
+    public static final String ENABLED_PROPERTY = "ignite.thread.assertions.enabled";
 
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
