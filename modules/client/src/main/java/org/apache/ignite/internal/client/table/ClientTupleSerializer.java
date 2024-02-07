@@ -261,6 +261,31 @@ public class ClientTupleSerializer {
         }
     }
 
+    /**
+     * Writes {@link Tuple}'s for data streamer.
+     *
+     * @param tuples Tuples.
+     * @param schema Schema.
+     * @param out Out.
+     * @param keyOnly Key only.
+     */
+    void writeStreamerTuples(
+            int partitionId,
+            Collection<Tuple> tuples,
+            ClientSchema schema,
+            PayloadOutputChannel out,
+            boolean keyOnly
+    ) {
+        out.out().packInt(tableId);
+        out.out().packInt(partitionId);
+        out.out().packInt(schema.version());
+        out.out().packInt(tuples.size());
+
+        for (var tuple : tuples) {
+            writeTuple(null, tuple, schema, out, keyOnly, true);
+        }
+    }
+
     static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
         var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
