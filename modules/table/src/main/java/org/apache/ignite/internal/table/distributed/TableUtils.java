@@ -41,6 +41,7 @@ public class TableUtils {
      * @param tableId Table ID for which indexes will be selected.
      * @return Ascending sorted list of index IDs.
      */
+    // TODO: IGNITE-21476 Select indexes by operation timestamp of read-write transaction
     public static List<Integer> indexIdsAtRwTxBeginTs(CatalogService catalogService, UUID txId, int tableId) {
         HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
 

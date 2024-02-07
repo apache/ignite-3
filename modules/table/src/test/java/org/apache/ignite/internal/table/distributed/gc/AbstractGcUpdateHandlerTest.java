@@ -29,6 +29,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -36,11 +37,13 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
@@ -48,9 +51,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/**
- * Abstract class for testing {@link GcUpdateHandler} using different implementations of {@link MvPartitionStorage}.
- */
+/** Abstract class for testing {@link GcUpdateHandler} using different implementations of {@link MvPartitionStorage}. */
 abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 1000;
@@ -200,7 +201,18 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     }
 
     private static IndexUpdateHandler createIndexUpdateHandler() {
-        return new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()));
+        // Don’t use mocking to avoid performance degradation for concurrent tests.
+        return new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of())) {
+            @Override
+            public void tryRemoveFromIndexes(
+                    BinaryRow rowToRemove,
+                    RowId rowId,
+                    Cursor<ReadResult> previousValues,
+                    @Nullable List<Integer> indexIds
+            ) {
+                // No-op.
+            }
+        };
     }
 
     private static GcUpdateHandler createGcUpdateHandler(

@@ -150,9 +150,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
-/**
- * Class that allows to mock a cluster for transaction tests' purposes.
- */
+/** Class that allows to mock a cluster for transaction tests' purposes. */
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
 
@@ -454,8 +452,8 @@ public class ItTxTestCluster {
 
         lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
-        List<CatalogIndexDescriptor> indexDescriptors = List.of(mock(CatalogIndexDescriptor.class));
-        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(indexDescriptors);
+        List<CatalogIndexDescriptor> indexDescriptors = new ArrayList<>();
+        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenAnswer(invocation -> indexDescriptors);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
@@ -508,6 +506,11 @@ public class ItTxTestCluster {
                 transactionStateResolver.start();
 
                 int indexId = globalIndexId++;
+
+                CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+                lenient().when(indexDescriptor.id()).thenReturn(indexId);
+
+                indexDescriptors.add(indexDescriptor);
 
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 

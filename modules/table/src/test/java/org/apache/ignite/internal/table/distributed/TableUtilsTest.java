@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleHashIndex;
@@ -64,8 +65,11 @@ public class TableUtilsTest extends IgniteAbstractTest {
             String indexName3 = INDEX_NAME + 3;
             String indexName4 = INDEX_NAME + 4;
 
-            for (String indexName : List.of(indexName1, indexName2, indexName3, indexName4)) {
+            for (String indexName : List.of(indexName0, indexName1, indexName2, indexName3, indexName4)) {
                 createSimpleHashIndex(catalogManager, TABLE_NAME, indexName);
+            }
+
+            for (String indexName : List.of(indexName1, indexName2, indexName3, indexName4)) {
                 startBuildingIndex(catalogManager, indexId(catalogManager, indexName));
             }
 
@@ -88,6 +92,7 @@ public class TableUtilsTest extends IgniteAbstractTest {
             assertThat(
                     indexIdsAtRwTxBeginTs(spy, transactionId(beginTs, 1), tableId),
                     contains(
+                            indexId(catalogManager, pkIndexName(TABLE_NAME)),
                             indexId(catalogManager, indexName0),
                             indexId(catalogManager, indexName1),
                             indexId(catalogManager, indexName2),

@@ -31,6 +31,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -121,9 +122,7 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * Tests for the table command listener.
- */
+/** Tests for the table command listener. */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
@@ -208,9 +207,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         catalogService = mock(CatalogService.class);
 
-        List<CatalogIndexDescriptor> indexDescriptors = List.of(mock(CatalogIndexDescriptor.class));
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
 
-        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(indexDescriptors);
+        lenient().when(indexDescriptor.id()).thenReturn(pkStorage.id());
+        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
 
         commandListener = new PartitionListener(
                 mock(TxManager.class),

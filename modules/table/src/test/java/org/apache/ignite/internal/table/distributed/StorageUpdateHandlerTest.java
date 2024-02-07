@@ -57,9 +57,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test for {@link StorageUpdateHandler}.
- */
+/** Test for {@link StorageUpdateHandler}. */
 public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
