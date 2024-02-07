@@ -29,6 +29,7 @@ import io.micronaut.context.annotation.Value;
 import jakarta.inject.Inject;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.event.EventSubscriptionManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @Property(name = "cli.check.connection.period.second", value = "1")
-class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase {
+class ItConnectionHeartbeatTest extends CliIntegrationTest {
 
     @Inject
     Session session;
@@ -98,8 +99,8 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         );
 
         // When stop node
-        String nodeName = session.info().nodeName();
-        stopNode(nodeName);
+        int nodeIndex = CLUSTER.nodeIndex(session.info().nodeName());
+        CLUSTER.stopNode(nodeIndex);
 
         // Listener was invoked
         await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(
@@ -107,7 +108,7 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         );
 
         // Tear down. Restore initial state of node to exclude any impact on next test.
-        startNode(nodeName);
+        CLUSTER.startNode(nodeIndex);
     }
 
     @Test
@@ -123,8 +124,8 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         );
 
         // When stop node
-        String nodeName = session.info().nodeName();
-        stopNode(nodeName);
+        int nodeIndex = CLUSTER.nodeIndex(session.info().nodeName());
+        CLUSTER.stopNode(nodeIndex);
 
         // Then connection lost event obtained
         await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(
@@ -132,7 +133,7 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         );
 
         // When
-        startNode(nodeName);
+        CLUSTER.startNode(nodeIndex);
 
         // Then one more connection restore event obtained
         await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.channel.ChannelHandler.Sharable;
@@ -50,6 +53,8 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
      */
     public static OutgoingAcknowledgementSilencer installOn(Collection<NettySender> senders)
             throws InterruptedException {
+        assertThat(senders, not(empty()));
+
         OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer(senders.size());
 
         for (NettySender sender : senders) {
