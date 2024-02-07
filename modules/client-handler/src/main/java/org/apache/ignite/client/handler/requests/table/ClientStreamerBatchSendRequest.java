@@ -27,7 +27,7 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
- * Client streamer batch request..
+ * Client streamer batch request.
  */
 public class ClientStreamerBatchSendRequest {
     /**
@@ -48,7 +48,8 @@ public class ClientStreamerBatchSendRequest {
             return readTuples(in, table, false).thenCompose(tuples -> {
                 RecordBinaryViewImpl recordView = (RecordBinaryViewImpl) table.recordView();
 
-                return recordView.streamData(partition, tuples);
+                // TODO: deleted bitset.
+                return recordView.updateAll(partition, tuples, null);
             });
         });
     }
