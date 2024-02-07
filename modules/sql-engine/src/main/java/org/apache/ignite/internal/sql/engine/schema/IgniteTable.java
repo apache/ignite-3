@@ -18,11 +18,16 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Table representation as object in SQL schema.
  */
 public interface IgniteTable extends IgniteDataSource {
+    /**
+     * Return partition correspondence calculator.
+     */
+    Supplier<PartitionCalculator> partitionCalculator();
 
     /**
      * Returns all table indexes.
@@ -30,4 +35,11 @@ public interface IgniteTable extends IgniteDataSource {
      * @return Indexes for the current table.
      */
     Map<String, IgniteIndex> indexes();
+
+    /**
+     * Returns the number of partitions for this table.
+     *
+     * @return Number of partitions.
+     */
+    int partitions();
 }

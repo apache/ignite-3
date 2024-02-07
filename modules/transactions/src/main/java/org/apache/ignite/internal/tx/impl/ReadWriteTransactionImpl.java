@@ -20,16 +20,14 @@ package org.apache.ignite.internal.tx.impl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -47,7 +45,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
 
-    /** Enlisted partitions: partition id -> (primary replica node, raft term). */
+    /** Enlisted partitions: partition id -> (primary replica node, enlistment consistency token). */
     private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
 
     /** The tracker is used to track an observable timestamp. */
@@ -68,9 +66,15 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
+     * @param txCoordinatorId Transaction coordinator inconsistent ID.
      */
-    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
-        super(txManager, id);
+    public ReadWriteTransactionImpl(
+            TxManager txManager,
+            HybridTimestampTracker observableTsTracker,
+            UUID id,
+            String txCoordinatorId
+    ) {
+        super(txManager, id, txCoordinatorId);
 
         this.observableTsTracker = observableTsTracker;
     }
@@ -89,13 +93,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId partGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(
+            TablePartitionId tablePartitionId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    ) {
         checkEnlistPossibility();
 
         enlistPartitionLock.readLock().lock();
@@ -103,7 +110,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         try {
             checkEnlistPossibility();
 
-            return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndTerm);
+            return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndConsistencyToken);
         } finally {
             enlistPartitionLock.readLock().unlock();
         }
@@ -115,7 +122,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private void checkEnlistPossibility() {
         if (hasTxFinalizationBegun()) {
             throw new TransactionException(
-                    TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    TX_ALREADY_FINISHED_ERR,
                     format("Transaction is already finished [id={}, state={}].", id(), state()));
         }
     }
@@ -132,10 +139,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        if (hasTxFinalizationBegun()) {
-            assert finishFuture != null : "Transaction is in final state but there is no finish future [id="
-                    + id() + ", state=" + state() + "].";
-
+        if (finishFuture != null) {
             return finishFuture;
         }
 
@@ -166,13 +170,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @return The future of transaction completion.
      */
     private CompletableFuture<Void> finishInternal(boolean commit) {
-        Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Entry::getKey,
-                        entry -> entry.getValue().get2()
-                ));
-
-        return txManager.finish(observableTsTracker, commitPart, commit, enlistedGroups, id());
+        return txManager.finish(observableTsTracker, commitPart, commit, enlisted, id());
     }
 
     /** {@inheritDoc} */

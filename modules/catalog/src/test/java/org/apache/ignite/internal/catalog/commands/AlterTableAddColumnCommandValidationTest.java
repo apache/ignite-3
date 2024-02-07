@@ -164,4 +164,19 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 "Column with name 'TEST' already exists"
         );
     }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsThrownIfSchemaIsReserved(String schema) {
+        AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder();
+
+        builder.schemaName(schema)
+                .tableName("t");
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Operations with reserved schemas are not allowed"
+        );
+    }
 }

@@ -18,8 +18,8 @@
 package org.apache.ignite.distributed;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
-import org.apache.ignite.network.DefaultMessagingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
@@ -53,6 +53,7 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                storageUpdateConfiguration,
                 workDir,
                 nodes(),
                 replicas(),

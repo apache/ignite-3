@@ -43,12 +43,14 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
             return internalTbl.scan(part, null);
         }
 
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(internalTbl.tableId(), part));
-        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+        IgniteBiTuple<ClusterNode, Long> leaderWithConsistencyToken =
+                tx.enlistedNodeAndConsistencyToken(new TablePartitionId(internalTbl.tableId(), part));
+
+        PrimaryReplica recipient = new PrimaryReplica(leaderWithConsistencyToken.get1(), leaderWithConsistencyToken.get2());
 
         return new RollbackTxOnErrorPublisher<>(
                 tx,
-                internalTbl.scan(part, tx.id(), tx.commitPartition(), recipient, null, null, null, 0, null)
+                internalTbl.scan(part, tx.id(), tx.commitPartition(), tx.coordinatorId(), recipient, null, null, null, 0, null)
         );
     }
 

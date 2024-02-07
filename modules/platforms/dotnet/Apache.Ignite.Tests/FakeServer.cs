@@ -299,7 +299,19 @@ namespace Apache.Ignite.Tests
                     case ClientOp.ComputeExecuteColocated:
                     {
                         using var pooledArrayBuffer = ComputeExecute(reader, colocated: opCode == ClientOp.ComputeExecuteColocated);
-                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
+
+                        using var resWriter = new PooledArrayBuffer();
+
+                        var rw = resWriter.MessageWriter;
+                        if (opCode == ClientOp.ComputeExecuteColocated)
+                        {
+                            // Schema version.
+                            rw.Write(1);
+                        }
+
+                        rw.Write(Guid.NewGuid());
+
+                        Send(handler, requestId, resWriter);
                         Send(handler, requestId, pooledArrayBuffer, isNotification: true);
                         continue;
                     }
@@ -616,8 +628,19 @@ namespace Apache.Ignite.Tests
         private PooledArrayBuffer ComputeExecute(MsgPackReader reader, bool colocated = false)
         {
             // Colocated: table id, schema version, key.
-            // Else: node name.
-            reader.Skip(colocated ? 4 : 1);
+            // Else: node names.
+            if (colocated)
+            {
+                reader.Skip(4);
+            }
+            else
+            {
+                var namesCount = reader.ReadInt32();
+                for (int i = 0; i < namesCount; i++)
+                {
+                    reader.ReadString();
+                }
+            }
 
             var unitsCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
             var units = new List<DeploymentUnit>(unitsCount);
@@ -644,6 +667,14 @@ namespace Apache.Ignite.Tests
             var writer = new MsgPackWriter(arrayBufferWriter);
 
             writer.Write(builder.Build().Span);
+
+            // Status
+            writer.Write(Guid.NewGuid());
+            writer.Write(0); // State.
+            writer.Write(0L); // Create time.
+            writer.Write(0);
+            writer.WriteNil(); // Start time.
+            writer.WriteNil(); // Finish time.
 
             return arrayBufferWriter;
         }

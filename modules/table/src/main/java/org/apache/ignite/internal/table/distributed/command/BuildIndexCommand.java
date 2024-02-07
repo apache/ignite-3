@@ -19,9 +19,9 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
 
 /** State machine command to build a table index. */
 @Transferable(TableMessageGroup.Commands.BUILD_INDEX)

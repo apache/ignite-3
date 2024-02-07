@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Request that initiates safe time synchronization.

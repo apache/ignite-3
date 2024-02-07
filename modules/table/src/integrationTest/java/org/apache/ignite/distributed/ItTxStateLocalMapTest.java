@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -63,10 +63,13 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
     //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
-    private static RaftConfiguration raftConfig;
+    private RaftConfiguration raftConfig;
 
     @InjectConfiguration
-    private static TransactionConfiguration txConfiguration;
+    private TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
     private final TestInfo testInfo;
 
@@ -95,6 +98,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfig,
                 txConfiguration,
+                storageUpdateConfiguration,
                 workDir,
                 NODES,
                 NODES,
@@ -183,7 +187,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                     }
 
                     return (expected.txState() == meta.get().txState()
-                            && Objects.equals(expected.txCoordinatorId(), meta.get().txCoordinatorId())
                             && checkTimestamps(expected.commitTimestamp(), meta.get().commitTimestamp()));
                 }, 5_000));
             } catch (InterruptedException e) {

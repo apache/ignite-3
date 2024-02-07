@@ -119,6 +119,15 @@ namespace Apache.Ignite.Internal.Proto
         SqlExecScript = 56,
 
         /** SQL parameter metadata. */
-        SqlParamMeta = 57
+        SqlParamMeta = 57,
+
+        /** Get compute job status. */
+        ComputeGetStatus = 59,
+
+        /** Cancel compute job. */
+        ComputeCancel = 60,
+
+        /** Change compute job priority. */
+        ComputeChangePriority = 61
     }
 }

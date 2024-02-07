@@ -17,24 +17,24 @@
 
 package org.apache.ignite.internal.rest;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.testframework.IntegrationTestBase;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInfo;
+import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests that after cluster is initialized, all endpoints are available. */
-public class ItClusterStateHttpServerFilterInitializedTest extends IntegrationTestBase {
+@MicronautTest(rebuildContext = true)
+public class ItClusterStateHttpServerFilterInitializedTest extends ClusterPerClassIntegrationTest {
+    private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
 
     @Inject
     @Client(NODE_URL + "/management/v1")
@@ -50,18 +50,6 @@ public class ItClusterStateHttpServerFilterInitializedTest extends IntegrationTe
                 Arguments.of("cluster/topology/logical"),
                 Arguments.of("cluster/topology/physical")
         );
-    }
-
-    @BeforeAll
-    public void setup(TestInfo testInfo) {
-        startNodes(testInfo);
-        String metaStorageNodeName = testNodeName(testInfo, 0);
-        initializeCluster(metaStorageNodeName);
-    }
-
-    @AfterAll
-    public void cleanup(TestInfo testInfo) throws Exception {
-        stopNodes(testInfo);
     }
 
     @ParameterizedTest

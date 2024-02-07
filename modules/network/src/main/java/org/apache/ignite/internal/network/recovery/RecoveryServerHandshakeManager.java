@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.shouldCloseChannel;
 
 import io.netty.channel.Channel;
@@ -32,10 +34,14 @@ import java.util.function.Function;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
+import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
+import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -47,8 +53,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionRea
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
 
 /**
  * Recovery protocol handshake manager for a server.
@@ -93,6 +97,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
 
+    private final ChannelEventLoopsSource channelEventLoopsSource;
+
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
 
@@ -117,6 +123,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             String consistentId,
             NetworkMessagesFactory messageFactory,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
+            ChannelEventLoopsSource channelEventLoopsSource,
             StaleIdDetector staleIdDetector,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping
@@ -125,6 +132,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.consistentId = consistentId;
         this.messageFactory = messageFactory;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
+        this.channelEventLoopsSource = channelEventLoopsSource;
         this.staleIdDetector = staleIdDetector;
         this.stopping = stopping;
 
@@ -214,7 +222,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.receivedCount = message.receivedCount();
         this.remoteChannelId = message.connectionId();
 
-        tryAcquireDescriptorAndFinishHandshake(message);
+        ChannelKey channelKey = new ChannelKey(remoteConsistentId, remoteLaunchId, remoteChannelId);
+        switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> tryAcquireDescriptorAndFinishHandshake(message));
     }
 
     private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {
@@ -383,6 +392,9 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             futs[0] = sendFuture;
 
             List<OutNetworkObject> networkMessages = descriptor.unacknowledgedMessages();
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Resending on handshake: {}", networkMessages.stream().map(OutNetworkObject::networkMessage).collect(toList()));
+            }
 
             for (int i = 0; i < networkMessages.size(); i++) {
                 OutNetworkObject networkMessage = networkMessages.get(i);
@@ -434,6 +446,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
-        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId));
+        handshakeCompleteFuture.complete(
+                new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId, recoveryDescriptor)
+        );
     }
 }

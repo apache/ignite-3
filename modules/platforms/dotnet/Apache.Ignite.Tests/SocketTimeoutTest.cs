@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -69,5 +70,24 @@ public class SocketTimeoutTest
         Assert.IsTrue(
             condition: log.Entries.Any(e => e.Message.Contains(expectedLog) && e.Exception is TimeoutException),
             message: string.Join(Environment.NewLine, log.Entries));
+    }
+
+    [Test]
+    public void TestInfiniteTimeout()
+    {
+        using var server = new FakeServer
+        {
+            HandshakeDelay = TimeSpan.FromMilliseconds(300)
+        };
+
+        var cfg = new IgniteClientConfiguration
+        {
+            SocketTimeout = Timeout.InfiniteTimeSpan
+        };
+
+        Assert.DoesNotThrowAsync(async () =>
+        {
+            using var client = await server.ConnectClientAsync(cfg);
+        });
     }
 }

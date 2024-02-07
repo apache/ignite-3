@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -35,11 +35,13 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 
@@ -57,7 +59,7 @@ class IndexBuildTask {
 
     private final ReplicaService replicaService;
 
-    private final ExecutorService executor;
+    private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
 
@@ -68,6 +70,8 @@ class IndexBuildTask {
     private final List<IndexBuildCompletionListener> listeners;
 
     private final long enlistmentConsistencyToken;
+
+    private final int creationCatalogVersion;
 
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
@@ -80,12 +84,13 @@ class IndexBuildTask {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
-            ExecutorService executor,
+            Executor executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
             ClusterNode node,
             List<IndexBuildCompletionListener> listeners,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            int creationCatalogVersion
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -98,6 +103,7 @@ class IndexBuildTask {
         // We do not intentionally make a copy of the list, we want to see changes in the passed list.
         this.listeners = listeners;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
+        this.creationCatalogVersion = creationCatalogVersion;
     }
 
     /** Starts building the index. */
@@ -158,8 +164,15 @@ class IndexBuildTask {
             List<RowId> batchRowIds = createBatchRowIds();
 
             return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds))
-                    .thenComposeAsync(unused -> {
-                        if (indexStorage.getNextRowIdToBuild() == null) {
+                    .handleAsync((unused, throwable) -> {
+                        if (throwable != null) {
+                            Throwable cause = unwrapCause(throwable);
+
+                            // Read-write transaction operations have not yet completed, let's try to send the batch again.
+                            if (!(cause instanceof ReplicationTimeoutException)) {
+                                return CompletableFuture.<Void>failedFuture(cause);
+                            }
+                        } else if (indexStorage.getNextRowIdToBuild() == null) {
                             // Index has been built.
                             LOG.info("Index build completed: [{}]", createCommonIndexInfo());
 
@@ -167,11 +180,12 @@ class IndexBuildTask {
                                 listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
                             }
 
-                            return nullCompletedFuture();
+                            return CompletableFutures.<Void>nullCompletedFuture();
                         }
 
                         return handleNextBatch();
-                    }, executor);
+                    }, executor)
+                    .thenCompose(Function.identity());
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -208,26 +222,16 @@ class IndexBuildTask {
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
+                .creationCatalogVersion(creationCatalogVersion)
                 .build();
     }
 
     private boolean enterBusy() {
-        if (!busyLock.enterBusy()) {
-            return false;
-        }
-
-        if (!taskBusyLock.enterBusy()) {
-            busyLock.leaveBusy();
-
-            return false;
-        }
-
-        return true;
+        return IndexManagementUtils.enterBusy(busyLock, taskBusyLock);
     }
 
     private void leaveBusy() {
-        taskBusyLock.leaveBusy();
-        busyLock.leaveBusy();
+        IndexManagementUtils.leaveBusy(busyLock, taskBusyLock);
     }
 
     private String createCommonIndexInfo() {

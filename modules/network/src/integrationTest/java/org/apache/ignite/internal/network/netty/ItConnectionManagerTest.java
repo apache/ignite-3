@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.network.netty;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -42,7 +41,6 @@ import static org.mockito.Mockito.when;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -51,28 +49,29 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ChannelType;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -229,44 +228,43 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testCanReconnectAfterFail() throws Exception {
         String msgText = "test";
 
         int port1 = 4000;
         int port2 = 4001;
+        UUID launchId2 = UUID.randomUUID();
 
         ConnectionManagerWrapper manager1 = startManager(port1);
 
-        ConnectionManagerWrapper manager2 = startManager(port2);
+        ConnectionManagerWrapper manager2 = startManager(port2, launchId2);
 
-        NettySender sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+        NettySender sender = manager1.openChannelTo(manager2).get(300, TimeUnit.SECONDS);
         assertNotNull(sender);
 
         TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
         manager2.close();
 
-        assertThat(
-                sender.send(new OutNetworkObject(testMessage, emptyList())),
-                willThrowWithCauseOrSuppressed(ClosedChannelException.class)
-        );
+        sender.send(new OutNetworkObject(testMessage, emptyList()));
 
-        manager2 = startManager(port2);
+        manager2 = startManager(port2, launchId2);
 
-        var fut = new CompletableFuture<NetworkMessage>();
+        var latch = new CountDownLatch(2);
 
-        manager2.connectionManager.addListener((obj) -> fut.complete(obj.message()));
+        manager2.connectionManager.addListener((obj) -> {
+            if (testMessage.equals(obj.message())) {
+                latch.countDown();
+            }
+        });
 
         sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
         assertNotNull(sender);
 
         sender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
 
-        NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
-
-        assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+        assertTrue(latch.await(3, TimeUnit.SECONDS));
     }
 
     /**
@@ -390,6 +388,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                 ConnectionManagerWrapper manager2 = startManager(4001)
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+            waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
 
             OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
 
@@ -402,6 +401,22 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             assertThat(sendFuture, willCompleteSuccessfully());
         }
+    }
+
+    private static void waitTillChannelAppearsInMapOnAcceptor(
+            NettySender senderFromOpener,
+            ConnectionManagerWrapper opener,
+            ConnectionManagerWrapper acceptor
+    ) throws InterruptedException {
+        assertTrue(
+                waitForCondition(
+                        () -> acceptor.channels().values().stream().anyMatch(acceptorSender
+                                -> acceptorSender.consistentId().equals(opener.connectionManager.consistentId())
+                                        && acceptorSender.channelId() == senderFromOpener.channelId()),
+                        TimeUnit.SECONDS.toMillis(10)
+                ),
+                "Did not observe the sender appearing in the acceptor's sender map in time"
+        );
     }
 
     @Test
@@ -477,6 +492,14 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         return startManager(port, defaultSerializationRegistry());
     }
 
+    private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) throws Exception {
+        return startManager(port, UUID.randomUUID(), registry);
+    }
+
+    private ConnectionManagerWrapper startManager(int port, UUID launchId) throws Exception {
+        return startManager(port, launchId, defaultSerializationRegistry());
+    }
+
     /**
      * Creates and starts a {@link ConnectionManager} listening on the given port, configured with the provided serialization registry.
      *
@@ -484,8 +507,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      * @param registry Serialization registry.
      * @return Connection manager.
      */
-    private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) throws Exception {
-        UUID launchId = UUID.randomUUID();
+    private ConnectionManagerWrapper startManager(int port, UUID launchId, MessageSerializationRegistry registry) throws Exception {
         String consistentId = testNodeName(testInfo, port);
 
         networkConfiguration.port().update(port).join();

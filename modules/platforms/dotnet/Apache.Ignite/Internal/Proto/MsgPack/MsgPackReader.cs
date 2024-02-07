@@ -22,6 +22,7 @@ using System.Buffers.Binary;
 using System.IO;
 using BinaryTuple;
 using Ignite.Sql;
+using NodaTime;
 
 /// <summary>
 /// MsgPack reader.
@@ -79,6 +80,12 @@ internal ref struct MsgPackReader
             MsgPackCode.False => false,
             var invalid => throw GetInvalidCodeException("bool", invalid)
         };
+
+    /// <summary>
+    /// Reads a nullable boolean value.
+    /// </summary>
+    /// <returns>The value.</returns>
+    public bool ReadBooleanNullable() => TryReadNil() ? default : ReadBoolean();
 
     /// <summary>
     /// Reads a short value.
@@ -213,6 +220,14 @@ internal ref struct MsgPackReader
 
         return UuidSerializer.Read(GetSpan(16));
     }
+
+    /// <summary>
+    /// Reads Instant value.
+    /// </summary>
+    /// <returns>Instant.</returns>
+    public Instant? ReadInstantNullable() => TryReadNil()
+        ? null
+        : Instant.FromUnixTimeSeconds(ReadInt64()).PlusNanoseconds(ReadInt32());
 
     /// <summary>
     /// Skips a value.

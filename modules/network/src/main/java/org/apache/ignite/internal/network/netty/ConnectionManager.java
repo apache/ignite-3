@@ -20,8 +20,8 @@ package org.apache.ignite.internal.network.netty;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.ChannelType.getChannel;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -48,7 +48,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -62,9 +65,6 @@ import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ChannelType;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.network.RecipientLeftException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -106,6 +106,8 @@ public class ConnectionManager implements ChannelCreationListener {
 
     /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
     private final UUID launchId;
+
+    private final NettyBootstrapFactory bootstrapFactory;
 
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
@@ -182,6 +184,7 @@ public class ConnectionManager implements ChannelCreationListener {
         this.serializationService = serializationService;
         this.launchId = launchId;
         this.consistentId = consistentId;
+        this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.networkConfiguration = networkConfiguration;
@@ -445,7 +448,7 @@ public class ConnectionManager implements ChannelCreationListener {
         CompletableFuture<Void> finalStopFuture = allOf(stopFutures.toArray(CompletableFuture<?>[]::new));
 
         try {
-            finalStopFuture.join();
+            finalStopFuture.get();
         } catch (Exception e) {
             LOG.warn("Failed to stop connection manager [reason={}]", e.getMessage());
         }
@@ -481,6 +484,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     consistentId,
                     connectionId,
                     descriptorProvider,
+                    bootstrapFactory,
                     staleIdDetector,
                     this,
                     stopping::get
@@ -501,6 +505,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 consistentId,
                 FACTORY,
                 descriptorProvider,
+                bootstrapFactory,
                 staleIdDetector,
                 this,
                 stopping::get
