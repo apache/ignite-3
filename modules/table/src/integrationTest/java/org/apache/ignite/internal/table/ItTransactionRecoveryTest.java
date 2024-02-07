@@ -804,7 +804,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
-        UUID orphanTxId = startTransactionWithCursorAndStopNode(txCrdNode);
+        startTransactionWithCursorAndStopNode(txCrdNode);
 
         IgniteImpl newCoordNode = node(0);
 
