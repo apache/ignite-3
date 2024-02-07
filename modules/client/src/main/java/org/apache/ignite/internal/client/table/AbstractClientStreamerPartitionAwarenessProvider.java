@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 
 /**
- * Partition awareness provider for data streamer.
+ * Partition awareness provider for data streamer. Partitions data by node name (consistent id).
  *
  * @param <T> Item type.
  */
