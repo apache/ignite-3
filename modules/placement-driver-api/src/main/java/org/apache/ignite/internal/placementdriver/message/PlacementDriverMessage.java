@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver.message;
 
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * A base message for placement driver network messages.

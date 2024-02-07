@@ -38,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -62,8 +63,8 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -85,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -143,8 +146,12 @@ public class TestBuilders {
     public static ScannableTable tableScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
 
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
@@ -158,15 +165,21 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
         };
@@ -179,13 +192,17 @@ public class TestBuilders {
     public static ScannableTable indexRangeScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
@@ -200,8 +217,14 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
         };
@@ -214,20 +237,24 @@ public class TestBuilders {
     public static ScannableTable indexLookup(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
@@ -238,6 +265,12 @@ public class TestBuilders {
                         ),
                         rowFactory::create
                 );
+            }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
             }
         };
     }
@@ -1208,6 +1241,11 @@ public class TestBuilders {
                 public TableDescriptor tableDescriptor() {
                     return table.descriptor();
                 }
+
+                @Override
+                public Supplier<PartitionCalculator> partitionCalculator() {
+                    throw new UnsupportedOperationException();
+                }
             });
         }
     }
@@ -1343,7 +1381,7 @@ public class TestBuilders {
             }
 
             ExecutionTarget target = factory.partitioned(owningNodes.stream()
-                    .map(name -> new NodeWithTerm(name, 1))
+                    .map(name -> new NodeWithConsistencyToken(name, 1))
                     .collect(Collectors.toList()));
 
             return CompletableFuture.completedFuture(target);

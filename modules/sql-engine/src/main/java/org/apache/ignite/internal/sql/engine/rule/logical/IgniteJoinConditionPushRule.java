@@ -21,7 +21,6 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.rules.FilterJoinRule;
-import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule.IgniteJoinConditionPushRuleConfig;
 import org.immutables.value.Value;

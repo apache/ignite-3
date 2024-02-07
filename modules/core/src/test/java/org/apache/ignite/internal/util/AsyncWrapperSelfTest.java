@@ -33,7 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.CursorClosedException;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -159,14 +159,14 @@ public class AsyncWrapperSelfTest extends BaseIgniteAbstractTest {
                 .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(0, 1))))
                 .exceptionally(ex -> {
                     assertInstanceOf(CompletionException.class, ex);
-                    assertInstanceOf(SqlException.class, ex.getCause());
+                    assertInstanceOf(CursorClosedException.class, ex.getCause());
 
                     return null;
                 });
         var stage2 = cursor.closeAsync();
         var stage3 = cursor.requestNextAsync(1)
                 .exceptionally(ex -> {
-                    assertInstanceOf(SqlException.class, ex);
+                    assertInstanceOf(CursorClosedException.class, ex);
 
                     return null;
                 });

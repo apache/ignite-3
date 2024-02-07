@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -48,10 +49,12 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base test for MV storages, contains pojo classes, their descriptor and a marshaller instance.
  */
+@ExtendWith(ConfigurationExtension.class)
 public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
     /** Default reflection marshaller factory. */
     private static final MarshallerFactory MARSHALLER_FACTORY = new ReflectionMarshallerFactory();

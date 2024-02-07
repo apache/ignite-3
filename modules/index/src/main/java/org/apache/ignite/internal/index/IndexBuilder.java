@@ -25,24 +25,17 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -63,12 +56,10 @@ import org.apache.ignite.network.ClusterNode;
  * the task to build the index, and this will be done by an external component.</p>
  */
 class IndexBuilder implements ManuallyCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(IndexBuilder.class);
-
     /** Batch size of row IDs to build the index. */
     static final int BATCH_SIZE = 100;
 
-    private final ExecutorService executor;
+    private final Executor executor;
 
     private final ReplicaService replicaService;
 
@@ -80,24 +71,10 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
 
-    /**
-     * Constructor.
-     *
-     * @param nodeName Node name.
-     * @param threadCount Number of threads to build indexes.
-     * @param replicaService Replica service.
-     */
-    IndexBuilder(String nodeName, int threadCount, ReplicaService replicaService) {
+    /** Constructor. */
+    IndexBuilder(Executor executor, ReplicaService replicaService) {
         this.replicaService = replicaService;
-
-        executor = new ThreadPoolExecutor(
-                threadCount,
-                threadCount,
-                30,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "build-index", LOG)
-        );
+        this.executor = executor;
     }
 
     /**
@@ -119,6 +96,7 @@ class IndexBuilder implements ManuallyCloseable {
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
      *      to the replica.
+     * @param creationCatalogVersion Catalog version in which the index was created.
      */
     // TODO: IGNITE-19498 Perhaps we need to start building the index only once
     public void scheduleBuildIndex(
@@ -128,7 +106,8 @@ class IndexBuilder implements ManuallyCloseable {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ClusterNode node,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            int creationCatalogVersion
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -151,7 +130,8 @@ class IndexBuilder implements ManuallyCloseable {
                     BATCH_SIZE,
                     node,
                     listeners,
-                    enlistmentConsistencyToken
+                    enlistmentConsistencyToken,
+                    creationCatalogVersion
             );
 
             IndexBuildTask previousTask = indexBuildTaskById.putIfAbsent(taskId, newTask);
@@ -224,8 +204,6 @@ class IndexBuilder implements ManuallyCloseable {
         }
 
         busyLock.block();
-
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /** Adds a listener. */

@@ -42,11 +42,14 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -56,8 +59,6 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -100,6 +101,9 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private static StorageUpdateConfiguration storageUpdateConfiguration;
+
     @BeforeAll
     static void beforeAll() {
         NativeType[] types = {
@@ -129,7 +133,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration);
+        intTable = new DummyInternalTableImpl(
+                mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration, storageUpdateConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 

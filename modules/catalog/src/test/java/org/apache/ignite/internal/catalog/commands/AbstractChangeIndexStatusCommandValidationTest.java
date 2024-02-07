@@ -17,12 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
@@ -35,7 +30,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,17 +53,12 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
      */
     abstract boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus);
 
-    @Test
-    void exceptionIsThrownIfIndexWithGivenNameNotFound() {
-        Catalog catalog = emptyCatalog();
+    Class<? extends Exception> expectedExceptionClassForWrongStatus() {
+        return ChangeIndexStatusValidationException.class;
+    }
 
-        CatalogCommand command = createCommand(1);
-
-        assertThrowsWithCause(
-                () -> command.get(catalog),
-                IndexNotFoundValidationException.class,
-                "Index with ID '1' not found"
-        );
+    String expectedExceptionMessageSubstringForWrongStatus() {
+        return "It is impossible to change the index status:";
     }
 
     @ParameterizedTest
@@ -84,7 +73,10 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
 
         String columnName = "c";
 
+        int version = 1;
+
         Catalog catalog = catalog(
+                version,
                 new CatalogTableDescriptor[]{
                         table(tableId, id++, id++, id++, columnName)
                 },
@@ -94,8 +86,9 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
                                 "TEST_INDEX",
                                 tableId,
                                 false,
-                                List.of(columnName),
-                                invalidPreviousIndexStatus
+                                invalidPreviousIndexStatus,
+                                version,
+                                List.of(columnName)
                         )
                 },
                 new CatalogSystemViewDescriptor[]{}
@@ -105,8 +98,8 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
 
         assertThrowsWithCause(
                 () -> command.get(catalog),
-                ChangeIndexStatusValidationException.class,
-                "It is impossible to change the index status:"
+                expectedExceptionClassForWrongStatus(),
+                expectedExceptionMessageSubstringForWrongStatus()
         );
     }
 
@@ -114,21 +107,16 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
         return Stream.of(CatalogIndexStatus.values()).map(Arguments::of);
     }
 
-    private static CatalogTableDescriptor table(int tableId, int schemaId, int zoneId, int pkIndexId, String columnName) {
-        return new CatalogTableDescriptor(
-                tableId,
-                schemaId,
-                pkIndexId,
-                "TEST_TABLE",
-                zoneId,
-                List.of(tableColumn(columnName)),
-                List.of(columnName),
-                null,
-                DEFAULT_STORAGE_PROFILE
-        );
-    }
+    @Test
+    void exceptionIsThrownIfIndexWithGivenIdNotFound() {
+        Catalog catalog = emptyCatalog();
 
-    private static CatalogTableColumnDescriptor tableColumn(String columnName) {
-        return new CatalogTableColumnDescriptor(columnName, INT32, false, DEFAULT_PRECISION, DEFAULT_SCALE, DEFAULT_LENGTH, null);
+        CatalogCommand command = createCommand(1);
+
+        assertThrowsWithCause(
+                () -> command.get(catalog),
+                IndexNotFoundValidationException.class,
+                "Index with ID '1' not found"
+        );
     }
 }

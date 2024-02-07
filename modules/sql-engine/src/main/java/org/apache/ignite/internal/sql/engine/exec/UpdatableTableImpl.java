@@ -54,12 +54,6 @@ import org.apache.ignite.sql.SqlException;
  * Ignite table implementation.
  */
 public final class UpdatableTableImpl implements UpdatableTable {
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20495
-    // currently, IgniteTableModify doesn't implement SourceAwareIgniteRel, thus
-    // doesn't have its own source id, but still should be mapped to a particular
-    // set of nodes. As a workaround, let's introduce some synthetic source id
-    // to use during mapping phase and here to acquire proper assignments
-    public static final long MODIFY_NODE_SOURCE_ID = -1;
 
     private static final IgniteLogger LOG = Loggers.forClass(UpdatableTableImpl.class);
 
@@ -102,7 +96,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @Override
     public <RowT> CompletableFuture<?> upsertAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
@@ -123,11 +118,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
-            ColocationGroup group = ectx.group(MODIFY_NODE_SOURCE_ID);
 
-            assert group != null;
-
-            NodeWithTerm nodeWithTerm = group.assignments().get(partToRows.getIntKey());
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -135,13 +127,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_UPSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
+                    .coordinatorId(txAttributes.coordinatorId())
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+            futures[batchNum++] = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
         return CompletableFuture.allOf(futures);
@@ -183,7 +176,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @Override
     public <RowT> CompletableFuture<?> insertAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
@@ -197,11 +191,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
             RowBatch rowBatch = partitionRowBatch.getValue();
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
-            ColocationGroup group = ectx.group(MODIFY_NODE_SOURCE_ID);
 
-            assert group != null;
-
-            NodeWithTerm nodeWithTerm = group.assignments().get(partitionId);
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partitionId);
 
             ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -209,13 +200,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_INSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
+                    .coordinatorId(txAttributes.coordinatorId())
                     .build();
 
-            rowBatch.resultFuture = replicaService.invoke(nodeWithTerm.name(), request);
+            rowBatch.resultFuture = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
         return handleInsertResults(ectx, rowBatchByPartitionId.values());
@@ -245,7 +237,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @Override
     public <RowT> CompletableFuture<?> deleteAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
@@ -266,11 +259,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
-            ColocationGroup group = ectx.group(MODIFY_NODE_SOURCE_ID);
 
-            assert group != null;
-
-            NodeWithTerm nodeWithTerm = group.assignments().get(partToRows.getIntKey());
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
@@ -278,13 +268,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
-                    .enlistmentConsistencyToken(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_DELETE_ALL)
                     .timestampLong(clock.nowLong())
                     .skipDelayedAck(true)
+                    .coordinatorId(txAttributes.coordinatorId())
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+            futures[batchNum++] = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
         return CompletableFuture.allOf(futures);

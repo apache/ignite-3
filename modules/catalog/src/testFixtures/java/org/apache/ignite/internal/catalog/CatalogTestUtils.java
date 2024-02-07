@@ -39,6 +39,7 @@ import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
@@ -47,8 +48,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /** Utilities for working with the catalog in tests. */
 public class CatalogTestUtils {
@@ -302,6 +305,7 @@ public class CatalogTestUtils {
         private final HybridClock clock;
 
         private long lastSeenVersion = 0;
+        private long snapshotVersion = 0;
 
         private volatile OnUpdateHandler onUpdateHandler;
 
@@ -321,6 +325,12 @@ public class CatalogTestUtils {
         }
 
         @Override
+        public synchronized CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry) {
+            snapshotVersion = snapshotEntry.version();
+            return CompletableFutures.trueCompletedFuture();
+        }
+
+        @Override
         public void registerUpdateHandler(OnUpdateHandler handler) {
             this.onUpdateHandler = handler;
         }
@@ -333,6 +343,8 @@ public class CatalogTestUtils {
                         "Handler must be registered prior to component start"
                 );
             }
+
+            lastSeenVersion = snapshotVersion;
 
             return nullCompletedFuture();
         }
@@ -362,20 +374,35 @@ public class CatalogTestUtils {
     }
 
     /**
+     * Searches for an index by name in the requested version of the catalog. Throws if the index is not found.
+     *
+     * @param catalogService Catalog service.
+     * @param catalogVersion Catalog version in which to find the index.
+     * @param indexName Index name.
+     * @return Index (cannot be null).
+     */
+    public static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
+        CatalogIndexDescriptor indexDescriptor = indexOrNull(catalogService,
+                catalogVersion, indexName);
+
+        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
+
+        return indexDescriptor;
+    }
+
+    /**
      * Searches for an index by name in the requested version of the catalog.
      *
      * @param catalogService Catalog service.
      * @param catalogVersion Catalog version in which to find the index.
      * @param indexName Index name.
+     * @return Index or {@code null} if not found.
      */
-    public static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.indexes(catalogVersion).stream()
+    @Nullable
+    public static CatalogIndexDescriptor indexOrNull(CatalogService catalogService, int catalogVersion, String indexName) {
+        return catalogService.indexes(catalogVersion).stream()
                 .filter(index -> indexName.equals(index.name()))
                 .findFirst()
                 .orElse(null);
-
-        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
-
-        return indexDescriptor;
     }
 }

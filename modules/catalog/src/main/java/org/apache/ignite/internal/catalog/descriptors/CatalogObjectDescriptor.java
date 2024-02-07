@@ -85,7 +85,7 @@ public abstract class CatalogObjectDescriptor implements Serializable {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogObjectDescriptor.class, this);
     }
 
     /** Catalog object type. */

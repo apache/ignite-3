@@ -38,7 +38,9 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelProgressivePromise;
+import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.EventExecutor;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -46,6 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -53,7 +56,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.OutNetworkObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -90,6 +92,9 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     @Mock
     private EventExecutor eventExecutor;
 
+    @Mock
+    private EventLoop eventLoop;
+
     @Captor
     private ArgumentCaptor<OutNetworkObject> sentMessageCaptor;
 
@@ -109,6 +114,8 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
 
         lenient().when(context.executor()).thenReturn(eventExecutor);
         lenient().when(eventExecutor.inEventLoop()).thenReturn(true);
+
+        lenient().when(channel.eventLoop()).thenReturn(eventLoop);
 
         lenient().when(channel.writeAndFlush(any())).then(invocation -> {
             DefaultChannelProgressivePromise future = new DefaultChannelProgressivePromise(channel, eventExecutor);
@@ -160,6 +167,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
                 SERVER_CONSISTENT_ID,
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
+                () -> List.of(channel.eventLoop()),
                 new AllIdsAreFresh(),
                 channelCreationListener,
                 stopping

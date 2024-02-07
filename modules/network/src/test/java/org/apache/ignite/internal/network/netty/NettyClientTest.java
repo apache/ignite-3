@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -37,10 +38,11 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -221,7 +223,7 @@ public class NettyClientTest extends BaseIgniteAbstractTest {
      * @return Mocked bootstrap.
      */
     private Bootstrap mockBootstrap() {
-        Bootstrap bootstrap = Mockito.mock(Bootstrap.class);
+        Bootstrap bootstrap = mock(Bootstrap.class);
 
         Mockito.doReturn(bootstrap).when(bootstrap).clone();
 
@@ -257,7 +259,7 @@ public class NettyClientTest extends BaseIgniteAbstractTest {
 
         /** Constructor. */
         private MockClientHandshakeManager(Channel channel) {
-            this.sender = new NettySender(channel, "", "", (short) 0);
+            this.sender = new NettySender(channel, "", "", (short) 0, mock(RecoveryDescriptor.class));
         }
 
         /** {@inheritDoc} */

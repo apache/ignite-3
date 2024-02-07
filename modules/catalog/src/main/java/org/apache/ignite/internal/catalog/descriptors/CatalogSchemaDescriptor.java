@@ -103,6 +103,6 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogSchemaDescriptor.class, this, super.toString());
     }
 }

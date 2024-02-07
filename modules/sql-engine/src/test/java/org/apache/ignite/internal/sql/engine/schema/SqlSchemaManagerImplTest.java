@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -48,15 +49,18 @@ import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -64,6 +68,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
@@ -174,8 +179,60 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(schema.getName(), equalTo(schemaDescriptor.name()));
 
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
-            assertThat(schema.getTable(tableDescriptor.name()), notNullValue());
+            int zoneId = tableDescriptor.zoneId();
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, versionAfter);
+            assertNotNull(zoneDescriptor, "Zone does not exist: " + zoneId);
+
+            Table table = schema.getTable(tableDescriptor.name());
+            assertThat(table, notNullValue());
+
+            IgniteTable igniteTable = assertInstanceOf(IgniteTable.class, table);
+
+            assertEquals(zoneDescriptor.partitions(), igniteTable.partitions(),
+                    "Number of partitions is not correct: " + tableDescriptor.name());
+
+            assertEquals(CatalogUtils.DEFAULT_PARTITION_COUNT, igniteTable.partitions(),
+                    "Number of partitions is not correct: " + tableDescriptor.name());
         }
+    }
+
+    /** Create a table with a zone. */
+    @Test
+    public void testTableWithZone() {
+        int partitions = 10;
+
+        await(catalogManager.execute(CreateZoneCommand.builder()
+                .partitions(partitions)
+                .zoneName("ABC")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                .build())
+        );
+
+        await(catalogManager.execute(CreateTableCommand.builder()
+                .schemaName(PUBLIC_SCHEMA_NAME)
+                .tableName("T")
+                .columns(List.of(
+                        ColumnParams.builder().name("ID").type(ColumnType.INT32).nullable(false).build(),
+                        ColumnParams.builder().name("VAL").type(ColumnType.INT32).build()
+                ))
+                .primaryKeyColumns(List.of("ID"))
+                .zone("ABC")
+                .build()));
+
+        int version = catalogManager.latestCatalogVersion();
+
+        SchemaPlus rootSchema = sqlSchemaManager.schema(version);
+        assertNotNull(rootSchema);
+
+        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        assertNotNull(schemaPlus);
+
+        IgniteSchema schema = unwrapSchema(schemaPlus);
+        Table table = schema.getTable("T");
+        assertNotNull(table);
+
+        IgniteTable igniteTable = assertInstanceOf(IgniteTable.class, table);
+        assertEquals(partitions, igniteTable.partitions());
     }
 
     /**

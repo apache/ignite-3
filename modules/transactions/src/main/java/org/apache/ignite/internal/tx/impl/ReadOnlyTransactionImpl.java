@@ -49,15 +49,17 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
+     * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param readTimestamp The read timestamp.
      */
     ReadOnlyTransactionImpl(
             TxManagerImpl txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
+            String txCoordinatorId,
             HybridTimestamp readTimestamp
     ) {
-        super(txManager, id);
+        super(txManager, id, txCoordinatorId);
 
         this.readTimestamp = readTimestamp;
         this.observableTsTracker = observableTsTracker;
@@ -79,13 +81,16 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(
+            TablePartitionId tablePartitionId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    ) {
         // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
         return null;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
         return null;
     }
 

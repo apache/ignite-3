@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import java.util.List;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * QueryBatchMessage interface.

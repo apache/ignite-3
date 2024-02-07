@@ -21,6 +21,7 @@
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/table/table.h"
 
+#include "ignite/client/detail/client_error_flags.h"
 #include "ignite/common/ignite_error.h"
 #include "ignite/protocol/bitset_span.h"
 #include "ignite/protocol/reader.h"
@@ -148,8 +149,20 @@ void table_impl::get_latest_schema_async(ignite_callback<std::shared_ptr<schema>
             std::lock_guard<std::mutex> guard(m_schemas_mutex);
             schema = m_schemas[latest_schema_version];
         }
-        callback({std::move(schema)});
-        return;
+
+        bool reload_schema = false;
+        try {
+            callback({std::move(schema)});
+        }
+        catch (ignite_error& err) {
+            reload_schema = err.get_flags() & std::int32_t(error_flag::UNMAPPED_COLUMNS_PRESENT);
+            if (!reload_schema)
+                throw;
+        }
+
+        if (!reload_schema) {
+            return;
+        }
     }
 
     load_schema_async(std::move(callback));

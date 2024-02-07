@@ -533,7 +533,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> {
             return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.upsertAll(marshal(items, schemaVersion), partitionId);
+                return this.tbl.updateAll(marshal(items, schemaVersion), null, partitionId);
             });
         };
 

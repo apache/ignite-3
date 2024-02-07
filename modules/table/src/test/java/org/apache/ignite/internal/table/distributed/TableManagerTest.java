@@ -83,6 +83,9 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -95,6 +98,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -119,9 +123,6 @@ import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
@@ -196,6 +197,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Garbage collector configuration. */
     @InjectConfiguration
     private GcConfiguration gcConfig;
+
+    /** Storage update configuration. */
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
     @InjectConfiguration
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
@@ -709,6 +714,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
+                storageUpdateConfiguration,
                 clusterService,
                 rm,
                 replicaMgr,

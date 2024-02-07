@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
-import org.apache.ignite.network.annotations.WithSetter;
 
 /** Base meta storage write command. */
 public interface MetaStorageWriteCommand extends WriteCommand {

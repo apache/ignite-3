@@ -19,7 +19,7 @@
 package org.apache.ignite.internal.network.messages;
 
 import java.io.Serializable;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * {@link NetworkMessage} implementation.

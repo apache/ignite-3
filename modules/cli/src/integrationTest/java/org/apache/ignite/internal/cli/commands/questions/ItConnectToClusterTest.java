@@ -119,7 +119,7 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         );
         // And prompt is changed to another node
         String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + CLUSTER_NODES.get(1).name() + "]> ");
+        assertThat(promptAfter).isEqualTo("[" + CLUSTER.node(1).name() + "]> ");
     }
 
 }

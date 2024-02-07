@@ -19,6 +19,10 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
@@ -32,6 +36,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -57,6 +62,10 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return Stream.of(null, "", " ", "  ").map(Arguments::of);
     }
 
+    static Stream<Arguments> reservedSchemaNames() {
+        return SYSTEM_SCHEMAS.stream().map(Arguments::of);
+    }
+
     static Stream<Arguments> nullAndEmptyLists() {
         return Stream.of(null, List.of()).map(Arguments::of);
     }
@@ -66,7 +75,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog emptyCatalog() {
-        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
+        return catalog(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithTable(String name) {
@@ -163,12 +172,13 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog catalog(
+            int version,
             CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
             CatalogSystemViewDescriptor[] systemViews
     ) {
         return new Catalog(
-                1,
+                version,
                 0L,
                 1,
                 List.of(DEFAULT_ZONE),
@@ -181,5 +191,23 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         INITIAL_CAUSALITY_TOKEN
                 ))
         );
+    }
+
+    static CatalogTableDescriptor table(int tableId, int schemaId, int zoneId, int pkIndexId, String columnName) {
+        return new CatalogTableDescriptor(
+                tableId,
+                schemaId,
+                pkIndexId,
+                "TEST_TABLE",
+                zoneId,
+                List.of(tableColumn(columnName)),
+                List.of(columnName),
+                null,
+                DEFAULT_STORAGE_PROFILE
+        );
+    }
+
+    static CatalogTableColumnDescriptor tableColumn(String columnName) {
+        return new CatalogTableColumnDescriptor(columnName, INT32, false, DEFAULT_PRECISION, DEFAULT_SCALE, DEFAULT_LENGTH, null);
     }
 }

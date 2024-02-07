@@ -23,7 +23,6 @@ import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -41,7 +40,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test implementation for {@link RocksDbStorageEngine}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
 public class RocksDbMvPartitionStorageGcTest extends AbstractMvPartitionStorageGcTest {
     private RocksDbStorageEngine engine;
 

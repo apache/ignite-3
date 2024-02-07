@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -56,7 +57,7 @@ import org.junit.jupiter.api.Test;
  * another node. This is not true for broadcast and local jobs. They should not be restarted.
  */
 @SuppressWarnings("resource")
-public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
+public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
     /**
      * Map from node name to node index in {@link super#cluster}.
      */
@@ -209,7 +210,7 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         InteractiveJobs.initChannels(allNodeNames());
 
         // When start broadcast job.
-        Map<ClusterNode, JobExecution<Object>> executions = entryNode.compute().broadcastAsync(
+        Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).broadcastAsync(
                 clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
                 List.of(),
                 InteractiveJobs.interactiveJobName()
@@ -287,7 +288,7 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
 
         // When start colocated job on node that is not primary replica.
         IgniteImpl entryNode = anyNodeExcept(primaryReplica);
-        TestingJobExecution<Object> execution = new TestingJobExecution<>(entryNode.compute().executeColocatedAsync(
+        TestingJobExecution<Object> execution = new TestingJobExecution<>(compute(entryNode).executeColocatedAsync(
                 TABLE_NAME,
                 Tuple.create(1).set("K", 1),
                 List.of(),
@@ -361,9 +362,11 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
         return new TestingJobExecution<>(
-                entryNode.compute().executeAsync(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
+                compute(entryNode).executeAsync(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
         );
     }
+
+    abstract IgniteCompute compute(IgniteImpl entryNode);
 
     private void createReplicatedTestTableWithOneRow() {
         // Number of replicas == number of nodes and number of partitions == 1. This gives us the majority on primary replica stop.

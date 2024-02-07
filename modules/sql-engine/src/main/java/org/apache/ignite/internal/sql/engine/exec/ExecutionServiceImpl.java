@@ -29,6 +29,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -51,10 +52,14 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -71,13 +76,16 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.message.ErrorMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryCloseMessage;
@@ -89,6 +97,7 @@ import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
+import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -99,9 +108,7 @@ import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -149,6 +156,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final ExecutionDependencyResolver dependencyResolver;
 
+    private final ExecutableTableRegistry tableRegistry;
+
     private final ImplementorFactory<RowT> implementorFactory;
 
     private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
@@ -179,11 +188,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             MappingService mappingService,
+            ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
             long shutdownTimeout
     ) {
-        HashFunctionFactoryImpl<RowT> rowHashFunctionFactory = new HashFunctionFactoryImpl<>(handler);
-
         return new ExecutionServiceImpl<>(
                 msgSrvc,
                 topSrvc,
@@ -192,10 +200,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 ddlCommandHandler,
                 taskExecutor,
                 handler,
+                tableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
-                        rowHashFunctionFactory,
                         mailboxRegistry,
                         exchangeSrvc,
                         deps),
@@ -223,6 +231,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DdlCommandHandler ddlCmdHnd,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
+            ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory,
             long shutdownTimeout
@@ -235,6 +244,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.ddlCmdHnd = ddlCmdHnd;
+        this.tableRegistry = tableRegistry;
         this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
         this.shutdownTimeout = shutdownTimeout;
@@ -286,16 +296,22 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     /** {@inheritDoc} */
     @Override
+    @SuppressWarnings("CastConflictsWithInstanceof") // IDEA incorrectly highlights casts in EXPLAIN and DDL branches
     public AsyncCursor<InternalSqlRow> executePlan(
             InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx
     ) {
         SqlQueryType queryType = plan.type();
-        assert queryType != null : "Root plan can not be a fragment";
 
         switch (queryType) {
             case DML:
-                // TODO a barrier between previous operation and this one
+                return executeQuery(tx, ctx, (MultiStepPlan) plan);
             case QUERY:
+                if (plan instanceof KeyValueGetPlan) {
+                    return executeKeyValueGetOperation(tx, ctx, (KeyValueGetPlan) plan, ctx.prefetchCallback());
+                }
+
+                assert plan instanceof MultiStepPlan : plan.getClass();
+
                 return executeQuery(tx, ctx, (MultiStepPlan) plan);
             case EXPLAIN:
                 return executeExplain((ExplainPlan) plan, ctx.prefetchCallback());
@@ -316,6 +332,86 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         return mgr.close(true);
+    }
+
+    private AsyncCursor<InternalSqlRow> executeKeyValueGetOperation(
+            InternalTransaction tx,
+            BaseQueryContext ctx,
+            KeyValueGetPlan plan,
+            @Nullable QueryPrefetchCallback callback
+    ) {
+        IgniteTable sqlTable = plan.table();
+        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(ctx.schemaVersion(), sqlTable.id())
+                .thenCompose(execTable -> {
+                    ExecutionContext<RowT> ectx = new ExecutionContext<>(
+                            taskExecutor,
+                            ctx.queryId(),
+                            localNode,
+                            localNode.name(),
+                            null,
+                            handler,
+                            Commons.parametersMap(ctx.parameters()),
+                            TxAttributes.fromTx(tx)
+                    );
+
+                    ImmutableBitSet requiredColumns = plan.lookupNode().requiredColumns();
+                    RexNode filterExpr = plan.lookupNode().condition();
+                    List<RexNode> projectionExpr = plan.lookupNode().projects();
+                    List<RexNode> keyExpressions = plan.lookupNode().keyExpressions();
+
+                    RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
+
+                    Supplier<RowT> keySupplier = ectx.expressionFactory()
+                            .rowSource(keyExpressions);
+                    Predicate<RowT> filter = filterExpr == null ? null : ectx.expressionFactory()
+                            .predicate(filterExpr, rowType);
+                    Function<RowT, RowT> projection = projectionExpr == null ? null : ectx.expressionFactory()
+                            .project(projectionExpr, rowType);
+
+                    RowHandler<RowT> rowHandler = ectx.rowHandler();
+                    RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+                    RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
+
+                    RelDataType resultType = plan.lookupNode().getRowType();
+                    BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ectx, resultType);
+
+                    ScannableTable scannableTable = execTable.scannableTable();
+                    Function<RowT, Iterator<InternalSqlRow>> postProcess = row -> {
+                        if (row == null) {
+                            return Collections.emptyIterator();
+                        }
+
+                        if (filter != null && !filter.test(row)) {
+                            return Collections.emptyIterator();
+                        }
+
+                        if (projection != null) {
+                            row = projection.apply(row);
+                        }
+
+                        return List.<InternalSqlRow>of(
+                                new InternalSqlRowImpl<>(row, rowHandler, internalTypeConverter)
+                        ).iterator();
+                    };
+
+                    CompletableFuture<RowT> lookupResult = scannableTable.primaryKeyLookup(
+                            ectx, tx, rowFactory, keySupplier.get(), requiredColumns.toBitSet()
+                    );
+
+                    if (projection == null && filter == null) {
+                        // no arbitrary computations, should be safe to proceed execution on
+                        // thread that completes the future
+                        return lookupResult.thenApply(postProcess);
+                    } else {
+                        return lookupResult.thenApplyAsync(postProcess, taskExecutor);
+                    }
+                });
+
+        if (callback != null) {
+            result.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
+        }
+
+        return new AsyncWrapper<>(result, Runnable::run);
     }
 
     private AsyncCursor<InternalSqlRow> executeDdl(DdlPlan plan, @Nullable QueryPrefetchCallback callback) {
@@ -350,9 +446,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private AsyncCursor<InternalSqlRow> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
-        IgniteRel clonedRoot = Cloner.clone(plan.plan().root(), Commons.cluster());
-
-        String planString = RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+        String planString = plan.plan().explain();
 
         InternalSqlRow res = new InternalSqlRowSingleString(planString);
 
@@ -998,19 +1092,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public IgniteRel visit(IgniteTableModify rel) {
-                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
-
-                    List<NodeWithTerm> assignments = mappedFragment.groupsBySourceId()
-                            .get(UpdatableTableImpl.MODIFY_NODE_SOURCE_ID).assignments();
-
-                    assert assignments != null : "Table assignments must be available";
-
-                    enlist(tableId, assignments);
+                    enlist(rel);
 
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, List<NodeWithTerm> assignments) {
+                private void enlist(int tableId, List<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -1022,17 +1109,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     for (int p = 0; p < partsCnt; p++) {
                         TablePartitionId tablePartId = new TablePartitionId(tableId, p);
 
-                        NodeWithTerm enlistmentToken = assignments.get(p);
+                        NodeWithConsistencyToken assignment = assignments.get(p);
 
                         tx.enlist(tablePartId,
-                                new IgniteBiTuple<>(topSrvc.getByConsistentId(enlistmentToken.name()), enlistmentToken.term()));
+                                new IgniteBiTuple<>(
+                                        topSrvc.getByConsistentId(assignment.name()),
+                                        assignment.enlistmentConsistencyToken())
+                        );
                     }
                 }
 
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    List<NodeWithTerm> assignments = mappedFragment.groupsBySourceId().get(rel.sourceId()).assignments();
+                    ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
+                    List<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
                     enlist(tableId, assignments);
                 }

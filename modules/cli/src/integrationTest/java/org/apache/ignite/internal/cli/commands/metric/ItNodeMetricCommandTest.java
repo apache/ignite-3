@@ -19,12 +19,12 @@ package org.apache.ignite.internal.cli.commands.metric;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for node metric commands. */
-class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
+class ItNodeMetricCommandTest extends CliIntegrationTest {
     private static final String NL = System.lineSeparator();
 
     @Test

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Message for delivering the cluster state information.

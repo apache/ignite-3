@@ -17,40 +17,31 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.util.Arrays;
-import java.util.Objects;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Describes deletion of an index.
+ * Describes drop of an index (it's not the final removal of an index from the Catalog, but it's just a switch to
+ * the {@link CatalogIndexStatus#STOPPING} state.
  */
-public class DropIndexEntry implements UpdateEntry, Fireable {
+public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
     private static final long serialVersionUID = -604729846502020728L;
 
-    private final int indexId;
-
     private final int tableId;
-
-    private final String schemaName;
 
     /**
      * Constructs the object.
      *
      * @param indexId An id of an index to drop.
      * @param tableId Table ID for which the index was removed.
-     * @param schemaName Schema name.
      */
-    public DropIndexEntry(int indexId, int tableId, String schemaName) {
-        this.indexId = indexId;
+    public DropIndexEntry(int indexId, int tableId) {
+        super(indexId, CatalogIndexStatus.STOPPING);
+
         this.tableId = tableId;
-        this.schemaName = schemaName;
     }
 
     /** Returns an id of an index to drop. */
@@ -65,32 +56,12 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.INDEX_DROP;
+        return CatalogEvent.INDEX_STOPPING;
     }
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
-    }
-
-    @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
-
-        return new Catalog(
-                catalog.version(),
-                catalog.time(),
-                catalog.objectIdGenState(),
-                catalog.zones(),
-                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        schema.tables(),
-                        Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new),
-                        schema.systemViews(),
-                        causalityToken
-                ), catalog.schemas())
-        );
+        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
     }
 
     @Override

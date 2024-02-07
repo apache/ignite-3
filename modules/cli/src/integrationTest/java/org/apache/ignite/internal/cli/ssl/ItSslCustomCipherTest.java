@@ -31,7 +31,7 @@ public class ItSslCustomCipherTest extends CliCommandTestNotInitializedIntegrati
     private static final String CIPHER2 = "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384";
 
     @Override
-    protected String nodeBootstrapConfigTemplate() {
+    protected String getNodeBootstrapConfigTemplate() {
         return restSslBootstrapConfig(CIPHER1);
     }
 

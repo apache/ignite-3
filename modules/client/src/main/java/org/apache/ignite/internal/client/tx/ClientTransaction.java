@@ -20,7 +20,7 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -165,7 +165,7 @@ public class ClientTransaction implements Transaction {
         String stateStr = state == STATE_COMMITTED ? "COMMITTED" : "ABORTED";
 
         throw new TransactionException(
-                TX_FAILED_READ_WRITE_OPERATION_ERR,
+                TX_ALREADY_FINISHED_ERR,
                 format("Transaction is already finished [id={}, state={}].", clientTx.id, stateStr));
     }
 

@@ -24,14 +24,26 @@ import org.jetbrains.annotations.Nullable;
  * Class representing a Raft group leader and its term.
  */
 public class LeaderWithTerm {
+    /** The instance determines a state where the leader is undefined. */
+    public static LeaderWithTerm NO_LEADER = new LeaderWithTerm(null, -1);
+
     @Nullable
     private final Peer leader;
 
     private final long term;
 
-    public LeaderWithTerm(@Nullable Peer leader, long term) {
+    public LeaderWithTerm(Peer leader, long term) {
         this.leader = leader;
         this.term = term;
+    }
+
+    /**
+     * Checks if there is any useful information.
+     *
+     * @return True if the instance does not contain useful data, false otherwise.
+     */
+    public boolean isEmpty() {
+        return leader == null;
     }
 
     public @Nullable Peer leader() {
