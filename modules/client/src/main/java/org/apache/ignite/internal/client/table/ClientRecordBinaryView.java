@@ -367,7 +367,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<Tuple, Integer> batchSender = (partition, items) -> tbl.doSchemaOutOpAsync(
-                ClientOp.STREAMER_BATCH_SEND,
+                ClientOp.TUPLE_UPSERT_ALL, // TODO STREAMER_BATCH_SEND
                 (s, w) -> ser.writeTuples(null, items, s, w, false),
                 r -> null,
                 PartitionAwarenessProvider.of(partition),
