@@ -15,39 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+namespace Apache.Ignite.Compute;
 
-/**
- * Compute job's state enum.
- */
-public enum JobState {
-    /**
-     * The job is submitted and waiting for an execution start.
-     */
-    QUEUED,
+/// <summary>
+/// Compute job state.
+/// </summary>
+public enum JobState
+{
+    /// <summary>
+    /// The job is submitted and waiting for an execution start.
+    /// </summary>
+    Queued,
 
-    /**
-     * The job is being executed.
-     */
-    EXECUTING,
+    /// <summary>
+    /// The job is being executed.
+    /// </summary>
+    Executing,
 
-    /**
-     * The job was unexpectedly terminated during execution.
-     */
-    FAILED,
+    /// <summary>
+    /// The job was unexpectedly terminated during execution.
+    /// </summary>
+    Failed,
 
-    /**
-     * The job was executed successfully and the execution result was returned.
-     */
-    COMPLETED,
+    /// <summary>
+    /// The job was executed successfully and the execution result was returned.
+    /// </summary>
+    Completed,
 
-    /**
-     * The job has received the cancel command, but is still running.
-     */
-    CANCELING,
+    /// <summary>
+    /// The job has received the cancel command, but is still running.
+    /// </summary>
+    Canceling,
 
-    /**
-     * The job was successfully cancelled.
-     */
-    CANCELED;
+    /// <summary>
+    /// The job was successfully cancelled.
+    /// </summary>
+    Canceled
 }

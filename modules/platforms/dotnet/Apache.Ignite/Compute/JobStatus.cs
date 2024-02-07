@@ -15,39 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+namespace Apache.Ignite.Compute;
 
-/**
- * Compute job's state enum.
- */
-public enum JobState {
-    /**
-     * The job is submitted and waiting for an execution start.
-     */
-    QUEUED,
+using System;
+using NodaTime;
 
-    /**
-     * The job is being executed.
-     */
-    EXECUTING,
-
-    /**
-     * The job was unexpectedly terminated during execution.
-     */
-    FAILED,
-
-    /**
-     * The job was executed successfully and the execution result was returned.
-     */
-    COMPLETED,
-
-    /**
-     * The job has received the cancel command, but is still running.
-     */
-    CANCELING,
-
-    /**
-     * The job was successfully cancelled.
-     */
-    CANCELED;
-}
+/// <summary>
+/// Compute job status.
+/// </summary>
+/// <param name="Id">Job ID.</param>
+/// <param name="State">State.</param>
+/// <param name="CreateTime">Create time.</param>
+/// <param name="StartTime">Start time (<c>null</c> when not yet started).</param>
+/// <param name="FinishTime">Finish time (<c>null</c> when not yet finished).</param>
+public sealed record JobStatus(
+    Guid Id,
+    JobState State,
+    Instant CreateTime,
+    Instant? StartTime,
+    Instant? FinishTime);
