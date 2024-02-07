@@ -27,28 +27,20 @@ import org.apache.ignite.table.mapper.Mapper;
 /** Implementation of {@link MarshallersProvider}. */
 public class ReflectionMarshallersProvider implements MarshallersProvider {
     /** Marshaller cache size for schema based marshallers (schema version, mapper, flags). */
-    private static final int KV_CACHE_SIZE = 32;
+    private static final int KV_CACHE_SIZE = 64;
 
     /** Marshaller cache size for column based marshallers (columns, mapper, flags). */
     private static final int PROJECTION_CACHE_SIZE = 64;
 
-    /** Marshaller for key columns of a particular schema. Cached by schema version. */
-    private final MarshallerCache keysMarshallerCache;
+    /** Marshaller cache by schema. Cached by schema version. */
+    private final MarshallerCache marshallerCache;
 
-    /** Marshaller for value columns of a particular schema. Cached by schema version. */
-    private final MarshallerCache valuesMarshallerCache;
-
-    /** Marshaller for all columns of a particular schema. Cached by schema version. */
-    private final MarshallerCache rowMarshallerCache;
-
-    /** Marshaller for an arbitrary columns. Cached by columns. */
+    /** Marshaller cache by an arbitrary columns. Cached by columns. */
     private final MarshallerCache projectionMarshallerCache;
 
     /** Constructor. */
     public ReflectionMarshallersProvider() {
-        this.keysMarshallerCache = new MarshallerCache(KV_CACHE_SIZE);
-        this.valuesMarshallerCache = new MarshallerCache(KV_CACHE_SIZE);
-        this.rowMarshallerCache = new MarshallerCache(KV_CACHE_SIZE);
+        this.marshallerCache = new MarshallerCache(KV_CACHE_SIZE);
         this.projectionMarshallerCache = new MarshallerCache(PROJECTION_CACHE_SIZE);
     }
 
@@ -60,9 +52,11 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             boolean requireAllFields,
             boolean allowUnmappedFields) {
 
-        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
+        MarshallerCacheKey key = new MarshallerCacheKey(
+                schema.schemaVersion(), Type.KEY_ONLY, mapper, requireAllFields, allowUnmappedFields
+        );
 
-        return keysMarshallerCache.getOrAdd(key, k -> {
+        return marshallerCache.getOrAdd(key, k -> {
             return Marshaller.createMarshaller(schema.keys(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
         });
     }
@@ -75,9 +69,11 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             boolean requireAllFields,
             boolean allowUnmappedFields) {
 
-        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
+        MarshallerCacheKey key = new MarshallerCacheKey(
+                schema.schemaVersion(), Type.VALUE_ONLY, mapper, requireAllFields, allowUnmappedFields
+        );
 
-        return valuesMarshallerCache.getOrAdd(key, k -> {
+        return marshallerCache.getOrAdd(key, k -> {
             return Marshaller.createMarshaller(schema.values(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
         });
     }
@@ -90,9 +86,11 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             boolean requireAllFields,
             boolean allowUnmappedFields) {
 
-        MarshallerCacheKey key = new MarshallerCacheKey(schema.schemaVersion(), mapper, requireAllFields, allowUnmappedFields);
+        MarshallerCacheKey key = new MarshallerCacheKey(
+                schema.schemaVersion(), Type.FULL_ROW, mapper, requireAllFields, allowUnmappedFields
+        );
 
-        return rowMarshallerCache.getOrAdd(key, k -> {
+        return marshallerCache.getOrAdd(key, k -> {
             return Marshaller.createMarshaller(schema.row(), key.mapper, key.requireAllFields, key.allowUnmappedFields);
         });
     }
@@ -127,6 +125,10 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
         }
     }
 
+    enum Type {
+        KEY_ONLY, VALUE_ONLY, FULL_ROW
+    }
+
     private static final class MarshallerCacheKey {
         private static final MarshallerColumn[] NO_COLUMNS = new MarshallerColumn[0];
 
@@ -136,13 +138,16 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
 
         private final MarshallerColumn[] columns;
 
+        private final Type type;
+
         private final boolean requireAllFields;
 
         private final boolean allowUnmappedFields;
 
-        MarshallerCacheKey(int schemaVersion, Mapper<?> mapper, boolean requireAllFields, boolean allowUnmappedFields) {
+        MarshallerCacheKey(int schemaVersion, Type type, Mapper<?> mapper, boolean requireAllFields, boolean allowUnmappedFields) {
             this.schemaVersion = schemaVersion;
             this.columns = NO_COLUMNS;
+            this.type = type;
             this.mapper = mapper;
             this.requireAllFields = requireAllFields;
             this.allowUnmappedFields = allowUnmappedFields;
@@ -152,6 +157,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             this.schemaVersion = -1;
             this.columns = columns;
             this.mapper = mapper;
+            this.type = null;
             this.requireAllFields = requireAllFields;
             this.allowUnmappedFields = allowUnmappedFields;
         }
@@ -167,12 +173,12 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             MarshallerCacheKey that = (MarshallerCacheKey) o;
             return schemaVersion == that.schemaVersion && requireAllFields == that.requireAllFields
                     && allowUnmappedFields == that.allowUnmappedFields && Objects.equals(mapper, that.mapper) && Arrays.equals(
-                    columns, that.columns);
+                    columns, that.columns) && type == that.type;
         }
 
         @Override
         public int hashCode() {
-            int result = Objects.hash(schemaVersion, mapper, requireAllFields, allowUnmappedFields);
+            int result = Objects.hash(schemaVersion, mapper, type, requireAllFields, allowUnmappedFields);
             result = 31 * result + Arrays.hashCode(columns);
             return result;
         }
