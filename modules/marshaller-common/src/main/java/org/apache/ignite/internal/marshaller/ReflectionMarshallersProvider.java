@@ -53,7 +53,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             boolean allowUnmappedFields) {
 
         MarshallerCacheKey key = new MarshallerCacheKey(
-                schema.schemaVersion(), Type.KEY_ONLY, mapper, requireAllFields, allowUnmappedFields
+                schema.schemaVersion(), MarshallerType.KEY_ONLY, mapper, requireAllFields, allowUnmappedFields
         );
 
         return marshallerCache.getOrAdd(key, k -> {
@@ -70,7 +70,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             boolean allowUnmappedFields) {
 
         MarshallerCacheKey key = new MarshallerCacheKey(
-                schema.schemaVersion(), Type.VALUE_ONLY, mapper, requireAllFields, allowUnmappedFields
+                schema.schemaVersion(), MarshallerType.VALUE_ONLY, mapper, requireAllFields, allowUnmappedFields
         );
 
         return marshallerCache.getOrAdd(key, k -> {
@@ -87,7 +87,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             boolean allowUnmappedFields) {
 
         MarshallerCacheKey key = new MarshallerCacheKey(
-                schema.schemaVersion(), Type.FULL_ROW, mapper, requireAllFields, allowUnmappedFields
+                schema.schemaVersion(), MarshallerType.FULL_ROW, mapper, requireAllFields, allowUnmappedFields
         );
 
         return marshallerCache.getOrAdd(key, k -> {
@@ -125,8 +125,10 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
         }
     }
 
-    enum Type {
-        KEY_ONLY, VALUE_ONLY, FULL_ROW
+    private enum MarshallerType {
+        KEY_ONLY,
+        VALUE_ONLY,
+        FULL_ROW
     }
 
     private static final class MarshallerCacheKey {
@@ -138,13 +140,13 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
 
         private final MarshallerColumn[] columns;
 
-        private final Type type;
+        private final MarshallerType type;
 
         private final boolean requireAllFields;
 
         private final boolean allowUnmappedFields;
 
-        MarshallerCacheKey(int schemaVersion, Type type, Mapper<?> mapper, boolean requireAllFields, boolean allowUnmappedFields) {
+        MarshallerCacheKey(int schemaVersion, MarshallerType type, Mapper<?> mapper, boolean requireAllFields, boolean allowUnmappedFields) {
             this.schemaVersion = schemaVersion;
             this.columns = NO_COLUMNS;
             this.type = type;
