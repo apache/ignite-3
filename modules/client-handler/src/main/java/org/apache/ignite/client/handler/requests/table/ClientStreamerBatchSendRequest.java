@@ -49,7 +49,8 @@ public class ClientStreamerBatchSendRequest {
                 RecordBinaryViewImpl recordView = (RecordBinaryViewImpl) table.recordView();
 
                 // TODO: deleted bitset.
-                return recordView.updateAll(partition, tuples, null);
+                return recordView.updateAll(partition, tuples, null)
+                        .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
             });
         });
     }
