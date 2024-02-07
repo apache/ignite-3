@@ -520,7 +520,7 @@ public class HeapUnboundedLockManager extends AbstractEventProducer<LockEvent, L
             CompletableFuture<Void> eventResult = fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
             // No async handling is expected.
             // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
-            assert eventResult.isDone();
+            assert eventResult.isDone() : "Async lock conflict handling is not supported";
 
             return eventResult.isCompletedExceptionally();
         }
