@@ -193,7 +193,7 @@ public class DistributionZoneAttributeFiltersTest {
 
         String filter = "region";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertTrue(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -202,6 +202,6 @@ public class DistributionZoneAttributeFiltersTest {
 
         String filter = "region";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 }

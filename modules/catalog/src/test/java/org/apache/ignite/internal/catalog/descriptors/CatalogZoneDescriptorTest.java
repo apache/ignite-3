@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 
+import java.util.List;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.junit.jupiter.api.Test;
 
 class CatalogZoneDescriptorTest {
@@ -35,7 +39,8 @@ class CatalogZoneDescriptorTest {
                 5,
                 6,
                 "the-filter",
-                new CatalogDataStorageDescriptor("the-engine", "the-region")
+                new CatalogDataStorageDescriptor("the-engine", "the-region"),
+                fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
         );
 
         String toString = descriptor.toString();
