@@ -51,7 +51,7 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
         var schemaFut = tbl.getLatestSchema().thenAccept(schema -> this.schema = schema);
 
         if (partitions > 0) {
-            // We only need the assignment for partition count.
+            // Partition count can't change.
             return schemaFut;
         }
 
