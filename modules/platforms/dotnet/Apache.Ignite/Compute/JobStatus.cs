@@ -15,31 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.schema;
+namespace Apache.Ignite.Compute;
 
-import java.util.Map;
-import java.util.function.Supplier;
+using System;
+using NodaTime;
 
-/**
- * Table representation as object in SQL schema.
- */
-public interface IgniteTable extends IgniteDataSource {
-    /**
-     * Return partition correspondence calculator.
-     */
-    Supplier<PartitionCalculator> partitionCalculator();
-
-    /**
-     * Returns all table indexes.
-     *
-     * @return Indexes for the current table.
-     */
-    Map<String, IgniteIndex> indexes();
-
-    /**
-     * Returns the number of partitions for this table.
-     *
-     * @return Number of partitions.
-     */
-    int partitions();
-}
+/// <summary>
+/// Compute job status.
+/// </summary>
+/// <param name="Id">Job ID.</param>
+/// <param name="State">State.</param>
+/// <param name="CreateTime">Create time.</param>
+/// <param name="StartTime">Start time (<c>null</c> when not yet started).</param>
+/// <param name="FinishTime">Finish time (<c>null</c> when not yet finished).</param>
+public sealed record JobStatus(
+    Guid Id,
+    JobState State,
+    Instant CreateTime,
+    Instant? StartTime,
+    Instant? FinishTime);

@@ -55,7 +55,7 @@ public class IdentityDistributionFunctionSelfTest {
             .build();
 
     private final ColocationGroup colocationGroup = new ColocationGroup(List.of(1L), List.of(NODE_1, NODE_2, NODE_3), List.of());
-    private final DestinationFactory<Object[]> destinationFactory = new DestinationFactory<>(rowHandler, null, null);
+    private final DestinationFactory<Object[]> destinationFactory = new DestinationFactory<>(rowHandler, null);
 
     @Test
     public void identityDistributionTrait() {

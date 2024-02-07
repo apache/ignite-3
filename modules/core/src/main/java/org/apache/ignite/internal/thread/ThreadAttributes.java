@@ -15,31 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.schema;
+package org.apache.ignite.internal.thread;
 
-import java.util.Map;
-import java.util.function.Supplier;
+import java.util.Set;
 
 /**
- * Table representation as object in SQL schema.
+ * Holds some thread attributes.
  */
-public interface IgniteTable extends IgniteDataSource {
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ThreadAttributes {
     /**
-     * Return partition correspondence calculator.
+     * Returns all operations that this thread allows to execute.
      */
-    Supplier<PartitionCalculator> partitionCalculator();
+    Set<ThreadOperation> allowedOperations();
 
     /**
-     * Returns all table indexes.
+     * Returns {@code true} if the given operation is allowed by this thread.
      *
-     * @return Indexes for the current table.
+     * @param operation Operation to check.
      */
-    Map<String, IgniteIndex> indexes();
-
-    /**
-     * Returns the number of partitions for this table.
-     *
-     * @return Number of partitions.
-     */
-    int partitions();
+    default boolean allows(ThreadOperation operation) {
+        return allowedOperations().contains(operation);
+    }
 }

@@ -15,31 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.schema;
+namespace Apache.Ignite.Compute;
 
-import java.util.Map;
-import java.util.function.Supplier;
+/// <summary>
+/// Compute job state.
+/// </summary>
+public enum JobState
+{
+    /// <summary>
+    /// The job is submitted and waiting for an execution start.
+    /// </summary>
+    Queued,
 
-/**
- * Table representation as object in SQL schema.
- */
-public interface IgniteTable extends IgniteDataSource {
-    /**
-     * Return partition correspondence calculator.
-     */
-    Supplier<PartitionCalculator> partitionCalculator();
+    /// <summary>
+    /// The job is being executed.
+    /// </summary>
+    Executing,
 
-    /**
-     * Returns all table indexes.
-     *
-     * @return Indexes for the current table.
-     */
-    Map<String, IgniteIndex> indexes();
+    /// <summary>
+    /// The job was unexpectedly terminated during execution.
+    /// </summary>
+    Failed,
 
-    /**
-     * Returns the number of partitions for this table.
-     *
-     * @return Number of partitions.
-     */
-    int partitions();
+    /// <summary>
+    /// The job was executed successfully and the execution result was returned.
+    /// </summary>
+    Completed,
+
+    /// <summary>
+    /// The job has received the cancel command, but is still running.
+    /// </summary>
+    Canceling,
+
+    /// <summary>
+    /// The job was successfully cancelled.
+    /// </summary>
+    Canceled
 }
