@@ -34,7 +34,8 @@ public interface MarshallersProvider {
             MarshallerSchema schema,
             Mapper<?> mapper,
             boolean requireAllFields,
-            boolean allowUnmappedFields);
+            boolean allowUnmappedFields
+    );
 
     /**
      * Returns a marshaller for value columns of the given schema.
@@ -49,7 +50,8 @@ public interface MarshallersProvider {
             MarshallerSchema schema,
             Mapper<?> mapper,
             boolean requireAllFields,
-            boolean allowUnmappedFields);
+            boolean allowUnmappedFields
+    );
 
     /**
      * Returns a marshaller that includes both key and value columns of the given schema.
@@ -64,7 +66,8 @@ public interface MarshallersProvider {
             MarshallerSchema schema,
             Mapper<?> mapper,
             boolean requireAllFields,
-            boolean allowUnmappedFields);
+            boolean allowUnmappedFields
+    );
 
     /**
      * Returns a marshaller for the given columns.
@@ -79,5 +82,6 @@ public interface MarshallersProvider {
             MarshallerColumn[] columns,
             Mapper<?> mapper,
             boolean requireAllFields,
-            boolean allowUnmappedFields);
+            boolean allowUnmappedFields
+    );
 }
