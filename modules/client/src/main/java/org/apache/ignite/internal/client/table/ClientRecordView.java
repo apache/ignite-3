@@ -373,7 +373,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<R, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
-                (s, w) -> ser.writeRecs(null, items, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> ser.writeStreamerRecs(partition, items, deleted, s, w),
                 r -> null,
                 PartitionAwarenessProvider.of(partition),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
