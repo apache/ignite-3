@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
 
+import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -45,11 +46,11 @@ public class ClientStreamerBatchSendRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();
+            BitSet deleted = in.tryUnpackNil() ? null : in.unpackBitSet();
             return readTuples(in, table, false).thenCompose(tuples -> {
                 RecordBinaryViewImpl recordView = (RecordBinaryViewImpl) table.recordView();
 
-                // TODO: deleted bitset.
-                return recordView.updateAll(partition, tuples, null)
+                return recordView.updateAll(partition, tuples, deleted)
                         .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
             });
         });

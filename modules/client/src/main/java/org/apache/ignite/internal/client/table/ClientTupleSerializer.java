@@ -33,6 +33,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
@@ -264,25 +265,35 @@ public class ClientTupleSerializer {
     /**
      * Writes {@link Tuple}'s for data streamer.
      *
+     * @param partitionId Partition id.
      * @param tuples Tuples.
+     * @param deleted Deleted bit set (one bit per tuple).
      * @param schema Schema.
      * @param out Out.
-     * @param keyOnly Key only.
      */
     void writeStreamerTuples(
             int partitionId,
             Collection<Tuple> tuples,
+            @Nullable BitSet deleted,
             ClientSchema schema,
-            PayloadOutputChannel out,
-            boolean keyOnly
+            PayloadOutputChannel out
     ) {
-        out.out().packInt(tableId);
-        out.out().packInt(partitionId);
-        out.out().packInt(schema.version());
-        out.out().packInt(tuples.size());
+        ClientMessagePacker w = out.out();
+
+        w.packInt(tableId);
+        w.packInt(partitionId);
+
+        if (deleted == null) {
+            w.packNil();
+        } else {
+            w.packBitSet(deleted);
+        }
+
+        w.packInt(schema.version());
+        w.packInt(tuples.size());
 
         for (var tuple : tuples) {
-            writeTuple(null, tuple, schema, out, keyOnly, true);
+            writeTuple(null, tuple, schema, out, false, true);
         }
     }
 
