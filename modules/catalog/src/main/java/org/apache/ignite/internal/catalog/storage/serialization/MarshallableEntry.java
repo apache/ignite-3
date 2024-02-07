@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage;
-
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
 /**
- * Interface describing a particular change within the {@link VersionedUpdate group}.
+ * Typed update log entry that uses external serialization.
  */
-public interface UpdateEntry extends MarshallableEntry {
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface MarshallableEntry {
     /**
-     * Applies own change to the catalog.
+     * Returns the entry type id used to serialize catalog entries.
      *
-     * @param catalog Current catalog.
-     * @param causalityToken Token that is associated with the corresponding update being applied.
-     * @return New catalog.
+     * @return update log entry type id.
      */
-    Catalog applyUpdate(Catalog catalog, long causalityToken);
+    int typeId();
 }

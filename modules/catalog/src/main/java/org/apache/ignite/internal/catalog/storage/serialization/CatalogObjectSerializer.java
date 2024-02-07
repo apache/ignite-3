@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage;
+package org.apache.ignite.internal.catalog.storage.serialization;
 
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import java.io.IOException;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
- * Interface describing a particular change within the {@link VersionedUpdate group}.
+ * Catalog object serializer.
  */
-public interface UpdateEntry extends MarshallableEntry {
+public interface CatalogObjectSerializer<T> {
     /**
-     * Applies own change to the catalog.
+     * Reads catalog object from data input.
      *
-     * @param catalog Current catalog.
-     * @param causalityToken Token that is associated with the corresponding update being applied.
-     * @return New catalog.
+     * @param input Data input.
+     * @return Catalog entry.
      */
-    Catalog applyUpdate(Catalog catalog, long causalityToken);
+    T readFrom(IgniteDataInput input) throws IOException;
+
+    /**
+     * Writes catalog object to data output.
+     *
+     * @param value Catalog entry.
+     * @param output Data output.
+     */
+    void writeTo(T value, IgniteDataOutput output) throws IOException;
 }
