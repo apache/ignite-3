@@ -83,4 +83,9 @@ public class ItTxDistributedCleanupRecoveryTest extends TxAbstractTest {
 
         log.info("Tables have been started");
     }
+
+    @Override
+    protected int nodes() {
+        return 1;
+    }
 }

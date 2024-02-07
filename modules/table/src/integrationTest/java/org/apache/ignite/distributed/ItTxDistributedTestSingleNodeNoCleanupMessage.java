@@ -259,4 +259,9 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
     private static void releaseTxLocks(UUID txId, LockManager lockManager) {
         lockManager.releaseAll(txId);
     }
+
+    @Override
+    protected int nodes() {
+        return 1;
+    }
 }

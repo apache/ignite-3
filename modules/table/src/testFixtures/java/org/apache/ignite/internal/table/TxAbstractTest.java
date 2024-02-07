@@ -184,9 +184,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      *
      * @return Nodes.
      */
-    protected int nodes() {
-        return 1;
-    }
+    protected abstract int nodes();
 
     /**
      * Returns a count of replicas.

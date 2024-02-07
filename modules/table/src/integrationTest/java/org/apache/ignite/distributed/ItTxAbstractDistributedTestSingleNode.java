@@ -186,4 +186,9 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
             }
         }
     }
+
+    @Override
+    protected int nodes() {
+        return 1;
+    }
 }
