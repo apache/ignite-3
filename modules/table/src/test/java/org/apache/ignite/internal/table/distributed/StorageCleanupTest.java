@@ -447,7 +447,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, never()).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -484,7 +484,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, never()).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -528,7 +528,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, never()).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -565,7 +565,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, never()).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -610,7 +610,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, never()).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -650,7 +650,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, times(1)).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -698,7 +698,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, times(1)).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -750,7 +750,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, never()).commitWrite(any(), any());
         verify(storage, times(1)).abortWrite(any());
-        verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -814,7 +814,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, never()).commitWrite(any(), any());
         verify(storage, times(1)).abortWrite(any());
-        verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -868,7 +868,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, times(1)).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -934,7 +934,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, times(1)).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
@@ -991,7 +991,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         verify(storage, never()).commitWrite(any(), any());
         verify(storage, never()).abortWrite(any());
-        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
 }

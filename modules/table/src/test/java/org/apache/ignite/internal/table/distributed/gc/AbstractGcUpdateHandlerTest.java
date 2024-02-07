@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -93,7 +94,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
         assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 1, strict));
         verify(partitionStorage).peek(lowWatermark);
-        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId), any());
+        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId), any(), isNull());
     }
 
     @ParameterizedTest(name = "strict : {0}")
@@ -121,8 +122,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 5, strict));
 
         verify(partitionStorage, times(3)).peek(lowWatermark);
-        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId0), any());
-        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any());
+        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId0), any(), isNull());
+        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any(), isNull());
     }
 
     @Test
