@@ -76,9 +76,7 @@ import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
-/**
- * Partition command handler.
- */
+/** Partition command handler. */
 public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
     /** Transaction manager. */
     private final TxManager txManager;
@@ -108,7 +106,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerifier = -1;
-
 
     /**
      * The constructor.
@@ -372,8 +369,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
-        storageUpdateHandler.switchWriteIntents(txId, cmd.commit(), cmd.commitTimestamp(),
-                () -> storage.lastApplied(commandIndex, commandTerm));
+        storageUpdateHandler.switchWriteIntents(
+                txId,
+                cmd.commit(),
+                cmd.commitTimestamp(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
+
+        );
     }
 
     /**
