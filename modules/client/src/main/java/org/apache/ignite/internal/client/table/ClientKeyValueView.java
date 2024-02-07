@@ -532,7 +532,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
                 (s, w) -> {
-                    writeSchemaAndTx(s, w, null);
+                    w.out().packInt(tbl.tableId());
+                    w.out().packInt(partition);
+                    w.out().packBitSetNullable(deleted);
+                    w.out().packInt(s.version());
                     w.out().packInt(items.size());
 
                     for (Entry<K, V> e : items) {
