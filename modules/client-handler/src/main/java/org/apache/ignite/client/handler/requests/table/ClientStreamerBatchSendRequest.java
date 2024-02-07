@@ -46,7 +46,7 @@ public class ClientStreamerBatchSendRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();
-            BitSet deleted = in.tryUnpackNil() ? null : in.unpackBitSet();
+            BitSet deleted = in.unpackBitSetNullable();
             return readTuples(in, table, false).thenCompose(tuples -> {
                 RecordBinaryViewImpl recordView = (RecordBinaryViewImpl) table.recordView();
 
