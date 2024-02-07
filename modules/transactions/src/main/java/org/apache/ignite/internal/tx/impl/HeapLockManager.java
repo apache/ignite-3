@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -111,6 +112,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     private final LockManager parentLockManager;
 
+    private final EventListener<LockEventParameters> parentLockConflictListener = this::parentLockConflictListener;
+
     /**
      * Constructor.
      */
@@ -155,6 +158,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         slots = tmp; // Atomic init.
+
+        parentLockManager.listen(LockEvent.LOCK_CONFLICT, parentLockConflictListener);
     }
 
     @Override
@@ -325,6 +330,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         return parentLockManager.isEmpty();
+    }
+
+    private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params, Throwable e) {
+        return fireEvent(LockEvent.LOCK_CONFLICT, params).thenApply(v -> false);
     }
 
     /**
@@ -696,7 +705,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             CompletableFuture<Void> eventResult = fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
             // No async handling is expected.
             // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
-            assert eventResult.isDone();
+            assert eventResult.isDone() : "Async lock conflict handling is not supported";
 
             return eventResult.isCompletedExceptionally();
         }
