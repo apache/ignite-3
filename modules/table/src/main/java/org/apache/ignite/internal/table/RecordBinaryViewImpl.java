@@ -431,13 +431,12 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null,
-                (schemaVersion) -> this.tbl.updateAll(mapToBinary(items, schemaVersion, false), null, partitionId));
+        StreamerBatchSender<Tuple, Integer> batchSender = this::streamData;
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 
-    public CompletableFuture<Void> streamData(Collection<Tuple> items, int partitionId) {
+    public CompletableFuture<Void> streamData(int partitionId, Collection<Tuple> items) {
         return withSchemaSync(null,
                 schemaVersion -> this.tbl.updateAll(mapToBinary(items, schemaVersion, false), null, partitionId));
     }

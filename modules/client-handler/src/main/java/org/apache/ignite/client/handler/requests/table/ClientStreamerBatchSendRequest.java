@@ -19,10 +19,8 @@ package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
@@ -50,7 +48,7 @@ public class ClientStreamerBatchSendRequest {
             return readTuples(in, table, false).thenCompose(tuples -> {
                 RecordBinaryViewImpl recordView = (RecordBinaryViewImpl) table.recordView();
 
-                return recordView.streamData(tuples, partition);
+                return recordView.streamData(partition, tuples);
             });
         });
     }
