@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static java.util.Collections.unmodifiableSet;
+import static java.util.Collections.emptySet;
 
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.netty.util.concurrent.FastThreadLocalThread;
-import java.util.EnumSet;
 import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -66,7 +65,7 @@ public class NamedNioEventLoopGroup extends NioEventLoopGroup {
      * Marker class for network threads. Basically is just a {@link FastThreadLocalThread}.
      */
     public static class NetworkThread extends FastThreadLocalThread implements ThreadAttributes {
-        private static final Set<ThreadOperation> ALLOWED_OPERATIONS = unmodifiableSet(EnumSet.noneOf(ThreadOperation.class));
+        private static final Set<ThreadOperation> ALLOWED_OPERATIONS = emptySet();
 
         /**
          * Constructor.
