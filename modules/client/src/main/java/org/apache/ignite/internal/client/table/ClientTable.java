@@ -623,6 +623,12 @@ public class ClientTable implements Table {
             return null;
         }
 
+        Integer partition = provider.partition();
+
+        if (partition != null) {
+            return partitions.get(partition);
+        }
+
         Integer hash = provider.getObjectHashCode(schema);
 
         if (hash == null) {

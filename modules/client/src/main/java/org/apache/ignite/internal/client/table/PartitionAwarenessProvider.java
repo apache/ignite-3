@@ -30,25 +30,42 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionAwarenessProvider {
     private final @Nullable String nodeName;
 
+    private final @Nullable Integer partition;
+
     private final @Nullable Function<ClientSchema, Integer> hashFunc;
 
-    private PartitionAwarenessProvider(@Nullable String nodeName, @Nullable Function<ClientSchema, Integer> hashFunc) {
-        assert (nodeName == null) ^ (hashFunc == null) : "One must be null, another not null: nodeId, hashFunc";
+    private PartitionAwarenessProvider(
+            @Nullable String nodeName,
+            @Nullable Function<ClientSchema, Integer> hashFunc,
+            @Nullable Integer partition) {
+        assert (nodeName != null && hashFunc == null && partition == null) ||
+                (nodeName == null && hashFunc != null && partition == null) ||
+                (nodeName == null && hashFunc == null && partition != null)
+                : "One must be not null, others null: nodeId, hashFunc, partition";
 
         this.nodeName = nodeName;
         this.hashFunc = hashFunc;
+        this.partition = partition;
     }
 
     public static PartitionAwarenessProvider of(String nodeName) {
-        return new PartitionAwarenessProvider(nodeName, null);
+        return new PartitionAwarenessProvider(nodeName, null, null);
     }
 
     public static PartitionAwarenessProvider of(Function<ClientSchema, Integer> hashFunc) {
-        return new PartitionAwarenessProvider(null, hashFunc);
+        return new PartitionAwarenessProvider(null, hashFunc, null);
+    }
+
+    public static PartitionAwarenessProvider of(Integer partition) {
+        return new PartitionAwarenessProvider(null, null, partition);
     }
 
     @Nullable String nodeName() {
         return nodeName;
+    }
+
+    @Nullable Integer partition() {
+        return partition;
     }
 
     Integer getObjectHashCode(ClientSchema schema) {

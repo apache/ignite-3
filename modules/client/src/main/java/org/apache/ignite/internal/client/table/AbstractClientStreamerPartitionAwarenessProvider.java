@@ -26,9 +26,9 @@ import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
  *
  * @param <T> Item type.
  */
-abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, String> {
+abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, Integer> {
     private final ClientTable tbl;
-    private List<String> assignment;
+    private int partitions = -1;
     private ClientSchema schema;
 
     AbstractClientStreamerPartitionAwarenessProvider(ClientTable tbl) {
@@ -36,19 +36,13 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
     }
 
     @Override
-    public String partition(T item) {
-        if (schema == null || assignment == null) {
+    public Integer partition(T item) {
+        if (schema == null || partitions < 0) {
             throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
         }
 
-        if (assignment.isEmpty()) {
-            return ""; // Default channel.
-        }
-
         int hash = colocationHash(schema, item);
-        String partition = assignment.get(Math.abs(hash % assignment.size()));
-
-        return partition != null ? partition : "";
+        return Math.abs(hash % partitions);
     }
 
     abstract int colocationHash(ClientSchema schema, T item);
@@ -56,7 +50,13 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
     @Override
     public CompletableFuture<Void> refreshAsync() {
         var schemaFut = tbl.getLatestSchema().thenAccept(schema -> this.schema = schema);
-        var assignmentFut = tbl.getPartitionAssignment().thenAccept(assignment -> this.assignment = assignment);
+
+        if (partitions > 0) {
+            // We only need the assignment for partition count.
+            return schemaFut;
+        }
+
+        var assignmentFut = tbl.getPartitionAssignment().thenAccept(assignment -> this.partitions = assignment.size());
 
         return CompletableFuture.allOf(schemaFut, assignmentFut);
     }
