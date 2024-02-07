@@ -25,11 +25,13 @@ import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.Column;
@@ -165,11 +167,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param columns Target columns.
      * @return Column names.
      */
-    protected static String[] columnNames(Column[] columns) {
-        String[] columnNames = new String[columns.length];
+    protected static String[] columnNames(List<Column> columns) {
+        String[] columnNames = new String[columns.size()];
 
-        for (int i = 0; i < columns.length; i++) {
-            columnNames[i] = columns[i].name();
+        for (int i = 0; i < columns.size(); i++) {
+            columnNames[i] = columns.get(i).name();
         }
 
         return columnNames;
@@ -207,7 +209,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
             SqlSerializer ser = new SqlSerializer.Builder()
                     .tableName(tbl.name())
-                    .columns(schema.columnNames())
+                    .columns(
+                            schema.columns().stream()
+                                    .map(Column::name)
+                                    .collect(Collectors.toList())
+                    )
                     .indexName(indexName)
                     .where(criteria)
                     .build();

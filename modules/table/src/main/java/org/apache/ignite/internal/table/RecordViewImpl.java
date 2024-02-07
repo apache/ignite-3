@@ -42,7 +42,6 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -582,7 +581,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
         Marshaller marsh = marshallers.getRowMarshaller(marshallerSchema, mapper, false, true);
-        Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+        List<Column> cols = schema.columns();
 
         return (row) -> {
             try {

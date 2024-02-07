@@ -21,6 +21,7 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
@@ -117,7 +118,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     @Nullable
     @Override
     public V unmarshalValue(Row row) throws MarshallerException {
-        Object o = valMarsh.readObject(new RowReader(row, schema.keyColumns().length()), null);
+        Object o = valMarsh.readObject(new RowReader(row, schema.keyColumns().size()), null);
 
         assert o == null || valClass.isInstance(o);
 
@@ -127,9 +128,10 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Override
     public @Nullable Object value(Object obj, int fldIdx) {
-        return schema.isKeyColumn(fldIdx)
-                ? keyMarsh.value(obj, fldIdx)
-                : valMarsh.value(obj, fldIdx - schema.keyColumns().length());
+        Column column = schema.column(fldIdx);
+        return column.positionInKey() >= 0
+                ? keyMarsh.value(obj, column.positionInKey())
+                : valMarsh.value(obj, column.positionInValue());
     }
 
     /**

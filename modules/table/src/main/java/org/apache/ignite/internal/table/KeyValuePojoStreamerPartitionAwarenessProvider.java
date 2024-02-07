@@ -46,7 +46,7 @@ class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClien
 
             for (Column c : schema.colocationColumns()) {
                 // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
-                Object val = marsh.value(item.getKey(), c.schemaIndex());
+                Object val = marsh.value(item.getKey(), c.positionInRow());
                 ColocationUtils.append(hashCalc, val, c.type());
             }
 
