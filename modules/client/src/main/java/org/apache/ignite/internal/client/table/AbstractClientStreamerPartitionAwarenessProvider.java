@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 

@@ -38,9 +38,9 @@ public class PartitionAwarenessProvider {
             @Nullable String nodeName,
             @Nullable Function<ClientSchema, Integer> hashFunc,
             @Nullable Integer partition) {
-        assert (nodeName != null && hashFunc == null && partition == null) ||
-                (nodeName == null && hashFunc != null && partition == null) ||
-                (nodeName == null && hashFunc == null && partition != null)
+        assert (nodeName != null && hashFunc == null && partition == null)
+                || (nodeName == null && hashFunc != null && partition == null)
+                || (nodeName == null && hashFunc == null && partition != null)
                 : "One must be not null, others null: nodeId, hashFunc, partition";
 
         this.nodeName = nodeName;
