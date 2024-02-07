@@ -25,6 +25,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Distributed transaction test using a single partition table, 3 nodes and 3 replicas.
  */
-public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxAbstractDistributedTest {
+public class ItTxDistributedTestThreeNodesThreeReplicas extends TxAbstractTest {
     /**
      * The constructor.
      *

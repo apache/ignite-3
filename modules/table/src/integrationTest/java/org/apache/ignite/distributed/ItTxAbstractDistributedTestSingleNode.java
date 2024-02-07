@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.tx.Transaction;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Test class that is used for the tests that should be run on single node cluster only.
  */
-public abstract class ItTxAbstractDistributedTestSingleNode extends ItTxAbstractDistributedTest {
+public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTest {
     /**
      * The constructor.
      *
