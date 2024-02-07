@@ -174,7 +174,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
     private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
-            return batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
+            return batchSender.sendAsync(partition, batch, null).whenComplete((res, err) -> {
                 if (err != null) {
                     // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
                     // If we get here, then retries are exhausted and we should fail the streamer.

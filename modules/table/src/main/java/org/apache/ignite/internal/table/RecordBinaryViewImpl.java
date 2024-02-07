@@ -432,7 +432,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> updateAll(partitionId, items, null);
+        StreamerBatchSender<Tuple, Integer> batchSender = this::updateAll;
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

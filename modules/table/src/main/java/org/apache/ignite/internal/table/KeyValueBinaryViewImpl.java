@@ -543,11 +543,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(publisher);
 
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items) -> {
-            return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.updateAll(marshalPairs(items, schemaVersion), null, partitionId);
-            });
-        };
+        StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items, deleted) ->
+                withSchemaSync(
+                        null,
+                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion), deleted, partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
