@@ -485,8 +485,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTableWithOnePartition(node, TABLE_NAME, ZONE_NAME, 3, true);
 
-        waitPartitionAssignmentsSyncedToExpected(0, 3);
-
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(node, 0);
 
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
@@ -518,8 +516,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Node node = getNode(0);
 
         createTableWithOnePartition(node, TABLE_NAME, ZONE_NAME, 3, true);
-
-        waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(node, 0);
 
@@ -595,9 +591,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
+
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         alterZone(node, ZONE_NAME, 3);
+
+        waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         checkPartitionAssignmentsSyncedAndRebalanceKeysEmpty();
 
@@ -609,7 +609,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21317")
     void testRaftClientsUpdatesAfterRebalance() throws Exception {
         Node node = getNode(0);
 
@@ -617,7 +616,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
 
         Set<Assignment> assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
 
@@ -664,8 +663,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     }
 
+
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21317")
     void testClientsAreUpdatedAfterPendingRebalanceHandled() throws Exception {
         Node node = getNode(0);
 
@@ -673,7 +672,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
 
         String assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0).stream()
                 .findFirst()
@@ -784,20 +783,23 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
-        if (replicasNum == nodes.size()) {
-            assertTrue(waitForCondition(
-                    () -> {
-                        try {
-                            return ((TableImpl) nodes.get(0).tableManager.table(TABLE_NAME))
-                                    .internalTable().partitionRaftGroupService(partNum) != null;
-                        } catch (IgniteInternalException e) {
-                            // Raft group service not found.
-                            return false;
-                        }
-                    },
-                    (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
-            ));
-        }
+        assertTrue(waitForCondition(
+                () -> {
+                    try {
+                        return nodes.stream().allMatch(n ->
+                                n.tableManager
+                                        .latestTables()
+                                        .get(getTableId(n, TABLE_NAME))
+                                        .internalTable()
+                                        .partitionRaftGroupService(0) != null
+                        );
+                    } catch (IgniteInternalException e) {
+                        // Raft group service not found.
+                        return false;
+                    }
+                },
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
     }
 
     private void waitPartitionPendingAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
