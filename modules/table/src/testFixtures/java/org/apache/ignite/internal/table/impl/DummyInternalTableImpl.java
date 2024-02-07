@@ -377,8 +377,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
         lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
 
-        List<CatalogIndexDescriptor> indexDescriptors = List.of(mock(CatalogIndexDescriptor.class));
-        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(indexDescriptors);
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+        lenient().when(indexDescriptor.id()).thenReturn(pkStorage.get().id());
+
+        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
