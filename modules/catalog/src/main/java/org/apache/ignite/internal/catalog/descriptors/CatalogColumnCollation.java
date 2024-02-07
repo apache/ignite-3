@@ -28,7 +28,7 @@ public enum CatalogColumnCollation {
     DESC_NULLS_LAST(false, false);
 
     private static final int ASC_FLAG_BITMASK = 1;
-    private static final int NULLS_FIRST_FLAG_BITMASK = 1 << 2;
+    private static final int NULLS_FIRST_FLAG_BITMASK = 1 << 1;
 
     private final boolean asc;
     private final boolean nullsFirst;
