@@ -174,6 +174,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
     private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
+            // TODO IGNITE-21403 propagate deleted set from the API.
             return batchSender.sendAsync(partition, batch, null).whenComplete((res, err) -> {
                 if (err != null) {
                     // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
