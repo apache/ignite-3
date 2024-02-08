@@ -45,6 +45,7 @@ import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.ClusterTagBuilder;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -209,7 +210,10 @@ public class TestServer implements AutoCloseable {
             authenticationManager.start();
         }
 
-        ClusterTag tag = ClusterTag.clusterTag(msgFactory, "Test Server");
+        ClusterTag tag = msgFactory.clusterTag()
+                .clusterName("Test Server")
+                .clusterId(clusterId)
+                .build();
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
