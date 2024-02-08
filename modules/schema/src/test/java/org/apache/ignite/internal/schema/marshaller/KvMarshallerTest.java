@@ -63,6 +63,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
@@ -106,6 +107,9 @@ public class KvMarshallerTest {
                 new AsmMarshallerGenerator()
         );
     }
+
+    /** Schema version. */
+    private static final AtomicInteger schemaVersion = new AtomicInteger();
 
     /** Random. */
     private Random rnd;
@@ -153,7 +157,7 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void pojoWithFieldsOfAllTypes(MarshallerFactory factory) throws MarshallerException {
-        SchemaDescriptor schema = new SchemaDescriptor(1, columnsAllTypes(false), columnsAllTypes(true));
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), columnsAllTypes(false), columnsAllTypes(true));
 
         final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomKey(rnd);
         final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
@@ -187,7 +191,7 @@ public class KvMarshallerTest {
                 new Column("uuidCol".toUpperCase(), UUID, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, columnsAllTypes(true));
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, columnsAllTypes(true));
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
@@ -205,7 +209,7 @@ public class KvMarshallerTest {
                 new Column("stringCol".toUpperCase(), STRING, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, cols);
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
@@ -225,7 +229,7 @@ public class KvMarshallerTest {
     public void columnNameMapping(MarshallerFactory factory) throws MarshallerException {
         Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support column mapping, yet.");
 
-        SchemaDescriptor schema = new SchemaDescriptor(1,
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(),
                 new Column[]{new Column("key".toUpperCase(), INT64, false)},
                 new Column[]{
                         new Column("col1".toUpperCase(), INT64, false),
@@ -264,7 +268,7 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithWrongFieldType(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 new Column[]{
                         new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
                         new Column("intCol".toUpperCase(), UUID, false)
@@ -300,7 +304,7 @@ public class KvMarshallerTest {
                 new Column("primitiveDoubleCol", DOUBLE, false)
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyCols, valCols);
 
         assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class));
     }
@@ -309,7 +313,7 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 new Column[]{ new Column("key".toUpperCase(), INT32, false) },
                 new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
         );
@@ -336,7 +340,7 @@ public class KvMarshallerTest {
                 new Column("primIntCol".toUpperCase(), INT32, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, cols);
 
         KvMarshaller<TestObjectWithPrivateConstructor, TestObjectWithPrivateConstructor> marshaller =
                 factory.create(schema, TestObjectWithPrivateConstructor.class, TestObjectWithPrivateConstructor.class);
@@ -363,7 +367,7 @@ public class KvMarshallerTest {
                 new Column("primLongCol", INT64, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, cols);
 
         final Object key = TestObjectWithNoDefaultConstructor.randomObject(rnd);
         final Object val = TestObjectWithNoDefaultConstructor.randomObject(rnd);
@@ -378,7 +382,7 @@ public class KvMarshallerTest {
                 new Column("primLongCol".toUpperCase(), INT64, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, cols);
 
         final ObjectFactory<PrivateTestObject> objFactory = new ObjectFactory<>(PrivateTestObject.class);
         final KvMarshaller<PrivateTestObject, PrivateTestObject> marshaller =
@@ -413,7 +417,7 @@ public class KvMarshallerTest {
                     new Column("col2".toUpperCase(), INT64, false),
             };
 
-            SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+            SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyCols, valCols);
 
             final Class<?> valClass = createGeneratedObjectClass();
             final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
@@ -441,7 +445,7 @@ public class KvMarshallerTest {
         Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support column mapping.");
 
         final SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 new Column[]{new Column("key", INT64, false)},
                 new Column[]{new Column("val", BYTES, true),
                 });
@@ -516,7 +520,7 @@ public class KvMarshallerTest {
         Column[] keyCols = {new Column("key", keyType, false)};
         Column[] valCols = {new Column("val", valType, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyCols, valCols);
 
         KvMarshaller<Object, Object> marshaller = factory.create(schema,
                 Mapper.of((Class<Object>) key.getClass(), "\"key\""),

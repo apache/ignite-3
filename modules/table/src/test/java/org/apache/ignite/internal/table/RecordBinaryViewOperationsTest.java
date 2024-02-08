@@ -40,6 +40,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -583,9 +584,10 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     void retriesOnInternalSchemaVersionMismatchException() throws Exception {
         SchemaDescriptor schema = schemaDescriptor();
         InternalTable internalTable = spy(createInternalTable(schema));
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
         RecordView<Tuple> view = new RecordBinaryViewImpl(
-                internalTable, new DummySchemaManagerImpl(schema), schemaVersions, mock(IgniteSql.class)
+                internalTable, new DummySchemaManagerImpl(schema), schemaVersions, marshallers, mock(IgniteSql.class)
         );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));

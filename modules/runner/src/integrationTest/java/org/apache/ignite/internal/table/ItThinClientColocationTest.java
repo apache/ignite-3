@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -52,6 +53,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests that client and server have matching colocation logic.
  */
 public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
+    private static ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
     @ParameterizedTest
     @MethodSource("nativeTypes")
     public void testClientAndServerColocationHashesAreSame(NativeType type)
@@ -114,7 +117,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 ClientTableCommon.getDecimalScale(type),
                 ClientTableCommon.getPrecision(type));
 
-        return new ClientSchema(0, new ClientColumn[]{clientColumn}, null);
+        return new ClientSchema(0, new ClientColumn[]{clientColumn}, null, marshallers);
     }
 
     private static TupleMarshallerImpl tupleMarshaller(NativeType type, String columnName) {
