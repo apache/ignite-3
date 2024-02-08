@@ -38,6 +38,8 @@ dependencies {
     implementation project(':ignite-rocksdb-common:')
     implementation project(':ignite-replicator')
 
+    annotationProcessor project(':ignite-network-annotation-processor')
+
     implementation libs.jetbrains.annotations
 
     testFixturesImplementation project(':ignite-core')

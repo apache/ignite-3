@@ -67,7 +67,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
 
         when(msManager.getLocally(any(), anyLong())).thenAnswer(invocation -> emptyEntry);
 
-        LeaseTracker leaseTracker = new LeaseTracker(msManager);
+        LeaseTracker leaseTracker = new LeaseTracker(msManager, null);
         leaseTracker.startTrack(0L);
 
         AtomicReference<PrimaryReplicaEventParameters> parametersRef = new AtomicReference<>();
