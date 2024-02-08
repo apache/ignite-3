@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,7 +50,7 @@ public class BinaryTuplePrefixTest {
                 .appendDate(date)
                 .build();
 
-        assertTrue((tuple.get(0) & BinaryTupleCommon.PREFIX_FLAG) != 0);
+        assertNotEquals(0, tuple.get(0) & BinaryTupleCommon.PREFIX_FLAG);
 
         var prefix = new BinaryTuplePrefix(5, tuple);
 

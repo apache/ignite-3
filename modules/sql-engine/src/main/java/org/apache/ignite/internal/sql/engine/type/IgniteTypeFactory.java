@@ -378,7 +378,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     @Override
     public @Nullable RelDataType leastRestrictive(List<RelDataType> types) {
         assert types != null;
-        assert types.size() >= 1;
+        assert !types.isEmpty();
 
         if (types.size() == 1 || allEquals(types)) {
             return first(types);

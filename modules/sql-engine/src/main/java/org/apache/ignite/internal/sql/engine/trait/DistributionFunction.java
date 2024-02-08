@@ -73,7 +73,7 @@ public abstract class DistributionFunction {
     @Override
     public final boolean equals(Object obj) {
         if (obj instanceof DistributionFunction) { //noinspection StringEquality
-            return name() == ((DistributionFunction) obj).name();
+            return name() == ((DistributionFunction) obj).name(); // NOPMD.UseEqualsToCompareStrings
         }
 
         return false;
@@ -114,7 +114,7 @@ public abstract class DistributionFunction {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static boolean satisfy(DistributionFunction f0, DistributionFunction f1) {
-        if (f0 == f1 || f0.name() == f1.name()) {
+        if (f0 == f1 || f0.name() == f1.name()) { // NOPMD.UseEqualsToCompareStrings
             return true;
         }
 

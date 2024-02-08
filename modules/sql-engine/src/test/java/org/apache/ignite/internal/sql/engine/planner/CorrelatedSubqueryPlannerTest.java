@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
@@ -123,9 +124,9 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
             assertEquals(3, correlates.size());
 
             // There are no collisions by correlation id.
-            assertFalse(correlates.get(0).getCorrelationId().equals(correlates.get(1).getCorrelationId()));
-            assertFalse(correlates.get(0).getCorrelationId().equals(correlates.get(2).getCorrelationId()));
-            assertFalse(correlates.get(1).getCorrelationId().equals(correlates.get(2).getCorrelationId()));
+            assertNotEquals(correlates.get(0).getCorrelationId(), correlates.get(1).getCorrelationId());
+            assertNotEquals(correlates.get(0).getCorrelationId(), correlates.get(2).getCorrelationId());
+            assertNotEquals(correlates.get(1).getCorrelationId(), correlates.get(2).getCorrelationId());
 
             List<LogicalFilter> filters = findNodes(rel, byClass(LogicalFilter.class)
                     .and(f -> RexUtils.hasCorrelation(((Filter) f).getCondition())));
@@ -210,7 +211,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
             assertEquals(2, correlates.size());
 
             // There are no collisions by correlation id.
-            assertFalse(correlates.get(0).getCorrelationId().equals(correlates.get(1).getCorrelationId()));
+            assertNotEquals(correlates.get(0).getCorrelationId(), correlates.get(1).getCorrelationId());
 
             List<LogicalProject> projects = findNodes(rel, byClass(LogicalProject.class)
                     .and(f -> RexUtils.hasCorrelation(((Project) f).getProjects())));
