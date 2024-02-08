@@ -174,3 +174,34 @@ TEST_F(connection_test, auth_connection_incorrect_creds) {
     test_conn_str(get_incorrect_secret_auth_connection_string());
     test_conn_str(get_incorrect_auth_connection_string());
 }
+
+TEST_F(connection_test, dbms_version) {
+    set_authentication_enabled(false);
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()));
+
+    SQLCHAR buffer[ODBC_BUFFER_SIZE];
+    SQLSMALLINT resLen = 0;
+
+    SQLRETURN ret = SQLGetInfo(m_conn, SQL_DBMS_VER, buffer, ODBC_BUFFER_SIZE, &resLen);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
+
+    EXPECT_EQ(std::string("03.00.0000 SNAPSHOT"), std::string(reinterpret_cast<char *>(buffer)));
+}
+
+TEST_F(connection_test, dbms_cluster_name) {
+    set_authentication_enabled(false);
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()));
+
+    SQLCHAR buffer[ODBC_BUFFER_SIZE];
+    SQLSMALLINT resLen = 0;
+
+    SQLRETURN ret = SQLGetInfo(m_conn, SQL_SERVER_NAME, buffer, ODBC_BUFFER_SIZE, &resLen);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
+
+    // Test cluster name: see PlatformTestNodeRunner.
+    EXPECT_EQ(std::string("cluster"), std::string(reinterpret_cast<char *>(buffer)));
+}
