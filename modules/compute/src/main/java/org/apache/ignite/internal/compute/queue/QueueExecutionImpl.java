@@ -23,6 +23,8 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
@@ -45,6 +47,8 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private final ComputeStateMachine stateMachine;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
+
+    private final Lock changePriorityLock = new ReentrantLock();
 
     @Nullable
     private volatile QueueEntry<R> queueEntry;
@@ -109,16 +113,20 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         if (newPriority == priority) {
             return false;
         }
+        changePriorityLock.lock();
+        try {
+            QueueEntry<R> queueEntry = this.queueEntry;
 
-        QueueEntry<R> queueEntry = this.queueEntry;
-
-        if (executor.removeFromQueue(queueEntry)) {
-            this.priority = newPriority;
-            this.queueEntry = null;
-            run();
-            return true;
+            if (executor.removeFromQueue(queueEntry)) {
+                this.priority = newPriority;
+                this.queueEntry = null;
+                run();
+                return true;
+            }
+            LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
+        } finally {
+            changePriorityLock.unlock();
         }
-        LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
         return false;
     }
 
