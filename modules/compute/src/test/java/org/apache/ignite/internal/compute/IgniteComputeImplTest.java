@@ -107,7 +107,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
 
         assertThat(
-                compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
+                compute.executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42),
                 willBe("jobResponse")
         );
 
@@ -119,7 +119,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
         assertThat(
-                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
+                compute.executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42),
                 willBe("remoteResponse")
         );
 
@@ -133,7 +133,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
         assertThat(
-                compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42).resultAsync(),
+                compute.executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42),
                 willBe("jobResponse")
         );
 
@@ -148,7 +148,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
 
         assertThat(
-                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42).resultAsync(),
+                compute.executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42),
                 willBe("remoteResponse")
         );
 
@@ -161,13 +161,13 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenAskForPrimaryReplica();
 
         assertThat(
-                compute.<String>executeColocatedAsync(
+                compute.executeColocatedAsync(
                         "test",
                         Tuple.create(Map.of("k", 1)),
                         testDeploymentUnits,
                         JOB_CLASS_NAME,
                         "a", 42
-                ).resultAsync(),
+                ),
                 willBe("remoteResponse")
         );
     }
@@ -178,14 +178,14 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenAskForPrimaryReplica();
 
         assertThat(
-                compute.<Integer, String>executeColocatedAsync(
+                compute.executeColocatedAsync(
                         "test",
                         1,
                         Mapper.of(Integer.class),
                         testDeploymentUnits,
                         JOB_CLASS_NAME,
                         "a", 42
-                ).resultAsync(),
+                ),
                 willBe("remoteResponse")
         );
     }

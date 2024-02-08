@@ -303,10 +303,10 @@ public class PartitionAwarenessTests
         var key = new IgniteTuple { ["ID"] = keyId };
 
         // Warm up.
-        await client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
+        await client.Compute.SubmitColocated<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
+            () => client.Compute.SubmitColocated<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
@@ -320,11 +320,11 @@ public class PartitionAwarenessTests
         var key = new SimpleKey(keyId);
 
         // Warm up.
-        await client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(
+        await client.Compute.SubmitColocated<object?, SimpleKey>(
             FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(
+            () => client.Compute.SubmitColocated<object?, SimpleKey>(
                 FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);

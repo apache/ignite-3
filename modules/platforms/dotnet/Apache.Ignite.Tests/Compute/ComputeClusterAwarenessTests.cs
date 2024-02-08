@@ -45,10 +45,10 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(clientCfg);
             client.WaitForConnections(3);
 
-            IJobExecution<string> exec2 = await client.Compute.ExecuteAsync<string>(
+            IJobExecution<string> exec2 = await client.Compute.Submit<string>(
                 new[] { server2.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
-            IJobExecution<string> exec3 = await client.Compute.ExecuteAsync<string>(
+            IJobExecution<string> exec3 = await client.Compute.Submit<string>(
                 new[] { server3.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
             Assert.AreEqual("s2", await exec2.GetResultAsync());
@@ -69,10 +69,10 @@ namespace Apache.Ignite.Tests.Compute
 
             using var client = await server1.ConnectClientAsync();
 
-            IJobExecution<string> exec2 = await client.Compute.ExecuteAsync<string>(
+            IJobExecution<string> exec2 = await client.Compute.Submit<string>(
                 new[] { server2.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
-            IJobExecution<string> exec3 = await client.Compute.ExecuteAsync<string>(
+            IJobExecution<string> exec3 = await client.Compute.Submit<string>(
                 new[] { server3.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
             Assert.AreEqual("s1", await exec2.GetResultAsync());
@@ -106,7 +106,7 @@ namespace Apache.Ignite.Tests.Compute
             {
                 var node = i % 2 == 0 ? server1.Node : server2.Node;
 
-                IJobExecution<string> jobExecution = await client.Compute.ExecuteAsync<string>(
+                IJobExecution<string> jobExecution = await client.Compute.Submit<string>(
                     new[] { node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
                 string res = await jobExecution.GetResultAsync();

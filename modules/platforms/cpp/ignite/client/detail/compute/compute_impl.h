@@ -47,7 +47,7 @@ public:
         , m_tables(std::move(tables)) {}
 
     /**
-     * Executes a compute job represented by the given class on one of the specified node asynchronously. If the node
+     * Submits a compute job represented by the given class for an execution on one of the specified nodes asynchronously. If the node
      * leaves the cluster, it will be restarted on one of the candidate nodes.
      *
      * @param nodes Candidate node to use for the job execution.
@@ -56,12 +56,12 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    void execute_on_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
+    void submit_to_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
         std::string_view job_class_name, const std::vector<primitive> &args,
         ignite_callback<std::optional<primitive>> callback);
 
     /**
-     * Asynchronously executes a job represented by the given class on one node where the given key is located.
+     * Submits a compute job represented by the given class for an execution on one of the nodes where the given key is located.
      *
      * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.
@@ -70,7 +70,7 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    void execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
+    void submit_colocated(const std::string &table_name, const ignite_tuple &key,
         const std::vector<deployment_unit> &units, const std::string &job_class_name,
         const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback);
 
