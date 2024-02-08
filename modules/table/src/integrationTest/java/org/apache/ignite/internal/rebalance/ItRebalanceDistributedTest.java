@@ -788,7 +788,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                         .latestTables()
                                         .get(getTableId(n, TABLE_NAME))
                                         .internalTable()
-                                        .partitionRaftGroupService(0) != null
+                                        .partitionRaftGroupService(partNum) != null
                         );
                     } catch (IgniteInternalException e) {
                         // Raft group service not found.
