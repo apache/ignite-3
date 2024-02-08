@@ -473,10 +473,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
