@@ -217,7 +217,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metastore.registerRevisionUpdateListener(function::apply);
 
-        var cfgStorage = new DistributedConfigurationStorage(metastore);
+        var cfgStorage = new DistributedConfigurationStorage("test", metastore);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),

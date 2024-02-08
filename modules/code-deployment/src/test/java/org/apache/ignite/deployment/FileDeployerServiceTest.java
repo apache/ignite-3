@@ -47,7 +47,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class FileDeployerServiceTest {
-    private final FileDeployerService service = new FileDeployerService();
+    private final FileDeployerService service = new FileDeployerService("test");
 
     @WorkDirectory
     private Path workDir;

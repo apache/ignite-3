@@ -198,7 +198,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
-            var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager) {
+            var distributedCfgStorage = new DistributedConfigurationStorage("test", metaStorageManager) {
                 /** {@inheritDoc} */
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {

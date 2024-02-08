@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.streamer;
+package org.apache.ignite.internal.marshaller;
 
-import java.util.BitSet;
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
-import org.jetbrains.annotations.Nullable;
+/** Marshaller schema. */
+public interface MarshallerSchema {
+    /** Schema version. */
+    int schemaVersion();
 
-/**
- * Streamer batch sender.
- *
- * @param <T> Item type.
- * @param <P> Partition type.
- */
-@FunctionalInterface
-public interface StreamerBatchSender<T, P> {
-    /**
-     * Sends batch of items asynchronously.
-     *
-     * @param partition Partition.
-     * @param batch Batch.
-     * @param deleted Deleted items (one bit per row in the batch).
-     * @return Future representing pending completion of the operation.
-     */
-    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch, @Nullable BitSet deleted);
+    /** Key columns. */
+    MarshallerColumn[] keys();
+
+    /** Value columns. */
+    MarshallerColumn[] values();
+
+    /** All columns - first key columns, then value columns. */
+    MarshallerColumn[] row();
 }

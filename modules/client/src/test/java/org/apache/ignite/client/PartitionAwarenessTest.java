@@ -473,10 +473,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -494,10 +494,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(new PersonPojo(0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(new PersonPojo(1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(new PersonPojo(2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(new PersonPojo(3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(new PersonPojo(0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(new PersonPojo(1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(new PersonPojo(2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(new PersonPojo(3L)));
     }
 
     @Test
@@ -515,10 +515,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -536,10 +536,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(0L));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(1L));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(2L));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(3L));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(0L));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(1L));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(2L));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(3L));
     }
 
     @Test
@@ -566,8 +566,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
                 }
             };
 
-            assertOpOnNode(nodeKey1, "upsertAll", x -> submit.accept(1L));
-            assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(2L));
+            assertOpOnNode(nodeKey1, "updateAll", x -> submit.accept(1L));
+            assertOpOnNode(nodeKey2, "updateAll", x -> submit.accept(2L));
 
             // Update partition assignment.
             initPrimaryReplicas(reversedReplicas());
@@ -578,8 +578,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             }
 
             // Check updated assignment.
-            assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(1L));
-            assertOpOnNode(nodeKey1, "upsertAll", x -> submit.accept(2L));
+            assertOpOnNode(nodeKey2, "updateAll", x -> submit.accept(1L));
+            assertOpOnNode(nodeKey1, "updateAll", x -> submit.accept(2L));
         }
 
         fut.join();

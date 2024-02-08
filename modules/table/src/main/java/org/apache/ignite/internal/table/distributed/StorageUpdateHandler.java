@@ -40,9 +40,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
- */
+/** Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests. */
 public class StorageUpdateHandler {
     /** Partition id. */
     private final int partitionId;
@@ -79,9 +77,7 @@ public class StorageUpdateHandler {
         this.storageUpdateConfiguration = storageUpdateConfiguration;
     }
 
-    /**
-     * Returns partition ID of the storage.
-     */
+    /** Returns partition ID of the storage. */
     public int partitionId() {
         return partitionId;
     }
@@ -97,6 +93,7 @@ public class StorageUpdateHandler {
      * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
      * @param lastCommitTs The timestamp of last known committed entry.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
     public void handleUpdate(
             UUID txId,
@@ -106,8 +103,10 @@ public class StorageUpdateHandler {
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs,
-            @Nullable HybridTimestamp lastCommitTs
+            @Nullable HybridTimestamp lastCommitTs,
+            @Nullable List<Integer> indexIds
     ) {
+        // Not the best solution, but let’s leave it for now; we need on node recovery when applying a replication log and full rebalancing.
         indexUpdateHandler.waitIndexes();
 
         storage.runConsistently(locker -> {
@@ -124,7 +123,8 @@ public class StorageUpdateHandler {
                     row,
                     lastCommitTs,
                     commitTs,
-                    false
+                    false,
+                    indexIds
             );
 
             if (trackWriteIntent) {
@@ -148,7 +148,8 @@ public class StorageUpdateHandler {
             @Nullable BinaryRow row,
             @Nullable HybridTimestamp lastCommitTs,
             @Nullable HybridTimestamp commitTs,
-            boolean useTryLock
+            boolean useTryLock,
+            @Nullable List<Integer> indexIds
     ) {
         if (useTryLock) {
             if (!locker.tryLock(rowId)) {
@@ -158,7 +159,7 @@ public class StorageUpdateHandler {
             locker.lock(rowId);
         }
 
-        performStorageCleanupIfNeeded(txId, rowId, lastCommitTs);
+        performStorageCleanupIfNeeded(txId, rowId, lastCommitTs, indexIds);
 
         if (commitTs != null) {
             storage.addWriteCommitted(rowId, row, commitTs);
@@ -168,11 +169,11 @@ public class StorageUpdateHandler {
             if (oldRow != null) {
                 assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
                 // Previous uncommitted row should be removed from indexes.
-                tryRemovePreviousWritesIndex(rowId, oldRow);
+                tryRemovePreviousWritesIndex(rowId, oldRow, indexIds);
             }
         }
 
-        indexUpdateHandler.addToIndexes(row, rowId);
+        indexUpdateHandler.addToIndexes(row, rowId, indexIds);
 
         return true;
     }
@@ -186,6 +187,7 @@ public class StorageUpdateHandler {
      * @param trackWriteIntent If {@code true} then write intent should be tracked.
      * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
     public void handleUpdateAll(
             UUID txId,
@@ -193,12 +195,14 @@ public class StorageUpdateHandler {
             TablePartitionId commitPartitionId,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
-            @Nullable HybridTimestamp commitTs
+            @Nullable HybridTimestamp commitTs,
+            @Nullable List<Integer> indexIds
     ) {
         if (nullOrEmpty(rowsToUpdate)) {
             return;
         }
 
+        // Not the best solution, but let’s leave it for now; we need on node recovery when applying a replication log and full rebalancing.
         indexUpdateHandler.waitIndexes();
 
         int commitTblId = commitPartitionId.tableId();
@@ -217,7 +221,8 @@ public class StorageUpdateHandler {
                     commitPartId,
                     it,
                     onApplication,
-                    storageUpdateConfiguration.batchByteLength().value()
+                    storageUpdateConfiguration.batchByteLength().value(),
+                    indexIds
             );
         }
     }
@@ -230,7 +235,9 @@ public class StorageUpdateHandler {
             int commitTblId,
             int commitPartId,
             Iterator<Entry<UUID, TimedBinaryRow>> it,
-            @Nullable Runnable onApplication, int maxBatchLength
+            @Nullable Runnable onApplication,
+            int maxBatchLength,
+            @Nullable List<Integer> indexIds
     ) {
         return storage.runConsistently(locker -> {
             List<RowId> processedRowIds = new ArrayList<>();
@@ -257,7 +264,8 @@ public class StorageUpdateHandler {
                         row,
                         entryToProcess.getValue() == null ? null : entryToProcess.getValue().commitTimestamp(),
                         commitTs,
-                        !processedRowIds.isEmpty()
+                        !processedRowIds.isEmpty(),
+                        indexIds
                 );
 
                 if (!rowProcessed) {
@@ -278,10 +286,14 @@ public class StorageUpdateHandler {
 
             return entryToProcess;
         });
-
     }
 
-    private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {
+    private void performStorageCleanupIfNeeded(
+            UUID txId,
+            RowId rowId,
+            @Nullable HybridTimestamp lastCommitTs,
+            @Nullable List<Integer> indexIds
+    ) {
         // No previously committed value, this action might be an insert. No need to cleanup.
         if (lastCommitTs == null) {
             return;
@@ -328,7 +340,7 @@ public class StorageUpdateHandler {
                     // So if we got up to here, it means that the previous transaction was aborted,
                     // but the storage was not cleaned after it.
                     // Action: abort this write intent.
-                    performAbortWrite(item.transactionId(), Set.of(rowId));
+                    performAbortWrite(item.transactionId(), Set.of(rowId), indexIds);
                 }
             }
         }
@@ -339,14 +351,15 @@ public class StorageUpdateHandler {
      *
      * @param rowId Row id.
      * @param previousRow Previous write value.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    private void tryRemovePreviousWritesIndex(RowId rowId, BinaryRow previousRow) {
+    private void tryRemovePreviousWritesIndex(RowId rowId, BinaryRow previousRow, @Nullable List<Integer> indexIds) {
         try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
             if (!cursor.hasNext()) {
                 return;
             }
 
-            indexUpdateHandler.tryRemoveFromIndexes(previousRow, rowId, cursor);
+            indexUpdateHandler.tryRemoveFromIndexes(previousRow, rowId, cursor, indexIds);
         }
     }
 
@@ -367,9 +380,15 @@ public class StorageUpdateHandler {
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    public void switchWriteIntents(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        switchWriteIntents(txId, commit, commitTimestamp, null);
+    public void switchWriteIntents(
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            @Nullable List<Integer> indexIds
+    ) {
+        switchWriteIntents(txId, commit, commitTimestamp, null, indexIds);
     }
 
     /**
@@ -380,12 +399,15 @@ public class StorageUpdateHandler {
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      * @param onApplication On application callback.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
     public void switchWriteIntents(
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
-            @Nullable Runnable onApplication) {
+            @Nullable Runnable onApplication,
+            @Nullable List<Integer> indexIds
+    ) {
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
@@ -401,7 +423,7 @@ public class StorageUpdateHandler {
                 if (commit) {
                     performCommitWrite(txId, pendingRowIds, commitTimestamp);
                 } else {
-                    performAbortWrite(txId, pendingRowIds);
+                    performAbortWrite(txId, pendingRowIds, indexIds);
                 }
 
                 if (onApplication != null) {
@@ -457,8 +479,9 @@ public class StorageUpdateHandler {
      *
      * @param txId Transaction id
      * @param pendingRowIds Row ids of write-intents to be aborted.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds) {
+    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
         List<RowId> rowIds = new ArrayList<>();
 
         for (RowId rowId : pendingRowIds) {
@@ -484,7 +507,7 @@ public class StorageUpdateHandler {
                         continue;
                     }
 
-                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
+                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor, indexIds);
                 }
             }
         }
@@ -492,9 +515,7 @@ public class StorageUpdateHandler {
         rowIds.forEach(storage::abortWrite);
     }
 
-    /**
-     * Returns partition index update handler.
-     */
+    /** Returns partition index update handler. */
     public IndexUpdateHandler getIndexUpdateHandler() {
         return indexUpdateHandler;
     }

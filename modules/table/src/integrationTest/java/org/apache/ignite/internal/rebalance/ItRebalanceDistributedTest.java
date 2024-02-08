@@ -1048,7 +1048,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestLocalRwTxCounter()
             );
 
-            cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
+            cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
             clusterCfgGenerator = new ConfigurationTreeGenerator(GcConfiguration.KEY);
 

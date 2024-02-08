@@ -53,6 +53,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
 import org.apache.ignite.internal.marshaller.MarshallerException;
@@ -87,6 +88,9 @@ public class RecordMarshallerTest {
         return List.of(new ReflectionMarshallerFactory());
     }
 
+    /** Schema version. */
+    private static final AtomicInteger schemaVersion = new AtomicInteger();
+
     /** Random. */
     private Random rnd;
 
@@ -105,7 +109,7 @@ public class RecordMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void complexType(MarshallerFactory factory) throws MarshallerException {
-        SchemaDescriptor schema = new SchemaDescriptor(1, keyColumns(), valueColumnsAllTypes());
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyColumns(), valueColumnsAllTypes());
 
         final TestObjectWithAllTypes rec = TestObjectWithAllTypes.randomObject(rnd);
 
@@ -123,7 +127,7 @@ public class RecordMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void truncatedType(MarshallerFactory factory) throws MarshallerException {
-        SchemaDescriptor schema = new SchemaDescriptor(1, keyColumns(), valueColumnsAllTypes());
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyColumns(), valueColumnsAllTypes());
 
         RecordMarshaller<TestTruncatedObject> marshaller = factory.create(schema, TestTruncatedObject.class);
 
@@ -142,7 +146,7 @@ public class RecordMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void widerType(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 keyColumns(),
                 new Column[]{
                         new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
@@ -165,7 +169,7 @@ public class RecordMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void mapping(MarshallerFactory factory) throws MarshallerException {
-        SchemaDescriptor schema = new SchemaDescriptor(1,
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(),
                 new Column[]{new Column("key".toUpperCase(), INT64, false)},
                 new Column[]{
                         new Column("col1".toUpperCase(), INT32, false),
@@ -198,7 +202,7 @@ public class RecordMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithWrongFieldType(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 new Column[]{
                         new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
                         new Column("intCol".toUpperCase(), UUID, false)
@@ -220,7 +224,7 @@ public class RecordMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 new Column[]{ new Column("key".toUpperCase(), INT32, false) },
                 new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
         );
@@ -237,7 +241,7 @@ public class RecordMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithPrivateConstructor(MarshallerFactory factory) throws MarshallerException, IllegalAccessException {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 new Column[]{new Column("primLongCol".toUpperCase(), INT64, false)},
                 new Column[]{new Column("primIntCol".toUpperCase(), INT32, false)}
         );
@@ -257,7 +261,7 @@ public class RecordMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithNoDefaultConstructor(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 new Column[]{new Column("primLongCol".toUpperCase(), INT64, false)},
                 new Column[]{new Column("primIntCol".toUpperCase(), INT32, false)}
         );
@@ -271,7 +275,7 @@ public class RecordMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void privateClass(MarshallerFactory factory) throws MarshallerException {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                schemaVersion.incrementAndGet(),
                 new Column[]{new Column("primLongCol".toUpperCase(), INT64, false)},
                 new Column[]{new Column("primIntCol".toUpperCase(), INT32, false)}
         );
@@ -306,7 +310,7 @@ public class RecordMarshallerTest {
                     new Column("col2".toUpperCase(), INT64, false),
             };
 
-            SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+            SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyCols, valCols);
 
             final Class<Object> recClass = (Class<Object>) createGeneratedObjectClass();
             final ObjectFactory<Object> objFactory = new ObjectFactory<>(recClass);

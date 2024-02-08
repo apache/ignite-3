@@ -66,8 +66,8 @@ public class ItTxDistributedCleanupRecoveryTest extends TxAbstractTest {
 
         this.igniteTransactions = txTestCluster.igniteTransactions;
 
-        accounts = txTestCluster.startTable(ACC_TABLE_NAME, ACC_TABLE_ID, ACCOUNTS_SCHEMA);
-        customers = txTestCluster.startTable(CUST_TABLE_NAME, CUST_TABLE_ID, CUSTOMERS_SCHEMA);
+        accounts = txTestCluster.startTable(ACC_TABLE_NAME, ACCOUNTS_SCHEMA);
+        customers = txTestCluster.startTable(CUST_TABLE_NAME, CUSTOMERS_SCHEMA);
 
         txTestCluster.cluster.forEach(clusterService -> {
             DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
