@@ -531,11 +531,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                 marshaller(rowConverter.registry().lastKnownSchemaVersion())
         );
 
-        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> {
-            return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.updateAll(marshal(items, schemaVersion), null, partitionId);
-            });
-        };
+        StreamerBatchSender<R, Integer> batchSender = (partitionId, items, deleted) ->
+                withSchemaSync(
+                        null,
+                        schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion), deleted, partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

@@ -688,11 +688,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
                 marshaller(rowConverter.registry().lastKnownSchemaVersion())
         );
 
-        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> {
-            return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.updateAll(marshalPairs(items, schemaVersion), null, partitionId);
-            });
-        };
+        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items, deleted) ->
+                withSchemaSync(
+                        null,
+                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion), deleted, partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -431,9 +432,21 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null,
-                (schemaVersion) -> this.tbl.updateAll(mapToBinary(items, schemaVersion, false), null, partitionId));
+        StreamerBatchSender<Tuple, Integer> batchSender = this::updateAll;
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+    }
+
+    /**
+     * Asynchronously updates records in the table (insert, update, delete).
+     *
+     * @param partitionId partition.
+     * @param rows Rows.
+     * @param deleted Bit set indicating deleted rows (one bit per item in {@param rows}). When null, no rows are deleted.
+     * @return Future that will be completed when the stream is finished.
+     */
+    public CompletableFuture<Void> updateAll(int partitionId, Collection<Tuple> rows, @Nullable BitSet deleted) {
+        return withSchemaSync(null,
+                schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, false), deleted, partitionId));
     }
 }
