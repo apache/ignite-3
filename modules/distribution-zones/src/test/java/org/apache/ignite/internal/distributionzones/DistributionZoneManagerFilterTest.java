@@ -89,7 +89,9 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         LogicalNode newB = new LogicalNode(
                 new ClusterNodeImpl("2", "newB", new NetworkAddress("localhost", 123)),
-                Map.of("region", "US", "storage", "HHD", "dataRegionSize", "30")
+                Map.of("region", "US", "storage", "HHD", "dataRegionSize", "30"),
+                Map.of(),
+                List.of(DEFAULT_STORAGE_PROFILE)
         );
 
         topology.putNode(newB);

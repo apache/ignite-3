@@ -54,7 +54,7 @@ public class NodeWithAttributes implements Serializable {
      * @param userAttributes Key value map of user's node's attributes.
      * @param storageProfiles List of supported storage profiles on the node.
      */
-    NodeWithAttributes(String nodeName, String nodeId, Map<String, String> userAttributes, List<String> storageProfiles) {
+    public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> userAttributes, List<String> storageProfiles) {
         this.node = new Node(nodeName, nodeId);
         this.userAttributes = userAttributes == null ? Map.of() : userAttributes;
         this.storageProfiles = storageProfiles == null ? List.of() : storageProfiles;

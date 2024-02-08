@@ -205,7 +205,9 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         LogicalNode e = new LogicalNode(
                 new ClusterNodeImpl("5", "E", new NetworkAddress("localhost", 123)),
-                Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
+                Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20"),
+                Map.of(),
+                List.of(DEFAULT_STORAGE_PROFILE)
         );
 
         doAnswer(invocation -> {
