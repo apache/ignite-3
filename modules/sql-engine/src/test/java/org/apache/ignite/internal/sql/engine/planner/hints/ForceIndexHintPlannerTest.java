@@ -60,12 +60,12 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testWrongIndexName() throws Exception {
-        var sql = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE id = 0";
+        var sql = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE id = 0 AND val1 = 'v'";
 
-        assertCertainIndex(format(sql, "'tbl1_idx_id'"), TBL1, "IDX_ID");
-        assertCertainIndex(format(sql, "\"tbl1_idx_id\""), TBL1, "IDX_ID");
-        assertCertainIndex(format(sql, "'unexisting', 'tbl1_idx_id'"), TBL1, "IDX_ID");
-        assertCertainIndex(format(sql, "\"unexisting\", \"tbl1_idx_id\""), TBL1, "IDX_ID");
+        assertNoCertainIndex(format(sql, "'tbl1_idx_id'"), TBL1, "TBL1_IDX_ID");
+        assertNoCertainIndex(format(sql, "\"tbl1_idx_id\""), TBL1, "TBL1_IDX_ID");
+        assertNoCertainIndex(format(sql, "'unexisting', 'tbl1_idx_id'"), TBL1, "UNEXISTING");
+        assertNoCertainIndex(format(sql, "\"unexisting\", \"tbl1_idx_id\""), TBL1, "UNEXISTING");
     }
 
     @Test
@@ -89,11 +89,13 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
     public void testSubquery() throws Exception {
         var sql1 = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 t2, (SELECT * FROM TBL1 WHERE val2='v' AND val3='v') t1 WHERE t2.val2='v'";
 
+        assertCertainIndex(format(sql1, ""), TBL1, "IDX_VAL2_VAL3");
         assertCertainIndex(format(sql1, "IDX_VAL2_VAL3"), TBL1, "IDX_VAL2_VAL3");
         assertCertainIndex(format(sql1, "IDX_VAL3"), TBL1, "IDX_VAL3");
 
         var sql2 = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL2 t2 WHERE t2.val2 = (SELECT val2 from TBL1 WHERE val2='v' AND val3='v')";
 
+        assertCertainIndex(format(sql2, ""), TBL1, "IDX_VAL2_VAL3");
         assertCertainIndex(format(sql2, "IDX_VAL2_VAL3"), TBL1, "IDX_VAL2_VAL3");
         assertCertainIndex(format(sql2, "IDX_VAL3"), TBL1, "IDX_VAL3");
     }
@@ -167,5 +169,9 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
 
     private void assertCertainIndex(String sql, String tblName, String idxName) throws Exception {
         assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(tblName, idxName)));
+    }
+
+    private void assertNoCertainIndex(String sql, String tblName, String idxName) throws Exception {
+        assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(tblName, idxName)).negate());
     }
 }
