@@ -77,6 +77,6 @@ public class PartitionAwarenessProvider {
     }
 
     boolean isPartitionAwarenessEnabled() {
-        return hashFunc != null;
+        return hashFunc != null || partition != null;
     }
 }
