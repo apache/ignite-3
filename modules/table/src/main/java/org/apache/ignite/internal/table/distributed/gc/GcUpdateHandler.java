@@ -147,7 +147,8 @@ public class GcUpdateHandler {
             }
 
             try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor);
+                // TODO: IGNITE-21005 We need to choose only those indexes that are not available for transactions
+                indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor, null);
             }
 
             return VacuumResult.SUCCESS;

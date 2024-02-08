@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -376,6 +377,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
         lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
 
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+        lenient().when(indexDescriptor.id()).thenReturn(pkStorage.get().id());
+
+        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
+
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 raftGroupServiceByPartitionId.get(PART_ID),
@@ -406,7 +412,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
-                new PendingComparableValuesTracker<>(0L)
+                new PendingComparableValuesTracker<>(0L),
+                catalogService
         );
     }
 

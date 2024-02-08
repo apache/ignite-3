@@ -592,4 +592,30 @@ public final class CollectionUtils {
             }
         };
     }
+
+    /**
+     * Creates a view of the original list without copying it with another type from the map function.
+     *
+     * @param list Original list.
+     * @param mapper Map function.
+     * @param <T> Type of the input elements.
+     * @param <R> Output type of the value mapping function.
+     */
+    public static <T, R> List<R> view(List<T> list, Function<? super T, ? extends R> mapper) {
+        if (list.isEmpty()) {
+            return List.of();
+        }
+
+        return new AbstractList<>() {
+            @Override
+            public R get(int index) {
+                return mapper.apply(list.get(index));
+            }
+
+            @Override
+            public int size() {
+                return list.size();
+            }
+        };
+    }
 }

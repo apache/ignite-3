@@ -1925,7 +1925,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionUpdateHandlers.storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                storageIndexTracker
+                storageIndexTracker,
+                catalogService
         );
 
         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
