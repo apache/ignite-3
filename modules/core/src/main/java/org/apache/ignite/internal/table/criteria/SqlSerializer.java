@@ -163,7 +163,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
      * Builder.
      */
     public static class Builder  {
-        private static final Pattern CANONICAL_NAME = Pattern.compile("^(?:\\p{Alpha}[\\w_]*\\.)?\\p{Alpha}[\\w_]*$");
+        private static final Pattern CANONICAL_NAME = Pattern.compile("^(?:\\p{Alpha}[\\w]*)(?:\\.\\p{Alpha}[\\w]*)?$");
 
         @Nullable
         private String tableName;
