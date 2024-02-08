@@ -88,7 +88,7 @@ public class ClockWaiter implements IgniteComponent {
                 1,
                 TimeUnit.MINUTES,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory(nodeName + "-clock-waiter-future-executor", LOG)
+                NamedThreadFactory.create(nodeName, "clock-waiter-future-executor", LOG)
         );
     }
 
@@ -96,7 +96,7 @@ public class ClockWaiter implements IgniteComponent {
     public CompletableFuture<Void> start() {
         clock.addUpdateListener(updateListener);
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter-scheduler", LOG));
+        scheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "clock-waiter-scheduler", LOG));
 
         return nullCompletedFuture();
     }

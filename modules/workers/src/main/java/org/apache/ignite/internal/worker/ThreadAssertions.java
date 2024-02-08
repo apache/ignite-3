@@ -30,7 +30,7 @@ public class ThreadAssertions {
 
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
-    private static final boolean ENABLED = Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "true"));
+    private static final boolean ENABLED = Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "false"));
 
     /**
      * Returns {@code true} if thread assertions are enabled.

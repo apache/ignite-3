@@ -47,7 +47,7 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory(path, testStoreOptions());
+        logStorageFactory = new LogitLogStorageFactory("test", path, testStoreOptions());
         logStorageFactory.start();
 
         super.setup();

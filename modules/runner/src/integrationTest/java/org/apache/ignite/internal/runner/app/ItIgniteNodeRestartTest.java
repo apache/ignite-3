@@ -392,7 +392,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             }
         };
 
-        var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr);
+        var cfgStorage = new DistributedConfigurationStorage("test", metaStorageMgr);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),

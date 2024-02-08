@@ -19,6 +19,7 @@ package org.apache.ignite.distributed;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -26,7 +27,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Durable cleanup test with successful recovery after the failures.
  */
-public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingleNode {
+public class ItTxDistributedCleanupRecoveryTest extends TxAbstractTest {
 
     private AtomicInteger defaultRetryCount;
 
@@ -81,5 +82,10 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
         });
 
         log.info("Tables have been started");
+    }
+
+    @Override
+    protected int nodes() {
+        return 1;
     }
 }
