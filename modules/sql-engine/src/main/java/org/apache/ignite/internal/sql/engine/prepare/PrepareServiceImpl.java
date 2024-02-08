@@ -179,7 +179,7 @@ public class PrepareServiceImpl implements PrepareService {
                 THREAD_TIMEOUT_MS,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, "sql-planning-pool"), LOG)
+                NamedThreadFactory.create(nodeName, "sql-planning-pool", LOG)
         );
 
         planningPool.allowCoreThreadTimeOut(true);

@@ -380,6 +380,7 @@ public class IgniteImpl implements Ignite {
         );
 
         LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
+                name,
                 configPath,
                 localConfigurationGenerator
         );
@@ -513,7 +514,7 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory
         );
 
-        this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr);
+        this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
@@ -577,9 +578,9 @@ public class IgniteImpl implements Ignite {
         );
         dataStorageMgr = new DataStorageManager(applyThreadAssertionsIfNeeded(storageEngines));
 
-        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
 
-        outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
 
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry.getConfiguration(
                 SchemaSynchronizationConfiguration.KEY

@@ -108,8 +108,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Delayed executor. */
-    private final ScheduledExecutorService scheduledExecutor =
-            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("cmg-manager", LOG));
+    private final ScheduledExecutorService scheduledExecutor;
 
     private final ClusterService clusterService;
 
@@ -152,6 +151,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         this.configuration = configuration;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
+
+        scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
+        );
     }
 
     /**

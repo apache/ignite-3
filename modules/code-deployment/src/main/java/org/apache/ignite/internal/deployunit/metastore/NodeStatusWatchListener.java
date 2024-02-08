@@ -45,8 +45,7 @@ public class NodeStatusWatchListener implements WatchListener {
 
     private final NodeEventCallback callback;
 
-    private final ExecutorService executor = Executors.newFixedThreadPool(
-            4, new NamedThreadFactory("NodeStatusWatchListener-pool", LOG));
+    private final ExecutorService executor;
 
     /**
      * Constructor.
@@ -59,6 +58,10 @@ public class NodeStatusWatchListener implements WatchListener {
         this.deploymentUnitStore = deploymentUnitStore;
         this.nodeName = nodeName;
         this.callback = callback;
+
+        executor = Executors.newFixedThreadPool(
+                4, NamedThreadFactory.create(nodeName, "NodeStatusWatchListener-pool", LOG)
+        );
     }
 
     @Override

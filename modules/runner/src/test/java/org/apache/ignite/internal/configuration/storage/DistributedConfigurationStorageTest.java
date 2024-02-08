@@ -67,7 +67,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     /** {@inheritDoc} */
     @Override
     public ConfigurationStorage getStorage() {
-        return new DistributedConfigurationStorage(metaStorageManager);
+        return new DistributedConfigurationStorage("test", metaStorageManager);
     }
 
     /**
