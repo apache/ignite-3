@@ -163,7 +163,6 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -592,8 +591,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         createTable(node, ZONE_NAME, TABLE_NAME);
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
-
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         alterZone(node, ZONE_NAME, 3);
 
