@@ -4,6 +4,7 @@ SELECT * FROM nt1_n1, nt2_n2
 Fragment#0 root
   executionNodes: [N0]
   remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N1], 2=[N2]}
   tree:
     IgniteNestedLoopJoin
       IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
@@ -32,6 +33,7 @@ SELECT * FROM nt1_n1, nt2_n2
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N1], 2=[N2]}
   tree:
     IgniteNestedLoopJoin
       IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
@@ -60,6 +62,7 @@ SELECT * FROM nt1_n1, nt2_n1
 Fragment#0 root
   executionNodes: [N0]
   remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N1], 2=[N1]}
   tree:
     IgniteNestedLoopJoin
       IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
@@ -88,6 +91,7 @@ SELECT * FROM nt1_n1, nt2_n1
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N1], 2=[N1]}
   tree:
     IgniteNestedLoopJoin
       IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)

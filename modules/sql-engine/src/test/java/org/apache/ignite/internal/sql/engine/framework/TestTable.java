@@ -46,22 +46,12 @@ public class TestTable extends IgniteTableImpl {
             TableDescriptor descriptor,
             String name,
             double rowCnt,
-            List<IgniteIndex> indexes
-    ) {
-        this(tableId, descriptor, name, rowCnt, indexes, Map.of());
-    }
-
-    /** Constructor. */
-    public TestTable(
-            int tableId,
-            TableDescriptor descriptor,
-            String name,
-            double rowCnt,
             List<IgniteIndex> indexList,
-            Map<String, DataProvider<?>> dataProviders
+            Map<String, DataProvider<?>> dataProviders,
+            int partitions
     ) {
         super(name, tableId, 1, descriptor, new TestStatistic(rowCnt),
-                indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity())), 1);
+                indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity())), partitions);
 
         this.dataProviders = dataProviders;
     }

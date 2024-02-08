@@ -25,7 +25,6 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -56,7 +55,7 @@ public class PartitionPruningColumns {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return columns.toString();
     }
 
     /** Returns column values in canonical form. E.g. {@code [1=2, 0=3]} becomes {@code [0=3, 1=2]} */

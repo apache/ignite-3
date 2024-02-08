@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping;
+package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 
-/**
- * A service to map multi step plan to an actual topology.
- */
+/** Applies partition pruning. */
 @FunctionalInterface
-public interface MappingService {
+public interface PartitionPruner {
+
     /**
-     * Maps given plan to a cluster topology.
+     * Applies partition pruning to the given fragments.
      *
-     * @param multiStepPlan A plan to map.
-     * @return A list of fragments with metadata related to a fragment topology.
+     * @param mappedFragments List of fragments.
+     * @param dynamicParameters Dynamic parameter values.
      */
-    CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters);
+    List<MappedFragment> apply(List<MappedFragment> mappedFragments, Object[] dynamicParameters);
 }

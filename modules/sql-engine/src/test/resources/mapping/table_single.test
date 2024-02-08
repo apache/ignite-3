@@ -4,6 +4,7 @@ SELECT * FROM ct1_n1, ct2_n1
 Fragment#3 root
   executionNodes: [N0]
   remoteFragments: [4]
+  exchangeSourceNodes: {4=[N1]}
   tree:
     IgniteReceiver(sourceFragment=4, exchange=4, distribution=single)
 
@@ -36,6 +37,7 @@ SELECT * FROM ct1_n1, ct2_n2
 Fragment#5 root
   executionNodes: [N0]
   remoteFragments: [6]
+  exchangeSourceNodes: {6=[N2]}
   tree:
     IgniteReceiver(sourceFragment=6, exchange=6, distribution=single)
 
@@ -51,6 +53,7 @@ Fragment#6
   targetNodes: [N0]
   executionNodes: [N2]
   remoteFragments: [4]
+  exchangeSourceNodes: {4=[N1]}
   tables: [CT2_N2]
   tree:
     IgniteSender(targetFragment=5, exchange=6, distribution=single)
@@ -65,6 +68,7 @@ SELECT * FROM ct1_n1, ct2_n2
 Fragment#5 root
   executionNodes: [N1]
   remoteFragments: [6]
+  exchangeSourceNodes: {6=[N2]}
   tree:
     IgniteReceiver(sourceFragment=6, exchange=6, distribution=single)
 
@@ -80,6 +84,7 @@ Fragment#6
   targetNodes: [N1]
   executionNodes: [N2]
   remoteFragments: [4]
+  exchangeSourceNodes: {4=[N1]}
   tables: [CT2_N2]
   tree:
     IgniteSender(targetFragment=5, exchange=6, distribution=single)

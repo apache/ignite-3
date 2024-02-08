@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.io.Serializable;
 import java.util.Objects;
-import org.apache.ignite.internal.tostring.S;
 
 /**
  * Tuple representing primary replica node name with node enlistment consistency token.
@@ -85,6 +84,6 @@ public class NodeWithConsistencyToken implements Serializable {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(NodeWithConsistencyToken.class, this);
+        return name + ":" + enlistmentConsistencyToken;
     }
 }

@@ -4,6 +4,7 @@ SELECT (SELECT count(*) FROM ct_n1) FROM t_n1
 Fragment#4 root
   executionNodes: [N0]
   remoteFragments: [5]
+  exchangeSourceNodes: {5=[N1]}
   tree:
     IgniteReceiver(sourceFragment=5, exchange=5, distribution=single)
 
@@ -19,6 +20,7 @@ Fragment#5
   targetNodes: [N0]
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tables: [CT_N1]
   tree:
     IgniteSender(targetFragment=4, exchange=5, distribution=single)
@@ -35,6 +37,7 @@ SELECT (SELECT count(*) FROM ct_n1) FROM t_n1
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tables: [CT_N1]
   tree:
     IgniteProject
@@ -58,6 +61,7 @@ SELECT (SELECT count(*) FROM ct_n1) FROM t_n2
 Fragment#4 root
   executionNodes: [N0]
   remoteFragments: [5]
+  exchangeSourceNodes: {5=[N1]}
   tree:
     IgniteReceiver(sourceFragment=5, exchange=5, distribution=single)
 
@@ -73,6 +77,7 @@ Fragment#5
   targetNodes: [N0]
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N2]}
   tables: [CT_N1]
   tree:
     IgniteSender(targetFragment=4, exchange=5, distribution=single)
@@ -89,6 +94,7 @@ SELECT (SELECT count(*) FROM ct_n1) FROM t_n2
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N2]}
   tables: [CT_N1]
   tree:
     IgniteProject
@@ -112,6 +118,7 @@ SELECT t.c1 FROM t_n1 t JOIN table(system_range(1, 50)) as r ON t.id = r.x WHERE
 Fragment#0 root
   executionNodes: [N0]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteProject
       IgniteMergeJoin
@@ -137,6 +144,7 @@ EXISTS (SELECT x FROM table(system_range(t.c1, t.c2)) WHERE mod(x, 2) = 0)
 Fragment#3 root
   executionNodes: [N0]
   remoteFragments: [4]
+  exchangeSourceNodes: {4=[N1]}
   tree:
     IgniteReceiver(sourceFragment=4, exchange=4, distribution=single)
 
@@ -162,6 +170,7 @@ EXISTS (SELECT x FROM table(system_range(t.c1, t.c2)) WHERE mod(x, 2) = 0)
 Fragment#0 root
   executionNodes: [N0]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteProject
       IgniteCorrelatedNestedLoopJoin

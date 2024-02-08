@@ -27,6 +27,7 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
@@ -79,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
@@ -355,6 +358,9 @@ public class TestBuilders {
         /** Sets id for the table. The caller must guarantee that provided id is unique. */
         TableBuilder tableId(int id);
 
+        /** Sets the number of partitions fot this table. default value is 1. */
+        TableBuilder partitions(int num);
+
         /**
          * Builds a table.
          *
@@ -608,7 +614,14 @@ public class TestBuilders {
                     .map(name -> {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
                         var targetProvider = new TestNodeExecutionTargetProvider(systemViewManager::owningNodes, owningNodesByTableName);
-                        var mappingService = new MappingServiceImpl(name, targetProvider, EmptyCacheFactory.INSTANCE, 0, Runnable::run);
+                        var partitionPruner = new PartitionPrunerImpl();
+                        var mappingService = new MappingServiceImpl(
+                                name,
+                                targetProvider,
+                                EmptyCacheFactory.INSTANCE,
+                                0,
+                                partitionPruner, Runnable::run
+                        );
 
                         systemViewManager.register(() -> systemViews);
 
@@ -706,6 +719,7 @@ public class TestBuilders {
         private IgniteDistribution distribution;
         private int size = 100_000;
         private Integer tableId;
+        private int partitions = CatalogUtils.DEFAULT_PARTITION_COUNT;
 
         /** {@inheritDoc} */
         @Override
@@ -794,6 +808,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public TableBuilder partitions(int num) {
+            this.partitions = num;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestTable build() {
             if (distribution == null) {
                 throw new IllegalArgumentException("Distribution is not specified");
@@ -818,7 +839,9 @@ public class TestBuilders {
                     tableDescriptor,
                     Objects.requireNonNull(name),
                     size,
-                    indexes
+                    indexes,
+                    Collections.emptyMap(),
+                    partitions
             );
         }
     }

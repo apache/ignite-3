@@ -47,6 +47,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -105,6 +106,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.CatalogColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
@@ -885,7 +887,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, taskExecutor);
+        var partitionPruner = new PartitionPrunerImpl();
+        var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
@@ -1159,7 +1162,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             );
         }
 
-        return new TestTable(1, new TableDescriptorImpl(columns, distr), name, size, List.of());
+        return new TestTable(1, new TableDescriptorImpl(columns, distr), name, size, List.of(), Collections.emptyMap(), 1);
     }
 
     private static class CapturingMailboxRegistry implements MailboxRegistry {

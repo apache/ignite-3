@@ -94,6 +94,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
@@ -329,11 +330,14 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         };
 
+        var partitionPruner = new PartitionPrunerImpl();
+
         var mappingService = new MappingServiceImpl(
                 nodeName,
                 executionTargetProvider,
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
+                partitionPruner,
                 taskExecutor
         );
 

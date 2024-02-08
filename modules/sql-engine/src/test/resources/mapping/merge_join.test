@@ -4,6 +4,7 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('NestedLoopJoinConverter') */ * FROM
 Fragment#0 root
   executionNodes: [N0]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
 
@@ -27,6 +28,7 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('NestedLoopJoinConverter') */ * FROM
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
 
@@ -50,6 +52,7 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('NestedLoopJoinConverter') */ * FROM
 Fragment#0 root
   executionNodes: [N0]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
 
@@ -57,6 +60,7 @@ Fragment#4
   targetNodes: [N0]
   executionNodes: [N1]
   remoteFragments: [5]
+  exchangeSourceNodes: {5=[N2]}
   tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)

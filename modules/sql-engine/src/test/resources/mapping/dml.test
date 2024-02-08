@@ -4,6 +4,7 @@ INSERT INTO t1_n1 VALUES (1, 1, 1), (2, 2, 2)
 Fragment#0 root
   executionNodes: [N0]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteProject
       IgniteColocatedHashAggregate
@@ -13,6 +14,7 @@ Fragment#1
   targetNodes: [N0]
   executionNodes: [N1]
   remoteFragments: [3]
+  exchangeSourceNodes: {3=[N0]}
   tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
@@ -33,6 +35,7 @@ UPDATE t1_n1 SET c2 = 1000
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteProject
       IgniteColocatedHashAggregate
@@ -54,6 +57,7 @@ UPDATE t1_n1 SET c2 = 1000
 Fragment#0 root
   executionNodes: [N2]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteProject
       IgniteColocatedHashAggregate
@@ -75,6 +79,7 @@ UPDATE t2_n2n3 SET c2 = 1000
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N2, N3]}
   tree:
     IgniteProject
       IgniteColocatedHashAggregate

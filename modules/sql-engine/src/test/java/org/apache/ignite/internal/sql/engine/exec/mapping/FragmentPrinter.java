@@ -19,11 +19,14 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -128,8 +131,20 @@ final class FragmentPrinter extends IgniteRelShuttle {
             output.writeNewline();
         }
 
+        Long2ObjectMap<List<String>> sourcesByExchangeId = mappedFragment.sourcesByExchangeId();
+        if (sourcesByExchangeId != null) {
+            output.appendPadding();
+            output.writeKeyValue("exchangeSourceNodes", sourcesByExchangeId.long2ObjectEntrySet()
+                    .stream()
+                    .map(e -> Map.entry(e.getLongKey(), new TreeSet<>(e.getValue())))
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
+                    .toString()
+            );
+            output.writeNewline();
+        }
+
         if (!fragment.tables().isEmpty()) {
-            List<String> tables = fragment.tables().stream()
+            List<String> tables = fragment.tables().values().stream()
                     .map(IgniteDataSource::name)
                     .sorted(Comparator.naturalOrder())
                     .collect(Collectors.toList());

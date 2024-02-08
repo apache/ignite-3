@@ -110,6 +110,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         addNodes("N1", "N2");
 
         addTable("T1", "N1");
+        addTable("T2", "N1", "N2");
 
         testRunner.runTest(this::initSchema, "table_affinity.test");
     }
@@ -227,6 +228,16 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         testRunner.runTest(this::initSchema, "table_functions.test");
     }
 
+    @Test
+    public void testPartitionPruning() {
+        addNodes("N1", "N2", "N3", "N4", "N5");
+
+        addTable("T1", "N1", "N2", "N3");
+        addTable("T2", "N4", "N5");
+
+        testRunner.runTest(this::initSchema, "test_partition_pruning.test");
+    }
+
     private void addNodes(String node, String... otherNodes) {
         this.nodeNames.add(node);
         this.nodeNames.addAll(Arrays.asList(otherNodes));
@@ -291,7 +302,9 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             // Generate distinct row counts for each table to ensure that the optimizer produces the same results.
             int tableSize = tableRows.getOrDefault(tableShortName, 100 + objectId);
 
-            for (String tableNodeName : e.getValue().getSecond()) {
+            List<String> tableNodeNames = e.getValue().getSecond();
+
+            for (String tableNodeName : tableNodeNames) {
                 if (!nodeNames.contains(tableNodeName)) {
                     String message = format(
                             "Expected node {} for table {}. Registered nodes: {}",
@@ -326,11 +339,12 @@ public class FragmentMappingTest extends AbstractPlannerTest {
                     .size(tableSize)
                     .tableId(objectId)
                     .distribution(distributionToUse)
+                    .partitions(tableNodeNames.size())
                     .build();
 
             dataSources.add(testTable);
 
-            table2NodeNames.put(tableName, e.getValue().getSecond());
+            table2NodeNames.put(tableName, tableNodeNames);
 
             objectId += 1;
         }

@@ -5,6 +5,7 @@ SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule')*/ * FROM
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N1], 2=[N1]}
   tree:
     IgniteReduceHashAggregate
       IgniteMapHashAggregate
@@ -36,6 +37,7 @@ SELECT /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule')*/ * FROM
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
   tree:
     IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
 
@@ -58,6 +60,7 @@ SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule')*/ * FROM
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N1, N2], 2=[N1, N2]}
   tree:
     IgniteReduceHashAggregate
       IgniteMapHashAggregate
@@ -89,6 +92,7 @@ SELECT /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule')*/ * FROM
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1, N2]}
   tree:
     IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
 

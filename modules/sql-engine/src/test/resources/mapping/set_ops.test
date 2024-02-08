@@ -4,6 +4,7 @@ SELECT /*+ DISABLE_RULE('MapReduceMinusConverterRule')*/ * FROM (SELECT c2 FROM 
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N1], 2=[N2]}
   tree:
     IgniteColocatedMinus
       IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
@@ -32,6 +33,7 @@ SELECT /*+ DISABLE_RULE('ColocatedMinusConverterRule')*/ * FROM (SELECT c2 FROM 
 Fragment#0 root
   executionNodes: [N1]
   remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1, N2]}
   tree:
     IgniteReduceMinus
       IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)

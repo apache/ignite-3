@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -60,6 +61,24 @@ public class PartitionPruningTest extends AbstractPlannerTest {
     }
 
     @Test
+    public void testTableScanWithRequiredColumns() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .build();
+
+        PartitionPruningMetadata actual = extractMetadata(
+                "SELECT c2 FROM t WHERE c2 = 42",
+                table
+        );
+
+        PartitionPruningColumns cols = actual.get(1);
+        assertNull(cols);
+    }
+
+    @Test
     public void testIndexScan() throws Exception {
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -79,6 +98,27 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         PartitionPruningColumns cols = actual.get(1);
         assertNotNull(cols, "No metadata for source=1");
         assertEquals("[[0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
+    }
+
+    @Test
+    public void testIndexScanWithRequiredColumns() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .sortedIndex().name("C1_SORTED")
+                .addColumn("C1", Collation.ASC_NULLS_FIRST)
+                .end()
+                .build();
+
+        PartitionPruningMetadata actual = extractMetadata(
+                "SELECT c2 FROM t WHERE c2 = 42",
+                table
+        );
+
+        PartitionPruningColumns cols = actual.get(1);
+        assertNull(cols);
     }
 
     @Test

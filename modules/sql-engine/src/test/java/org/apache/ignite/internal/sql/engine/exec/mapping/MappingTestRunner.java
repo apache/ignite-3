@@ -43,6 +43,8 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -191,18 +193,19 @@ final class MappingTestRunner {
             LogicalTopologySnapshot snapshot,
             MultiStepPlan plan) {
 
+        PartitionPruner partitionPruner = new PartitionPrunerImpl();
         MappingServiceImpl mappingService = new MappingServiceImpl(nodeName,
                 targetProvider,
                 EmptyCacheFactory.INSTANCE,
                 0,
-                Runnable::run
+                partitionPruner, Runnable::run
         );
         mappingService.onTopologyLeap(snapshot);
 
         List<MappedFragment> mappedFragments;
 
         try {
-            mappedFragments = await(mappingService.map(plan));
+            mappedFragments = await(mappingService.map(plan, MappingParameters.EMPTY));
         } catch (Exception e) {
             StringBuilder sb = new StringBuilder();
             sb.append(System.lineSeparator());
