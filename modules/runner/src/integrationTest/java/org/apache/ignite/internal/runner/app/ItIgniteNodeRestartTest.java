@@ -268,7 +268,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         List<IgniteComponent> components = new ArrayList<>();
 
-        VaultManager vault = createVault(name, dir);
+        VaultManager vault = createVault(dir);
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -561,7 +561,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Start.
 
         vault.start();
-        vault.putName(name).join();
+        vault.putName(name);
 
         nodeCfgMgr.start();
 

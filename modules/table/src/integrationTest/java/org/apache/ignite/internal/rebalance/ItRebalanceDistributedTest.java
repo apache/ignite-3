@@ -932,7 +932,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Path dir = workDir.resolve(name);
 
-            vaultManager = createVault(name, dir);
+            vaultManager = createVault(dir);
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
                     List.of(
@@ -1288,8 +1288,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(String nodeName, Path workDir) {
-        return new VaultManager(new PersistentVaultService(nodeName, resolveDir(workDir, "vault")));
+    private static VaultManager createVault(Path workDir) {
+        return new VaultManager(new PersistentVaultService(resolveDir(workDir, "vault")));
     }
 
     private static Path resolveDir(Path workDir, String dirName) {

@@ -367,7 +367,7 @@ public class IgniteImpl implements Ignite {
 
         threadPoolsManager = new ThreadPoolsManager(name);
 
-        vaultMgr = createVault(name, workDir);
+        vaultMgr = createVault(workDir);
 
         metricManager = new MetricManager();
 
@@ -879,7 +879,7 @@ public class IgniteImpl implements Ignite {
 
             lifecycleManager.startComponent(vaultMgr);
 
-            vaultMgr.putName(name).get();
+            vaultMgr.putName(name);
 
             // Node configuration manager startup.
             lifecycleManager.startComponent(nodeCfgMgr);
@@ -1215,7 +1215,7 @@ public class IgniteImpl implements Ignite {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(String nodeName, Path workDir) {
+    private static VaultManager createVault(Path workDir) {
         Path vaultPath = workDir.resolve(VAULT_DB_PATH);
 
         try {
@@ -1224,7 +1224,7 @@ public class IgniteImpl implements Ignite {
             throw new IgniteInternalException(e);
         }
 
-        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
+        return new VaultManager(new PersistentVaultService(vaultPath));
     }
 
     /**
