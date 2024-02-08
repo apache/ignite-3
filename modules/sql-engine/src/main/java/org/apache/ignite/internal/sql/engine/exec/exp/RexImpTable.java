@@ -2002,6 +2002,7 @@ public class RexImpTable {
 
   /** Implementor for the {@code RANK} windowed aggregate function. */
   static class RankImplementor extends StrictWinAggImplementor {
+    @SuppressWarnings("PMD.EmptyControlStatement")
     @Override protected void implementNotNullAdd(WinAggContext info,
         WinAggAddContext add) {
       Expression acc = add.accumulator().get(0);

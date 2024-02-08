@@ -503,7 +503,7 @@ class RelJson {
         if (!window.orderKeys.isEmpty()) {
             map.put("order", toJson(window.orderKeys));
         }
-        if (window.getLowerBound() == null) {
+        if (window.getLowerBound() == null) { //NOPMD
             // No ROWS or RANGE clause
         } else if (window.getUpperBound() == null) {
             if (window.isRows()) {
