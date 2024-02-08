@@ -31,8 +31,8 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.exceptions.NodeNotFoundException;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -70,17 +70,27 @@ public class ClientComputeExecuteRequest {
 
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
         int size = in.unpackInt();
-        Set<ClusterNode> nodes = new HashSet<>(size);
+        Set<String> nodeNames = new HashSet<>(size);
 
         for (int i = 0; i < size; i++) {
-            String nodeName = in.unpackString();
+            nodeNames.add(in.unpackString());
+        }
+
+        if (nodeNames.isEmpty()) {
+            throw new IllegalArgumentException("nodes must not be empty.");
+        }
+
+        Set<ClusterNode> nodes = new HashSet<>(size);
+
+        for (String nodeName : nodeNames) {
             ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
-
-            if (node == null) {
-                throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
+            if (node != null) {
+                nodes.add(node);
             }
+        }
 
-            nodes.add(node);
+        if (nodes.isEmpty()) {
+            throw new NodeNotFoundException(nodeNames);
         }
 
         return nodes;

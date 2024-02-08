@@ -19,6 +19,8 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -35,12 +37,13 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.compute.exceptions.NodeNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -61,6 +64,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+@SuppressWarnings("ThrowableNotThrown")
 @ExtendWith(MockitoExtension.class)
 class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private static final String JOB_CLASS_NAME = "org.example.SimpleJob";
@@ -73,9 +77,6 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ComputeComponentImpl computeComponent;
-
-    @Mock
-    private LogicalTopologyService logicalTopologyService;
 
     @Mock
     private PlacementDriver placementDriver;
@@ -93,11 +94,17 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
 
+    private final ClusterNode nonExistingNode = new ClusterNodeImpl(
+            "non-existing-id", "non-existing-name", new NetworkAddress("non-existing-host", 1)
+    );
+
     private final List<DeploymentUnit> testDeploymentUnits = List.of(new DeploymentUnit("test", "1.0.0"));
 
     @BeforeEach
     void setupMocks() {
         lenient().when(topologyService.localMember()).thenReturn(localNode);
+        lenient().when(topologyService.getByConsistentId(localNode.name())).thenReturn(localNode);
+        lenient().when(topologyService.getByConsistentId(remoteNode.name())).thenReturn(remoteNode);
     }
 
     @Test
@@ -186,6 +193,42 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 ).resultAsync(),
                 willBe("remoteResponse")
         );
+    }
+
+    @Test
+    void executeAsyncThrowsErrorWhenNodeIsNotFound() {
+        JobExecution<Object> execution = compute.executeAsync(Set.of(localNode, remoteNode, nonExistingNode), List.of(), JOB_CLASS_NAME);
+
+        assertThat(
+                execution.resultAsync(),
+                willThrow(NodeNotFoundException.class, "Specified node is not present in the cluster: " + nonExistingNode.name())
+        );
+    }
+
+    @Test
+    void executeThrowsErrorWhenNodeIsNotFound() {
+        assertThrows(
+                NodeNotFoundException.class,
+                () -> compute.execute(Set.of(localNode, remoteNode, nonExistingNode), List.of(), JOB_CLASS_NAME),
+                "Specified node is not present in the cluster: " + nonExistingNode.name()
+        );
+    }
+
+    @Test
+    void broadcastAsyncThrowsErrorWhenNodeIsNotFound() {
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
+
+        Map<ClusterNode, JobExecution<Object>> executions = compute.broadcastAsync(
+                Set.of(localNode, remoteNode, nonExistingNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42
+        );
+
+        assertThat(
+                executions.get(nonExistingNode).resultAsync(),
+                willThrow(NodeNotFoundException.class, "Specified node is not present in the cluster: " + nonExistingNode.name())
+        );
+        assertThat(executions.get(localNode).resultAsync(), willBe("jobResponse"));
+        assertThat(executions.get(remoteNode).resultAsync(), willBe("remoteResponse"));
     }
 
     private void respondWhenAskForPrimaryReplica() {

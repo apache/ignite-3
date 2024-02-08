@@ -153,7 +153,12 @@ class ComputeJobFailover<T> {
                 return;
             }
 
-            executor.execute(() -> nextWorkerSelector.next()
+            LOG.warn("Worker node {} has left the cluster.", leftNode.name());
+            executor.execute(this::selectNewWorker);
+        }
+
+        private void selectNewWorker() {
+            nextWorkerSelector.next()
                     .thenAccept(nextWorker -> {
                         if (nextWorker == null) {
                             LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
@@ -165,15 +170,19 @@ class ComputeJobFailover<T> {
                             return;
                         }
 
-                        LOG.warn(
-                                "Worker node {} has left the cluster. Restarting the job {} on node {}.",
-                                leftNode, jobContext.jobClassName(), nextWorker
-                        );
+                        if (topologyService.getByConsistentId(nextWorker.name()) == null) {
+                            LOG.warn("Worker node {} is not found in the cluster", nextWorker.name());
+                            // Restart next worker selection
+                            executor.execute(this::selectNewWorker);
+                            return;
+                        }
+
+                        LOG.warn("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
                         JobExecution<T> jobExecution = launchJobOn(runningWorkerNode.get());
                         jobContext.updateJobExecution(jobExecution);
-                    }));
+                    });
         }
     }
 }
