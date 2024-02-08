@@ -27,14 +27,14 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TransactionIds;
 
-/** Auxiliary class. */
+/** Contains common helper methods and fields for use within a module. */
 public class TableUtils {
     /**
      * Returns index IDs for the table of interest from the catalog for the active catalog version at the beginning timestamp of read-write
      * transaction.
      *
-     * <p>NOTE: To avoid races and errors, it is important to call the this method after schema sync at beginTs or to be sure that the
-     * expected catalog version at beginTs is already active.</p>
+     * <p>NOTE: To avoid races and errors, it is important to call this method after schema sync at beginTs or to be sure that the expected
+     * catalog version at beginTs is already active.</p>
      *
      * @param catalogService Catalog service.
      * @param txId Read-write transaction ID for which indexes will be selected.

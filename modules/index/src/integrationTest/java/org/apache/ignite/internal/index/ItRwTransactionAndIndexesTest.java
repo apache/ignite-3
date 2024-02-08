@@ -67,7 +67,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
         TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME);
 
         setAwaitIndexAvailability(false);
-        dropBuildAllIndexMessages();
+        dropAnyBuildIndexMessages();
 
         Transaction rwTx = beginRwTransaction();
 
@@ -113,7 +113,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
         return CLUSTER.node(0);
     }
 
-    private static void dropBuildAllIndexMessages() {
+    private static void dropAnyBuildIndexMessages() {
         node().dropMessages((s, networkMessage) -> networkMessage instanceof BuildIndexReplicaRequest);
     }
 

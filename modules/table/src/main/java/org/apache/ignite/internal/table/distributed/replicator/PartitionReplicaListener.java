@@ -24,7 +24,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
@@ -123,6 +122,7 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
@@ -1733,7 +1733,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 transactionId,
                 commit,
                 commitTimestamp,
-                indexIdsAtRwTxBeginTs(catalogService, transactionId, tableId())
+                indexIdsAtRwTxBeginTs(transactionId)
         );
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
@@ -2535,7 +2535,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             null,
                             null,
                             null,
-                            indexIdsAtRwTxBeginTs(catalogService, txId, tableId())
+                            indexIdsAtRwTxBeginTs(txId)
                     );
 
                     updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -2573,7 +2573,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     null,
                                     cmd.safeTime(),
                                     null,
-                                    indexIdsAtRwTxBeginTs(catalogService, txId, tableId())
+                                    indexIdsAtRwTxBeginTs(txId)
                             );
 
                             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -2658,7 +2658,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 true,
                                 null,
                                 null,
-                                indexIdsAtRwTxBeginTs(catalogService, transactionId, tableId())
+                                indexIdsAtRwTxBeginTs(transactionId)
                         );
 
                         updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -2675,7 +2675,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 true,
                                 null,
                                 null,
-                                indexIdsAtRwTxBeginTs(catalogService, transactionId, tableId())
+                                indexIdsAtRwTxBeginTs(transactionId)
                         );
 
                         updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -2709,7 +2709,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             false,
                                             null,
                                             cmd.safeTime(),
-                                            indexIdsAtRwTxBeginTs(catalogService, transactionId, tableId())
+                                            indexIdsAtRwTxBeginTs(transactionId)
                                     );
 
                                     updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -3474,7 +3474,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             txId,
                             txState == COMMITTED,
                             commitTimestamp,
-                            indexIdsAtRwTxBeginTs(catalogService, txId, tableId())
+                            indexIdsAtRwTxBeginTs(txId)
                     )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
@@ -3810,5 +3810,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<?> processBuildIndexReplicaRequest(BuildIndexReplicaRequest request) {
         return txRwOperationTracker.awaitCompleteTxRwOperations(request.creationCatalogVersion())
                 .thenCompose(unused -> raftClient.run(toBuildIndexCommand(request)));
+    }
+
+    private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {
+        return TableUtils.indexIdsAtRwTxBeginTs(catalogService, txId, tableId());
     }
 }
