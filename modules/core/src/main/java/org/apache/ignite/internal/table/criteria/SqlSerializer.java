@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalOrSimpleName;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
@@ -163,8 +164,6 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
      * Builder.
      */
     public static class Builder  {
-        private static final Pattern CANONICAL_NAME = Pattern.compile("^(?:\\p{Alpha}[\\w]*)(?:\\.\\p{Alpha}[\\w]*)?$");
-
         @Nullable
         private String tableName;
 
@@ -237,6 +236,11 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
                     .append("SELECT");
 
             if (!nullOrBlank(indexName)) {
+                if (!canonicalOrSimpleName(indexName)) {
+                    throw new IllegalArgumentException("Index name must be alphanumeric with underscore and start with letter. Was: "
+                            + indexName);
+                }
+
                 ser.append(" /*+ FORCE_INDEX(").append(normalizeIndexName(indexName)).append(") */");
             }
 
@@ -257,10 +261,6 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         }
 
         private static String normalizeIndexName(String name) {
-            if (!CANONICAL_NAME.matcher(name).matches()) {
-                throw new IllegalArgumentException("Index name must be alphanumeric with underscore and start with letter. Was: " + name);
-            }
-
             return quote(name.toUpperCase(Locale.ROOT));
         }
     }
