@@ -29,9 +29,7 @@ import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEve
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -46,7 +44,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.event.AbstractEventProducer;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -239,49 +236,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         }
     }
 
-    /**
-     * Wait for a new primary replica in case when the current one is inoperable.
-     *
-     * @param groupId Group id.
-     * @param timestamp CLOCK_SKEW aware timestamp reference value.
-     * @param inoperableLeaseStartTime Start time of inoperable lease.
-     * @param timeout How long to wait before completing exceptionally with a TimeoutException, in milliseconds.
-     * @return New leaseholder future.
-     */
-    private CompletableFuture<ReplicaMeta> awaitNewPrimaryReplica(
-            ReplicationGroupId groupId,
-            HybridTimestamp timestamp,
-            HybridTimestamp inoperableLeaseStartTime,
-            long timeout
-    ) {
-        var resultFuture = new CompletableFuture<ReplicaMeta>()
-                .orTimeout(timeout, TimeUnit.MILLISECONDS);
-
-        EventListener<PrimaryReplicaEventParameters> listener = (evt, e) -> {
-            if (evt.groupId().equals(groupId) && !evt.startTime().equals(inoperableLeaseStartTime)) {
-                resultFuture.complete(new Lease(evt.leaseholder(), evt.leaseholderId(), evt.startTime(), evt.expirationTime(), groupId));
-
-                return trueCompletedFuture();
-            } else {
-                return falseCompletedFuture();
-            }
-        };
-
-        listen(PRIMARY_REPLICA_ELECTED, listener);
-
-        CompletableFuture<ReplicaMeta> replicaMetaFut = awaitPrimaryReplica(groupId, timestamp, timeout, TimeUnit.MILLISECONDS);
-
-        replicaMetaFut.thenAccept(replicaMeta -> {
-            if (!replicaMeta.getStartTime().equals(inoperableLeaseStartTime)) {
-                resultFuture.complete(replicaMeta);
-
-                removeListener(PRIMARY_REPLICA_ELECTED, listener);
-            }
-        });
-
-        return resultFuture;
-    }
-
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
             ReplicationGroupId groupId,
@@ -295,11 +249,11 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
                     if (leaseholderNode == null) {
-                        return awaitNewPrimaryReplica(
+                        return awaitPrimaryReplica(
                                 groupId,
-                                timestamp,
-                                replicaMeta.getStartTime(),
-                                unit.toMillis(timeout)
+                                replicaMeta.getExpirationTime().tick(),
+                                timeout,
+                                unit
                         );
                     } else {
                         return completedFuture(replicaMeta);
@@ -428,8 +382,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         grpId,
                         expiredLease.getLeaseholderId(),
                         expiredLease.getLeaseholder(),
-                        expiredLease.getStartTime(),
-                        expiredLease.getExpirationTime()
+                        expiredLease.getStartTime()
                 )
         ));
 
@@ -448,8 +401,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         lease.replicationGroupId(),
                         leaseholderId,
                         lease.getLeaseholder(),
-                        lease.getStartTime(),
-                        lease.getExpirationTime()
+                        lease.getStartTime()
                 )
         );
     }

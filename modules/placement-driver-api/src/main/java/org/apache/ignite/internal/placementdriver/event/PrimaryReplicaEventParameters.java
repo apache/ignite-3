@@ -31,8 +31,6 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
 
     private final HybridTimestamp startTime;
 
-    private final HybridTimestamp expirationTime;
-
     /**
      * Constructor.
      *
@@ -41,15 +39,13 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
      * @param leaseholderId Leaseholder node ID.
      * @param leaseholder Leaseholder node consistent ID.
      * @param startTime Lease start timestamp.
-     * @param expirationTime Lease expiration timestamp.
      */
     public PrimaryReplicaEventParameters(
             long causalityToken,
             ReplicationGroupId groupId,
             String leaseholderId,
             String leaseholder,
-            HybridTimestamp startTime,
-            HybridTimestamp expirationTime
+            HybridTimestamp startTime
     ) {
         super(causalityToken);
 
@@ -57,7 +53,6 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
         this.leaseholderId = leaseholderId;
         this.leaseholder = leaseholder;
         this.startTime = startTime;
-        this.expirationTime = expirationTime;
     }
 
     /** Replication group ID. */
@@ -78,10 +73,5 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
     /** Returns lease start timestamp. */
     public HybridTimestamp startTime() {
         return startTime;
-    }
-
-    /** Returns lease expiration timestamp. */
-    public HybridTimestamp expirationTime() {
-        return expirationTime;
     }
 }

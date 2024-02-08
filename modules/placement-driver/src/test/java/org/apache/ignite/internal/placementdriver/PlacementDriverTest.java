@@ -71,6 +71,8 @@ import org.junit.jupiter.api.Test;
 
 /** Tests to verify {@link LeaseTracker} implemented by {@link PlacementDriver}. */
 public class PlacementDriverTest extends BaseIgniteAbstractTest {
+    private static final HybridTimestamp AWAIT_TIME_3_000 = new HybridTimestamp(3_000, 0);
+
     private static final HybridTimestamp AWAIT_TIME_10_000 = new HybridTimestamp(10_000, 0);
 
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
@@ -123,6 +125,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private LeaseTracker placementDriver;
 
+    @Nullable
+    private ClusterNode leaseholder;
+
     @BeforeEach
     void setUp() {
         metastore = StandaloneMetaStorageManager.create();
@@ -146,6 +151,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         placementDriver.startTrack(recoveryFinishedFuture.join());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
+
+        leaseholder = FAKE_NODE;
     }
 
     @AfterEach
@@ -259,6 +266,55 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture.get().getLeaseholder());
         assertEquals(LEASE_FROM_1_TO_15_000.getStartTime(), primaryReplicaFuture.get().getStartTime());
         assertEquals(LEASE_FROM_1_TO_15_000.getExpirationTime(), primaryReplicaFuture.get().getExpirationTime());
+    }
+
+    /**
+     * Test steps.
+     * <ol>
+     *     <li>Publish primary replica for an interval [1, 5].</li>
+     *     <li>Leaseholder of the primary replica is offline</li>
+     *     <li>Await primary replica for timestamp 3, this shouldn't complete instantly.</li>
+     *     <li>Publish a new lease for interval [5, 10] and another leaseholder node that is online.</li>
+     *     <li>Assert that primary waiter is completed and the new lease belongs to the online node.</li>
+     * </ol>
+     */
+    @Test
+    public void testAwaitCurrentPrimaryIsOffline() {
+        // Publish primary replica for an interval [1, 5].
+        publishLease(LEASE_FROM_1_TO_5_000);
+
+        // Cluster node resolver will should that the current leaseholder is offline.
+        leaseholder = null;
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture =
+                placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_3_000, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
+
+        assertFalse(primaryReplicaFuture.isDone());
+
+        String newLeaseholder = "newLeaseholder";
+        Lease newLease = new Lease(
+                newLeaseholder,
+                newLeaseholder,
+                new HybridTimestamp(5_001, 0),
+                new HybridTimestamp(10_000, 0),
+                false,
+                true,
+                GROUP_1
+        );
+
+        leaseholder = new ClusterNodeImpl(newLeaseholder, newLeaseholder, mock(NetworkAddress.class));
+
+        // Publish primary replica for an interval [5, 10].
+        publishLease(newLease);
+
+        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
+
+        ReplicaMeta replicaMeta = primaryReplicaFuture.join();
+
+        assertEquals(newLeaseholder, replicaMeta.getLeaseholderId());
+        assertEquals(newLeaseholder, replicaMeta.getLeaseholder());
+        assertEquals(newLease.getStartTime(), replicaMeta.getStartTime());
+        assertEquals(newLease.getExpirationTime(), replicaMeta.getExpirationTime());
     }
 
     /**
@@ -545,12 +601,12 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         return new LeaseTracker(metastore, new ClusterNodeResolver() {
             @Override
             public @Nullable ClusterNode getByConsistentId(String consistentId) {
-                return FAKE_NODE;
+                return leaseholder;
             }
 
             @Override
             public @Nullable ClusterNode getById(String id) {
-                return FAKE_NODE;
+                return leaseholder;
             }
         });
     }
