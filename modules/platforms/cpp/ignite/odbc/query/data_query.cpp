@@ -301,11 +301,15 @@ sql_result data_query::make_request_execute() {
         m_has_rowset = reader->read_bool();
         m_has_more_pages = reader->read_bool();
         m_was_applied = reader->read_bool();
-        if(!reader->try_read_nil()) {
-            m_rows_affected = 0;
-            auto array_length = reader->read_int32();
-            for(auto i = 0; i < array_length; i++) {
-                m_rows_affected += reader->read_int64();
+        if(single) {
+            m_rows_affected = reader->read_int64();
+        } else {
+            if(!reader->try_read_nil()) {
+                m_rows_affected = 0;
+                auto array_length = reader->read_int32();
+                for(auto i = 0; i < array_length; i++) {
+                    m_rows_affected += reader->read_int64();
+                }
             }
         }
 
