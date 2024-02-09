@@ -136,7 +136,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                         .thenApply(unused -> metadataIsSufficientlyComplete())
                 ;
 
-        rebalanceFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
+        rebalanceFuture = metadataSufficiencyFuture.thenComposeAsync(metadataSufficient -> {
             if (metadataSufficient) {
                 return partitionSnapshotStorage.partition().startRebalance()
                         .thenCompose(unused -> {
@@ -150,11 +150,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                 return nullCompletedFuture();
             }
-        });
+        }, executor);
 
         joinFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
             if (metadataSufficient) {
-                return rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
+                return rebalanceFuture.handleAsync((unused, throwable) -> completeRebalance(throwable), executor)
+                        .thenCompose(Function.identity());
             } else {
                 return nullCompletedFuture();
             }
