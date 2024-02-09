@@ -65,8 +65,7 @@ public class VaultManager implements IgniteComponent {
      * @param key Key. Cannot be {@code null}.
      * @return Entry for the given key, or {@code null} if no such mapping exists.
      */
-    @Nullable
-    public VaultEntry get(ByteArray key) {
+    public @Nullable VaultEntry get(ByteArray key) {
         return vaultSvc.get(key);
     }
 

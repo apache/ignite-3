@@ -38,8 +38,7 @@ public interface VaultService extends ManuallyCloseable {
      * @param key Key. Cannot be {@code null}.
      * @return Entry for the given key, or {@code null} no such mapping exists.
      */
-    @Nullable
-    VaultEntry get(ByteArray key);
+    @Nullable VaultEntry get(ByteArray key);
 
     /**
      * Writes a given value to the Vault. If the value is {@code null}, then the previous value under the same key (if any) will

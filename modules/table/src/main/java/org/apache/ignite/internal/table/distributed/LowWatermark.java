@@ -152,8 +152,7 @@ public class LowWatermark implements ManuallyCloseable {
         });
     }
 
-    @Nullable
-    private HybridTimestamp readLowWatermarkFromVault() {
+    private @Nullable HybridTimestamp readLowWatermarkFromVault() {
         VaultEntry vaultEntry = vaultManager.get(LOW_WATERMARK_VAULT_KEY);
 
         return vaultEntry == null ? null : ByteUtils.fromBytes(vaultEntry.value());

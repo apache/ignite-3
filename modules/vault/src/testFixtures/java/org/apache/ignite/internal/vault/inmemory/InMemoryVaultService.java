@@ -51,7 +51,7 @@ public class InMemoryVaultService implements VaultService {
     }
 
     @Override
-    public VaultEntry get(ByteArray key) {
+    public @Nullable VaultEntry get(ByteArray key) {
         synchronized (mux) {
             byte[] value = storage.get(key);
 

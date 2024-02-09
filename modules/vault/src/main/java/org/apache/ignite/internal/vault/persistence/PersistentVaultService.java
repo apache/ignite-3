@@ -99,7 +99,7 @@ public class PersistentVaultService implements VaultService {
     }
 
     @Override
-    public VaultEntry get(ByteArray key) {
+    public @Nullable VaultEntry get(ByteArray key) {
         try {
             byte[] value = db.get(key.bytes());
 
