@@ -199,18 +199,17 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     void executeAsyncThrowsErrorWhenNodeIsNotFound() {
         JobExecution<Object> execution = compute.executeAsync(Set.of(localNode, remoteNode, nonExistingNode), List.of(), JOB_CLASS_NAME);
 
-        assertThat(
-                execution.resultAsync(),
-                willThrow(NodeNotFoundException.class, "Specified node is not present in the cluster: " + nonExistingNode.name())
-        );
+        String errorMessageFragment = "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]";
+        assertThat(execution.resultAsync(), willThrow(NodeNotFoundException.class, errorMessageFragment));
     }
 
     @Test
     void executeThrowsErrorWhenNodeIsNotFound() {
+        String errorMessageFragment = "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]";
         assertThrows(
                 NodeNotFoundException.class,
                 () -> compute.execute(Set.of(localNode, remoteNode, nonExistingNode), List.of(), JOB_CLASS_NAME),
-                "Specified node is not present in the cluster: " + nonExistingNode.name()
+                errorMessageFragment
         );
     }
 
@@ -223,10 +222,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 Set.of(localNode, remoteNode, nonExistingNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42
         );
 
-        assertThat(
-                executions.get(nonExistingNode).resultAsync(),
-                willThrow(NodeNotFoundException.class, "Specified node is not present in the cluster: " + nonExistingNode.name())
-        );
+        String errorMessageFragment = "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]";
+        assertThat(executions.get(nonExistingNode).resultAsync(), willThrow(NodeNotFoundException.class, errorMessageFragment));
+
         assertThat(executions.get(localNode).resultAsync(), willBe("jobResponse"));
         assertThat(executions.get(remoteNode).resultAsync(), willBe("remoteResponse"));
     }
