@@ -17,9 +17,22 @@
 
 package org.apache.ignite.table;
 
+/**
+ * Data streamer item: data and operation type.
+ */
 public interface DataStreamerItem<T> {
+    /**
+     * Gets the data.
+     *
+     * @return Data.
+     */
     T get();
 
+    /**
+     * Gets the operation type.
+     *
+     * @return Operation type.
+     */
     DataStreamerOperationType operationType();
 
     static <T> DataStreamerItem<T> of(T item) {
@@ -28,5 +41,19 @@ public interface DataStreamerItem<T> {
 
     static <T> DataStreamerItem<T> removed(T item) {
         return of(item, DataStreamerOperationType.REMOVE);
+    }
+
+    private static <T> DataStreamerItem<T> of(T item, DataStreamerOperationType operationType) {
+        return new DataStreamerItem<>() {
+            @Override
+            public T get() {
+                return item;
+            }
+
+            @Override
+            public DataStreamerOperationType operationType() {
+                return operationType;
+            }
+        };
     }
 }
