@@ -1001,9 +1001,12 @@ class ItScaleCubeNetworkMessagingTest {
         DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
 
         ConnectionManager connectionManager = messagingService.connectionManager();
-        waitForCondition(
-                () -> connectionManager.channels().keySet().stream().anyMatch(key -> key.type() == ChannelType.DEFAULT),
-                SECONDS.toMillis(10)
+        assertTrue(
+                waitForCondition(
+                        () -> connectionManager.channels().keySet().stream().anyMatch(key -> key.type() == ChannelType.DEFAULT),
+                        SECONDS.toMillis(10)
+                ),
+                "Did not see a default channel to be opened on the connection manager"
         );
 
         return OutgoingAcknowledgementSilencer.installOn(connectionManager.channels().values());
