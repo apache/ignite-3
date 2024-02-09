@@ -23,7 +23,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.junit.jupiter.api.AfterEach;
 
-public class ItThinClientComputeErrorsTest extends ItComputeErrorsBaseTest {
+class ItThinClientComputeErrorsTest extends ItComputeErrorsBaseTest {
     private final Map<String, IgniteClient> clients = new HashMap<>();
 
     @AfterEach
