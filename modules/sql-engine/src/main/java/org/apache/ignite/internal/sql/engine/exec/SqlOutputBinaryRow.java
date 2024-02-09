@@ -67,13 +67,21 @@ public class SqlOutputBinaryRow extends BinaryTupleReader implements BinaryRowEx
     }
 
     /** Creates BinaryRow from the given tuple. */
-    public static SqlOutputBinaryRow newRow(InternalTuple binaryTuple, SchemaDescriptor schema, BinaryTupleSchema tupleSchema) {
+    public static SqlOutputBinaryRow newRow(
+            SchemaDescriptor schema,
+            InternalTuple binaryTuple,
+            int[] colocationKeys,
+            BinaryTupleSchema tupleSchema
+    ) {
         HashCalculator hashCalc = new HashCalculator();
 
-        for (Column c : schema.colocationColumns()) {
-            Object value = tupleSchema.value(binaryTuple, c.schemaIndex());
+        for (int i = 0; i < colocationKeys.length; i++) {
+            Column column = schema.fullRowColocationColumns().get(i);
+            int valueIdx = colocationKeys[i];
 
-            ColocationUtils.append(hashCalc, value, c.type());
+            Object value = tupleSchema.value(binaryTuple, valueIdx);
+
+            ColocationUtils.append(hashCalc, value, column.type());
         }
 
         int colocationHash = hashCalc.hash();

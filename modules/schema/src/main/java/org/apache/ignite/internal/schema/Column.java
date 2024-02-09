@@ -27,17 +27,13 @@ import org.jetbrains.annotations.Nullable;
  * Column descriptor which contains a column name, a type and a nullability flag.
  *
  * <p>Because of columns must be written to a row in a specific order, column write order ({@link #schemaIndex}) may differ from the
- * user-defined order ({@link #columnOrder}).
+ * user-defined order ({@link #order}).
  */
 public class Column {
     /** Default "default value supplier". */
     private static final DefaultValueProvider NULL_SUPPLIER = DefaultValueProvider.constantProvider(null);
 
-    /** Absolute index in schema descriptor. */
-    private final int schemaIndex;
-
-    /** User column order as defined in table definition. */
-    private final int columnOrder;
+    private final int order;
 
     /**
      * Column name.
@@ -72,7 +68,7 @@ public class Column {
             NativeType type,
             boolean nullable
     ) {
-        this(-1, -1, name, type, nullable, NULL_SUPPLIER);
+        this(-1, name, type, nullable, NULL_SUPPLIER);
     }
 
     /**
@@ -89,65 +85,43 @@ public class Column {
             boolean nullable,
             DefaultValueProvider defaultValueProvider
     ) {
-        this(-1, -1, name, type, nullable, defaultValueProvider);
+        this(-1, name, type, nullable, defaultValueProvider);
     }
 
     /**
      * Constructor.
      *
-     * @param columnOrder Column order in table definition.
+     * @param order Column order in table definition.
      * @param name        Column name.
      * @param type        An instance of column data type.
      * @param nullable    If {@code false}, null values will not be allowed for this column.
      */
     public Column(
-            int columnOrder,
+            int order,
             String name,
             NativeType type,
             boolean nullable
     ) {
-        this(-1, columnOrder, name, type, nullable, NULL_SUPPLIER);
+        this(order, name, type, nullable, NULL_SUPPLIER);
     }
 
     /**
      * Constructor.
      *
-     * @param columnOrder Column order in table definition.
+     * @param order Column order in table definition.
      * @param name        Column name.
      * @param type        An instance of column data type.
      * @param nullable    If {@code false}, null values will not be allowed for this column.
      * @param defaultValueProvider   Default value supplier.
      */
     public Column(
-            int columnOrder,
+            int order,
             String name,
             NativeType type,
             boolean nullable,
             DefaultValueProvider defaultValueProvider
     ) {
-        this(-1, columnOrder, name, type, nullable, defaultValueProvider);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param schemaIndex Absolute index of this column in its schema descriptor.
-     * @param columnOrder Column order defined in table definition.
-     * @param name        Column name.
-     * @param type        An instance of column data type.
-     * @param nullable    If {@code false}, null values will not be allowed for this column.
-     * @param defaultValueProvider   Default value supplier.
-     */
-    private Column(
-            int schemaIndex,
-            int columnOrder,
-            String name,
-            NativeType type,
-            boolean nullable,
-            DefaultValueProvider defaultValueProvider
-    ) {
-        this.schemaIndex = schemaIndex;
-        this.columnOrder = columnOrder;
+        this.order = order;
         this.name = name;
         this.type = type;
         this.nullable = nullable;
@@ -158,14 +132,14 @@ public class Column {
      * Get absolute index of this column in its schema descriptor.
      */
     public int schemaIndex() {
-        return schemaIndex;
+        return order;
     }
 
     /**
      * Get user column order as defined in table definition.
      */
-    public int columnOrder() {
-        return columnOrder;
+    public int order() {
+        return order;
     }
 
     /**
@@ -250,13 +224,13 @@ public class Column {
     }
 
     /**
-     * Copy column with new schema index.
+     * Copy column with new order.
      *
-     * @param schemaIndex Column index in the schema.
+     * @param order Column index in the schema.
      * @return Column.
      */
-    public Column copy(int schemaIndex) {
-        return new Column(schemaIndex, columnOrder, name, type, nullable, defaultValueProvider);
+    public Column copy(int order) {
+        return new Column(order, name, type, nullable, defaultValueProvider);
     }
 
     /** {@inheritDoc} */

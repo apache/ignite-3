@@ -194,7 +194,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createKeySchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, 0, descriptor.keyColumns().length());
+        return createSchema(descriptor, 0, descriptor.keyColumns().size());
     }
 
     /**
@@ -204,7 +204,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createValueSchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, descriptor.keyColumns().length(), descriptor.length());
+        return createSchema(descriptor, descriptor.keyColumns().size(), descriptor.length());
     }
 
     /**
@@ -226,7 +226,7 @@ public class BinaryTupleSchema {
         }
 
         boolean fullSize = (colBegin == 0
-                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().length()));
+                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().size()));
 
         return new DenseRowSchema(elements, colBegin, fullSize);
     }

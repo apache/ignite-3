@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -31,11 +32,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -52,7 +56,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Override
     protected int initialNodes() {
-        return 3;
+        return 1;
     }
 
     @AfterEach
@@ -714,5 +718,34 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.SMALLINT.getName(), Short.MAX_VALUE, Short.MIN_VALUE),
                 arguments(SqlTypeName.TINYINT.getName(), Byte.MAX_VALUE, Byte.MIN_VALUE)
         );
+    }
+
+    @Test
+    public void test() {
+        sql("CREATE TABLE my (c1 INT, c2 INT, c3 INT, PRIMARY KEY (c3, c1))");
+
+        Tuple key = Tuple.create()
+                .set("c1", 1)
+                .set("c3", 3);
+
+        Tuple val = Tuple.create()
+                .set("c2", 2);
+
+        KeyValueView<Tuple, Tuple> embeddedKv = CLUSTER.aliveNode()
+                .tables()
+                .table("my")
+                .keyValueView();
+
+        embeddedKv.put(null, key, val);
+
+        KeyValueView<Tuple, Tuple> thinKv = IgniteClient.builder()
+                .addresses("127.0.0.1:10800")
+                .build()
+                .tables()
+                .table("my")
+                .keyValueView();
+
+        assertNotNull(embeddedKv.get(null, key), "embeddedKv");
+        assertNotNull(thinKv.get(null, key), "thinKv");
     }
 }

@@ -37,7 +37,7 @@ class KeyValueTupleStreamerPartitionAwarenessProvider extends AbstractClientStre
     int colocationHash(SchemaDescriptor schema, Entry<Tuple, Tuple> item) {
         HashCalculator hashCalc = new HashCalculator();
 
-        for (Column c : schema.colocationColumns()) {
+        for (Column c : schema.fullRowColocationColumns()) {
             // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
             Object val = item.getKey().valueOrDefault(c.name(), null);
             ColocationUtils.append(hashCalc, val, c.type());

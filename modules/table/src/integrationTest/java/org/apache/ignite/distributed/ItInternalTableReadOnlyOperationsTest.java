@@ -289,7 +289,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      * @return Row.
      */
     private static Row createKeyRow(long id) {
-        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA.version(), SCHEMA.keyColumns(), -1);
 
         rowBuilder.appendLong(id);
 
@@ -304,7 +304,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      * @return Row.
      */
     private static Row createKeyValueRow(long id, long value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);

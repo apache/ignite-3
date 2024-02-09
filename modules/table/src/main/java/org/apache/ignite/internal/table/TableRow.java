@@ -83,7 +83,7 @@ public class TableRow extends MutableRowTupleAdapter {
         /** {@inheritDoc} */
         @Override
         public int columnCount() {
-            return tuple != null ? tuple.columnCount() : schema().keyColumns().length();
+            return tuple != null ? tuple.columnCount() : schema().keyColumns().size();
         }
 
         /** {@inheritDoc} */
@@ -115,7 +115,7 @@ public class TableRow extends MutableRowTupleAdapter {
         /** {@inheritDoc} */
         @Override
         protected Column rowColumnByIndex(int columnIndex) {
-            Objects.checkIndex(columnIndex, schema().keyColumns().length());
+            Objects.checkIndex(columnIndex, schema().keyColumns().size());
 
             return schema().column(columnIndex);
         }
@@ -137,7 +137,7 @@ public class TableRow extends MutableRowTupleAdapter {
         /** {@inheritDoc} */
         @Override
         public int columnCount() {
-            return tuple != null ? tuple.columnCount() : schema().valueColumns().length();
+            return tuple != null ? tuple.columnCount() : schema().valueColumns().size();
         }
 
         /** {@inheritDoc} */
@@ -152,7 +152,7 @@ public class TableRow extends MutableRowTupleAdapter {
             var col = schema().column(columnName);
 
             return col == null || schema().isKeyColumn(col.schemaIndex()) ? -1 :
-                    col.schemaIndex() - schema().keyColumns().length();
+                    col.schemaIndex() - schema().keyColumns().size();
         }
 
         /** {@inheritDoc} */
@@ -170,9 +170,9 @@ public class TableRow extends MutableRowTupleAdapter {
         /** {@inheritDoc} */
         @Override
         protected Column rowColumnByIndex(int columnIndex) {
-            Objects.checkIndex(columnIndex, schema().valueColumns().length());
+            Objects.checkIndex(columnIndex, schema().valueColumns().size());
 
-            return schema().column(columnIndex + schema().keyColumns().length());
+            return schema().column(columnIndex + schema().keyColumns().size());
         }
     }
 }

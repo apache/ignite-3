@@ -490,8 +490,8 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
      * @param actual Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
-        for (int i = 0; i < schema.valueColumns().length(); i++) {
-            final Column col = schema.valueColumns().column(i);
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
+            final Column col = schema.valueColumns().get(i);
 
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());

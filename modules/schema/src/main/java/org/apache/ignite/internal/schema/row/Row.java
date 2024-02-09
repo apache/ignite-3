@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.InternalTuple;
@@ -49,12 +50,15 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
 
     private final BinaryTupleSchema binaryTupleSchema;
 
+    private final boolean keyOnly;
+
     /** Cached colocation hash value. */
     private int colocationHash;
 
-    protected Row(SchemaDescriptor schema, BinaryTupleSchema binaryTupleSchema, BinaryRow row) {
+    protected Row(boolean keyOnly, SchemaDescriptor schema, BinaryTupleSchema binaryTupleSchema, BinaryRow row) {
         super(binaryTupleSchema.elementCount(), row.tupleSlice());
 
+        this.keyOnly = keyOnly;
         this.row = row;
         this.schema = schema;
         this.binaryTupleSchema = binaryTupleSchema;
@@ -67,7 +71,7 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
      * @param binaryRow Binary row.
      */
     public static Row wrapBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
-        return new Row(schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
+        return new Row(false, schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
     }
 
     /**
@@ -77,7 +81,7 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
      * @param binaryRow Binary row.
      */
     public static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
-        return new Row(schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
+        return new Row(true, schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
     }
 
     /**
@@ -126,7 +130,11 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
         if (h0 == 0) {
             HashCalculator hashCalc = new HashCalculator();
 
-            for (Column c : schema().colocationColumns()) {
+            List<Column> colocationColumns = keyOnly
+                    ? schema.keyOnlyColocationColumns()
+                    : schema.fullRowColocationColumns();
+
+            for (Column c : colocationColumns) {
                 ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type());
             }
 

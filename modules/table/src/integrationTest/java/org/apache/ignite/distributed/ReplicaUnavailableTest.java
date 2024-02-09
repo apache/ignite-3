@@ -316,7 +316,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     private static BinaryRow createKeyValueRow(long id, long value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);

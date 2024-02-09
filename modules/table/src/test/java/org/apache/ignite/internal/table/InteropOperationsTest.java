@@ -155,7 +155,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void ensureAllTypesTested() {
-        SchemaTestUtils.ensureAllTypesChecked(Arrays.stream(schema.valueColumns().columns()));
+        SchemaTestUtils.ensureAllTypesChecked(schema.valueColumns().stream());
     }
 
     @AfterEach
@@ -375,7 +375,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private Tuple createTuple(int id, boolean nulls) {
         Tuple res = Tuple.create();
 
-        for (Column col : schema.valueColumns().columns()) {
+        for (Column col : schema.valueColumns()) {
             if (!nulls && col.nullable()) {
                 continue;
             }
@@ -442,7 +442,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         Tuple expected = createTuple(id, nulls);
         expected.set("id", (long) id);
 
-        for (Column col : schema.valueColumns().columns()) {
+        for (Column col : schema.valueColumns()) {
             if (!nulls && col.nullable()) {
                 continue;
             }

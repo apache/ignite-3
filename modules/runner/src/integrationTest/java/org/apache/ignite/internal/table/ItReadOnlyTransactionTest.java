@@ -177,7 +177,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Row createRow(SchemaDescriptor schema, int id) {
-        RowAssembler rowBuilder = new RowAssembler(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema, -1);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendString("new str " + id);
@@ -186,7 +186,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Row createRowKey(SchemaDescriptor schema, int id) {
-        RowAssembler rowBuilder = RowAssembler.keyAssembler(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema.version(), schema.keyColumns(), -1);
 
         rowBuilder.appendInt(id);
 

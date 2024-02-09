@@ -925,7 +925,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      * @return Row.
      */
     private BinaryRowMessage getTestRow(int key, int val) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
 
         rowBuilder.appendInt(key);
         rowBuilder.appendInt(val);

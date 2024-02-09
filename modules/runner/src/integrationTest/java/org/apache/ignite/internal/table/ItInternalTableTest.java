@@ -602,7 +602,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     private static Row createKeyRow(long id) {
-        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA_1);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA_1.version(), SCHEMA_1.keyColumns(), -1);
 
         rowBuilder.appendLong(id);
 

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -165,11 +166,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param columns Target columns.
      * @return Column names.
      */
-    protected static String[] columnNames(Column[] columns) {
-        String[] columnNames = new String[columns.length];
+    protected static String[] columnNames(List<Column> columns) {
+        String[] columnNames = new String[columns.size()];
 
-        for (int i = 0; i < columns.length; i++) {
-            columnNames[i] = columns[i].name();
+        for (int i = 0; i < columns.size(); i++) {
+            columnNames[i] = columns.get(i).name();
         }
 
         return columnNames;

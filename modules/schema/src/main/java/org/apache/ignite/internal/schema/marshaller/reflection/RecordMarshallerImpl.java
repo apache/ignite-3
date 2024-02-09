@@ -117,7 +117,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     public @Nullable Object value(Object obj, int fldIdx) throws MarshallerException {
         return schema.isKeyColumn(fldIdx)
                 ? keyMarsh.value(obj, fldIdx)
-                : valMarsh.value(obj, fldIdx - schema.keyColumns().length());
+                : valMarsh.value(obj, fldIdx - schema.keyColumns().size());
     }
 
     /**

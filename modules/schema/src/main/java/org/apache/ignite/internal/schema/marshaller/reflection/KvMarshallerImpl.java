@@ -117,7 +117,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     @Nullable
     @Override
     public V unmarshalValue(Row row) throws MarshallerException {
-        Object o = valMarsh.readObject(new RowReader(row, schema.keyColumns().length()), null);
+        Object o = valMarsh.readObject(new RowReader(row, schema.keyColumns().size()), null);
 
         assert o == null || valClass.isInstance(o);
 
@@ -129,7 +129,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     public @Nullable Object value(Object obj, int fldIdx) {
         return schema.isKeyColumn(fldIdx)
                 ? keyMarsh.value(obj, fldIdx)
-                : valMarsh.value(obj, fldIdx - schema.keyColumns().length());
+                : valMarsh.value(obj, fldIdx - schema.keyColumns().size());
     }
 
     /**

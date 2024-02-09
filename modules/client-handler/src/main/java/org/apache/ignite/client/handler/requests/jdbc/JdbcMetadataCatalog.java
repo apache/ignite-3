@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 import java.sql.DatabaseMetaData;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -31,7 +30,6 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -73,7 +71,7 @@ public class JdbcMetadataCatalog {
     /** Comparator for {@link Column} by schema then table name then column order. */
     private static final Comparator<Pair<String, Column>> bySchemaThenTabNameThenColOrder
             = Comparator.comparing((Function<Pair<String, Column>, String>) Pair::getFirst)
-            .thenComparingInt(o -> o.getSecond().columnOrder());
+            .thenComparingInt(o -> o.getSecond().order());
 
     /** Comparator for {@link JdbcTableMeta} by table name. */
     private static final Comparator<CatalogTableDescriptor> byTblTypeThenSchemaThenTblName
@@ -175,7 +173,7 @@ public class JdbcMetadataCatalog {
                     tbl -> {
                         SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tbl, tbl.tableVersion());
 
-                        return Stream.concat(Arrays.stream(schema.keyColumns().columns()), Arrays.stream(schema.valueColumns().columns()))
+                        return schema.columns().stream()
                                 .map(column -> new Pair<>(tbl.name(), column));
                     })
                 .filter(e -> matches(e.getSecond().name(), colNameRegex))
