@@ -76,7 +76,6 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client compute integration test.
@@ -286,20 +285,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId(boolean async) {
-        IgniteException cause;
-
-        if (async) {
-            JobExecution<String> execution = client().compute()
-                    .executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName());
-            cause = getExceptionInJobExecutionAsync(execution);
-        } else {
-            cause = getExceptionInJobExecutionSync(
-                    () -> client().compute().execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
-            );
-        }
+    @Test
+    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceIdAsync() {
+        IgniteException cause = getExceptionInJobExecutionAsync(
+                client().compute().executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
+        );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());
@@ -308,37 +298,52 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testExceptionInJobPropagatesToClientWithClassAndMessage(boolean async) {
-        IgniteException cause;
+    @Test
+    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceIdSync() {
+        IgniteException cause = getExceptionInJobExecutionSync(
+                () -> client().compute().execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
+        );
 
-        if (async) {
-            JobExecution<String> execution = client().compute().executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName());
-            cause = getExceptionInJobExecutionAsync(execution);
-        } else {
-            cause = getExceptionInJobExecutionSync(
-                    () -> client().compute().execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
-            );
-        }
+        assertThat(cause.getMessage(), containsString("Custom job error"));
+        assertEquals(TRACE_ID, cause.traceId());
+        assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
+        assertInstanceOf(CustomException.class, cause);
+        assertNull(cause.getCause()); // No stack trace by default.
+    }
+
+    @Test
+    void testExceptionInJobPropagatesToClientWithClassAndMessageAsync() {
+        IgniteException cause = getExceptionInJobExecutionAsync(
+                client().compute().executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
+        );
+
+        assertComputeExceptionWithClassAndMessage(cause);
+    }
+    @Test
+    void testExceptionInJobPropagatesToClientWithClassAndMessageSync() {
+        IgniteException cause = getExceptionInJobExecutionSync(
+                () -> client().compute().execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
+        );
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace(boolean async) {
+    @Test
+    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceAsync() {
         // Second node has sendServerExceptionStackTraceToClient enabled.
-        IgniteException cause;
+        IgniteException cause = getExceptionInJobExecutionAsync(
+                client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
+        );
 
-        if (async) {
-            JobExecution<String> execution = client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName());
-            cause = getExceptionInJobExecutionAsync(execution);
-        } else {
-            cause = getExceptionInJobExecutionSync(
-                    () -> client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
-            );
-        }
+        assertComputeExceptionWithStackTrace(cause);
+    }
+
+    @Test
+    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceSync() {
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        IgniteException cause = getExceptionInJobExecutionSync(
+                () -> client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
+        );
 
         assertComputeExceptionWithStackTrace(cause);
     }
@@ -355,85 +360,96 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertComputeExceptionWithStackTrace(getExceptionInJobExecutionAsync(executions.get(node(1))));
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testExceptionInColocatedTupleJobPropagatesToClientWithClassAndMessage(boolean async) {
-        IgniteException cause;
-        var keyTuple = Tuple.create().set(COLUMN_KEY, 1);
+    @Test
+    void testExceptionInColocatedTupleJobPropagatesToClientWithClassAndMessageAsync() {
+        var key = Tuple.create().set(COLUMN_KEY, 1);
 
-        if (async) {
+        IgniteException cause = getExceptionInJobExecutionAsync(
+                client().compute().executeColocatedAsync(TABLE_NAME, key, List.of(), ExceptionJob.class.getName()
+        ));
 
-            JobExecution<String> execution = client().compute().executeColocatedAsync(TABLE_NAME, keyTuple, List.of(),
-                    ExceptionJob.class.getName()
-            );
-            cause = getExceptionInJobExecutionAsync(execution);
-        } else {
-            cause = getExceptionInJobExecutionSync(
-                    () -> client().compute().executeColocated(TABLE_NAME, keyTuple, List.of(), ExceptionJob.class.getName())
-            );
-        }
+        assertComputeExceptionWithClassAndMessage(cause);
+    }
+    @Test
+    void testExceptionInColocatedTupleJobPropagatesToClientWithClassAndMessageSync() {
+        var key = Tuple.create().set(COLUMN_KEY, 1);
+
+        IgniteException cause = getExceptionInJobExecutionSync(
+                () -> client().compute().executeColocated(TABLE_NAME, key, List.of(), ExceptionJob.class.getName())
+        );
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testExceptionInColocatedTupleJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace(boolean async) {
+    @Test
+    void testExceptionInColocatedTupleJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceAsync() {
         // Second node has sendServerExceptionStackTraceToClient enabled.
-        var keyTuple = Tuple.create().set(COLUMN_KEY, 2);
-        IgniteException cause;
+        var key = Tuple.create().set(COLUMN_KEY, 2);
 
-        if (async) {
-            JobExecution<String> execution = client().compute().executeColocatedAsync(TABLE_NAME, keyTuple, List.of(),
-                    ExceptionJob.class.getName()
-            );
-            cause = getExceptionInJobExecutionAsync(execution);
-        } else {
-            cause = getExceptionInJobExecutionSync(
-                    () -> client().compute().executeColocated(TABLE_NAME, keyTuple, List.of(), ExceptionJob.class.getName())
-            );
-        }
+        IgniteException cause = getExceptionInJobExecutionAsync(
+                client().compute().executeColocatedAsync(TABLE_NAME, key, List.of(), ExceptionJob.class.getName())
+        );
+
+        assertComputeExceptionWithStackTrace(cause);
+    }
+    @Test
+    void testExceptionInColocatedTupleJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceSync() {
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        var key = Tuple.create().set(COLUMN_KEY, 2);
+
+        IgniteException cause = getExceptionInJobExecutionSync(
+                () -> client().compute().executeColocated(TABLE_NAME, key, List.of(), ExceptionJob.class.getName())
+        );
 
         assertComputeExceptionWithStackTrace(cause);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testExceptionInColocatedPojoJobPropagatesToClientWithClassAndMessage(boolean async) {
-        var keyPojo = new TestPojo(1);
-        IgniteException cause;
+    @Test
+    void testExceptionInColocatedPojoJobPropagatesToClientWithClassAndMessageAsync() {
+        var key = new TestPojo(1);
+        Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
-        if (async) {
-            JobExecution<String> execution = client().compute().executeColocatedAsync(TABLE_NAME, keyPojo, Mapper.of(TestPojo.class),
-                    List.of(), ExceptionJob.class.getName()
-            );
-            cause = getExceptionInJobExecutionAsync(execution);
-        } else {
-            cause = getExceptionInJobExecutionSync(() -> client().compute().executeColocated(TABLE_NAME, keyPojo, Mapper.of(TestPojo.class),
-                    List.of(), ExceptionJob.class.getName()
-            ));
-        }
+        IgniteException cause = getExceptionInJobExecutionAsync(
+                client().compute().executeColocatedAsync(TABLE_NAME, key, mapper, List.of(), ExceptionJob.class.getName())
+        );
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testExceptionInColocatedPojoJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace(boolean async) {
-        // Second node has sendServerExceptionStackTraceToClient enabled.
-        var keyPojo = new TestPojo(2);
-        IgniteException cause;
+    @Test
+    void testExceptionInColocatedPojoJobPropagatesToClientWithClassAndMessageSync() {
+        var key = new TestPojo(1);
+        Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
-        if (async) {
-            JobExecution<String> execution = client().compute().executeColocatedAsync(TABLE_NAME, keyPojo, Mapper.of(TestPojo.class),
-                    List.of(), ExceptionJob.class.getName()
-            );
-            cause = getExceptionInJobExecutionAsync(execution);
-        } else {
-            cause = getExceptionInJobExecutionSync(() -> client().compute().executeColocated(TABLE_NAME, keyPojo, Mapper.of(TestPojo.class),
-                    List.of(), ExceptionJob.class.getName())
-            );
-        }
+        IgniteException cause = getExceptionInJobExecutionSync(
+                () -> client().compute().executeColocated(TABLE_NAME, key, mapper, List.of(), ExceptionJob.class.getName())
+        );
+
+        assertComputeExceptionWithClassAndMessage(cause);
+    }
+
+    @Test
+    void testExceptionInColocatedPojoJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceAsync() {
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        var key = new TestPojo(2);
+        Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
+
+        IgniteException cause = getExceptionInJobExecutionAsync(
+                client().compute().executeColocatedAsync(TABLE_NAME, key, mapper, List.of(), ExceptionJob.class.getName())
+        );
+
+        assertComputeExceptionWithStackTrace(cause);
+    }
+
+    @Test
+    void testExceptionInColocatedPojoJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceSync() {
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        var key = new TestPojo(2);
+        Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
+
+        IgniteException cause = getExceptionInJobExecutionSync(
+                () -> client().compute().executeColocated(TABLE_NAME, key, mapper, List.of(), ExceptionJob.class.getName())
+        );
 
         assertComputeExceptionWithStackTrace(cause);
     }
