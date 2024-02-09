@@ -152,7 +152,6 @@ dependencies {
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-workers')
     integrationTestImplementation project(':ignite-failure-handler')
-    integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
