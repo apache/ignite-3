@@ -434,8 +434,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testDeleteUpsertAllRollback() throws TransactionException {
         deleteUpsertAll().rollback();
 
-        assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
-        assertEquals(100., accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
+        var res1 = accounts.recordView().get(null, makeKey(1));
+        assertEquals(100., res1.doubleValue("balance"), "tuple =[" + res1 + "]");
+
+        var res2 = accounts.recordView().get(null, makeKey(2));
+        assertEquals(100., res2.doubleValue("balance"), "tuple =[" + res2 + "]");
     }
 
     private InternalTransaction deleteUpsertAll() {
@@ -444,6 +447,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tuples.add(makeValue(2, 100.));
 
         accounts.recordView().upsertAll(null, tuples);
+
+        var res1 = accounts.recordView().get(null, makeKey(1));
+        assertEquals(100., res1.doubleValue("balance"), "tuple =[" + res1 + "]");
+
+        var res2 = accounts.recordView().get(null, makeKey(2));
+        assertEquals(100., res2.doubleValue("balance"), "tuple =[" + res2 + "]");
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
