@@ -206,7 +206,7 @@ TEST_F(compute_test, unknown_node_submit_throws) {
             try {
                 m_client.get_compute().submit({unknown_node}, {}, ECHO_JOB, {"unused"});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("Specified node is not present in the cluster: random"));
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
                 throw;
             }
         },
@@ -221,7 +221,7 @@ TEST_F(compute_test, unknown_node_execute_broadcast_throws) {
             try {
                 m_client.get_compute().broadcast_async({unknown_node}, {}, ECHO_JOB, {"unused"});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("Specified node is not present in the cluster: random"));
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
                 throw;
             }
         },
@@ -236,7 +236,7 @@ TEST_F(compute_test, unknown_node_submit_broadcast_throws) {
             try {
                 m_client.get_compute().broadcast({unknown_node}, {}, ECHO_JOB, {"unused"});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("Specified node is not present in the cluster: random"));
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
                 throw;
             }
         },
