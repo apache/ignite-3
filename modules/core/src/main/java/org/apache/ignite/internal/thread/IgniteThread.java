@@ -35,9 +35,6 @@ import org.jetbrains.annotations.Nullable;
  * <b>Note</b>: this class is intended for internal use only.
  */
 public class IgniteThread extends Thread implements ThreadAttributes {
-    /** The name of the Ignite instance this thread belongs to. */
-    protected final String igniteInstanceName;
-
     private final Set<ThreadOperation> allowedOperations;
 
     /**
@@ -60,20 +57,9 @@ public class IgniteThread extends Thread implements ThreadAttributes {
     public IgniteThread(String nodeName, String threadName, Runnable r, ThreadOperation... allowedOperations) {
         super(r, prefixWithNodeName(nodeName, threadName));
 
-        this.igniteInstanceName = nodeName;
-
         Set<ThreadOperation> operations = EnumSet.noneOf(ThreadOperation.class);
         Collections.addAll(operations, allowedOperations);
         this.allowedOperations = unmodifiableSet(operations);
-    }
-
-    /**
-     * Gets name of the Ignite instance this thread belongs to.
-     *
-     * @return Name of the Ignite instance this thread belongs to.
-     */
-    public String getIgniteInstanceName() {
-        return igniteInstanceName;
     }
 
     /**
