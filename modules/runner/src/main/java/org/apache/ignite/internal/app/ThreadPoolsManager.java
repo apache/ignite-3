@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -26,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -47,8 +49,7 @@ public class ThreadPoolsManager implements IgniteComponent {
     public ThreadPoolsManager(String nodeName) {
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 25),
-                NamedThreadFactory.threadPrefix(nodeName, "partition-operations"),
-                new LogUncaughtExceptionHandler(LOG),
+                IgniteThreadFactory.create(nodeName, "partition-operations", LOG, STORAGE_READ, STORAGE_WRITE),
                 false,
                 0
         );

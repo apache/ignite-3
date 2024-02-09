@@ -26,10 +26,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
  * Thread factory that produces {@link IgniteThread}s with node name, prefix, allowed operations.
  */
 public class IgniteThreadFactory implements ThreadFactory {
-    private final String nodeName;
-
-    /** Thread prefix. */
-    private final String poolName;
+    /** Thread prefix (when computing final thread name, no dash will be added to the prefix). */
+    private final String prefix;
 
     /** Thread counter. */
     private final AtomicInteger counter = new AtomicInteger(0);
@@ -46,29 +44,22 @@ public class IgniteThreadFactory implements ThreadFactory {
      * Constructor.
      */
     private IgniteThreadFactory(String nodeName, String poolName, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
-        this(nodeName, poolName, daemon, new LogUncaughtExceptionHandler(log), allowedOperations);
+        this(IgniteThread.threadPrefix(nodeName, poolName), daemon, log, allowedOperations);
     }
 
     /**
      * Constructor.
      */
-    private IgniteThreadFactory(
-            String nodeName,
-            String poolName,
-            boolean daemon,
-            Thread.UncaughtExceptionHandler exHnd,
-            ThreadOperation[] allowedOperations
-    ) {
-        this.nodeName = Objects.requireNonNull(nodeName, "igniteInstanceName");
-        this.poolName = Objects.requireNonNull(poolName, "prefix");
+    private IgniteThreadFactory(String prefix, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
+        this.prefix = Objects.requireNonNull(prefix, "prefix");
         this.daemon = daemon;
-        this.exHnd = Objects.requireNonNull(exHnd, "exHnd");
+        this.exHnd = new LogUncaughtExceptionHandler(log);
         this.allowedOperations = allowedOperations;
     }
 
     @Override
     public Thread newThread(Runnable r) {
-        Thread t = new IgniteThread(nodeName, poolName + "-" + counter.getAndIncrement(), r, allowedOperations);
+        Thread t = new IgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
 
         t.setDaemon(this.daemon);
         t.setUncaughtExceptionHandler(exHnd);
@@ -107,5 +98,24 @@ public class IgniteThreadFactory implements ThreadFactory {
             ThreadOperation... allowedOperations
     ) {
         return new IgniteThreadFactory(nodeName, poolName, daemon, logger, allowedOperations);
+    }
+
+    /**
+     * Creates a thread factory using a precomputed prefix. No dash will be added to this prefix when constructing
+     * thread name, so for prefix 'abc' the first thread name will be 'abc0', not 'abc-0'.
+     *
+     * @param prefix Thread prefix.
+     * @param daemon Whether threads created by the factory should be daemon or not.
+     * @param logger Logger.
+     * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
+     * @return Thread factory.
+     */
+    public static IgniteThreadFactory withPrefix(
+            String prefix,
+            boolean daemon,
+            IgniteLogger logger,
+            ThreadOperation... allowedOperations
+    ) {
+        return new IgniteThreadFactory(prefix, daemon, logger, allowedOperations);
     }
 }

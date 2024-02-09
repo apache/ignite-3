@@ -27,8 +27,8 @@ import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import java.util.concurrent.ThreadFactory;import java.util.function.BiConsumer;
+import java.util.function.Function;import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.entity.NodeId;
@@ -77,6 +77,26 @@ public class StripedDisruptor<T extends NodeIdAware> {
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      */
     public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes, boolean supportsBatches) {
+        this(name, stripeName -> new NamedThreadFactory(stripeName, true, LOG), bufferSize, eventFactory, stripes, supportsBatches);
+    }
+
+    /**
+     * @param name Name of the Striped disruptor.
+     * @param threadFactorySupplier Function that produces a thread factory given stripe name.
+     * @param bufferSize Buffer size for each Disruptor.
+     * @param eventFactory Event factory for the Striped disruptor.
+     * @param stripes Amount of stripes.
+     * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
+     *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     */
+    public StripedDisruptor(
+            String name,
+            Function<String, ThreadFactory> threadFactorySupplier,
+            int bufferSize,
+            EventFactory<T> eventFactory,
+            int stripes,
+            boolean supportsBatches
+    ) {
         disruptors = new Disruptor[stripes];
         queues = new RingBuffer[stripes];
         eventHandlers = new ArrayList<>(stripes);
@@ -91,7 +111,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
             Disruptor<T> disruptor = DisruptorBuilder.<T>newInstance()
                 .setRingBufferSize(bufferSize)
                 .setEventFactory(eventFactory)
-                .setThreadFactory(new NamedThreadFactory(stripeName, true, LOG))
+                .setThreadFactory(threadFactorySupplier.apply(stripeName))
                 .setProducerType(ProducerType.MULTI)
                 .setWaitStrategy(new BlockingWaitStrategy())
                 .build();

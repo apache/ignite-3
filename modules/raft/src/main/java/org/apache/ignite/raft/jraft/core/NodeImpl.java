@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toList;import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
@@ -28,7 +28,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
@@ -47,10 +46,9 @@ import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
-import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -1239,8 +1237,10 @@ public class NodeImpl implements Node, RaftServerService {
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
+            String threadPrefix = NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor");
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
+                threadPrefix,
+                stripeName -> IgniteThreadFactory.withPrefix(stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 opts.getStripes(),

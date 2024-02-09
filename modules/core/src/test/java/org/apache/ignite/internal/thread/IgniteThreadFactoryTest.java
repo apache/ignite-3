@@ -51,6 +51,24 @@ class IgniteThreadFactoryTest {
     }
 
     @Test
+    void producesCorrectThreadNamesWithExplicitPrefix() throws Exception {
+        ThreadFactory threadFactory = IgniteThreadFactory.withPrefix("prefix", false, LOG);
+
+        AtomicReference<String> threadName1Ref = new AtomicReference<>();
+        AtomicReference<String> threadName2Ref = new AtomicReference<>();
+
+        Thread thread1 = threadFactory.newThread(() -> threadName1Ref.set(Thread.currentThread().getName()));
+        thread1.start();
+        thread1.join();
+        Thread thread2 = threadFactory.newThread(() -> threadName2Ref.set(Thread.currentThread().getName()));
+        thread2.start();
+        thread2.join();
+
+        assertThat(threadName1Ref.get(), is("prefix0"));
+        assertThat(threadName2Ref.get(), is("prefix1"));
+    }
+
+    @Test
     void producesRequestedAllowedOperations() throws Exception {
         ThreadFactory threadFactory = IgniteThreadFactory.create("nodeName", "poolName", LOG, STORAGE_WRITE);
 

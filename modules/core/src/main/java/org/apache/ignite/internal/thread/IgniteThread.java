@@ -50,12 +50,23 @@ public class IgniteThread extends Thread implements ThreadAttributes {
      * Creates ignite thread with given name for a given Ignite instance.
      *
      * @param nodeName   Name of the Ignite instance this thread is created for.
-     * @param threadName Name of thread.
+     * @param threadName Name of thread (will be added to the node name to form final name).
      * @param r          Runnable to execute.
      * @param allowedOperations Operations which this thread allows to execute.
      */
     public IgniteThread(String nodeName, String threadName, Runnable r, ThreadOperation... allowedOperations) {
-        super(r, prefixWithNodeName(nodeName, threadName));
+        this(prefixWithNodeName(nodeName, threadName), r, allowedOperations);
+    }
+
+    /**
+     * Creates ignite thread with given name.
+     *
+     * @param finalName Name of thread.
+     * @param r Runnable to execute.
+     * @param allowedOperations Operations which this thread allows to execute.
+     */
+    IgniteThread(String finalName, Runnable r, ThreadOperation... allowedOperations) {
+        super(r, finalName);
 
         Set<ThreadOperation> operations = EnumSet.noneOf(ThreadOperation.class);
         Collections.addAll(operations, allowedOperations);

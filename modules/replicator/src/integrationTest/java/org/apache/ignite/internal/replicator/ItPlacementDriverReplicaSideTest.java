@@ -73,7 +73,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
@@ -128,8 +127,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     public void beforeTest(TestInfo testInfo) {
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 20,
-                NamedThreadFactory.threadPrefix("test", "partition-operations"),
-                new LogUncaughtExceptionHandler(log),
+                NamedThreadFactory.create("test", "partition-operations", log),
                 false,
                 0
         );

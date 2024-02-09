@@ -19,6 +19,8 @@ package org.apache.ignite.internal.raft.server.impl;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.File;
@@ -42,6 +44,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -60,6 +64,7 @@ import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -103,6 +108,8 @@ public class JraftServerImpl implements RaftServer {
      * This is a temporary property, that should only be used for testing and comparing the two storages.
      */
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
+
+    private static final IgniteLogger LOG = Loggers.forClass(JraftServerImpl.class);
 
     /** Cluster service. */
     private final ClusterService service;
@@ -286,8 +293,10 @@ public class JraftServerImpl implements RaftServer {
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
+            String threadPrefix = NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor");
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
-                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
+                    threadPrefix,
+                    stripeName -> IgniteThreadFactory.withPrefix(stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ApplyTask::new,
                     opts.getStripes(),
