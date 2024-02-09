@@ -156,7 +156,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      *
      * @throws Exception If any.
      */
-    @Test()
+    @Test
     public void testNegativeRequestedAmountScan() throws Exception {
         invalidRequestNtest(-1);
     }
@@ -167,7 +167,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      *
      * @throws Exception If any.
      */
-    @Test()
+    @Test
     public void testZeroRequestedAmountScan() throws Exception {
         invalidRequestNtest(0);
     }
@@ -232,9 +232,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertEquals(gotException.get().getCause().getClass(), NoSuchElementException.class);
 
-        if (tx != null) {
-            assertEquals(TxState.ABORTED, tx.state());
-        }
+        validateTxAbortedState(tx);
     }
 
     /**
@@ -279,6 +277,10 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertEquals(gotException.get().getCause().getClass(), StorageException.class);
 
+        validateTxAbortedState(tx);
+    }
+
+    protected void validateTxAbortedState(InternalTransaction tx) {
         if (tx != null) {
             assertEquals(TxState.ABORTED, tx.state());
         }
@@ -287,16 +289,16 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     /**
      * Checks that {@link IllegalArgumentException} is thrown in case of invalid partition.
      */
-    @Test()
+    @Test
     public void testInvalidPartitionParameterScan() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> scan(-1, null)
+                () -> scan(-1, startTx())
         );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> scan(1, null)
+                () -> scan(1, startTx())
         );
     }
 
@@ -307,7 +309,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      */
     @Test
     public void testSecondSubscriptionFiresIllegalStateException() throws Exception {
-        Flow.Publisher<BinaryRow> scan = scan(0, null);
+        Flow.Publisher<BinaryRow> scan = scan(0, startTx());
 
         scan.subscribe(new Subscriber<>() {
             @Override
@@ -497,7 +499,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        scan(0, null).subscribe(new Subscriber<>() {
+        scan(0, startTx()).subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(reqAmount);

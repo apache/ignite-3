@@ -67,6 +67,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -560,8 +561,11 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         var subscriberAllDataAwaitLatch = new CountDownLatch(parts);
 
+        InternalTransaction roTx =
+                (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
+
         for (int i = 0; i < parts; i++) {
-            Publisher<BinaryRow> res = internalTable.scan(i, node.clock().now(), node.node());
+            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node());
 
             res.subscribe(new Subscriber<>() {
                 @Override
@@ -587,6 +591,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         }
 
         assertTrue(subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS));
+
+        roTx.commit();
 
         return retrievedItems;
     }

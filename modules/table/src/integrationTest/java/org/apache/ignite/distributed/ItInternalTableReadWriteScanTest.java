@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -29,6 +31,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
@@ -51,6 +54,20 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         return new RollbackTxOnErrorPublisher<>(
                 tx,
                 internalTbl.scan(part, tx.id(), tx.commitPartition(), tx.coordinatorId(), recipient, null, null, null, 0, null)
+        );
+    }
+
+    @Override
+    @Test
+    public void testInvalidPartitionParameterScan() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> scan(-1, null)
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> scan(1, null)
         );
     }
 
