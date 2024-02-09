@@ -1265,7 +1265,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
-                (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenCompose(newAssignments -> {
+                (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
@@ -1281,7 +1281,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         return newValue;
                     });
-                })));
+                }, ioExecutor)));
 
         // We bring the future outside to avoid OutdatedTokenException.
         CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
