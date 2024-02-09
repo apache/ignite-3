@@ -35,10 +35,26 @@ public interface DataStreamerItem<T> {
      */
     DataStreamerOperationType operationType();
 
+    /**
+     * Creates a new data streamer item with the given data and {@link DataStreamerOperationType#PUT} operation type.
+     *
+     * @param item Data.
+     * @param <T> Data type.
+     *
+     * @return PUT data streamer item.
+     */
     static <T> DataStreamerItem<T> of(T item) {
         return of(item, DataStreamerOperationType.PUT);
     }
 
+    /**
+     * Creates a new data streamer item with the given data and {@link DataStreamerOperationType#REMOVE} operation type.
+     *
+     * @param item Data.
+     * @param <T> Data type.
+     *
+     * @return REMOVE data streamer item.
+     */
     static <T> DataStreamerItem<T> removed(T item) {
         return of(item, DataStreamerOperationType.REMOVE);
     }
