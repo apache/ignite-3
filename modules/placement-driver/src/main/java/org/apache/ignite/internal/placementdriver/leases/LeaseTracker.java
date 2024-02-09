@@ -236,6 +236,28 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         }
     }
 
+    private void awaitPrimaryReplica(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            CompletableFuture<ReplicaMeta> resultFuture
+    ) {
+        inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
+                .thenAccept(replicaMeta -> {
+                    ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+
+                    if (leaseholderNode == null && !resultFuture.isDone()) {
+                        awaitPrimaryReplica(
+                                groupId,
+                                replicaMeta.getExpirationTime().tick(),
+                                resultFuture
+                        );
+                    } else {
+                        resultFuture.complete(replicaMeta);
+                    }
+                })
+        );
+    }
+
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
             ReplicationGroupId groupId,
@@ -243,29 +265,19 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
-        return inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
-                .orTimeout(timeout, unit)
-                .thenCompose(replicaMeta -> {
-                    ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+        CompletableFuture<ReplicaMeta> resultFuture = new CompletableFuture<>();
 
-                    if (leaseholderNode == null) {
-                        return awaitPrimaryReplica(
-                                groupId,
-                                replicaMeta.getExpirationTime().tick(),
-                                timeout,
-                                unit
-                        );
-                    } else {
-                        return completedFuture(replicaMeta);
-                    }
-                })
+        awaitPrimaryReplica(groupId, timestamp, resultFuture);
+
+        return resultFuture
+                .orTimeout(timeout, unit)
                 .exceptionally(e -> {
                     if (e instanceof TimeoutException) {
                         throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp, leases.leaseByGroupId().get(groupId), e);
                     }
 
                     throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
-                }));
+                });
     }
 
     @Override
