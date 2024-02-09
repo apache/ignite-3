@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.internal.client.table.ClientTable;
+import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,45 +33,45 @@ public class ClientCacheTest extends AbstractClientTableTest {
     public void testBasic() {
         ClientTable table = (ClientTable) cache();
 
-        try (IgniteCache<Integer, Integer> view = table.cache(null, null, null, null, null)) {
-            view.put(1, 1);
+        KeyValueView<Integer, Integer> view = table.cache();
 
-            assertEquals(1, view.get(1));
+        view.put(null, 1, 1);
 
-            assertTrue(view.remove(1));
+        assertEquals(1, view.get(null, 1));
 
-            assertNull(view.get(1));
+        assertTrue(view.remove(null, 1));
 
-            view.put(1, 2);
+        assertNull(view.get(null, 1));
 
-            assertEquals(2, view.get(1));
+        view.put(null, 1, 2);
 
-            assertTrue(view.remove(1));
+        assertEquals(2, view.get(null, 1));
 
-            assertNull(view.get(1));
-        }
+        assertTrue(view.remove(null, 1));
+
+        assertNull(view.get(null, 1));
     }
 
     @Test
     public void testBasicTypeUnsafe() {
         ClientTable table = (ClientTable) cache();
 
-        try (IgniteCache<Object, Object> view = table.cache(null, null, null, null, null)) {
-            view.put(1, 1);
+        KeyValueView<Object, Object> view = table.cache();
 
-            assertEquals(1, view.get(1));
+        view.put(null, 1, 1);
 
-            assertTrue(view.remove(1));
+        assertEquals(1, view.get(null, 1));
 
-            assertNull(view.get(1));
+        assertTrue(view.remove(null, 1));
 
-            view.put(2L, "test");
+        assertNull(view.get(null, 1));
 
-            assertEquals("test", view.get(2L));
+        view.put(null, 2L, "test");
 
-            assertTrue(view.remove(2L));
+        assertEquals("test", view.get(null, 2L));
 
-            assertNull(view.get(2L));
-        }
+        assertTrue(view.remove(null, 2L));
+
+        assertNull(view.get(null, 2L));
     }
 }

@@ -31,12 +31,9 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Base class for client table tests.

@@ -17,25 +17,20 @@
 
 package org.apache.ignite.internal.table;
 
-import javax.cache.expiry.ExpiryPolicy;
-import javax.cache.integration.CacheLoader;
-import javax.cache.integration.CacheWriter;
-import org.apache.ignite.cache.IgniteCache;
+import org.apache.ignite.cache.Cache;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.mapper.TypeConverter;
-import org.jetbrains.annotations.Nullable;
 
 /** Internal table view interface. */
-public interface TableViewInternal extends Table {
+public interface TableViewInternal extends Table, Cache {
     /**
      * Gets a table id.
      *
@@ -135,24 +130,4 @@ public interface TableViewInternal extends Table {
      * @param indexId An index id to unregister.
      */
     void unregisterIndex(int indexId);
-
-    /**
-     * @param txManager Tx manager.
-     * @param loader Cache loader.
-     * @param writer Cache writer.
-     * @param keyConverter Key converter.
-     * @param valueConverter Key converter.
-     * @param expiryPolicy Expire policy.
-     * @param <K> Key type.
-     * @param <V> Value type.
-     * @return The instance.
-     */
-    <K, V> IgniteCache<K, V> cache(
-            TxManager txManager,
-            @Nullable CacheLoader<K, V> loader,
-            @Nullable CacheWriter<K, V> writer,
-            @Nullable TypeConverter<K, byte[]> keyConverter,
-            @Nullable TypeConverter<V, byte[]> valueConverter,
-            ExpiryPolicy expiryPolicy
-    );
 }

@@ -63,13 +63,9 @@ public interface TxManager extends IgniteComponent {
      * Starts external transaction.
      *
      * @param timestampTracker Tracker TODO remove
-     * @param externalCommit External commit callback.
      * @return The started transaction.
      */
-    InternalTransaction beginExternal(
-            HybridTimestampTracker timestampTracker, // TODO remove, not needed for cache.
-            @Nullable Function<InternalTransaction, CompletableFuture<Void>> externalCommit
-    );
+    InternalTransaction beginExternal(HybridTimestampTracker timestampTracker);
 
     /**
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.

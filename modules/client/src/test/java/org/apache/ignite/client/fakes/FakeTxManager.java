@@ -77,8 +77,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginExternal(HybridTimestampTracker timestampTracker,
-            Function<InternalTransaction, CompletableFuture<Void>> externalCommit) {
+    public InternalTransaction beginExternal(HybridTimestampTracker timestampTracker) {
         return new FakeTransaction(null, clock, false);
     }
 

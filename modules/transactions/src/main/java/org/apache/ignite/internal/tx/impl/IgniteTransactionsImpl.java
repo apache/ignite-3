@@ -110,10 +110,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      * @param externalCommit External commit.
      * @return The transaction.
      */
-    public InternalTransaction beginExternal(
-            @Nullable TransactionOptions options,
-            @Nullable Function<InternalTransaction, CompletableFuture<Void>> externalCommit
-    ) {
-        return txManager.beginExternal(observableTimestampTracker, externalCommit);
+    public InternalTransaction beginExternal(@Nullable TransactionOptions options) {
+        return txManager.beginExternal(observableTimestampTracker);
     }
 }

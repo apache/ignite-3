@@ -27,10 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import javax.cache.expiry.ExpiryPolicy;
-import javax.cache.integration.CacheLoader;
-import javax.cache.integration.CacheWriter;
-import org.apache.ignite.cache.IgniteCache;
+import org.apache.ignite.cache.Cache;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -50,15 +47,14 @@ import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.cache.CacheStore;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.mapper.TypeConverter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -178,6 +174,16 @@ public class TableImpl implements TableViewInternal {
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
         return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, sql);
+    }
+
+//    @Override
+//    public <K, V> KeyValueView<K, V> keyValueView(@Nullable CacheStore<K, V> store) {
+//        return null;
+//    }
+
+    @Override
+    public KeyValueView<Tuple, Tuple> keyValueBinaryView(@Nullable CacheStore<Tuple, Tuple> store) {
+        return new CachingKeyValueBinaryView<>(tbl, keyValueView(), store);
     }
 
     @Override
@@ -317,18 +323,6 @@ public class TableImpl implements TableViewInternal {
         completeWaitIndex(indexId);
 
         // TODO: IGNITE-19150 Also need to destroy the index storages
-    }
-
-    @Override
-    public <K, V> IgniteCache<K, V> cache(
-            TxManager txManager,
-            @Nullable CacheLoader<K, V> loader,
-            @Nullable CacheWriter<K, V> writer,
-            @Nullable TypeConverter<K, byte[]> keyConverter,
-            @Nullable TypeConverter<V, byte[]> valueConverter,
-            ExpiryPolicy expiryPolicy
-    ) {
-        return new EmbeddedCache<>(tbl, schemaVersions, schemaReg, txManager, loader, writer, keyConverter, valueConverter, expiryPolicy);
     }
 
     private void awaitIndexes() {

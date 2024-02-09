@@ -36,16 +36,16 @@ public interface IgniteComponent {
     CompletableFuture<Void> start();
 
     /**
-     * Triggers running before node stop logic. It's guaranteed that during beforeNodeStop all components beneath given one are still
-     * running and node is a part of topology.
+     * Triggers running before node stop logic. It's guaranteed that during beforeNodeStop all components higher in dependency tree than
+     * given one are still running and node is a part of topology.
      */
     default void beforeNodeStop() {
         // No-op.
     }
 
     /**
-     * Stops the component. It's guaranteed that during {@code IgniteComponent#stop())} all components beneath given one are still running,
-     * however the node is no longer part of the topology and, accordingly, network interaction is impossible.
+     * Stops the component. It's guaranteed that during {@code IgniteComponent#stop())} all components higher in dependency tree than given
+     * one are still running, however the node is no longer part of the topology and, accordingly, network interaction is impossible.
      *
      * @throws Exception If this component cannot be closed
      */

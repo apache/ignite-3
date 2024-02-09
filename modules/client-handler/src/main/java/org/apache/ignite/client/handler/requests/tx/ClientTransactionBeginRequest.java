@@ -63,7 +63,7 @@ public class ClientTransactionBeginRequest {
         }
 
         // NOTE: we don't use beginAsync here because it is synchronous anyway.
-        var tx = external ? transactions.beginExternal(options, tx0 -> null) : transactions.begin(options, observableTs);
+        var tx = external ? transactions.beginExternal(options) : transactions.begin(options, observableTs);
 
         if (readOnly) {
             // For read-only tx, override observable timestamp that we send to the client:

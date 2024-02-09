@@ -764,7 +764,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> false,
-                false
+                tx.external()
         );
     }
 
@@ -1013,7 +1013,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> false,
-                false
+                tx.external()
         );
     }
 
@@ -1035,7 +1035,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> !res,
-                false
+                tx.external()
         );
     }
 
@@ -1104,7 +1104,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> !res,
-                false
+                tx.external()
         );
     }
 
@@ -1130,7 +1130,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> !res,
-                false
+                tx.external()
         );
     }
 
@@ -1152,7 +1152,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> res == null,
-                false
+                tx.external()
         );
     }
 
@@ -1174,7 +1174,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> !res,
-                false
+                tx.external()
         );
     }
 
@@ -1196,7 +1196,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> !res,
-                false
+                tx.external()
         );
     }
 
@@ -1218,7 +1218,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build(),
                 (res, req) -> res == null,
-                false
+                tx.external()
         );
     }
 
@@ -1909,6 +1909,11 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
+    @Override
+    public InternalTransaction enlistExternal() {
+        return txManager.beginExternal(observableTimestampTracker);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() {
@@ -1979,7 +1984,6 @@ public class InternalTableImpl implements InternalTable {
     public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
         return storageIndexTrackerByPartitionId.get(partitionId);
     }
-
     /**
      * Updates the partition trackers, if there were previous ones, it closes them.
      *

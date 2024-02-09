@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 
 /** Helper class for working with {@link CompletableFuture}. */
 public class CompletableFutures {
@@ -105,5 +108,25 @@ public class CompletableFutures {
 
                     return result;
                 });
+    }
+
+    /**
+     * Waits for operation completion.
+     *
+     * @param fut Future to wait to.
+     * @param <T> Future result type.
+     * @return Future result.
+     */
+    public static <T> T join(CompletableFuture<T> fut) {
+        try {
+            return fut.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupt flag.
+
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
+        } catch (ExecutionException e) {
+            Throwable cause = ExceptionUtils.unwrapCause(e);
+            throw sneakyThrow(cause);
+        }
     }
 }

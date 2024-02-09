@@ -247,7 +247,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, null);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -287,15 +287,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public InternalTransaction beginExternal(
-            HybridTimestampTracker timestampTracker,
-            Function<InternalTransaction, CompletableFuture<Void>> externalCommit
-    ) {
+    public InternalTransaction beginExternal(HybridTimestampTracker timestampTracker) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, TablePartitionId.NOT_EXISTING, null));
 
-        return new ReadWriteTransactionImpl(this, timestampTracker, txId, externalCommit);
+        return new ReadWriteTransactionImpl(this, timestampTracker, txId, true);
     }
 
     /**

@@ -22,30 +22,31 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.cache.CacheSession;
+import org.apache.ignite.cache.CacheStore;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-write implementation of an internal transaction.
  */
-public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
+public final class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
@@ -66,10 +67,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private CompletableFuture<Void> finishFuture;
 
     /** Dirty cache. */
-    private final Map<Object, Object> dirtyCache = new ConcurrentHashMap<>();
+    private final Map<CacheStore<Object, Object>, Map<Object, Optional<Object>>> enlistedStores = new ConcurrentHashMap<>();
 
-    /** External commit callback. */
-    private final @Nullable Function<InternalTransaction, CompletableFuture<Void>> externalCommit;
+    /** External commit flag. */
+    private final boolean external;
 
     /**
      * Constructs an explicit read-write transaction.
@@ -77,18 +78,33 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
-     * @param externalCommit External commit callback.
+     */
+    public ReadWriteTransactionImpl(
+            TxManager txManager,
+            HybridTimestampTracker observableTsTracker,
+            UUID id
+    ) {
+        this(txManager, observableTsTracker, id, false);
+    }
+
+    /**
+     * Constructs an explicit read-write transaction.
+     *
+     * @param txManager The tx manager.
+     * @param observableTsTracker Observable timestamp tracker.
+     * @param id The id.
+     * @param external {@code True} to use external commit.
      */
     public ReadWriteTransactionImpl(
             TxManager txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
-            @Nullable Function<InternalTransaction, CompletableFuture<Void>> externalCommit
+            boolean external
     ) {
         super(txManager, id);
 
         this.observableTsTracker = observableTsTracker;
-        this.externalCommit = externalCommit;
+        this.external = external;
     }
 
     /** {@inheritDoc} */
@@ -148,17 +164,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        if (!external()) {
-            return finishInternal(commit, false);
-        } else {
-            if (!commit) {
-                return finishInternal(false, true);
-            }
-
-            CompletableFuture<Void> fut = externalCommit.apply(this);
-
-            return fut.handle((unused, err) -> finishInternal(err == null, true)).thenCompose(x -> x);
-        }
+        return finishInternal(commit, external());
     }
 
     /**
@@ -188,6 +194,36 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                 entry -> entry.getValue().get2()
                         ));
 
+                if (skipCommitPartition) {
+                    // TODO threading model ?
+                    // TODO batching
+                    // TODO move in finish after all ops completed.
+
+                    CacheSession ses = null;
+
+                    if (enlistedStores.size() > 1) {
+                        ses = enlistedStores.keySet().iterator().next().beginSession();
+                    }
+
+                    for (Entry<CacheStore<Object, Object>, Map<Object, Optional<Object>>> entry : enlistedStores.entrySet()) {
+                        CacheStore<Object, Object> store = entry.getKey();
+
+                        for (Entry<Object, Optional<Object>> entry0 : entry.getValue().entrySet()) {
+                            Optional<Object> value = entry0.getValue();
+
+                            if (value.isEmpty()) {
+                                store.delete(ses, entry0.getKey());
+                            } else {
+                                store.write(ses, new SimpleEntry<>(entry0.getKey(), value.get()));
+                            }
+                        }
+                    }
+
+                    if (ses != null) {
+                        ses.finish(true);
+                    }
+                }
+
                 finishFuture = txManager.finish(observableTsTracker, skipCommitPartition ? null : commitPart, commit, enlistedGroups, id());
             }
 
@@ -215,15 +251,22 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         return TransactionIds.beginTimestamp(id());
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Map<Object, Object> dirtyCache() {
-        return dirtyCache;
+    public synchronized Map<Object, Optional<Object>> enlistStore(CacheStore<?, ?> store) {
+        // TODO FIXME perf ?
+        Map<Object, Optional<Object>> map = enlistedStores.get(store);
+
+        if (map == null) {
+            map = new ConcurrentHashMap<>();
+            enlistedStores.put((CacheStore<Object, Object>) store, map);
+        }
+
+        return map;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean external() {
-        return externalCommit != null;
+        return external;
     }
 }

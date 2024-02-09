@@ -33,7 +33,7 @@ import java.util.function.Function;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
-import org.apache.ignite.cache.IgniteCache;
+import org.apache.ignite.cache.Cache;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
@@ -153,14 +153,9 @@ public class ClientTable implements Table {
         return new ClientKeyValueBinaryView(this);
     }
 
-    public <K, V> IgniteCache<K, V> cache(
-            CacheLoader<K, V> loader,
-            CacheWriter<K, V> writer,
-            TypeConverter<K, byte[]> keyMapper,
-            TypeConverter<V, byte[]> valMapper,
-            ExpiryPolicy expiryPolicy
+    public <K, V> KeyValueView<K, V> cache(
     ) {
-        return new ClientCache<>(this, loader, writer, keyMapper, valMapper, expiryPolicy);
+        return new ClientCache<>();
     }
 
     CompletableFuture<ClientSchema> getLatestSchema() {

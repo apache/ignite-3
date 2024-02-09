@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.cache.CacheStore;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -104,13 +106,8 @@ public interface InternalTransaction extends Transaction {
         return commit ? commitAsync() : rollbackAsync();
     }
 
-    /**
-     * The map of entries requiring external synchronization in case of enabled cache write through.
-     *
-     * @return The map.
-     */
-    default Map<Object, Object> dirtyCache() {
-        return null;
+    default Map<Object, Optional<Object>> enlistStore(CacheStore<?, ?> store) {
+        throw new IllegalStateException(); // Shouldn't be called for RO txns.
     }
 
     /**
@@ -119,6 +116,6 @@ public interface InternalTransaction extends Transaction {
      * @return Flag value.
      */
     default boolean external() {
-        return false;
+        throw new IllegalStateException(); // Shouldn't be called for RO txns.
     }
 }

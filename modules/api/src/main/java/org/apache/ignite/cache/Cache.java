@@ -17,16 +17,18 @@
 
 package org.apache.ignite.cache;
 
-import java.util.function.Supplier;
-import javax.cache.Cache;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TODO make internal ?
+ * Cache entry point. TODO javadoc.
  */
-public interface IgniteCache<K, V> extends Cache<K, V> {
-    void runAtomically(Runnable clo);
+public interface Cache {
+    String name();
 
-    <R> R runAtomically(Supplier<R> clo);
+    //<K, V> KeyValueView<K, V> keyValueView(@Nullable CacheStore<K, V> store);
+
+    KeyValueView<Tuple, Tuple> keyValueBinaryView(@Nullable CacheStore<Tuple, Tuple> store);
 }

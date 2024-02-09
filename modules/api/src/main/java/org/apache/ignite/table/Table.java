@@ -22,7 +22,7 @@ import org.apache.ignite.table.mapper.Mapper;
 /**
  * Table provides the different views (key-value vs record) and approaches (mapped-object vs binary) to access the data.
  *
- * <p>Binary table views might be useful in the various scenarios, including when the user key-value classes 
+ * <p>Binary table views might be useful in the various scenarios, including when the user key-value classes
  * are not in classpath and/or when deserialization of the entire table record is undesirable for performance reasons.
  *
  * @see RecordView
