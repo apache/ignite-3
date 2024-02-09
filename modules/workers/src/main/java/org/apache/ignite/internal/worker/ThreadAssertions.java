@@ -61,11 +61,13 @@ public class ThreadAssertions {
         if (!(currentThread instanceof ThreadAttributes)) {
             LOG.warn("Thread {} does not have allowed operations", trackerException(), currentThread);
 
-            return;
+            throw new AssertionError("Thread does not have allowed operations");
         }
 
         if (!((ThreadAttributes) currentThread).allows(requestedOperation)) {
             LOG.warn("Thread {} is not allowed to do {}", trackerException(), currentThread, requestedOperation);
+
+            throw new AssertionError("Thread is not allowed to do " + requestedOperation);
         }
     }
 
