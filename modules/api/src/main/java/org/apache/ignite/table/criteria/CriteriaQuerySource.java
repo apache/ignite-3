@@ -48,7 +48,7 @@ public interface CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @param indexName The name of the index to force usage of this index in the query.
      * @return Iterator with query results.
-     * @throws IgniteException If failed.
+     * @throws CriteriaException If failed.
      */
     default Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName) {
         return query(tx, criteria, indexName, null);
@@ -85,7 +85,7 @@ public interface CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @param indexName The name of the index to force usage of this index in the query.
      * @return Future that represents the pending completion of the operation.
-     * @throws IgniteException If failed.
+     * @throws CriteriaException If failed.
      */
     default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria,
             @Nullable String indexName) {
