@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -72,7 +73,7 @@ import org.junit.jupiter.api.Test;
 
 /** Tests to verify {@link LeaseTracker} implemented by {@link PlacementDriver}. */
 public class PlacementDriverTest extends BaseIgniteAbstractTest {
-    private static final HybridTimestamp AWAIT_TIME_3_000 = new HybridTimestamp(3_000, 0);
+    private static final HybridTimestamp AWAIT_TIME_1_000 = new HybridTimestamp(1_000, 0);
 
     private static final HybridTimestamp AWAIT_TIME_10_000 = new HybridTimestamp(10_000, 0);
 
@@ -272,31 +273,46 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     /**
      * Common method for several tests. Test steps:
      * <ol>
-     *     <li>Publish primary replica for an interval [1, 5].</li>
+     *     <li>Publish primary replica for an interval from 1 to {@code leaseDurationMilliseconds} inclusively.</li>
      *     <li>Leaseholder of the primary replica is offline.</li>
-     *     <li>Await primary replica for timestamp 3, this shouldn't complete instantly.</li>
-     *     <li>Publish a new lease for interval beginning at {@code newLeaseholderPhysicalStartTime} and another leaseholder
-     *     node that is online or offline depending on {@code newLeaseholderIsOnline}.</li>
+     *     <li>Await primary replica for timestamp 1, this shouldn't complete instantly.</li>
+     *     <li>Publish a new lease for interval beginning at {@code newLeaseholderPhysicalStartTimeMilliseconds} and another leaseholder
+     *         node that is online or offline depending on {@code newLeaseholderIsOnline}.</li>
      *     <li>If {@code newLeaseholderIsOnline} is true, then assert that primary waiter is completed and the new lease belongs
-     *     to the online node. Otherwise, assert that the primary waiter is completed exceptionally with
-     *     PrimaryReplicaAwaitTimeoutException within the timeout.</li>
+     *         to the online node. Otherwise, assert that the primary waiter is completed exceptionally with
+     *         PrimaryReplicaAwaitTimeoutException within the timeout.</li>
      * </ol>
      *
-     * @param newLeaseholderPhysicalStartTime Physical start time for a new lease.
+     * @param leaseDurationMilliseconds Lease duration.
+     * @param newLeaseholderPhysicalStartTimeMilliseconds Physical start time for a new lease.
+     * @param awaitPrimaryReplicaTimeoutMilliseconds Timeout to pass to
+     *     {@link PlacementDriver#awaitPrimaryReplica(ReplicationGroupId, HybridTimestamp, long, TimeUnit)}.
      * @param newLeaseholderIsOnline Whether the new leaseholder is online.
      */
     private void testAwaitCurrentPrimaryIsOffline(
-            long newLeaseholderPhysicalStartTime,
+            long leaseDurationMilliseconds,
+            long newLeaseholderPhysicalStartTimeMilliseconds,
+            int awaitPrimaryReplicaTimeoutMilliseconds,
             boolean newLeaseholderIsOnline
     ) {
         // Publish primary replica for an interval [1, 5].
-        publishLease(LEASE_FROM_1_TO_5_000);
+        Lease firstLease = new Lease(
+                LEASEHOLDER_1,
+                LEASEHOLDER_ID_1,
+                new HybridTimestamp(1, 0),
+                new HybridTimestamp(leaseDurationMilliseconds, 0),
+                false,
+                true,
+                GROUP_1
+        );
+
+        publishLease(firstLease);
 
         // Cluster node resolver will return null as if the current leaseholder would be offline.
         leaseholder = null;
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture =
-                placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_3_000, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
+                placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_1_000, awaitPrimaryReplicaTimeoutMilliseconds, MILLISECONDS);
 
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -304,8 +320,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         Lease newLease = new Lease(
                 newLeaseholder,
                 newLeaseholder,
-                new HybridTimestamp(newLeaseholderPhysicalStartTime + 1, 0),
-                new HybridTimestamp(newLeaseholderPhysicalStartTime + 5000, 0),
+                new HybridTimestamp(newLeaseholderPhysicalStartTimeMilliseconds, 0),
+                new HybridTimestamp(newLeaseholderPhysicalStartTimeMilliseconds + leaseDurationMilliseconds, 0),
                 false,
                 true,
                 GROUP_1
@@ -332,7 +348,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             // with PrimaryReplicaAwaitTimeoutException.
             assertThat(
                     primaryReplicaFuture,
-                    willThrow(PrimaryReplicaAwaitTimeoutException.class, AWAIT_PRIMARY_REPLICA_TIMEOUT + 1, SECONDS)
+                    willThrow(PrimaryReplicaAwaitTimeoutException.class, awaitPrimaryReplicaTimeoutMilliseconds + 1000, MILLISECONDS)
             );
         }
     }
@@ -342,14 +358,14 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
      * <ol>
      *     <li>Publish primary replica for an interval [1, 5].</li>
      *     <li>Leaseholder of the primary replica is offline.</li>
-     *     <li>Await primary replica for timestamp 3, this shouldn't complete instantly.</li>
+     *     <li>Await primary replica for timestamp 1, this shouldn't complete instantly.</li>
      *     <li>Publish a new lease for interval (5, 10] and another leaseholder node that is online.</li>
      *     <li>Assert that primary waiter is completed and the new lease belongs to the online node.</li>
      * </ol>
      */
     @Test
     public void testAwaitCurrentPrimaryIsOffline() {
-        testAwaitCurrentPrimaryIsOffline(8000, true);
+        testAwaitCurrentPrimaryIsOffline(5000, 5001, AWAIT_PRIMARY_REPLICA_TIMEOUT * 1000, true);
     }
 
     /**
@@ -357,7 +373,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
      * <ol>
      *     <li>Publish primary replica for an interval [1, 5].</li>
      *     <li>Leaseholder of the primary replica is offline.</li>
-     *     <li>Await primary replica for timestamp 3, this shouldn't complete instantly.</li>
+     *     <li>Await primary replica for timestamp 1, this shouldn't complete instantly.</li>
      *     <li>Publish a new lease for interval (8, 10] with delay after the first lease expiration
      *     and another leaseholder node that is online.</li>
      *     <li>Assert that primary waiter is completed and the new lease belongs to the online node.</li>
@@ -365,22 +381,22 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testAwaitCurrentPrimaryIsOfflineWithPauseBeforeNewPrimaryElection() {
-        testAwaitCurrentPrimaryIsOffline(8000, true);
+        testAwaitCurrentPrimaryIsOffline(5000, 8000, AWAIT_PRIMARY_REPLICA_TIMEOUT * 1000, true);
     }
 
     /**
      * Test steps.
      * <ol>
-     *     <li>Publish primary replica for an interval [1, 5].</li>
+     *     <li>Publish primary replica for an interval [1, 2].</li>
      *     <li>Leaseholder of the primary replica is offline.</li>
-     *     <li>Await primary replica for timestamp 3, this shouldn't complete instantly.</li>
+     *     <li>Await primary replica for timestamp 1, this shouldn't complete instantly.</li>
      *     <li>Publish a new lease for interval (8, 10] and another leaseholder node also appears to be offline.</li>
      *     <li>Assert that primary waiter is completed exceptionally with PrimaryReplicaAwaitTimeoutException.</li>
      * </ol>
      */
     @Test
     public void testAwaitCurrentPrimaryIsOfflineWithTimeout() {
-        testAwaitCurrentPrimaryIsOffline(9000, false);
+        testAwaitCurrentPrimaryIsOffline(2000, 3000, 4000, false);
     }
 
     /**

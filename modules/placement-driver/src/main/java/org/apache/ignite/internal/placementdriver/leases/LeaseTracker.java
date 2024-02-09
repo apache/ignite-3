@@ -265,11 +265,11 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
-        CompletableFuture<ReplicaMeta> resultFuture = new CompletableFuture<>();
+        CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
 
-        awaitPrimaryReplica(groupId, timestamp, resultFuture);
+        awaitPrimaryReplica(groupId, timestamp, future);
 
-        return resultFuture
+        return future
                 .orTimeout(timeout, unit)
                 .exceptionally(e -> {
                     if (e instanceof TimeoutException) {
