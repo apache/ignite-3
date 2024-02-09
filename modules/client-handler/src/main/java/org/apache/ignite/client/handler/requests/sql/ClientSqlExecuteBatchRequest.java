@@ -96,9 +96,7 @@ public class ClientSqlExecuteBatchRequest {
         out.packBoolean(false); // has row set
         out.packBoolean(false); // has more pages
         out.packBoolean(true); // was applied
-        out.packLong(Arrays.stream(affectedRows).sum()); // affected rows
-
-        packMeta(out, null); // meta
+        out.packLongArray(affectedRows); // affected rows
 
         return session.closeAsync();
     }
