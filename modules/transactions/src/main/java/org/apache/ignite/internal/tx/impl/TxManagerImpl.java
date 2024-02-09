@@ -158,12 +158,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
-     * Amount of started transaction.
+     * Total number of started transaction.
      * TODO: IGNITE-21440 Implement transaction metrics.
      */
     private final AtomicInteger startedTxs = new AtomicInteger();
     /**
-     * Amount of fixed transaction.
+     * Total number of fixed transaction.
      * TODO: IGNITE-21440 Implement transaction metrics.
      */
     private final AtomicInteger fixedTxs = new AtomicInteger();
