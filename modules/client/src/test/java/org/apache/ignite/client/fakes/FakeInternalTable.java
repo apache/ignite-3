@@ -186,7 +186,20 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition) {
-        throw new UnsupportedOperationException();
+        int i = 0;
+
+        for (var row : rows) {
+            if (deleted != null && deleted.get(i)) {
+                delete(row, null);
+            } else {
+                upsert(row, null);
+            }
+
+            i++;
+        }
+
+        onDataAccess("updateAll", rows);
+        return nullCompletedFuture();
     }
 
     @Override

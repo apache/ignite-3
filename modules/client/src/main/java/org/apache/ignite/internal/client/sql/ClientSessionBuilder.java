@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.jetbrains.annotations.Nullable;
@@ -32,6 +33,9 @@ import org.jetbrains.annotations.Nullable;
 public class ClientSessionBuilder implements SessionBuilder {
     /** Channel. */
     private final ReliableChannel ch;
+
+    /** Marshallers provider. */
+    private final MarshallersProvider marshallers;
 
     /** Properties. */
     private final Map<String, Object> properties = new HashMap<>();
@@ -52,9 +56,11 @@ public class ClientSessionBuilder implements SessionBuilder {
      * Constructor.
      *
      * @param ch Channel.
+     * @param marshallers Marshallers provider.
      */
-    public ClientSessionBuilder(ReliableChannel ch) {
+    public ClientSessionBuilder(ReliableChannel ch, MarshallersProvider marshallers) {
         this.ch = ch;
+        this.marshallers = marshallers;
     }
 
     @Override
@@ -127,6 +133,14 @@ public class ClientSessionBuilder implements SessionBuilder {
 
     @Override
     public Session build() {
-        return new ClientSession(ch, pageSize, defaultSchema, defaultQueryTimeoutMs, defaultSessionTimeoutMs, new HashMap<>(properties));
+        return new ClientSession(
+                ch,
+                marshallers,
+                pageSize,
+                defaultSchema,
+                defaultQueryTimeoutMs,
+                defaultSessionTimeoutMs,
+                new HashMap<>(properties)
+        );
     }
 }

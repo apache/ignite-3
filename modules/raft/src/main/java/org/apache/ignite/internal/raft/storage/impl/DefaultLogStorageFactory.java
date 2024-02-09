@@ -36,6 +36,7 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
+import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -84,11 +85,21 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      *
      * @param path Path to the storage.
      */
+    @TestOnly
     public DefaultLogStorageFactory(Path path) {
+        this("test", path);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param path Path to the storage.
+     */
+    public DefaultLogStorageFactory(String nodeName, Path path) {
         this.path = path;
 
         executorService = Executors.newSingleThreadExecutor(
-                new NamedThreadFactory("raft-shared-log-storage-pool", LOG)
+                NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
         );
     }
 

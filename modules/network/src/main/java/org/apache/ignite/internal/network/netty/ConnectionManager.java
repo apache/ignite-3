@@ -43,6 +43,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -132,6 +133,9 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Thread pool used for connection management tasks (like disposing recovery descriptors on node left or on stop). */
     private final ExecutorService connectionMaintenanceExecutor;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -148,7 +152,8 @@ public class ConnectionManager implements ChannelCreationListener {
             UUID launchId,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
-            StaleIdDetector staleIdDetector
+            StaleIdDetector staleIdDetector,
+            FailureProcessor failureProcessor
     ) {
         this(
                 networkConfiguration,
@@ -157,7 +162,8 @@ public class ConnectionManager implements ChannelCreationListener {
                 consistentId,
                 bootstrapFactory,
                 staleIdDetector,
-                null
+                null,
+                failureProcessor
         );
     }
 
@@ -179,7 +185,8 @@ public class ConnectionManager implements ChannelCreationListener {
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
-            @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
+            @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory,
+            FailureProcessor failureProcessor
     ) {
         this.serializationService = serializationService;
         this.launchId = launchId;
@@ -188,6 +195,7 @@ public class ConnectionManager implements ChannelCreationListener {
         this.staleIdDetector = staleIdDetector;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.networkConfiguration = networkConfiguration;
+        this.failureProcessor = failureProcessor;
 
         this.server = new NettyServer(
                 networkConfiguration,
@@ -487,7 +495,8 @@ public class ConnectionManager implements ChannelCreationListener {
                     bootstrapFactory,
                     staleIdDetector,
                     this,
-                    stopping::get
+                    stopping::get,
+                    failureProcessor
             );
         }
 
@@ -508,7 +517,8 @@ public class ConnectionManager implements ChannelCreationListener {
                 bootstrapFactory,
                 staleIdDetector,
                 this,
-                stopping::get
+                stopping::get,
+                failureProcessor
         );
     }
 

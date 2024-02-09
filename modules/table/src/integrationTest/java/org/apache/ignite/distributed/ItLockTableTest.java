@@ -66,8 +66,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItLockTableTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItLockTableTest.class);
 
-    private static int EMP_TABLE_ID = 2;
-
     private static final int CACHE_SIZE = 10;
 
     private static final String TABLE_NAME = "test";
@@ -152,7 +150,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
         };
         txTestCluster.prepareCluster();
 
-        testTable = txTestCluster.startTable(TABLE_NAME, EMP_TABLE_ID, TABLE_SCHEMA);
+        testTable = txTestCluster.startTable(TABLE_NAME, TABLE_SCHEMA);
 
         log.info("Tables have been started");
     }

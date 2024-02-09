@@ -57,9 +57,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test for {@link StorageUpdateHandler}.
- */
+/** Test for {@link StorageUpdateHandler}. */
 public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
@@ -154,7 +152,6 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
 
     @Test
     void testUpdateAllBatchedTryLockFailed() {
-
         UUID txUuid = UUID.randomUUID();
 
         HybridTimestamp commitTs = CLOCK.now();
@@ -181,7 +178,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
 
         doReturn(false).when(lock).tryLock(any());
 
-        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null);
+        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null, null);
 
         assertEquals(3, storage.rowsCount());
 
@@ -192,7 +189,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         verify(lock, times(2)).tryLock(any());
         verify(lock, times(3)).lock(any());
 
-        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         assertEquals(3, storage.rowsCount());
 

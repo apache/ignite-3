@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.jetbrains.annotations.Nullable;
@@ -88,11 +89,13 @@ public class DataStorageModules {
             String igniteInstanceName,
             ConfigurationRegistry configRegistry,
             Path storagePath,
-            @Nullable LongJvmPauseDetector longJvmPauseDetector
+            @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            FailureProcessor failureProcessor
+
     ) {
         return modules.entrySet().stream().collect(toUnmodifiableMap(
                 Entry::getKey,
-                e -> e.getValue().createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector)
+                e -> e.getValue().createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector, failureProcessor)
         ));
     }
 

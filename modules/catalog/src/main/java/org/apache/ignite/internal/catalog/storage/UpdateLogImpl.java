@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -37,6 +36,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
+import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -53,12 +54,13 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Metastore-based implementation of UpdateLog.
@@ -72,6 +74,8 @@ public class UpdateLogImpl implements UpdateLog {
 
     private final MetaStorageManager metastore;
 
+    private final UpdateLogMarshaller marshaller;
+
     private volatile OnUpdateHandler onUpdateHandler;
 
     private volatile @Nullable UpdateListener listener;
@@ -83,6 +87,13 @@ public class UpdateLogImpl implements UpdateLog {
      */
     public UpdateLogImpl(MetaStorageManager metastore) {
         this.metastore = metastore;
+        this.marshaller = new UpdateLogMarshallerImpl();
+    }
+
+    @TestOnly
+    public UpdateLogImpl(MetaStorageManager metastore, UpdateLogMarshaller marshaller) {
+        this.metastore = metastore;
+        this.marshaller = marshaller;
     }
 
     @Override
@@ -103,7 +114,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             recoveryStateFromMetastore(handler);
 
-            UpdateListener listener = new UpdateListener(onUpdateHandler);
+            UpdateListener listener = new UpdateListener(onUpdateHandler, marshaller);
             this.listener = listener;
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
@@ -150,13 +161,18 @@ public class UpdateLogImpl implements UpdateLog {
                     value(CatalogKey.currentVersion()).eq(intToBytes(expectedVersion))
             );
             Update appendUpdateEntryAndBumpVersion = ops(
-                    put(CatalogKey.update(newVersion), ByteUtils.toBytes(update)),
+                    put(CatalogKey.update(newVersion), marshaller.marshall(update)),
                     put(CatalogKey.currentVersion(), intToBytes(newVersion))
             ).yield(true);
 
             Iif iif = iif(versionAsExpected, appendUpdateEntryAndBumpVersion, ops().yield(false));
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
+        } catch (MarshallerException ex) {
+            LOG.warn("Failed to append update log.", ex);
+
+            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
@@ -190,7 +206,7 @@ public class UpdateLogImpl implements UpdateLog {
             Update saveSnapshotAndDropOutdatedUpdates = ops(Stream.concat(
                     Stream.of(
                             put(CatalogKey.snapshotVersion(), intToBytes(snapshotVersion)),
-                            put(CatalogKey.update(snapshotVersion), ByteUtils.toBytes(update))
+                            put(CatalogKey.update(snapshotVersion), marshaller.marshall(update))
                     ),
                     IntStream.range(oldSnapshotVersion, snapshotVersion).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
             ).toArray(Operation[]::new)).yield(true);
@@ -198,6 +214,11 @@ public class UpdateLogImpl implements UpdateLog {
             Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
+        } catch (MarshallerException ex) {
+            LOG.warn("Failed to append update log.", ex);
+
+            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
@@ -227,7 +248,7 @@ public class UpdateLogImpl implements UpdateLog {
                 break;
             }
 
-            UpdateLogEvent update = fromBytes(Objects.requireNonNull(entry.value()));
+            UpdateLogEvent update = marshaller.unmarshall(Objects.requireNonNull(entry.value()));
 
             long revision = entry.revision();
 
@@ -259,9 +280,11 @@ public class UpdateLogImpl implements UpdateLog {
 
     private static class UpdateListener implements WatchListener {
         private final OnUpdateHandler onUpdateHandler;
+        private final UpdateLogMarshaller marshaller;
 
-        private UpdateListener(OnUpdateHandler onUpdateHandler) {
+        private UpdateListener(OnUpdateHandler onUpdateHandler, UpdateLogMarshaller marshaller) {
             this.onUpdateHandler = onUpdateHandler;
+            this.marshaller = marshaller;
         }
 
         @Override
@@ -279,9 +302,16 @@ public class UpdateLogImpl implements UpdateLog {
 
                 assert payload != null : eventEntry;
 
-                UpdateLogEvent update = fromBytes(payload);
+                try {
+                    UpdateLogEvent update = marshaller.unmarshall(payload);
 
-                handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
+                    handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
+                } catch (MarshallerException ex) {
+                    LOG.warn("Failed to deserialize update.", ex);
+
+                    //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+                    return failedFuture(ex);
+                }
             }
 
             return allOf(handleFutures.toArray(CompletableFuture[]::new));

@@ -31,6 +31,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -52,7 +55,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Recovery protocol handshake manager for a server.
@@ -107,7 +109,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
-    private final FailureHandler failureHandler = new FailureHandler();
+    private final FailureProcessor failureProcessor;
 
     /**
      * Constructor.
@@ -126,7 +128,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             ChannelEventLoopsSource channelEventLoopsSource,
             StaleIdDetector staleIdDetector,
             ChannelCreationListener channelCreationListener,
-            BooleanSupplier stopping
+            BooleanSupplier stopping,
+            FailureProcessor failureProcessor
     ) {
         this.launchId = launchId;
         this.consistentId = consistentId;
@@ -135,6 +138,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.channelEventLoopsSource = channelEventLoopsSource;
         this.staleIdDetector = staleIdDetector;
         this.stopping = stopping;
+        this.failureProcessor = failureProcessor;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -348,11 +352,12 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             LOG.warn("Handshake rejected by client: {}", msg.message());
         }
 
-        handshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
+        HandshakeException err = new HandshakeException(msg.message());
+
+        handshakeCompleteFuture.completeExceptionally(err);
 
         if (!ignorable) {
-            // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
-            failureHandler.handleFailure(new IgniteException("Handshake rejected by client: " + msg.message()));
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
         }
     }
 

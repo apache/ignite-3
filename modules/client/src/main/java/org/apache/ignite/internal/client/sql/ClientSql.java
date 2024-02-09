@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.sql;
 
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
@@ -31,25 +32,30 @@ public class ClientSql implements IgniteSql {
     /** Channel. */
     private final ReliableChannel ch;
 
+    /** Marshallers provider. */
+    private final MarshallersProvider marshallers;
+
     /**
      * Constructor.
      *
      * @param ch Channel.
+     * @param marshallers Marshallers provider.
      */
-    public ClientSql(ReliableChannel ch) {
+    public ClientSql(ReliableChannel ch, MarshallersProvider marshallers) {
         this.ch = ch;
+        this.marshallers = marshallers;
     }
 
     /** {@inheritDoc} */
     @Override
     public Session createSession() {
-        return new ClientSession(ch, null, null, null, null, null);
+        return new ClientSession(ch, marshallers, null, null, null, null, null);
     }
 
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new ClientSessionBuilder(ch);
+        return new ClientSessionBuilder(ch, marshallers);
     }
 
     /** {@inheritDoc} */

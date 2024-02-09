@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 
 /**
  * Interface describing a particular change within the {@link VersionedUpdate group}.
  */
-public interface UpdateEntry extends Serializable {
+public interface UpdateEntry extends MarshallableEntry {
     /**
      * Applies own change to the catalog.
      *

@@ -17,15 +17,11 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
-
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /** Index descriptor base class. */
 public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
-    private static final long serialVersionUID = -8045949593661301287L;
-
     /** Table ID. */
     private final int tableId;
 
@@ -38,8 +34,13 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Catalog version in which the index was created. */
     private final int creationCatalogVersion;
 
-    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, CatalogIndexStatus status, int creationCatalogVersion) {
-        super(id, Type.INDEX, name, INITIAL_CAUSALITY_TOKEN);
+    /** Index descriptor type. */
+    private final CatalogIndexDescriptorType indexType;
+
+    CatalogIndexDescriptor(CatalogIndexDescriptorType indexType, int id, String name, int tableId, boolean unique,
+            CatalogIndexStatus status, int creationCatalogVersion, long causalityToken) {
+        super(id, Type.INDEX, name, causalityToken);
+        this.indexType = indexType;
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");
@@ -66,8 +67,40 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return creationCatalogVersion;
     }
 
+    /** Returns catalog index descriptor type. */
+    public CatalogIndexDescriptorType indexType() {
+        return indexType;
+    }
+
     @Override
     public String toString() {
         return S.toString(CatalogIndexDescriptor.class, this, super.toString());
+    }
+
+    /** Catalog index descriptor type. */
+    public enum CatalogIndexDescriptorType {
+        HASH(0),
+        SORTED(1);
+
+        private final int typeId;
+
+        CatalogIndexDescriptorType(int typeId) {
+            this.typeId = typeId;
+        }
+
+        public int id() {
+            return typeId;
+        }
+
+        /** Returns catalog index descriptor type by identifier. */
+        public static CatalogIndexDescriptorType forId(int id) {
+            assert id == HASH.typeId || id == SORTED.typeId : "Unknown index descriptor type ID: " + id;
+
+            if (id == HASH.typeId) {
+                return HASH;
+            } else {
+                return SORTED;
+            }
+        }
     }
 }

@@ -157,5 +157,10 @@ public enum ClientOperationType {
     /**
      * SQL Cursor Next Page ({@link AsyncResultSet#fetchNextPage()}).
      */
-    SQL_CURSOR_NEXT_PAGE
+    SQL_CURSOR_NEXT_PAGE,
+
+    /**
+     * Send streamer batch ({@link org.apache.ignite.table.DataStreamerTarget#streamData}).
+     */
+    STREAMER_BATCH_SEND
 }

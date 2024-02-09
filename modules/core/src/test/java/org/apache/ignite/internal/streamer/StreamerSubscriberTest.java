@@ -152,7 +152,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         var sendFuture = new CompletableFuture<Void>();
 
         var subscriber = new StreamerSubscriber<>(
-                (part, batch) -> sendFuture,
+                (part, batch, deleted) -> sendFuture,
                 partitionProvider,
                 options,
                 log,

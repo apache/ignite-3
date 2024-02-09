@@ -136,7 +136,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                     SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
 
                     Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
-                    Session session = new ClientSessionBuilder(tbl.channel()).build();
+                    Session session = new ClientSessionBuilder(tbl.channel(), tbl.marshallers()).build();
 
                     return session.executeAsync(tx, statement, ser.getArguments())
                             .<AsyncCursor<T>>thenApply(resultSet -> {

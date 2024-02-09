@@ -74,7 +74,7 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        FileDeployerService deployerService = new FileDeployerService();
+        FileDeployerService deployerService = new FileDeployerService("test");
         deployerService.initUnitsFolder(unitsDir);
 
         classLoaderManager = new JobContextManager(
