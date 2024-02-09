@@ -319,6 +319,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
+
     @Test
     void testExceptionInJobPropagatesToClientWithClassAndMessageSync() {
         IgniteException cause = getExceptionInJobExecutionSync(
@@ -370,6 +371,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
+
     @Test
     void testExceptionInColocatedTupleJobPropagatesToClientWithClassAndMessageSync() {
         var key = Tuple.create().set(COLUMN_KEY, 1);
@@ -392,6 +394,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertComputeExceptionWithStackTrace(cause);
     }
+
     @Test
     void testExceptionInColocatedTupleJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceSync() {
         // Second node has sendServerExceptionStackTraceToClient enabled.
