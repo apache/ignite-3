@@ -195,7 +195,7 @@ namespace Apache.Ignite.Tests.Compute
             var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
 
             IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap =
-                Client.Compute.BroadcastAsync<string>(new[] { unknownNode }, Units, EchoJob, "unused"));
+                Client.Compute.BroadcastAsync<string>(new[] { unknownNode }, Units, EchoJob, "unused");
 
             var ex = Assert.ThrowsAsync<IgniteException>(async () => await taskMap[unknownNode]);
 
