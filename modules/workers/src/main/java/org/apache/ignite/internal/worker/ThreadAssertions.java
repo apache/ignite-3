@@ -56,6 +56,10 @@ public class ThreadAssertions {
     private static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
         Thread currentThread = Thread.currentThread();
 
+        if ("main".equals(currentThread.getName())) {
+            return;
+        }
+
         // TODO: IGNITE-21439 - actually throw AssertionError if the operation is not allowed.
 
         if (!(currentThread instanceof ThreadAttributes)) {
