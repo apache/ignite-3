@@ -3328,7 +3328,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             localNode.name(),
                                             null,
                                             localNode.id(),
-                                            primaryReplicaMeta.getLeaseholderId(),
+                                            null,
                                             enlistmentConsistencyToken,
                                             null,
                                             null

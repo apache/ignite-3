@@ -51,7 +51,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
@@ -304,7 +303,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
                     return logicalTopologyFuture.join().nodes().size() == NODE_COUNT;
                 },
-                10_000
+                AWAIT_TIMEOUT_MILLIS
         ));
     }
 
@@ -766,11 +765,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
         for (int i = 0; i < NODE_COUNT; i++) {
-            verify(
-                    getNode(i).raftManager,
-                    times(1)).startRaftGroupNodeWithoutService(any(), any(), any(), any(), any(RaftGroupOptions.class)
-            );
-            verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
+            verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
+                    .startRaftGroupNodeWithoutService(any(), any(), any(), any(), any(RaftGroupOptions.class));
+            verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
+                    .startReplica(any(), any(), any(), any(), any());
         }
     }
 
