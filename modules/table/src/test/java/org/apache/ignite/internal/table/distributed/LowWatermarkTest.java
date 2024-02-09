@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.table.distributed.LowWatermark.LOW_WATERMARK_VAULT_KEY;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -90,7 +89,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
     @Test
     void testStartWithEmptyVault() {
         // Let's check the start with no low watermark in vault.
-        assertThat(this.lowWatermark.start(), willCompleteSuccessfully());
+        lowWatermark.start();
 
         verify(mvGc, never()).updateLowWatermark(any(HybridTimestamp.class));
         assertNull(lowWatermark.getLowWatermark());
@@ -105,7 +104,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
         when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
-        assertThat(this.lowWatermark.start(), willCompleteSuccessfully());
+        this.lowWatermark.start();
 
         verify(mvGc).updateLowWatermark(lowWatermark);
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
@@ -167,7 +166,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
                 return finishGetAllReadOnlyTransactions;
             });
 
-            assertThat(this.lowWatermark.start(), willCompleteSuccessfully());
+            lowWatermark.start();
 
             // Let's check that it hasn't been called more than once.
             assertFalse(startGetAllReadOnlyTransactions.await(1, TimeUnit.SECONDS));

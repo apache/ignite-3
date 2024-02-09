@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.vault.inmemory;
 
-import static java.util.Collections.synchronizedNavigableMap;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 
@@ -36,7 +35,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class InMemoryVaultService implements VaultService {
     /** Map to store values. */
-    private final NavigableMap<ByteArray, byte[]> storage = synchronizedNavigableMap(new TreeMap<>());
+    private final NavigableMap<ByteArray, byte[]> storage = new TreeMap<>();
+
+    /** Mutex. */
+    private final Object mux = new Object();
 
     @Override
     public void start() {
@@ -50,19 +52,25 @@ public class InMemoryVaultService implements VaultService {
 
     @Override
     public VaultEntry get(ByteArray key) {
-        byte[] value = storage.get(key);
+        synchronized (mux) {
+            byte[] value = storage.get(key);
 
-        return value == null ? null : new VaultEntry(key, value);
+            return value == null ? null : new VaultEntry(key, value);
+        }
     }
 
     @Override
     public void put(ByteArray key, byte @Nullable [] val) {
-        storage.put(key, val);
+        synchronized (mux) {
+            storage.put(key, val);
+        }
     }
 
     @Override
     public void remove(ByteArray key) {
-        storage.remove(key);
+        synchronized (mux) {
+            storage.remove(key);
+        }
     }
 
     @Override
@@ -71,7 +79,7 @@ public class InMemoryVaultService implements VaultService {
             return CursorUtils.emptyCursor();
         }
 
-        synchronized (storage) {
+        synchronized (mux) {
             return storage.subMap(fromKey, toKey).entrySet().stream()
                     .map(e -> new VaultEntry(new ByteArray(e.getKey()), e.getValue()))
                     .collect(collectingAndThen(toList(), Cursor::fromIterable));
@@ -80,7 +88,7 @@ public class InMemoryVaultService implements VaultService {
 
     @Override
     public void putAll(Map<ByteArray, byte[]> vals) {
-        synchronized (storage) {
+        synchronized (mux) {
             for (Map.Entry<ByteArray, byte[]> entry : vals.entrySet()) {
                 if (entry.getValue() == null) {
                     storage.remove(entry.getKey());

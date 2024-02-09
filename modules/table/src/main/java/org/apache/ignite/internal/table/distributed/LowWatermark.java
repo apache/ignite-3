@@ -17,13 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -121,47 +117,46 @@ public class LowWatermark implements ManuallyCloseable {
     /**
      * Starts the watermark manager.
      */
-    public CompletableFuture<Void> start() {
-        return inBusyLockAsync(busyLock, () -> readLowWatermarkFromVault()
-                .thenCompose(lowWatermark -> inBusyLock(busyLock, () -> {
-                    if (lowWatermark == null) {
-                        LOG.info("Previous value of the low watermark was not found, will schedule to update it");
+    public void start() {
+        inBusyLock(busyLock, () -> {
+            HybridTimestamp lowWatermark = readLowWatermarkFromVault();
 
-                        scheduleUpdateLowWatermarkBusy();
+            if (lowWatermark == null) {
+                LOG.info("Previous value of the low watermark was not found, will schedule to update it");
 
-                        return nullCompletedFuture();
-                    }
+                scheduleUpdateLowWatermarkBusy();
 
-                    LOG.info(
-                            "Low watermark has been successfully retrieved from the vault and is scheduled to be updated: {}",
-                            lowWatermark
-                    );
+                return;
+            }
 
-                    return txManager.updateLowWatermark(lowWatermark)
-                            .thenRun(() -> inBusyLock(busyLock, () -> {
-                                this.lowWatermark = lowWatermark;
+            LOG.info(
+                    "Low watermark has been successfully retrieved from the vault and is scheduled to be updated: {}",
+                    lowWatermark
+            );
 
-                                runGcAndScheduleUpdateLowWatermarkBusy(lowWatermark);
-                            }));
-                }))
-                .whenComplete((unused, throwable) -> {
-                    if (throwable != null && !(throwable instanceof NodeStoppingException)) {
-                        LOG.error("Error during the Watermark manager start", throwable);
+            txManager.updateLowWatermark(lowWatermark)
+                    .thenRun(() -> inBusyLock(busyLock, () -> {
+                        this.lowWatermark = lowWatermark;
 
-                        failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
+                        runGcAndScheduleUpdateLowWatermarkBusy(lowWatermark);
+                    }))
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null && !(throwable instanceof NodeStoppingException)) {
+                            LOG.error("Error during the Watermark manager start", throwable);
 
-                        inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
-                    }
-                })
-        );
+                            failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
+
+                            inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
+                        }
+                    });
+        });
     }
 
-    private CompletableFuture<HybridTimestamp> readLowWatermarkFromVault() {
-        return supplyAsync(() -> inBusyLock(busyLock, () -> {
-            VaultEntry vaultEntry = vaultManager.get(LOW_WATERMARK_VAULT_KEY);
+    @Nullable
+    private HybridTimestamp readLowWatermarkFromVault() {
+        VaultEntry vaultEntry = vaultManager.get(LOW_WATERMARK_VAULT_KEY);
 
-            return vaultEntry == null ? null : ByteUtils.fromBytes(vaultEntry.value());
-        }), scheduledThreadPool);
+        return vaultEntry == null ? null : ByteUtils.fromBytes(vaultEntry.value());
     }
 
     @Override
