@@ -35,6 +35,6 @@ class ItPersistentVaultServiceTest extends VaultServiceTest {
     /** {@inheritDoc} */
     @Override
     protected VaultService getVaultService() {
-        return new PersistentVaultService("test", vaultDir);
+        return new PersistentVaultService(vaultDir);
     }
 }

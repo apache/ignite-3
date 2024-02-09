@@ -77,7 +77,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -703,9 +702,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, Consumer<MvTableStorage> tableStorageDecorator,
             Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
         VaultManager vaultManager = mock(VaultManager.class);
-
-        when(vaultManager.get(any(ByteArray.class))).thenReturn(nullCompletedFuture());
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
 
         TableManager tableManager = new TableManager(
                 NODE_NAME,

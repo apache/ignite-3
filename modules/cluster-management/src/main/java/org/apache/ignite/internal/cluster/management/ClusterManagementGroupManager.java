@@ -247,17 +247,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      */
     @Nullable
     private CompletableFuture<CmgRaftService> recoverLocalState() {
-        LocalState localState;
-
-        try {
-            localState = localStateStorage.getLocalState().get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new IgniteInternalException("Interrupted while retrieving local CMG state", e);
-        } catch (ExecutionException e) {
-            throw new IgniteInternalException("Error while retrieving local CMG state", e);
-        }
+        LocalState localState = localStateStorage.getLocalState();
 
         if (localState == null) {
             return null;
@@ -336,8 +326,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .thenCompose(state -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
-                    return localStateStorage.saveLocalState(localState)
-                            .thenCompose(v -> joinCluster(service, state.clusterTag()));
+                    localStateStorage.saveLocalState(localState);
+
+                    return joinCluster(service, state.clusterTag());
                 });
     }
 
@@ -440,7 +431,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                 raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
-                localStateStorage.clear().get();
+                localStateStorage.clear();
             } catch (Exception e) {
                 throw new IgniteInternalException("Error when cleaning the CMG state", e);
             }
@@ -578,8 +569,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .thenCompose(service -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
-                    return localStateStorage.saveLocalState(localState)
-                            .thenCompose(v -> joinCluster(service, state.clusterTag()));
+                    localStateStorage.saveLocalState(localState);
+
+                    return joinCluster(service, state.clusterTag());
                 });
     }
 
