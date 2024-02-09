@@ -472,7 +472,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 NamedThreadFactory.create(nodeName, "tx-state-storage-pool", LOG));
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
-                NamedThreadFactory.create(nodeName, "scan-query-executor-", LOG));
+                IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
