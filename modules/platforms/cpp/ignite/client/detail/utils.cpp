@@ -240,7 +240,8 @@ std::vector<std::byte> pack_tuple(
 
         assert(!unmapped_columns_str.empty());
         throw ignite_error("Tuple doesn't match schema: schemaVersion=" + std::to_string(sch.version)
-            + ", extraColumns=" + unmapped_columns_str, std::int32_t(error_flag::UNMAPPED_COLUMNS_PRESENT));
+                + ", extraColumns=" + unmapped_columns_str,
+            std::int32_t(error_flag::UNMAPPED_COLUMNS_PRESENT));
     }
 
     return builder.build();

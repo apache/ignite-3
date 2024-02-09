@@ -75,13 +75,8 @@ handshake_response parse_handshake_response(bytes_view message) {
     auto dbms_ver_patch = reader.read_uint8_nullable();
     auto dbms_ver_pre_release = reader.read_string_nullable();
 
-    res.context.set_cluster_version({
-        dbms_ver_major,
-        dbms_ver_minor,
-        dbms_ver_maintenance,
-        dbms_ver_patch,
-        dbms_ver_pre_release
-    });
+    res.context.set_server_version(
+        {dbms_ver_major, dbms_ver_minor, dbms_ver_maintenance, dbms_ver_patch, dbms_ver_pre_release});
 
     reader.skip(); // Features.
     reader.skip(); // Extensions.
