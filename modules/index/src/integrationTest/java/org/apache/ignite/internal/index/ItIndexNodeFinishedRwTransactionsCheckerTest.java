@@ -41,6 +41,8 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.thread.ThreadAssertionsProperties;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -52,6 +54,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** For testing {@link IndexNodeFinishedRwTransactionsChecker}. */
+@WithSystemProperty(key = ThreadAssertionsProperties.ENABLED_PROPERTY, value = "false")
 public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClassIntegrationTest {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 

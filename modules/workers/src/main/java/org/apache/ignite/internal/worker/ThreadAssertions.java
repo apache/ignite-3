@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.worker;
 
+import static org.apache.ignite.internal.thread.ThreadAssertionsProperties.ENABLED_PROPERTY;
+
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.ThreadAttributes;
@@ -26,11 +28,13 @@ import org.apache.ignite.internal.thread.ThreadOperation;
  * Tools to assert that the current thread allows to perform a requested operation.
  */
 public class ThreadAssertions {
-    public static final String ENABLED_PROPERTY = "ignite.thread.assertions.enabled";
-
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
     private static final boolean ENABLED = Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "false"));
+
+    static {
+        LOG.info("Thread assertions enablement status: {}", ENABLED);
+    }
 
     /**
      * Returns {@code true} if thread assertions are enabled.
