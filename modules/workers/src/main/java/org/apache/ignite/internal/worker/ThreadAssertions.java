@@ -30,17 +30,15 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 public class ThreadAssertions {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
-    private static final boolean ENABLED = Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "false"));
-
     static {
-        LOG.info("Thread assertions enablement status: {}", ENABLED);
+        LOG.info("Thread assertions enablement status: {}", enabled());
     }
 
     /**
      * Returns {@code true} if thread assertions are enabled.
      */
     public static boolean enabled() {
-        return ENABLED;
+        return Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "false"));
     }
 
     /**
