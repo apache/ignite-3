@@ -514,6 +514,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
+                threadPools.tableIoExecutor(),
                 threadPools.partitionOperationsExecutor(),
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
@@ -528,7 +529,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 failureProcessor
         );
 
-        var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
+        var indexManager = new IndexManager(
+                schemaManager,
+                tableManager,
+                catalogManager,
+                metaStorageMgr,
+                threadPools.tableIoExecutor(),
+                registry
+        );
 
         var metricManager = new MetricManager();
 

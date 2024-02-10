@@ -719,6 +719,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, catalogManager, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 partitionOperationsExecutor,
+                partitionOperationsExecutor,
                 clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),

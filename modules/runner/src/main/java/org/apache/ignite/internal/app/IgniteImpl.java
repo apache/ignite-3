@@ -658,6 +658,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
+                threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 clock,
                 outgoingSnapshotsManager,
@@ -672,7 +673,14 @@ public class IgniteImpl implements Ignite {
                 failureProcessor
         );
 
-        indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
+        indexManager = new IndexManager(
+                schemaManager,
+                distributedTblMgr,
+                catalogManager,
+                metaStorageMgr,
+                threadPoolsManager.tableIoExecutor(),
+                registry
+        );
 
         indexBuildingManager = new IndexBuildingManager(
                 name,

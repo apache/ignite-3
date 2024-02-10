@@ -387,6 +387,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param schemaManager Schema manager.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *         volatile tables.
+     * @param ioExecutor Separate executor for IO operations like partition storage initialization or partition raft group meta data
+     *     persisting.
+     * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
+     *     will be executed.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
@@ -409,6 +413,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
+            ExecutorService ioExecutor,
             StripedThreadPoolExecutor partitionOperationsExecutor,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
@@ -432,6 +437,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
+        this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
@@ -478,14 +484,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
         int cpus = Runtime.getRuntime().availableProcessors();
-
-        ioExecutor = new ThreadPoolExecutor(
-                Math.min(cpus * 3, 25),
-                Integer.MAX_VALUE,
-                100,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
 
         incomingSnapshotsExecutor = new ThreadPoolExecutor(
                 cpus,
@@ -1082,7 +1080,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 lowWatermark,
                 mvGc,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),
