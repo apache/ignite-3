@@ -2205,7 +2205,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 
                     return stopPartition(tablePartitionId, table)
-                            .thenCompose(v -> destroyPartitionStorages(tablePartitionId, table));
+                            .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
                 });
     }
 
