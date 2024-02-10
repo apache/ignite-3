@@ -52,7 +52,9 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
+import org.apache.ignite.internal.thread.ThreadAssertionsProperties;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -190,6 +192,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = ThreadAssertionsProperties.ENABLED_PROPERTY, value = "false")
     public void testClearingTransactionResourcesWhenPrimaryChange() throws Exception {
         TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
