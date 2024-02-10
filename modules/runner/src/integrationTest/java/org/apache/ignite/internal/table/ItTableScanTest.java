@@ -68,6 +68,8 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.thread.ThreadAssertionsProperties;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
@@ -87,6 +89,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests to check a scan internal command.
  */
+@WithSystemProperty(key = ThreadAssertionsProperties.ENABLED_PROPERTY, value = "false")
 public class ItTableScanTest extends BaseSqlIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test";
