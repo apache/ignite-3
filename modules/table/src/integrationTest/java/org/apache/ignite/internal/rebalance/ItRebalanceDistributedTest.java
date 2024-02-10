@@ -167,6 +167,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -894,6 +895,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final CatalogManager catalogManager;
 
+        private final SchemaSyncService schemaSyncService;
+
         private final ClockWaiter clockWaiter;
 
         private final List<IgniteComponent> nodeComponents = new CopyOnWriteArrayList<>();
@@ -1099,7 +1102,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);
 
-            var schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
+            schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
             distributionZoneManager = new DistributionZoneManager(
                     name,
@@ -1176,6 +1179,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             };
 
             indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageManager, registry);
+        }
+
+        private void waitForMetadataCompletenessAtNow() {
+            assertThat(schemaSyncService.waitForMetadataCompleteness(hybridClock.now()), willCompleteSuccessfully());
         }
 
         /**
@@ -1407,10 +1414,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static void alterZone(Node node, String zoneName, int replicas) {
+        node.waitForMetadataCompletenessAtNow();
+
         DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
     private static void createTable(Node node, String zoneName, String tableName) {
+        node.waitForMetadataCompletenessAtNow();
+
         TableTestUtils.createTable(
                 node.catalogManager,
                 DEFAULT_SCHEMA_NAME,
