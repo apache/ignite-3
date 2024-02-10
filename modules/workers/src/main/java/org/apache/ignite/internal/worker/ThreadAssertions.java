@@ -63,6 +63,9 @@ public class ThreadAssertions {
         if ("main".equals(currentThread.getName())) {
             return;
         }
+        if ("Test worker".equals(currentThread.getName())) {
+            return;
+        }
 
         // TODO: IGNITE-21439 - actually throw AssertionError if the operation is not allowed.
 
