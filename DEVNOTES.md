@@ -164,6 +164,8 @@ High-level modules structure and detailed modules description can be found in th
 
 ## Packaging
 
+> Change the `<version>` placeholder into the version you'd like to use.
+
 ### Zip packaging
 ```shell
 ./gradlew clean allDistZip
@@ -278,6 +280,7 @@ docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
 
 The easiest way to start as many nodes as you want is to use the docker-compose file located in the `packaging/docker` directory.
 If instead you want to start nodes manually, you can use the following commands:
+
 
 ```shell
 ./gradlew clean allDistZip
