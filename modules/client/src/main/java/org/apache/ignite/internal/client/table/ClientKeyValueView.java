@@ -541,18 +541,29 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
                     int i = 0;
 
-                    // TODO: Get marshallers once outside the loop.
                     Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
                     Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
+                    var noValueSet = new BitSet();
 
                     for (Entry<K, V> e : items) {
                         boolean del = deleted != null && deleted.get(i++);
+                        int colCount = del ? s.keyColumnCount() : s.columns().length;
 
-                        if (del) {
-                            keySer.writeRecRaw(null, e.getKey(), s, w, TuplePart.KEY);
-                        } else {
-                            writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                        noValueSet.clear();
+                        var builder = new BinaryTupleBuilder(colCount);
+                        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+
+                        try {
+                            keyMarsh.writeObject(e.getKey(), writer);
+
+                            if (!del) {
+                                valMarsh.writeObject(e.getValue(), writer);
+                            }
+                        } catch (MarshallerException ex) {
+                            throw new IgniteException(INTERNAL_ERR, ex.getMessage(), ex);
                         }
+
+                        w.out().packBinaryTuple(builder, noValueSet);
                     }
                 },
                 r -> null,
