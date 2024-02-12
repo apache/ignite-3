@@ -314,8 +314,10 @@ public class ClientTupleSerializer {
         w.packInt(schema.version());
         w.packInt(tuples.size());
 
+        int i = 0;
         for (var tuple : tuples) {
-            writeTuple(null, tuple, schema, out, false, true);
+            boolean keyOnly = deleted != null && deleted.get(i++);
+            writeTuple(null, tuple, schema, out, keyOnly, true);
         }
     }
 
