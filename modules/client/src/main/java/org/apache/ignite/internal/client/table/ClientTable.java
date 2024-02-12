@@ -43,6 +43,7 @@ import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteException;
@@ -65,6 +66,8 @@ public class ClientTable implements Table {
 
     private final ReliableChannel ch;
 
+    private final MarshallersProvider marshallers;
+
     private final ConcurrentHashMap<Integer, CompletableFuture<ClientSchema>> schemas = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
@@ -83,14 +86,17 @@ public class ClientTable implements Table {
      * Constructor.
      *
      * @param ch Channel.
+     * @param marshallers Marshallers provider.
      * @param id Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, int id, String name) {
+    public ClientTable(ReliableChannel ch, MarshallersProvider marshallers, int id, String name) {
         assert ch != null;
+        assert marshallers != null;
         assert name != null && !name.isEmpty();
 
         this.ch = ch;
+        this.marshallers = marshallers;
         this.id = id;
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
@@ -112,6 +118,15 @@ public class ClientTable implements Table {
      */
     ReliableChannel channel() {
         return ch;
+    }
+
+    /**
+     * Gets the marshallers provider.
+     *
+     * @return Marshallers provider.
+     */
+    MarshallersProvider marshallers() {
+        return marshallers;
     }
 
     /** {@inheritDoc} */
@@ -241,7 +256,7 @@ public class ClientTable implements Table {
             }
         }
 
-        var schema = new ClientSchema(schemaVer, columns, colocationColumns);
+        var schema = new ClientSchema(schemaVer, columns, colocationColumns, marshallers);
 
         schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
@@ -621,6 +636,12 @@ public class ClientTable implements Table {
 
         if (partitions == null || partitions.isEmpty()) {
             return null;
+        }
+
+        Integer partition = provider.partition();
+
+        if (partition != null) {
+            return partitions.get(partition);
         }
 
         Integer hash = provider.getObjectHashCode(schema);

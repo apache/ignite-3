@@ -35,12 +35,12 @@ class ClientDataStreamer {
     static <R> CompletableFuture<Void> streamData(
             Publisher<R> publisher,
             DataStreamerOptions options,
-            StreamerBatchSender<R, String> batchSender,
-            StreamerPartitionAwarenessProvider<R, String> partitionAwarenessProvider,
+            StreamerBatchSender<R, Integer> batchSender,
+            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<R, String> subscriber = new StreamerSubscriber<>(
+        StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
                 batchSender, partitionAwarenessProvider, streamerOpts, log, tbl.channel().metrics());
 
         publisher.subscribe(subscriber);

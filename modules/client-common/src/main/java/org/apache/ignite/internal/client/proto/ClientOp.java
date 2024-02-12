@@ -164,4 +164,7 @@ public class ClientOp {
 
     /** Change compute job priority. */
     public static final int COMPUTE_CHANGE_PRIORITY = 61;
+
+    /** Send streamer batch. */
+    public static final int STREAMER_BATCH_SEND = 62;
 }

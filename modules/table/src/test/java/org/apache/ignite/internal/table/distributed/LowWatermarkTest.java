@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.table.distributed.LowWatermark.LOW_WATERMARK_VAULT_KEY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -42,10 +41,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -79,19 +78,17 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        lowWatermark = new LowWatermark("test", lowWatermarkConfig, clock, txManager, vaultManager, mvGc);
+        lowWatermark = new LowWatermark("test", lowWatermarkConfig, clock, txManager, vaultManager, mvGc, mock(FailureProcessor.class));
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         lowWatermark.close();
     }
 
     @Test
     void testStartWithEmptyVault() {
         // Let's check the start with no low watermark in vault.
-        when(vaultManager.get(LOW_WATERMARK_VAULT_KEY)).thenReturn(nullCompletedFuture());
-
         lowWatermark.start();
 
         verify(mvGc, never()).updateLowWatermark(any(HybridTimestamp.class));
@@ -103,7 +100,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
         HybridTimestamp lowWatermark = new HybridTimestamp(10, 10);
 
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY))
-                .thenReturn(completedFuture(new VaultEntry(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermark))));
+                .thenReturn(new VaultEntry(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermark)));
 
         when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
@@ -133,8 +130,6 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
         when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
-
         // Make a predictable candidate to make it easier to test.
         HybridTimestamp newLowWatermarkCandidate = lowWatermark.createNewLowWatermarkCandidate();
 
@@ -156,10 +151,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testUpdateWatermarkSequentially() throws Exception {
-        when(vaultManager.get(LOW_WATERMARK_VAULT_KEY)).thenReturn(nullCompletedFuture());
         assertThat(lowWatermarkConfig.updateFrequency().update(10L), willSucceedFast());
-
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
 
         CountDownLatch startGetAllReadOnlyTransactions = new CountDownLatch(3);
 

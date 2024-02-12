@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -165,7 +166,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId), isNull());
 
         // Let's check with a null binaryRow.
         binaryRow = null;
@@ -176,7 +177,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId), isNull());
     }
 
     @Test
@@ -203,7 +204,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId), isNull());
 
         // Let's check with a null binaryRow.
         binaryRow = null;
@@ -214,7 +215,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId), isNull());
     }
 
     private static MvPartitionStorage createMvPartition(MvTableStorage tableStorage, int partitionId) {

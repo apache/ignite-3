@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,19 +42,19 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
 import org.apache.ignite.internal.network.messages.MessageWithInstant;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageImpl;
-import org.apache.ignite.internal.network.messages.TestMessageSerializationFactory;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
@@ -65,10 +65,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.apache.ignite.internal.network.serialization.MessageDeserializer;
-import org.apache.ignite.internal.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
@@ -100,6 +97,9 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Mock
     private CriticalWorkerRegistry criticalWorkerRegistry;
+
+    @Mock
+    private FailureProcessor failureProcessor;
 
     @InjectConfiguration("mock.port=" + SENDER_PORT)
     private NetworkConfiguration senderNetworkConfig;
@@ -169,74 +169,16 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void sendMessagesOneChannel() throws Exception {
-        AtomicBoolean release = new AtomicBoolean(false);
-        MessageSerializer<TestMessage> serializer = new TestMessageSerializationFactory(
-                new TestMessagesFactory()).createSerializer();
-        Serializer longWaitSerializer = new Serializer(TestMessageImpl.GROUP_TYPE, TestMessageImpl.TYPE,
-                (message, writer) -> release.get()
-                        && serializer.writeMessage((TestMessage) message, writer));
-
-        try (Services senderServices = createMessagingService(
-                senderNode,
-                senderNetworkConfig,
-                () -> {},
-                mockSerializationRegistry(longWaitSerializer));
-                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
-        ) {
-            try {
-                CountDownLatch latch = new CountDownLatch(2);
-                receiverServices.messagingService.addMessageHandler(
-                        TestMessageTypes.class,
-                        (message, sender, correlationId) -> latch.countDown()
-                );
-
-                senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
-                senderServices.messagingService.send(receiverNode, AllTypesMessageImpl.builder().build());
-
-                assertThat(latch.getCount(), is(2L));
-                release.set(true);
-                assertTrue(latch.await(1, TimeUnit.SECONDS));
-            } finally {
-                release.set(true);
-            }
-        }
-    }
-
-    @Test
     public void sendMessagesTwoChannels() throws Exception {
-        AtomicBoolean release = new AtomicBoolean(false);
-        MessageSerializer<TestMessage> serializer = new TestMessageSerializationFactory(
-                new TestMessagesFactory()).createSerializer();
-        Serializer longWaitSerializer = new Serializer(TestMessageImpl.GROUP_TYPE, TestMessageImpl.TYPE,
-                (message, writer) -> release.get()
-                        && serializer.writeMessage((TestMessage) message, writer));
-
-        try (Services senderServices = createMessagingService(
-                senderNode,
-                senderNetworkConfig,
-                () -> {},
-                mockSerializationRegistry(longWaitSerializer));
+        try (Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
                 Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
-            try {
-                CountDownLatch latch = new CountDownLatch(2);
-                receiverServices.messagingService.addMessageHandler(
-                        TestMessageTypes.class,
-                        (message, sender, correlationId) -> latch.countDown()
-                );
+            assertThat(receiverServices.connectionManager.channels(), is(anEmptyMap()));
 
-                senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
-                senderServices.messagingService.send(receiverNode, TEST_CHANNEL, AllTypesMessageImpl.builder().build());
+            senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
+            senderServices.messagingService.send(receiverNode, TEST_CHANNEL, AllTypesMessageImpl.builder().build());
 
-                await().timeout(10, TimeUnit.SECONDS)
-                        .until(() -> latch.getCount() == 1);
-
-                release.set(true);
-                assertTrue(latch.await(1, TimeUnit.SECONDS));
-            } finally {
-                release.set(true);
-            }
+            assertTrue(waitForCondition(() -> receiverServices.connectionManager.channels().size() == 2, 10_000));
         }
     }
 
@@ -385,45 +327,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static MessageSerializationRegistry mockSerializationRegistry(Serializer... serializers) {
-        MessageSerializationRegistry defaultRegistry = defaultSerializationRegistry();
-
-        return new MessageSerializationRegistry() {
-            @Override
-            public MessageSerializationRegistry registerFactory(short groupType, short messageType,
-                    MessageSerializationFactory<?> factory) {
-                return this;
-            }
-
-            @Override
-            public <T extends NetworkMessage> MessageSerializer<T> createSerializer(short groupType, short messageType) {
-                for (Serializer serializer : serializers) {
-                    if (serializer.groupType == groupType && serializer.messageType == messageType) {
-                        return (MessageSerializer<T>) serializer.serializer;
-                    }
-                }
-                return defaultRegistry.createSerializer(groupType, messageType);
-            }
-
-            @Override
-            public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short groupType, short messageType) {
-                return defaultRegistry.createDeserializer(groupType, messageType);
-            }
-        };
-    }
-
-    private static class Serializer {
-        private final short groupType;
-        private final short messageType;
-        private final MessageSerializer<? extends NetworkMessage> serializer;
-
-        private Serializer(short groupType, short messageType, MessageSerializer<? extends NetworkMessage> serializer) {
-            this.groupType = groupType;
-            this.messageType = messageType;
-            this.serializer = serializer;
-        }
-    }
-
     private static void awaitQuietly(CountDownLatch latch) {
         try {
             latch.await();
@@ -484,7 +387,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 node.name(),
                 bootstrapFactory,
                 staleIdDetector,
-                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector)
+                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector),
+                failureProcessor
         );
         connectionManager.start();
 
@@ -493,8 +397,11 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
-    private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake,
-            NettyBootstrapFactory bootstrapFactory, StaleIdDetector staleIdDetector) {
+    private RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(
+            Runnable beforeHandshake,
+            NettyBootstrapFactory bootstrapFactory,
+            StaleIdDetector staleIdDetector
+    ) {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
             public RecoveryClientHandshakeManager create(
@@ -511,7 +418,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         bootstrapFactory,
                         staleIdDetector,
                         channel -> {},
-                        () -> false
+                        () -> false,
+                        failureProcessor
                 ) {
                     @Override
                     protected void finishHandshake() {

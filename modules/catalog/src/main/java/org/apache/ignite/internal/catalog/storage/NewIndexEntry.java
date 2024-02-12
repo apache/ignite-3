@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -25,14 +26,19 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes addition of a new index.
  */
 public class NewIndexEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 6717363577013237711L;
+    public static final CatalogObjectSerializer<NewIndexEntry> SERIALIZER = new NewIndexEntrySerializer();
 
     private final CatalogIndexDescriptor descriptor;
 
@@ -52,6 +58,11 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     /** Gets descriptor of an index to add. */
     public CatalogIndexDescriptor descriptor() {
         return descriptor;
+    }
+
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.NEW_INDEX.id();
     }
 
     @Override
@@ -89,5 +100,24 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link NewIndexEntry}.
+     */
+    private static class NewIndexEntrySerializer implements CatalogObjectSerializer<NewIndexEntry> {
+        @Override
+        public NewIndexEntry readFrom(IgniteDataInput input) throws IOException {
+            String schemaName = input.readUTF();
+            CatalogIndexDescriptor descriptor = CatalogSerializationUtils.IDX_SERIALIZER.readFrom(input);
+
+            return new NewIndexEntry(descriptor, schemaName);
+        }
+
+        @Override
+        public void writeTo(NewIndexEntry entry, IgniteDataOutput output) throws IOException {
+            output.writeUTF(entry.schemaName);
+            CatalogSerializationUtils.IDX_SERIALIZER.writeTo(entry.descriptor(), output);
+        }
     }
 }

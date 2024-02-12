@@ -129,6 +129,7 @@ public class DataStreamerOptions {
          * @return This builder instance.
          */
         public Builder perNodeParallelOperations(int perNodeParallelOperations) {
+            // TODO IGNITE-21283: Rename to perPartitionParallelOperations?
             if (perNodeParallelOperations <= 0) {
                 throw new IllegalArgumentException("Per node parallel operations must be positive: " + perNodeParallelOperations);
             }

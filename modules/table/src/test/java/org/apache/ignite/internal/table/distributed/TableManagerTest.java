@@ -74,9 +74,9 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -703,9 +703,6 @@ public class TableManagerTest extends IgniteAbstractTest {
             Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
         VaultManager vaultManager = mock(VaultManager.class);
 
-        when(vaultManager.get(any(ByteArray.class))).thenReturn(nullCompletedFuture());
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
-
         TableManager tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -732,7 +729,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 catalogManager,
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(node),
-                () -> mock(IgniteSql.class)
+                () -> mock(IgniteSql.class),
+                mock(FailureProcessor.class)
         ) {
 
             @Override
@@ -774,7 +772,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
-                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null)
+                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null, mock(FailureProcessor.class))
         );
 
         assertThat(manager.start(), willCompleteSuccessfully());

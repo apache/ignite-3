@@ -25,8 +25,10 @@ dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
 
+    implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations

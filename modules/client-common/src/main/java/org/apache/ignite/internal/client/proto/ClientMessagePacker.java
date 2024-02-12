@@ -510,6 +510,19 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a bit set.
+     *
+     * @param val Bit set value.
+     */
+    public void packBitSetNullable(@Nullable BitSet val) {
+        if (val == null) {
+            packNil();
+        } else {
+            packBitSet(val);
+        }
+    }
+
+    /**
      * Writes an integer array.
      *
      * @param arr Integer array value.

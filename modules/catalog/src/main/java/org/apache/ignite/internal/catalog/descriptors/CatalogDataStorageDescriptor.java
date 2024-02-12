@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.Serializable;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readNullableString;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeNullableString;
+
+import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Data storage descriptor.
  */
 // TODO: IGNITE-19719 Must be storage engine specific
-public class CatalogDataStorageDescriptor implements Serializable {
-    private static final long serialVersionUID = -5268530663660582126L;
+public class CatalogDataStorageDescriptor {
+    public static CatalogObjectSerializer<CatalogDataStorageDescriptor> SERIALIZER = new DataStorageDescriptorSerializer();
+
     private final String engine;
 
     private final String dataRegion;
@@ -58,5 +65,24 @@ public class CatalogDataStorageDescriptor implements Serializable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link CatalogDataStorageDescriptor}.
+     */
+    private static class DataStorageDescriptorSerializer implements CatalogObjectSerializer<CatalogDataStorageDescriptor> {
+        @Override
+        public CatalogDataStorageDescriptor readFrom(IgniteDataInput input) throws IOException {
+            String engine = input.readUTF();
+            String region = readNullableString(input);
+
+            return new CatalogDataStorageDescriptor(engine, region);
+        }
+
+        @Override
+        public void writeTo(CatalogDataStorageDescriptor descriptor, IgniteDataOutput output) throws IOException {
+            output.writeUTF(descriptor.engine());
+            writeNullableString(descriptor.dataRegion(), output);
+        }
     }
 }

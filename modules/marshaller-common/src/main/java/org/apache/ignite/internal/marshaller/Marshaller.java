@@ -46,7 +46,7 @@ public abstract class Marshaller {
      * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Marshaller.
      */
-    public static Marshaller createMarshaller(
+    static Marshaller createMarshaller(
             MarshallerColumn[] cols,
             Mapper<?> mapper,
             boolean requireAllFields,

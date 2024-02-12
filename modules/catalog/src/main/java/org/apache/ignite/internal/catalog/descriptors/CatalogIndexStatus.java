@@ -36,21 +36,21 @@ public enum CatalogIndexStatus {
      *
      * <p>Write only.</p>
      */
-    REGISTERED,
+    REGISTERED(0),
 
     /**
      * Index is in the process of being built.
      *
      * <p>Write only.</p>
      */
-    BUILDING,
+    BUILDING(1),
 
     /**
      * Index is built and ready to use.
      *
      * <p>Readable and writable.</p>
      */
-    AVAILABLE,
+    AVAILABLE(2),
 
     /**
      * DROP INDEX command has been executed, the index is waiting for RW transactions started when the index was {@link #AVAILABLE}
@@ -59,5 +59,34 @@ public enum CatalogIndexStatus {
      * <p>New RW transactions cannot read the index, but they write to it. RO transactions can still read from it if the readTimestamp
      * corresponds to a moment when the index was still {@link #AVAILABLE}.</p>
      */
-    STOPPING
+    STOPPING(3);
+
+    private static final CatalogIndexStatus[] VALS = new CatalogIndexStatus[values().length];
+
+    private final int id;
+
+    CatalogIndexStatus(int id) {
+        this.id = id;
+    }
+
+    public int id() {
+        return id;
+    }
+
+    static {
+        for (CatalogIndexStatus status : values()) {
+            assert VALS[status.id] == null : "Found duplicate id " + status.id;
+
+            VALS[status.id()] = status;
+        }
+    }
+
+    /** Returns index status by identifier. */
+    static CatalogIndexStatus forId(int id) {
+        if (id >= 0 && id < VALS.length) {
+            return VALS[id];
+        }
+
+        throw new IllegalArgumentException("Incorrect index status identifier: " + id);
+    }
 }

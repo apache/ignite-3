@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -52,6 +53,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -489,6 +491,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 checkpointConfig,
                 filePageStoreManager,
                 partitionMetaManager,
@@ -499,7 +502,12 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
-        return new FilePageStoreManager("test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
+        return new FilePageStoreManager(
+                "test",
+                storagePath,
+                new RandomAccessFileIoFactory(),
+                PAGE_SIZE,
+                mock(FailureProcessor.class));
     }
 
     private static void initGroupFilePageStores(

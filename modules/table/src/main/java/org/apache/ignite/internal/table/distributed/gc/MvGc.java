@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
-import static org.apache.ignite.internal.thread.NamedThreadFactory.threadPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
@@ -96,7 +95,7 @@ public class MvGc implements ManuallyCloseable {
                 30,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory(threadPrefix(nodeName, "mv-gc"), LOG)
+                NamedThreadFactory.create(nodeName, "mv-gc", LOG)
         );
     }
 

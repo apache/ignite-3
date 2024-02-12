@@ -64,32 +64,67 @@ public class JobStatus implements Serializable {
         this.finishTime = builder.finishTime;
     }
 
+    /**
+     * Creates a new builder.
+     *
+     * @return Builder.
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Returns job ID.
+     *
+     * @return Job ID.
+     */
     public UUID id() {
         return id;
     }
 
+    /**
+     * Returns job state.
+     *
+     * @return Job state.
+     */
     public JobState state() {
         return state;
     }
 
+    /**
+     * Returns job create time.
+     *
+     * @return Job create time.
+     */
     public Instant createTime() {
         return createTime;
     }
 
+    /**
+     * Returns job start time. {@code null} if the job has not started yet.
+     *
+     * @return Job start time. {@code null} if the job has not started yet.
+     */
     @Nullable
     public Instant startTime() {
         return startTime;
     }
 
+    /**
+     * Returns job finish time. {@code null} if the job has not finished yet.
+     *
+     * @return Job finish time. {@code null} if the job has not finished yet.
+     */
     @Nullable
     public Instant finishTime() {
         return finishTime;
     }
 
+    /**
+     * Returns a new builder with the same property values as this JobStatus.
+     *
+     * @return Builder.
+     */
     public Builder toBuilder() {
         return new Builder(this);
     }
@@ -106,6 +141,9 @@ public class JobStatus implements Serializable {
         @Nullable
         private Instant finishTime;
 
+        /**
+         * Constructor.
+         */
         public Builder() {
         }
 
@@ -117,31 +155,66 @@ public class JobStatus implements Serializable {
             this.finishTime = status.finishTime;
         }
 
+        /**
+         * Sets job ID.
+         *
+         * @param id Job ID.
+         * @return This builder.
+         */
         public Builder id(UUID id) {
             this.id = id;
             return this;
         }
 
+        /**
+         * Sets job state.
+         *
+         * @param state Job state.
+         * @return This builder.
+         */
         public Builder state(JobState state) {
             this.state = state;
             return this;
         }
 
+        /**
+         * Sets job create time.
+         *
+         * @param createTime Job create time.
+         * @return This builder.
+         */
         public Builder createTime(Instant createTime) {
             this.createTime = createTime;
             return this;
         }
 
+        /**
+         * Sets job start time.
+         *
+         * @param startTime Job start time.
+         * @return This builder.
+         */
         public Builder startTime(@Nullable Instant startTime) {
             this.startTime = startTime;
             return this;
         }
 
+        /**
+         * Sets job finish time.
+         *
+         * @param finishTime Job finish time.
+         * @return This builder.
+         */
         public Builder finishTime(@Nullable Instant finishTime) {
             this.finishTime = finishTime;
             return this;
         }
 
+        /**
+         * Builds a new JobStatus.
+         *
+         * @return JobStatus.
+         */
         public JobStatus build() {
             return new JobStatus(this);
         }

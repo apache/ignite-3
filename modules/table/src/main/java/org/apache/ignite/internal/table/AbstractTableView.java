@@ -31,6 +31,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -69,6 +70,9 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** Ignite SQL facade. */
     protected final IgniteSql sql;
 
+    /** Marshallers provider. */
+    protected final MarshallersProvider marshallers;
+
     /**
      * Constructor.
      *
@@ -76,13 +80,16 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param schemaVersions Schema versions access.
      * @param schemaReg Schema registry.
      * @param sql Ignite SQL facade.
+     * @param marshallers Marshallers provider.
      */
-    AbstractTableView(InternalTable tbl, SchemaVersions schemaVersions, SchemaRegistry schemaReg, IgniteSql sql) {
+    AbstractTableView(InternalTable tbl, SchemaVersions schemaVersions, SchemaRegistry schemaReg, IgniteSql sql,
+            MarshallersProvider marshallers) {
         this.tbl = tbl;
         this.schemaVersions = schemaVersions;
         this.sql = sql;
 
         this.rowConverter = new TableViewRowConverter(schemaReg);
+        this.marshallers = marshallers;
     }
 
     /**

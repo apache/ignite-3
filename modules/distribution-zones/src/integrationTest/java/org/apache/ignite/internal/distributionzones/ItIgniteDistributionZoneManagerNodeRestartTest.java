@@ -90,6 +90,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -160,7 +161,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         List<IgniteComponent> components = new ArrayList<>();
 
-        VaultManager vault = createVault(name, dir);
+        VaultManager vault = createVault(dir);
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -195,7 +196,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
                 new VaultStaleIds(vault),
-                new NoOpCriticalWorkerRegistry()
+                new NoOpCriticalWorkerRegistry(),
+                mock(FailureProcessor.class)
         );
 
         var clusterStateStorage = new TestClusterStateStorage();
@@ -215,7 +217,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metastore.registerRevisionUpdateListener(function::apply);
 
-        var cfgStorage = new DistributedConfigurationStorage(metastore);
+        var cfgStorage = new DistributedConfigurationStorage("test", metastore);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
@@ -259,7 +261,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Start.
 
         vault.start();
-        vault.putName(name).join();
+        vault.putName(name);
 
         nodeCfgMgr.start();
 

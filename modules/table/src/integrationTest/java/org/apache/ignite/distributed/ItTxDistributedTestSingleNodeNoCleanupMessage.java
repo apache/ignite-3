@@ -43,6 +43,7 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -73,7 +74,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Test to Simulate missing cleanup action.
  */
-public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistributedTestSingleNode {
+public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTest {
     /** A list of background cleanup futures. */
     private final List<CompletableFuture<?>> cleanupFutures = new CopyOnWriteArrayList<>();
 
@@ -202,8 +203,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
 
         this.igniteTransactions = txTestCluster.igniteTransactions;
 
-        accounts = txTestCluster.startTable(ACC_TABLE_NAME, ACC_TABLE_ID, ACCOUNTS_SCHEMA);
-        customers = txTestCluster.startTable(CUST_TABLE_NAME, CUST_TABLE_ID, CUSTOMERS_SCHEMA);
+        accounts = txTestCluster.startTable(ACC_TABLE_NAME, ACCOUNTS_SCHEMA);
+        customers = txTestCluster.startTable(CUST_TABLE_NAME, CUSTOMERS_SCHEMA);
 
         log.info("Tables have been started");
     }
@@ -257,5 +258,10 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
 
     private static void releaseTxLocks(UUID txId, LockManager lockManager) {
         lockManager.releaseAll(txId);
+    }
+
+    @Override
+    protected int nodes() {
+        return 1;
     }
 }

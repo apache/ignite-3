@@ -152,7 +152,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         this.workDir = workDir;
         this.nodeName = nodeName;
         tracker = new DownloadTracker();
-        deployer = new FileDeployerService();
+        deployer = new FileDeployerService(nodeName);
         deploymentUnitAccessor = new DeploymentUnitAccessorImpl(deployer);
         undeployer = new DeploymentUnitAcquiredWaiter(
                 nodeName,

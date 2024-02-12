@@ -41,7 +41,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertOutputIsEmpty,
                 // Actual output starts with exception since this test doesn't use ReplExecutor and exception is handled by picocli.
-                () -> assertErrOutputContains("File with command not found")
+                () -> assertErrOutputContains("nonexisting] not found")
         );
     }
 
@@ -65,12 +65,32 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
     }
 
     @Test
+    void multilineCommand() {
+        execute("CREATE TABLE MULTILINE_TABLE(K INT PRIMARY KEY); \n INSERT INTO MULTILINE_TABLE VALUES(1);", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                // The output from CREATE TABLE is: Updated 0 rows.
+                () -> assertOutputContains("Updated 0 rows."),
+                this::assertErrOutputIsEmpty
+        );
+
+        resetOutput();
+
+        execute("SELECT COUNT(*) FROM MULTILINE_TABLE;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertOutputContains("1"),
+                this::assertErrOutputIsEmpty
+        );
+    }
+
+    @Test
     void secondInvocationFile() {
         execute("-f", "nonexisting", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("File with command not found")
+                () -> assertErrOutputContains("nonexisting] not found")
         );
 
         resetOutput();
