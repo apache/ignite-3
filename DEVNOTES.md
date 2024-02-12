@@ -274,7 +274,7 @@ docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
 > cluster init --cluster-name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
 ```
 
-### How to launch multiple nodes in same machine
+### How to launch multiple nodes on the same machine
 
 The easiest way to start as many nodes as you want is to use the docker-compose file located in the `packaging/docker` directory.
 If you want to start nodes manually, you can use the following commands:
