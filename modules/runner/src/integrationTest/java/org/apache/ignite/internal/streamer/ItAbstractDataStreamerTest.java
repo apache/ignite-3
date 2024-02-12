@@ -154,6 +154,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             publisher.submit(DataStreamerItem.of(Map.entry(1, new PersonValPojo("foo"))));
             publisher.submit(DataStreamerItem.of(Map.entry(2, new PersonValPojo("bar"))));
+            publisher.submit(DataStreamerItem.removed(Map.entry(3, new PersonValPojo("_"))));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
