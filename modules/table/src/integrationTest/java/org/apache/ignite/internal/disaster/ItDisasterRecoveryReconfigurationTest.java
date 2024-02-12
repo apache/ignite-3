@@ -146,6 +146,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerClassIntegr
         assertFalse(errors.isEmpty());
     }
 
+    /**
+     * Inserts {@value ENTRIES} values into a table, expecting either a success or specific set of exceptions that would indicate
+     * replication issues. Collects such exceptions into a list and returns. Fails if unexpected exception happened.
+     */
     private static List<Throwable> insertValues(Table table) {
         List<Throwable> errors = new ArrayList<>();
 
@@ -168,6 +172,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerClassIntegr
                 }
             }
         }
+
         return errors;
     }
 
