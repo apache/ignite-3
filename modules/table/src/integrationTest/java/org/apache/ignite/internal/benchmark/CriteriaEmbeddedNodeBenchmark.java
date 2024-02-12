@@ -24,10 +24,10 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.Criteria;
 import org.jetbrains.annotations.Nullable;
@@ -110,10 +110,12 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark state for {@link #kvGet(IgniteState)}, {@link #sqlGet(IgniteState)}, {@link #criteriaGet(IgniteState)}.
      *
-     * <p>Holds {@link Session}.
+     * <p>Holds {@link RecordView}, {@link Session}.
      */
     @State(Scope.Benchmark)
     public static class IgniteState {
+        private RecordView<Tuple> view;
+
         private Session session;
 
         /**
@@ -121,9 +123,9 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            IgniteSql sql = CLUSTER_NODES.get(0).sql();
+            view = CLUSTER_NODES.get(0).tables().table(TABLE_NAME).recordView();
 
-            session = sql.createSession();
+            session = CLUSTER_NODES.get(0).sql().createSession();
         }
 
         /**
@@ -135,7 +137,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         @Nullable Tuple get(Tuple key) {
-            return CLUSTER_NODES.get(0).tables().table(TABLE_NAME).recordView().get(null, key);
+            return view.get(null, key);
         }
 
         ResultSet<SqlRow> sql(String query, Object... args) {
@@ -143,7 +145,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         Cursor<Tuple> query(@Nullable Criteria criteria) {
-            return CLUSTER_NODES.get(0).tables().table(TABLE_NAME).recordView().query(null, criteria);
+            return view.query(null, criteria);
         }
     }
 
