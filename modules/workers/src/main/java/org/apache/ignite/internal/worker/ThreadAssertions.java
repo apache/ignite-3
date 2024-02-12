@@ -67,8 +67,6 @@ public class ThreadAssertions {
             return;
         }
 
-        // TODO: IGNITE-21439 - actually throw AssertionError if the operation is not allowed.
-
         if (!(currentThread instanceof ThreadAttributes)) {
             LOG.warn("Thread {} does not have allowed operations", trackerException(), currentThread);
 
