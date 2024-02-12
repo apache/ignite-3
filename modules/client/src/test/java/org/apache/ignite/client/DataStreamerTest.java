@@ -284,6 +284,38 @@ public class DataStreamerTest extends AbstractClientTableTest {
         logger.assertLogContains("Failed to refresh schemas and partition assignment");
     }
 
+    @Test
+    public void testAddUpdateRemove() {
+        RecordView<Tuple> view = defaultTable().recordView();
+        view.delete(null, tupleKey(1L));
+        view.upsert(null, tuple(2L, "foo"));
+        view.upsert(null, tuple(3L, "bar"));
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            // Add.
+            publisher.submit(DataStreamerItem.of(tuple(1L, "foo")));
+
+            // Update.
+            publisher.submit(DataStreamerItem.of(tuple(2L, "bar2")));
+
+            // Remove.
+            publisher.submit(DataStreamerItem.removed(tupleKey(3L)));
+            publisher.submit(DataStreamerItem.removed(tuple(4L, "x")));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertNotNull(view.get(null, tupleKey(1L)));
+        assertNotNull(view.get(null, tupleKey(2L)));
+        assertNull(view.get(null, tupleKey(3L)));
+
+        assertEquals("bar2", view.get(null, tupleKey(2L)).stringValue("name"));
+    }
+
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
         ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
 
