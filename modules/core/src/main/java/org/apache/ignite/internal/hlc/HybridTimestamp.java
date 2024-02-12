@@ -250,6 +250,15 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     }
 
     /**
+     * Returns a new {@link HybridTimestamp} that is greater than current by 1 logical tick.
+     *
+     * @return New {@link HybridTimestamp} that is greater than current by 1 logical tick.
+     */
+    public HybridTimestamp tick() {
+        return hybridTimestamp(time + 1);
+    }
+
+    /**
      * Returns a new hybrid timestamp with decremented physical component.
      */
     public HybridTimestamp subtractPhysicalTime(long millis) {

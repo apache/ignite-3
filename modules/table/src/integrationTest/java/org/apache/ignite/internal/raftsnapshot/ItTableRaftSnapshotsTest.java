@@ -94,7 +94,6 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -462,7 +461,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * (and can install a RAFT snapshot on the ex-leader).
      */
     @Test
-    @Disabled("IGNITE-21181")
     void nodeCanInstallSnapshotsAfterSnapshotInstalledToIt() throws Exception {
         feedNode2WithSnapshotOfOneRow();
 
