@@ -55,7 +55,7 @@ public class ItKeyValueGetTest extends BaseSqlIntegrationTest {
         int key = randomKey();
 
         assertQuery("SELECT * FROM simple_key WHERE id = ?")
-                .matches(containsSubPlan("IgnitePkLookup"))
+                .matches(containsSubPlan("IgniteKeyValueGet"))
                 .withParams(key)
                 .returns(key, key)
                 .check();
@@ -66,7 +66,7 @@ public class ItKeyValueGetTest extends BaseSqlIntegrationTest {
         int key = randomKey();
 
         assertQuery("SELECT * FROM complex_key_normal_order WHERE id1 = ? AND id2 = ?")
-                .matches(containsSubPlan("IgnitePkLookup"))
+                .matches(containsSubPlan("IgniteKeyValueGet"))
                 .withParams(key, 2 * key)
                 .returns(key, 2 * key, key)
                 .check();
@@ -78,7 +78,7 @@ public class ItKeyValueGetTest extends BaseSqlIntegrationTest {
         int key = randomKey();
 
         assertQuery("SELECT * FROM complex_key_revers_order WHERE id1 = ? AND id2 = ?")
-                .matches(containsSubPlan("IgnitePkLookup"))
+                .matches(containsSubPlan("IgniteKeyValueGet"))
                 .withParams(key, 2 * key)
                 .returns(key, 2 * key, key)
                 .check();
@@ -87,13 +87,13 @@ public class ItKeyValueGetTest extends BaseSqlIntegrationTest {
     @Test
     void lookupBySimpleKeyWithPostFiltration() {
         assertQuery("SELECT * FROM simple_key WHERE id = ? AND val > 5")
-                .matches(containsSubPlan("IgnitePkLookup"))
+                .matches(containsSubPlan("IgniteKeyValueGet"))
                 .withParams(1)
                 .returnNothing()
                 .check();
 
         assertQuery("SELECT * FROM simple_key WHERE id = ? AND val > 5")
-                .matches(containsSubPlan("IgnitePkLookup"))
+                .matches(containsSubPlan("IgniteKeyValueGet"))
                 .withParams(6)
                 .returns(6, 6)
                 .check();
@@ -104,13 +104,13 @@ public class ItKeyValueGetTest extends BaseSqlIntegrationTest {
         int key = randomKey();
 
         assertQuery("SELECT val FROM simple_key WHERE id = ?")
-                .matches(containsSubPlan("IgnitePkLookup"))
+                .matches(containsSubPlan("IgniteKeyValueGet"))
                 .withParams(key)
                 .returns(key)
                 .check();
 
         assertQuery("SELECT id, val * 10 FROM simple_key WHERE id = ?")
-                .matches(containsSubPlan("IgnitePkLookup"))
+                .matches(containsSubPlan("IgniteKeyValueGet"))
                 .withParams(key)
                 .returns(key, key * 10)
                 .check();

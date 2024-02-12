@@ -91,6 +91,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
@@ -114,6 +115,11 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class AbstractPlannerTest extends IgniteAbstractTest {
+    protected static final String[] DISABLE_KEY_VALUE_MODIFY_RULES = {
+            TableModifyToKeyValuePutRule.VALUES.toString(),
+            TableModifyToKeyValuePutRule.PROJECT.toString(),
+    };
+
     protected static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
     protected static final int DEFAULT_TBL_SIZE = 500_000;
@@ -981,10 +987,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * An implementation of {@link PlanChecker} with initialized {@link SqlPrepare} to test plans.
      */
     public class PlanChecker extends StatementChecker {
-
         PlanChecker() {
-            super((schema, sql, params) -> {
-                PlanningContext planningContext = plannerCtx(sql, List.of(schema), HintStrategyTable.EMPTY, params);
+            super((schema, sql, params, rulesToDisable) -> {
+                PlanningContext planningContext = plannerCtx(sql, List.of(schema), HintStrategyTable.EMPTY, params, rulesToDisable);
                 IgnitePlanner planner = planningContext.planner();
                 IgniteRel igniteRel = physicalPlan(planner, sql);
 

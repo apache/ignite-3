@@ -59,6 +59,8 @@ import org.apache.ignite.internal.sql.engine.rule.SortAggregateConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
+import org.apache.ignite.internal.sql.engine.rule.TableScanToKeyValueGetRule;
 import org.apache.ignite.internal.sql.engine.rule.UnionConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
@@ -75,6 +77,19 @@ public enum PlannerPhase {
             CoreRules.FILTER_SUB_QUERY_TO_CORRELATE,
             CoreRules.PROJECT_SUB_QUERY_TO_CORRELATE,
             CoreRules.JOIN_SUB_QUERY_TO_CORRELATE
+    ) {
+        /** {@inheritDoc} */
+        @Override
+        public Program getProgram(PlanningContext ctx) {
+            return hep(getRules(ctx));
+        }
+    },
+
+    HEP_TO_SIMPLE_KEY_VALUE_OPERATION(
+            "Heuristic phase to convert relational tree to simple Key-Value operation",
+            TableScanToKeyValueGetRule.INSTANCE,
+            TableModifyToKeyValuePutRule.PROJECT,
+            TableModifyToKeyValuePutRule.VALUES
     ) {
         /** {@inheritDoc} */
         @Override
