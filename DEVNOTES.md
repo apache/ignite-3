@@ -277,7 +277,7 @@ docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
 ### How to launch multiple nodes on the same machine
 
 The easiest way to start as many nodes as you want is to use the docker-compose file located in the `packaging/docker` directory.
-If you want to start nodes manually, you can use the following commands:
+If instead you want to start nodes manually, you can use the following commands:
 
 ```shell
 ./gradlew clean allDistZip
