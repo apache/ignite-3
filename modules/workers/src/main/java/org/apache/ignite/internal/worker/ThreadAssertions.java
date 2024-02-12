@@ -19,6 +19,7 @@ package org.apache.ignite.internal.worker;
 
 import static org.apache.ignite.internal.thread.ThreadAssertionsProperties.ENABLED_PROPERTY;
 
+import java.util.Set;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.ThreadAttributes;
@@ -29,6 +30,13 @@ import org.apache.ignite.internal.thread.ThreadOperation;
  */
 public class ThreadAssertions {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
+
+    /** Names of theads on which the assertions are skipped. */
+    private static final Set<String> BLACKLISTED_THREAD_NAMES = Set.of(
+            "main",
+            // JUnit worker thread name
+            "Test worker"
+    );
 
     /**
      * Returns {@code true} if thread assertions are enabled.
@@ -54,10 +62,7 @@ public class ThreadAssertions {
     private static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
         Thread currentThread = Thread.currentThread();
 
-        if ("main".equals(currentThread.getName())) {
-            return;
-        }
-        if ("Test worker".equals(currentThread.getName())) {
+        if (BLACKLISTED_THREAD_NAMES.contains(currentThread.getName())) {
             return;
         }
 
