@@ -48,7 +48,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
 
-    private final Lock changePriorityLock = new ReentrantLock();
+    private final Lock executionLock = new ReentrantLock();
 
     @Nullable
     private volatile QueueEntry<R> queueEntry;
@@ -95,11 +95,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
             QueueEntry<R> queueEntry = this.queueEntry;
             if (queueEntry != null) {
-                if (executor.remove(queueEntry)) {
-                    result.cancel(true);
-                } else {
-                    queueEntry.interrupt();
-                }
+                cancel(queueEntry);
                 return true;
             }
         } catch (IllegalJobStateTransition e) {
@@ -108,12 +104,25 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         return false;
     }
 
+    private void cancel(QueueEntry<R> queueEntry) {
+        executionLock.lock();
+        try {
+            if (executor.remove(queueEntry)) {
+                result.cancel(true);
+            } else {
+                queueEntry.interrupt();
+            }
+        } finally {
+            executionLock.unlock();
+        }
+    }
+
     @Override
     public boolean changePriority(int newPriority) {
         if (newPriority == priority) {
             return false;
         }
-        changePriorityLock.lock();
+        executionLock.lock();
         try {
             QueueEntry<R> queueEntry = this.queueEntry;
 
@@ -125,7 +134,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             }
             LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
         } finally {
-            changePriorityLock.unlock();
+            executionLock.unlock();
         }
         return false;
     }
@@ -150,11 +159,14 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         // either after the construction or after the failure.
         this.queueEntry = queueEntry;
 
+        executionLock.lock();
         try {
             executor.execute(queueEntry);
         } catch (QueueOverflowException e) {
             result.completeExceptionally(new ComputeException(QUEUE_OVERFLOW_ERR, e));
             return;
+        } finally {
+            executionLock.unlock();
         }
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
@@ -180,5 +192,4 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             }
         });
     }
-
 }
