@@ -539,8 +539,17 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     w.out().packInt(s.version());
                     w.out().packInt(items.size());
 
+                    int i = 0;
+
+                    // TODO: Get marshallers once outside the loop.
                     for (Entry<K, V> e : items) {
-                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                        boolean del = deleted != null && deleted.get(i++);
+
+                        if (del) {
+                            keySer.writeRecRaw(null, e.getKey(), s, w, TuplePart.KEY);
+                        } else {
+                            writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                        }
                     }
                 },
                 r -> null,
