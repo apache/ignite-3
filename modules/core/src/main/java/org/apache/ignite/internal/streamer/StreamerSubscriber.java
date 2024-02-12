@@ -19,6 +19,7 @@ package org.apache.ignite.internal.streamer;
 
 import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -128,9 +129,9 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
         StreamerBuffer<T> buf = buffers.computeIfAbsent(
                 partition,
-                p -> new StreamerBuffer<>(options.pageSize(), items -> enlistBatch(p, items)));
+                p -> new StreamerBuffer<>(options.pageSize(), (items, deleted) -> enlistBatch(p, items, deleted)));
 
-        buf.add(item.get());
+        buf.add(item);
         this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();
@@ -157,7 +158,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         return completionFut;
     }
 
-    private void enlistBatch(P partition, Collection<T> batch) {
+    private void enlistBatch(P partition, Collection<T> batch, BitSet deleted) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
         assert partition != null : "Partition must not be null.";
@@ -168,15 +169,14 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         pendingRequests.compute(
                 partition,
                 // Chain existing futures to preserve request order.
-                (part, fut) -> fut == null ? sendBatch(part, batch) : fut.thenCompose(v -> sendBatch(part, batch))
+                (part, fut) -> fut == null ? sendBatch(part, batch, deleted) : fut.thenCompose(v -> sendBatch(part, batch, deleted))
         );
     }
 
-    private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch) {
+    private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch, BitSet deleted) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
-            // TODO IGNITE-21403 propagate deleted set from the API.
-            return batchSender.sendAsync(partition, batch, null).whenComplete((res, err) -> {
+            return batchSender.sendAsync(partition, batch, deleted).whenComplete((res, err) -> {
                 if (err != null) {
                     // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
                     // If we get here, then retries are exhausted and we should fail the streamer.
