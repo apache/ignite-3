@@ -41,6 +41,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -466,9 +467,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Tuple> publisher = new SimplePublisher<>()) {
                 fut = recordView.streamData(publisher, null);
-                publisher.submit(DataStreamerItem.of(t));
+                publisher.submit(t);
             }
 
             fut.join();
@@ -487,9 +488,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<PersonPojo> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<DataStreamerItem<PersonPojo>> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
                 fut = pojoView.streamData(publisher, null);
-                publisher.submit(DataStreamerItem.of(t));
+                publisher.submit(t);
             }
 
             fut.join();
@@ -508,9 +509,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<DataStreamerItem<Entry<Tuple, Tuple>>> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Entry<Tuple, Tuple>> publisher = new SimplePublisher<>()) {
                 fut = recordView.streamData(publisher, null);
-                publisher.submit(DataStreamerItem.of(Map.entry(t, Tuple.create())));
+                publisher.submit(Map.entry(t, Tuple.create()));
             }
 
             fut.join();
@@ -529,9 +530,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Long> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<DataStreamerItem<Entry<Long, String>>> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Entry<Long, String>> publisher = new SimplePublisher<>()) {
                 fut = kvView.streamData(publisher, null);
-                publisher.submit(DataStreamerItem.of(Map.entry(t, t.toString())));
+                publisher.submit(Map.entry(t, t.toString()));
             }
 
             fut.join();
