@@ -253,11 +253,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public SnapshotReader getReader() {
-        SnapshotMeta meta = snapshotMeta;
-        assert meta != null;
-
         // This one's called when "join" is complete.
-        return new IncomingSnapshotReader(meta);
+        return new IncomingSnapshotReader(snapshotMeta);
     }
 
     private @Nullable ClusterNode getSnapshotSender(String nodeName) {
