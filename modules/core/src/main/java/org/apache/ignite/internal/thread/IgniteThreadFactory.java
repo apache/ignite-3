@@ -99,23 +99,4 @@ public class IgniteThreadFactory implements ThreadFactory {
     ) {
         return new IgniteThreadFactory(nodeName, poolName, daemon, logger, allowedOperations);
     }
-
-    /**
-     * Creates a thread factory using a precomputed prefix. No dash will be added to this prefix when constructing
-     * thread name, so for prefix 'abc' the first thread name will be 'abc0', not 'abc-0'.
-     *
-     * @param prefix Thread prefix.
-     * @param daemon Whether threads created by the factory should be daemon or not.
-     * @param logger Logger.
-     * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
-     * @return Thread factory.
-     */
-    public static IgniteThreadFactory withPrefix(
-            String prefix,
-            boolean daemon,
-            IgniteLogger logger,
-            ThreadOperation... allowedOperations
-    ) {
-        return new IgniteThreadFactory(prefix, daemon, logger, allowedOperations);
-    }
 }

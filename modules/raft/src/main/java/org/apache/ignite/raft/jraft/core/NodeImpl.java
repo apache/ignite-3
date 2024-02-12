@@ -1240,10 +1240,10 @@ public class NodeImpl implements Node, RaftServerService {
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
-            String threadPrefix = NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor");
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
-                threadPrefix,
-                stripeName -> IgniteThreadFactory.withPrefix(stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
+                opts.getServerName(),
+                "JRaft-FSMCaller-Disruptor",
+                (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 opts.getStripes(),
@@ -1251,10 +1251,8 @@ public class NodeImpl implements Node, RaftServerService {
             ));
         } else if (ownFsmCallerExecutorDisruptorConfig != null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
-                NamedThreadFactory.threadPrefix(
-                        opts.getServerName(),
-                        "JRaft-FSMCaller-Disruptor-" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix()
-                ),
+                opts.getServerName(),
+                "JRaft-FSMCaller-Disruptor-" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix(),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 ownFsmCallerExecutorDisruptorConfig.getStripes(),
@@ -1264,7 +1262,8 @@ public class NodeImpl implements Node, RaftServerService {
 
         if (opts.getNodeApplyDisruptor() == null) {
             opts.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
+                opts.getServerName(),
+                "JRaft-NodeImpl-Disruptor",
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new NodeImpl.LogEntryAndClosure(),
                 opts.getStripes(),
@@ -1274,7 +1273,8 @@ public class NodeImpl implements Node, RaftServerService {
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
             opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
+                opts.getServerName(),
+                "JRaft-ReadOnlyService-Disruptor",
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 opts.getStripes(),
@@ -1284,7 +1284,8 @@ public class NodeImpl implements Node, RaftServerService {
 
         if (opts.getLogManagerDisruptor() == null) {
             opts.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
+                opts.getServerName(),
+                "JRaft-LogManager-Disruptor",
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
                 opts.getStripes(),

@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -71,19 +71,36 @@ public class StripedDisruptor<T extends NodeIdAware> {
     private final boolean supportsBatches;
 
     /**
-     * @param name Name of the Striped disruptor.
+     * @param nodeName Name of the Ignite node.
+     * @param poolName Name of the pool.
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      */
-    public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes, boolean supportsBatches) {
-        this(name, stripeName -> new NamedThreadFactory(stripeName, true, LOG), bufferSize, eventFactory, stripes, supportsBatches);
+    public StripedDisruptor(
+            String nodeName,
+            String poolName,
+            int bufferSize,
+            EventFactory<T> eventFactory,
+            int stripes,
+            boolean supportsBatches
+    ) {
+        this(
+                nodeName,
+                poolName,
+                (igniteName, stripeName) -> NamedThreadFactory.create(igniteName, stripeName, true, LOG),
+                bufferSize,
+                eventFactory,
+                stripes,
+                supportsBatches
+        );
     }
 
     /**
-     * @param name Name of the Striped disruptor.
+     * @param nodeName Name of the Ignite node.
+     * @param poolName Name of the pool.
      * @param threadFactorySupplier Function that produces a thread factory given stripe name.
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
@@ -92,8 +109,9 @@ public class StripedDisruptor<T extends NodeIdAware> {
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      */
     public StripedDisruptor(
-            String name,
-            Function<String, ThreadFactory> threadFactorySupplier,
+            String nodeName,
+            String poolName,
+            BiFunction<String, String, ThreadFactory> threadFactorySupplier,
             int bufferSize,
             EventFactory<T> eventFactory,
             int stripes,
@@ -104,16 +122,16 @@ public class StripedDisruptor<T extends NodeIdAware> {
         eventHandlers = new ArrayList<>(stripes);
         exceptionHandlers = new ArrayList<>(stripes);
         this.stripes = stripes;
-        this.name = name;
+        this.name = NamedThreadFactory.threadPrefix(nodeName, poolName);
         this.supportsBatches = supportsBatches;
 
         for (int i = 0; i < stripes; i++) {
-            String stripeName = format("{}_stripe_{}-", name, i);
+            String stripeName = format("{}_stripe_{}", poolName, i);
 
             Disruptor<T> disruptor = DisruptorBuilder.<T>newInstance()
                 .setRingBufferSize(bufferSize)
                 .setEventFactory(eventFactory)
-                .setThreadFactory(threadFactorySupplier.apply(stripeName))
+                .setThreadFactory(threadFactorySupplier.apply(nodeName, stripeName))
                 .setProducerType(ProducerType.MULTI)
                 .setWaitStrategy(new BlockingWaitStrategy())
                 .build();

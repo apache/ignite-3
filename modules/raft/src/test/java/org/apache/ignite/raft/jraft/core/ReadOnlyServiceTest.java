@@ -88,7 +88,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(this.node);
         opts.setRaftOptions(raftOptions);
-        opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
+        opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("test", "TestReadOnlyServiceDisruptor",
             1024,
             () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
             1,
