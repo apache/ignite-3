@@ -360,7 +360,7 @@ sed -i '' '/netClusterNodes=\[/,/\]/s/"localhost:3344"/"localhost:3301", "localh
 sed -i '' '/netClusterNodes=\[/,/\]/s/"localhost:3344"/"localhost:3301", "localhost:3302", "localhost:3303"/' node3/etc/ignite-config.conf
 ```
 
-Now all nodes is set up and you can start them with the following commands:
+Now all the nodes are set up and you can start them with the following commands:
 
 ```shell
 ./node1/bin/ignite3db start
