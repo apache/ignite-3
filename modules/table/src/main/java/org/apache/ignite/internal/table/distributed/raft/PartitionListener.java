@@ -57,7 +57,6 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
-import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -138,17 +137,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
-
-        // TODO: IGNITE-18502 Excessive full partition scan on node start
-        try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
-            while (cursor.hasNext()) {
-                ReadResult readResult = cursor.next();
-
-                if (readResult.isWriteIntent()) {
-                    storageUpdateHandler.handleWriteIntentRead(readResult.transactionId(), readResult.rowId());
-                }
-            }
-        }
     }
 
     @Override
