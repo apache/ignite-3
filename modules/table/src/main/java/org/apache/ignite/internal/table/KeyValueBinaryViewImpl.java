@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -213,7 +214,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         }
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion), (InternalTransaction) tx);
+            return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion, null), (InternalTransaction) tx);
         });
     }
 
@@ -557,17 +558,21 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items, deleted) ->
                 withSchemaSync(
                         null,
-                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion), deleted, partitionId));
+                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 
-    private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs, int schemaVersion) {
+    private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs, int schemaVersion, @Nullable BitSet deleted) {
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
         for (Entry<Tuple, Tuple> pair : pairs) {
-            Row row = marshal(Objects.requireNonNull(pair.getKey()), Objects.requireNonNull(pair.getValue()), schemaVersion);
+            boolean isDeleted = deleted != null && deleted.get(rows.size());
 
+            Tuple key = Objects.requireNonNull(pair.getKey());
+            Tuple val = isDeleted ? null : Objects.requireNonNull(pair.getValue());
+
+            Row row = marshal(key, val, schemaVersion);
             rows.add(row);
         }
 
