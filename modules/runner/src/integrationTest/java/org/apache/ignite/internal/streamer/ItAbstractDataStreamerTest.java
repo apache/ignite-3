@@ -27,11 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.Session;
@@ -215,26 +218,34 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("Missed key column: ID", ex.getCause().getMessage());
     }
 
+    @SuppressWarnings("Convert2MethodRef")
     @Test
     public void testManyItems() {
+        int count = 5_000;
+
         RecordView<Tuple> view = defaultTable().recordView();
+        view.upsertAll(null, IntStream.range(1, count).mapToObj(i -> tuple(-i, "del-" + i)).collect(Collectors.toList()));
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SimplePublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().pageSize(33).build();
             streamerFut = view.streamData(publisher, options);
 
-            for (int i = 0; i < 10_000; i++) {
-                publisher.submit(tuple(i, "x-" + i));
+            for (int i = 1; i < count + 1; i++) {
+                publisher.submit(DataStreamerItem.of(tuple(i, "x-" + i)));
+                publisher.submit(DataStreamerItem.removed(tupleKey(-i)));
             }
         }
 
         streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
 
-        assertNotNull(view.get(null, tupleKey(1)));
-        assertNotNull(view.get(null, tupleKey(9999)));
-        assertNull(view.get(null, tupleKey(10_000)));
+        List<Tuple> res = view.getAll(null, IntStream.range(-count, count + 1).mapToObj(i -> tupleKey(i)).collect(Collectors.toList()));
+
+        for (int i = 0; i < count; i++) {
+            assertEquals("x-" + (i + 1), res.get(i + count + 1).stringValue("name"));
+            assertNull(res.get(i));
+        }
     }
 
     @SuppressWarnings("resource")
