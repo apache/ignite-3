@@ -1373,7 +1373,6 @@ public class DistributionZoneManager implements IgniteComponent {
         return zonesState;
     }
 
-    @TestOnly
     public Set<NodeWithAttributes> logicalTopology() {
         return logicalTopology;
     }

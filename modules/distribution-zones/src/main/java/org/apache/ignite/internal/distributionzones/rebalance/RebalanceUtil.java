@@ -101,7 +101,6 @@ public class RebalanceUtil {
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
-     * @param partNum Partition id.
      * @param tableCfgPartAssignments Table configuration assignments.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
@@ -112,7 +111,6 @@ public class RebalanceUtil {
             int replicas,
             long revision,
             MetaStorageManager metaStorageMgr,
-            int partNum,
             Set<Assignment> tableCfgPartAssignments
     ) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
@@ -185,14 +183,14 @@ public class RebalanceUtil {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
                             "Update metastore pending partitions key [key={}, partition={}, table={}/{}, newVal={}]",
-                            partAssignmentsPendingKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPendingKey.toString(), partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
-                            partAssignmentsPlannedKey, partNum, tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPlannedKey, partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -200,7 +198,7 @@ public class RebalanceUtil {
                 case PLANNED_KEY_REMOVED_EQUALS_PENDING:
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPlannedKey.toString(), partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -209,7 +207,7 @@ public class RebalanceUtil {
                     LOG.info(
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPlannedKey.toString(), partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -217,7 +215,7 @@ public class RebalanceUtil {
                 case ASSIGNMENT_NOT_UPDATED:
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPlannedKey.toString(), partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -225,7 +223,7 @@ public class RebalanceUtil {
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.debug(
                             "Received outdated rebalance trigger event [revision={}, partition={}, table={}/{}]",
-                            revision, partNum, tableDescriptor.id(), tableDescriptor.name());
+                            revision, partId.partitionId(), tableDescriptor.id(), tableDescriptor.name());
 
                     break;
                 default:
@@ -243,6 +241,7 @@ public class RebalanceUtil {
      * @param tableDescriptor Table descriptor.
      * @param zoneDescriptor Zone descriptor.
      * @param dataNodes Data nodes to use.
+     * @param aliveNodesConsistentIds A set of consistent IDs of current logical topology according to the Distribution Zone manager.
      * @param storageRevision MetaStorage revision corresponding to this request.
      * @param metaStorageManager MetaStorage manager used to read/write assignments.
      * @return Array of futures, one per partition of the table; the futures complete when the described
@@ -252,6 +251,7 @@ public class RebalanceUtil {
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
+            Set<String> aliveNodesConsistentIds,
             long storageRevision,
             MetaStorageManager metaStorageManager
     ) {
@@ -268,22 +268,50 @@ public class RebalanceUtil {
 
             int finalPartId = partId;
 
-            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
-                    // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
-                    tableAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
+            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments -> {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
+                // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
+                if (tableAssignments.isEmpty()) {
+                    return nullCompletedFuture();
+                }
+
+                Set<Assignment> tableCfgPartAssignments = tableAssignments.get(finalPartId);
+
+                int replicas = zoneDescriptor.replicas();
+                if (notEnoughNodesAlive(tableCfgPartAssignments, replicas, aliveNodesConsistentIds)) {
+                    LOG.warn(
+                            "Assignments are not updated due to potential majority loss [partition={}, table={}/{}, val={}]",
+                            finalPartId, tableDescriptor.id(), tableDescriptor.name(),
+                            tableCfgPartAssignments
+                    );
+
+                    return nullCompletedFuture();
+                }
+
+                return updatePendingAssignmentsKeys(
                             tableDescriptor,
                             replicaGrpId,
                             dataNodes,
-                            zoneDescriptor.replicas(),
+                            replicas,
                             storageRevision,
                             metaStorageManager,
-                            finalPartId,
-                            tableAssignments.get(finalPartId)
-                    ));
+                        tableCfgPartAssignments);
+            });
         }
 
         return futures;
+    }
+
+    private static boolean notEnoughNodesAlive(
+            Set<Assignment> tableCfgPartAssignments,
+            int replicas, Set<String> aliveNodesConsistentIds
+    ) {
+        int quorum = replicas / 2 + 1;
+        long aliveNodes = tableCfgPartAssignments.stream()
+                .filter(assignment -> aliveNodesConsistentIds.contains(assignment.consistentId()))
+                .limit(quorum).count();
+
+        return aliveNodes < quorum;
     }
 
     /** Key prefix for pending assignments. */

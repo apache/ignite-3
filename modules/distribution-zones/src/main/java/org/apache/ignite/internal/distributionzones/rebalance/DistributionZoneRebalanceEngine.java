@@ -41,6 +41,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -260,11 +261,17 @@ public class DistributionZoneRebalanceEngine {
     ) {
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
 
+        Set<String> nodeConsistentIds = this.distributionZoneManager.logicalTopology()
+                .stream()
+                .map(NodeWithAttributes::nodeName)
+                .collect(Collectors.toSet());
+
         for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
             CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
                     tableDescriptor,
                     zoneDescriptor,
                     dataNodes,
+                    nodeConsistentIds,
                     revision,
                     metaStorageManager
             );

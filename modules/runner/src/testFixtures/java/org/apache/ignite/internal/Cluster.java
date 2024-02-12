@@ -307,6 +307,13 @@ public class Cluster {
     }
 
     /**
+     * Returns {@code true} if a node with given index is alive in the cluster.
+     */
+    public boolean isAlive(int index) {
+        return nodes.size() > index && nodes.get(index) != null;
+    }
+
+    /**
      * Returns a node that is not stopped and not knocked out (so it can be used to interact with the cluster).
      */
     public IgniteImpl aliveNode() {

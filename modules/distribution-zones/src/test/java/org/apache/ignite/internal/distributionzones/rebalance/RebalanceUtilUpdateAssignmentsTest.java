@@ -487,7 +487,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         RebalanceUtil.updatePendingAssignmentsKeys(
                 tableDescriptor, tablePartitionId, nodesForNewAssignments,
-                replicas, 1, metaStorageManager, partNum, tableCfgAssignments
+                replicas, 1, metaStorageManager, tableCfgAssignments
         );
 
         byte[] actualStableBytes = keyValueStorage.get(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes()).value();
