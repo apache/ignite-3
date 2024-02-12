@@ -44,7 +44,7 @@ public interface DataStreamerItem<T> {
      * @return PUT data streamer item.
      */
     static <T> DataStreamerItem<T> of(T item) {
-        return of(item, DataStreamerOperationType.PUT);
+        return instance(item, DataStreamerOperationType.PUT);
     }
 
     /**
@@ -56,10 +56,10 @@ public interface DataStreamerItem<T> {
      * @return REMOVE data streamer item.
      */
     static <T> DataStreamerItem<T> removed(T item) {
-        return of(item, DataStreamerOperationType.REMOVE);
+        return instance(item, DataStreamerOperationType.REMOVE);
     }
 
-    private static <T> DataStreamerItem<T> of(T item, DataStreamerOperationType operationType) {
+    private static <T> DataStreamerItem<T> instance(T item, DataStreamerOperationType operationType) {
         return new DataStreamerItem<>() {
             @Override
             public T get() {
