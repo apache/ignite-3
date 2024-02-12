@@ -121,6 +121,9 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @Test
     public void testBasicStreamingKvBinaryView() {
         KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
+        view.put(null, tupleKey(2), Tuple.create().set("name", "_"));
+        view.put(null, tupleKey(3), Tuple.create().set("name", "baz"));
+
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<Tuple, Tuple>>>()) {
@@ -128,7 +131,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             publisher.submit(DataStreamerItem.of(Map.entry(tupleKey(1), Tuple.create().set("name", "foo"))));
             publisher.submit(DataStreamerItem.of(Map.entry(tupleKey(2), Tuple.create().set("name", "bar"))));
-            publisher.submit(DataStreamerItem.removed(Map.entry(tupleKey(3), null)));
+            publisher.submit(DataStreamerItem.removed(Map.entry(tupleKey(3), Tuple.create())));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -141,6 +144,9 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @Test
     public void testBasicStreamingKvPojoView() {
         KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
+        view.put(null, 2, new PersonValPojo("_"));
+        view.put(null, 3, new PersonValPojo("baz"));
+
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<Integer, PersonValPojo>>>()) {
