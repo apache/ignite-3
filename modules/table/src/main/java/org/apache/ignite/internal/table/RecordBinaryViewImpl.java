@@ -435,6 +435,18 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         return mapped;
     }
 
+    private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, int schemaVersion, @Nullable BitSet deleted) {
+        Collection<BinaryRowEx> mapped = new ArrayList<>(rows.size());
+
+        int i = 0;
+        for (Tuple row : rows) {
+            boolean key = deleted != null && deleted.get(i++);
+            mapped.add(marshal(row, schemaVersion, key));
+        }
+
+        return mapped;
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Tuple>> publisher, @Nullable DataStreamerOptions options) {
@@ -456,6 +468,6 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      */
     public CompletableFuture<Void> updateAll(int partitionId, Collection<Tuple> rows, @Nullable BitSet deleted) {
         return withSchemaSync(null,
-                schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, false), deleted, partitionId));
+                schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId));
     }
 }
