@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -70,15 +71,18 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @ValueSource(ints = {1, 2, 3})
     public void testBasicStreamingRecordBinaryView(int batchSize) {
         RecordView<Tuple> view = defaultTable().recordView();
+        view.upsert(null, tuple(2, "_"));
+        view.upsert(null, tuple(3, "baz"));
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SimplePublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().pageSize(batchSize).build();
             streamerFut = view.streamData(publisher, options);
 
-            publisher.submit(tuple(1, "foo"));
-            publisher.submit(tuple(2, "bar"));
+            publisher.submit(DataStreamerItem.of(tuple(1, "foo")));
+            publisher.submit(DataStreamerItem.of(tuple(2, "bar")));
+            publisher.submit(DataStreamerItem.removed(tupleKey(3)));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
