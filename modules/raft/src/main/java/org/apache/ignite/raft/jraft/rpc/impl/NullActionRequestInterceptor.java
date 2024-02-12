@@ -18,7 +18,8 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.jetbrains.annotations.Nullable;
 
