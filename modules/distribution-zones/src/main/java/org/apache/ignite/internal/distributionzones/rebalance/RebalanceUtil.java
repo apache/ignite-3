@@ -289,12 +289,12 @@ public class RebalanceUtil {
                 }
 
                 return updatePendingAssignmentsKeys(
-                            tableDescriptor,
-                            replicaGrpId,
-                            dataNodes,
-                            replicas,
-                            storageRevision,
-                            metaStorageManager,
+                        tableDescriptor,
+                        replicaGrpId,
+                        dataNodes,
+                        replicas,
+                        storageRevision,
+                        metaStorageManager,
                         tableCfgPartAssignments);
             });
         }
