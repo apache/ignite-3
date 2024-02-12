@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -421,6 +422,25 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         }
     }
 
+    private Collection<BinaryRowEx> marshal(Collection<R> recs, int schemaVersion, @Nullable BitSet deleted) {
+        try {
+            RecordMarshaller<R> marsh = marshaller(schemaVersion);
+
+            List<BinaryRowEx> rows = new ArrayList<>(recs.size());
+
+            for (R rec : recs) {
+                boolean isDeleted = deleted != null && deleted.get(rows.size());
+                Row row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
+
+                rows.add(row);
+            }
+
+            return rows;
+        } catch (Exception e) {
+            throw new MarshallerException(e);
+        }
+    }
+
     /**
      * Marshals given key record to a row.
      *
@@ -534,7 +554,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items, deleted) ->
                 withSchemaSync(
                         null,
-                        schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion), deleted, partitionId));
+                        schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
