@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.DataStreamerItem;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Item type.
  * @param <P> Partition type.
  */
-public class StreamerSubscriber<T, P> implements Subscriber<T> {
+public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>> {
     private final StreamerBatchSender<T, P> batchSender;
 
     private final StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider;
@@ -120,16 +121,16 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
     /** {@inheritDoc} */
     @Override
-    public void onNext(T item) {
+    public void onNext(DataStreamerItem<T> item) {
         pendingItemCount.decrementAndGet();
 
-        P partition = partitionAwarenessProvider.partition(item);
+        P partition = partitionAwarenessProvider.partition(item.get());
 
         StreamerBuffer<T> buf = buffers.computeIfAbsent(
                 partition,
                 p -> new StreamerBuffer<>(options.pageSize(), items -> enlistBatch(p, items)));
 
-        buf.add(item);
+        buf.add(item.get());
         this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();
