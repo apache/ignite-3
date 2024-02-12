@@ -773,11 +773,11 @@ public class IgniteImpl implements Ignite {
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
-        boolean enabled = !ThreadAssertions.enabled();
+        boolean enabled = ThreadAssertions.enabled();
 
         LOG.info("Thread assertions enablement status: {}", enabled);
 
-        if (enabled) {
+        if (!enabled) {
             return storageEngines;
         }
 
