@@ -28,10 +28,10 @@ import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.compute.exceptions.NodeNotFoundException;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
 
@@ -70,19 +70,17 @@ public class ClientComputeExecuteRequest {
 
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
         int size = in.unpackInt();
-        Set<String> nodeNames = new HashSet<>(size);
 
-        for (int i = 0; i < size; i++) {
-            nodeNames.add(in.unpackString());
-        }
-
-        if (nodeNames.isEmpty()) {
+        if (size < 1) {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
+        Set<String> nodeNames = new HashSet<>(size);
         Set<ClusterNode> nodes = new HashSet<>(size);
 
-        for (String nodeName : nodeNames) {
+        for (int i = 0; i < size; i++) {
+            String nodeName = in.unpackString();
+            nodeNames.add(nodeName);
             ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
             if (node != null) {
                 nodes.add(node);

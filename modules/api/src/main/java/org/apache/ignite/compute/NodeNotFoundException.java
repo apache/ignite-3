@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.exceptions;
+package org.apache.ignite.compute;
 
 import static org.apache.ignite.lang.ErrorGroups.Compute.NODE_NOT_FOUND_ERR;
 
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.compute.ComputeException;
 
 /**
  * Thrown when compute component can't find the node to run the job on in the cluster.

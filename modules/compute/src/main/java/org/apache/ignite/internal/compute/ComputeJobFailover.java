@@ -153,7 +153,7 @@ class ComputeJobFailover<T> {
                 return;
             }
 
-            LOG.warn("Worker node {} has left the cluster.", leftNode.name());
+            LOG.info("Worker node {} has left the cluster.", leftNode.name());
             executor.execute(this::selectNewWorker);
         }
 
@@ -177,7 +177,7 @@ class ComputeJobFailover<T> {
                             return;
                         }
 
-                        LOG.warn("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
+                        LOG.info("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
                         JobExecution<T> jobExecution = launchJobOn(runningWorkerNode.get());

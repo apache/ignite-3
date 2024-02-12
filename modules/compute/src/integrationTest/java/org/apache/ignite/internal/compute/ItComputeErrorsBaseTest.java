@@ -29,8 +29,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.compute.exceptions.NodeNotFoundException;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -59,6 +59,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         // Then existing node became a worker and run the job.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(workerNodeName, is(existingNode.name()));
+
         // And job is running.
         InteractiveJobs.globalJob().assertAlive();
 

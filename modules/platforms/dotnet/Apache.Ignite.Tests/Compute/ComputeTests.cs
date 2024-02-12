@@ -183,10 +183,11 @@ namespace Apache.Ignite.Tests.Compute
         {
             var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
 
-            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+            var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () =>
                 await Client.Compute.ExecuteAsync<string>(new[] { unknownNode }, Units, EchoJob, "unused"));
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
+            Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
         }
 
         [Test]
@@ -197,9 +198,10 @@ namespace Apache.Ignite.Tests.Compute
             IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap =
                 Client.Compute.BroadcastAsync<string>(new[] { unknownNode }, Units, EchoJob, "unused");
 
-            var ex = Assert.ThrowsAsync<IgniteException>(async () => await taskMap[unknownNode]);
+            var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () => await taskMap[unknownNode]);
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
+            Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
         }
 
         [Test]
