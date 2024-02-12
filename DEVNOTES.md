@@ -314,9 +314,9 @@ sed -i '' 's/NODE_NAME=defaultNode/NODE_NAME=node3/' node3/etc/vars.env
 Each node binds to its set of ports: HTTP, HTTPS(if configured), internal TCP for communication between nodes, and client TCP.
 By default the following configuration is used:
 ```
-clientConnector.port=10800,
-network.port=3344,
-rest : { port=10300, ssl.port=10400 }
+clientConnector.port = 10800,
+network.port = 3344,
+rest: { port = 10300, ssl.port = 10400 }
 ```
 If you want to start nodes on the same machine, you have to change the ports in the `etc/ignite-config.conf` file in each node directory.
 
