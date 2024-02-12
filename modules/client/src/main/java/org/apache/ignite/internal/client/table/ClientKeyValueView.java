@@ -542,6 +542,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     int i = 0;
 
                     // TODO: Get marshallers once outside the loop.
+                    Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
+                    Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
+
                     for (Entry<K, V> e : items) {
                         boolean del = deleted != null && deleted.get(i++);
 
