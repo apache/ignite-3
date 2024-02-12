@@ -73,7 +73,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().pageSize(batchSize).build();
             streamerFut = view.streamData(publisher, options);
 
@@ -95,7 +95,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<PersonPojo>()) {
+        try (var publisher = new SimplePublisher<PersonPojo>()) {
             streamerFut = view.streamData(publisher, null);
 
             publisher.submit(new PersonPojo(1, "foo"));
@@ -111,7 +111,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Tuple, Tuple>>()) {
+        try (var publisher = new SimplePublisher<Map.Entry<Tuple, Tuple>>()) {
             streamerFut = view.streamData(publisher, null);
 
             publisher.submit(Map.entry(tupleKey(1), Tuple.create().set("name", "foo")));
@@ -127,7 +127,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Integer, PersonValPojo>>()) {
+        try (var publisher = new SimplePublisher<Map.Entry<Integer, PersonValPojo>>()) {
             streamerFut = view.streamData(publisher, null);
 
             publisher.submit(Map.entry(1, new PersonValPojo("foo")));
@@ -143,7 +143,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<Tuple> view = this.defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
             streamerFut = view.streamData(publisher, options);
 
@@ -159,7 +159,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<Tuple> view = this.defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
             streamerFut = view.streamData(publisher, options);
 
@@ -176,7 +176,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().build();
             streamerFut = view.streamData(publisher, options);
 
@@ -195,7 +195,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().pageSize(33).build();
             streamerFut = view.streamData(publisher, options);
 
@@ -222,7 +222,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().pageSize(1).build();
             streamerFut = view.streamData(publisher, options);
 
