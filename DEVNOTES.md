@@ -312,7 +312,7 @@ sed -i '' 's/NODE_NAME=defaultNode/NODE_NAME=node3/' node3/etc/vars.env
 ```
 
 Each node binds to its set of ports: HTTP, HTTPS(if configured), internal TCP for communication between nodes, and client TCP.
-By default the following configurations are used:
+By default the following configuration is used:
 ```
 clientConnector.port=10800,
 network.port=3344,
