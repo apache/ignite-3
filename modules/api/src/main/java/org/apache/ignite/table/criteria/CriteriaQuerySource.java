@@ -46,7 +46,7 @@ public interface CriteriaQuerySource<T> {
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
-     * @param indexName The name of the index to force usage of this index in the query.
+     * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
      * @return Iterator with query results.
      * @throws CriteriaException If failed.
      */
@@ -59,7 +59,7 @@ public interface CriteriaQuerySource<T> {
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
-     * @param indexName The name of the index to force usage of this index in the query.
+     * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
      * @param opts Criteria query options or {@code null} to use default.
      * @return Iterator with query results.
      * @throws CriteriaException If failed.
@@ -83,7 +83,7 @@ public interface CriteriaQuerySource<T> {
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
-     * @param indexName The name of the index to force usage of this index in the query.
+     * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
      * @return Future that represents the pending completion of the operation.
      * @throws CriteriaException If failed.
      */
@@ -97,7 +97,7 @@ public interface CriteriaQuerySource<T> {
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
-     * @param indexName The name of the index to force usage of this index in the query.
+     * @param indexName The name of the index to force usage in the query or {@code null} to use the default.
      * @param opts Criteria query options or {@code null} to use default.
      * @return Future that represents the pending completion of the operation.
      * @throws CriteriaException If failed.
