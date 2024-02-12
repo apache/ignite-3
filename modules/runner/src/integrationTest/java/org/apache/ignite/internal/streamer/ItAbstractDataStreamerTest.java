@@ -122,15 +122,19 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SimplePublisher<Map.Entry<Tuple, Tuple>>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<Tuple, Tuple>>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(tupleKey(1), Tuple.create().set("name", "foo")));
-            publisher.submit(Map.entry(tupleKey(2), Tuple.create().set("name", "bar")));
+            publisher.submit(DataStreamerItem.of(Map.entry(tupleKey(1), Tuple.create().set("name", "foo"))));
+            publisher.submit(DataStreamerItem.of(Map.entry(tupleKey(2), Tuple.create().set("name", "bar"))));
+            publisher.submit(DataStreamerItem.removed(Map.entry(tupleKey(3), null)));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertEquals("foo", view.get(null, tupleKey(1)).stringValue("name"));
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
+        assertNull(view.get(null, tupleKey(3)));
     }
 
     @Test
