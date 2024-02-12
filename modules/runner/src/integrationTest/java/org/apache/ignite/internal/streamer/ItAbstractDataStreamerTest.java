@@ -97,17 +97,24 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @Test
     public void testBasicStreamingRecordPojoView() {
         RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+        view.upsert(null, new PersonPojo(2, "_"));
+        view.upsert(null, new PersonPojo(3, "baz"));
+
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SimplePublisher<PersonPojo>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<PersonPojo>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(new PersonPojo(1, "foo"));
-            publisher.submit(new PersonPojo(2, "bar"));
+            publisher.submit(DataStreamerItem.of(new PersonPojo(1, "foo")));
+            publisher.submit(DataStreamerItem.of(new PersonPojo(2, "bar")));
+            publisher.submit(DataStreamerItem.removed(new PersonPojo(3)));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertEquals("foo", view.get(null, new PersonPojo(1)).name);
         assertEquals("bar", view.get(null, new PersonPojo(2)).name);
+        assertNull(view.get(null, new PersonPojo(3)));
     }
 
     @Test
