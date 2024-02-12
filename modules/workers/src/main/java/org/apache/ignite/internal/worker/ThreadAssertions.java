@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.worker;
 
-import static org.apache.ignite.internal.thread.ThreadAssertionsProperties.ENABLED_PROPERTY;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
 
 import java.util.Set;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.ThreadAttributes;
@@ -42,7 +43,7 @@ public class ThreadAssertions {
      * Returns {@code true} if thread assertions are enabled.
      */
     public static boolean enabled() {
-        return Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "false"));
+        return IgniteSystemProperties.getBoolean(THREAD_ASSERTIONS_ENABLED, false);
     }
 
     /**
