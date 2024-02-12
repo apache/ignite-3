@@ -260,8 +260,16 @@ public class ClientTupleSerializer {
         w.packInt(schema.version());
         w.packInt(pairs.size());
 
+        int i = 0;
+
         for (Map.Entry<Tuple, Tuple> pair : pairs) {
-            writeKvTuple(null, pair.getKey(), pair.getValue(), schema, out, true);
+            boolean del = deleted != null && deleted.get(i++);
+
+            if (del) {
+                writeTuple(null, pair.getKey(), schema, out, true, true);
+            } else {
+                writeKvTuple(null, pair.getKey(), pair.getValue(), schema, out, true);
+            }
         }
     }
 
