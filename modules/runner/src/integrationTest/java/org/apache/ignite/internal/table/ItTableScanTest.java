@@ -955,7 +955,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Entire row.
      */
     private Row createKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema, -1);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
@@ -971,7 +971,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Entire row.
      */
     private Row createOldKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema, -1);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
