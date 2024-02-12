@@ -30,10 +30,6 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 public class ThreadAssertions {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
-    static {
-        LOG.info("Thread assertions enablement status: {}", enabled());
-    }
-
     /**
      * Returns {@code true} if thread assertions are enabled.
      */
