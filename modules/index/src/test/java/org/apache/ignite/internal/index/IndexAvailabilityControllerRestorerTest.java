@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
@@ -46,22 +48,19 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,9 +91,9 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
+        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
 
         deployWatches();
 
@@ -201,9 +200,9 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        catalogManager = spy(CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
+        catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 
-        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
+        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
     }
 
     private void deployWatches() throws Exception {

@@ -316,7 +316,11 @@ public class ClientMessagePacker implements AutoCloseable {
         int headerSize = getStringHeaderSize(maxBytes);
         int headerPos = buf.writerIndex();
 
-        buf.writerIndex(headerPos + headerSize);
+        int index = headerPos + headerSize;
+        if (index > buf.capacity()) {
+            buf.capacity(buf.capacity() * 2);
+        }
+        buf.writerIndex(index);
 
         int bytesWritten = ByteBufUtil.writeUtf8(buf, s);
         int endPos = buf.writerIndex();
@@ -503,6 +507,19 @@ public class ClientMessagePacker implements AutoCloseable {
         packExtensionTypeHeader(ClientMsgPackType.BITMASK, data.length);
 
         buf.writeBytes(data);
+    }
+
+    /**
+     * Writes a bit set.
+     *
+     * @param val Bit set value.
+     */
+    public void packBitSetNullable(@Nullable BitSet val) {
+        if (val == null) {
+            packNil();
+        } else {
+            packBitSet(val);
+        }
     }
 
     /**

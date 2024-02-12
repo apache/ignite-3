@@ -57,7 +57,10 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -67,8 +70,6 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -353,8 +354,9 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
         RecordView<TestObjectWithAllTypes> view = recordView();
 
         TestObjectWithAllTypes expectedRecord = TestObjectWithAllTypes.randomObject(rnd);
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
-        BinaryRow resultRow = new RecordMarshallerImpl<>(schema, recMapper)
+        BinaryRow resultRow = new RecordMarshallerImpl<>(schema, marshallers, recMapper)
                 .marshal(expectedRecord);
 
         doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
@@ -386,10 +388,13 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
 
         assertEquals(Collections.emptySet(), missedTypes);
 
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
         return new RecordViewImpl<>(
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
+                marshallers,
                 recMapper,
                 mock(IgniteSql.class)
         );

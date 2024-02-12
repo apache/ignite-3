@@ -21,19 +21,20 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -54,11 +55,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -71,6 +74,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NodeFinder;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -88,6 +95,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -136,15 +144,11 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -161,6 +165,8 @@ public class ItTxTestCluster {
     private final RaftConfiguration raftConfig;
 
     private final TransactionConfiguration txConfiguration;
+
+    private final StorageUpdateConfiguration storageUpdateConfiguration;
 
     private final Path workDir;
 
@@ -252,6 +258,10 @@ public class ItTxTestCluster {
     /** Observable timestamp tracker. */
     private final HybridTimestampTracker timestampTracker;
 
+    private CatalogService catalogService;
+
+    private final AtomicInteger globalCatalogId = new AtomicInteger();
+
     /**
      * The constructor.
      */
@@ -259,6 +269,7 @@ public class ItTxTestCluster {
             TestInfo testInfo,
             RaftConfiguration raftConfig,
             TransactionConfiguration txConfiguration,
+            StorageUpdateConfiguration storageUpdateConfiguration,
             Path workDir,
             int nodes,
             int replicas,
@@ -267,6 +278,7 @@ public class ItTxTestCluster {
     ) {
         this.raftConfig = raftConfig;
         this.txConfiguration = txConfiguration;
+        this.storageUpdateConfiguration = storageUpdateConfiguration;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -281,7 +293,7 @@ public class ItTxTestCluster {
     /**
      * Initialize the test state.
      */
-    protected void prepareCluster() throws Exception {
+    public void prepareCluster() throws Exception {
         assertTrue(nodes > 0);
         assertTrue(replicas > 0);
 
@@ -301,6 +313,8 @@ public class ItTxTestCluster {
         ClusterNode firstNode = first(cluster).topologyService().localMember();
 
         placementDriver = new TestPlacementDriver(firstNode);
+
+        catalogService = mock(CatalogService.class);
 
         LOG.info("The cluster has been started");
 
@@ -436,17 +450,17 @@ public class ItTxTestCluster {
      * Starts a table.
      *
      * @param tableName Table name.
-     * @param tableId Table id.
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    public TableViewInternal startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
-        CatalogService catalogService = mock(CatalogService.class);
+    public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
+        int tableId = globalCatalogId.getAndIncrement();
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.id()).thenReturn(tableId);
         when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
 
-        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
@@ -466,10 +480,15 @@ public class ItTxTestCluster {
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
-        int globalIndexId = 1;
-
         ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
                 new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
+
+        int indexId = globalCatalogId.getAndIncrement();
+
+        CatalogIndexDescriptor pkCatalogIndexDescriptor = mock(CatalogIndexDescriptor.class);
+        when(pkCatalogIndexDescriptor.id()).thenReturn(indexId);
+
+        when(catalogService.indexes(anyInt(), eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
 
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
@@ -497,8 +516,6 @@ public class ItTxTestCluster {
                         txMessageSender
                 );
                 transactionStateResolver.start();
-
-                int indexId = globalIndexId++;
 
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
@@ -532,7 +549,8 @@ public class ItTxTestCluster {
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        indexUpdateHandler
+                        indexUpdateHandler,
+                        storageUpdateConfiguration
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -548,7 +566,8 @@ public class ItTxTestCluster {
                         storageUpdateHandler,
                         txStateStorage,
                         safeTime,
-                        storageIndexTracker
+                        storageIndexTracker,
+                        catalogService
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -881,5 +900,29 @@ public class ItTxTestCluster {
 
         clientTxStateResolver.start();
         clientTxManager.start();
+    }
+
+    public Map<String, Loza> raftServers() {
+        return raftServers;
+    }
+
+    public Map<String, TxManager> txManagers() {
+        return txManagers;
+    }
+
+    public PlacementDriver placementDriver() {
+        return placementDriver;
+    }
+
+    public TxManager clientTxManager() {
+        return clientTxManager;
+    }
+
+    public String localNodeName() {
+        return localNodeName;
+    }
+
+    public Map<String, HybridClock> clocks() {
+        return clocks;
     }
 }

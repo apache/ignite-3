@@ -18,8 +18,8 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.network.annotations.Transient;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
 import org.jetbrains.annotations.Nullable;
 

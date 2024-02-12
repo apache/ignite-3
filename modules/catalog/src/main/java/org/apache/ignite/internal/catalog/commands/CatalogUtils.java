@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -138,6 +140,13 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
     }
 
+    public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
+
+    /** System schema names. */
+    static boolean isSystemSchema(String schemaName) {
+        return SYSTEM_SCHEMAS.contains(schemaName);
+    }
+
     /**
      * Returns zone descriptor with default parameters.
      *
@@ -214,7 +223,7 @@ public class CatalogUtils {
      * @param listener Listener to invoke on a validation failure.
      * @return {@code true} iff the proposed change is valid.
      */
-    static boolean validateColumnChange(
+    public static boolean validateColumnChange(
             CatalogTableColumnDescriptor origin,
             @Nullable ColumnType newType,
             @Nullable Integer newPrecision,
@@ -304,6 +313,37 @@ public class CatalogUtils {
     }
 
     /**
+     * Replaces the table descriptor that has the same ID as the {@code newTableDescriptor} in the given {@code schema}.
+     *
+     * @param schema Schema, which table descriptor needs to be replaced.
+     * @param newTableDescriptor Table descriptor which will replace the descriptor with the same ID in the schema.
+     * @return New schema descriptor with a replaced table descriptor.
+     * @throws CatalogValidationException If the table descriptor with the same ID is not present in the schema.
+     */
+    public static CatalogSchemaDescriptor replaceTable(CatalogSchemaDescriptor schema, CatalogTableDescriptor newTableDescriptor) {
+        CatalogTableDescriptor[] tableDescriptors = schema.tables().clone();
+
+        for (int i = 0; i < tableDescriptors.length; i++) {
+            if (tableDescriptors[i].id() == newTableDescriptor.id()) {
+                tableDescriptors[i] = newTableDescriptor;
+
+                return new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        tableDescriptors,
+                        schema.indexes(),
+                        schema.systemViews(),
+                        newTableDescriptor.updateToken()
+                );
+            }
+        }
+
+        throw new CatalogValidationException(String.format(
+                "Table with ID %d has not been found in schema with ID %d", newTableDescriptor.id(), newTableDescriptor.schemaId()
+        ));
+    }
+
+    /**
      * Return default length according to supplied type.
      *
      * @param columnType Column type.
@@ -329,7 +369,7 @@ public class CatalogUtils {
      * @return Schema with given name. Never null.
      * @throws CatalogValidationException If schema with given name is not exists.
      */
-    static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+    public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "schemaName");
 
         CatalogSchemaDescriptor schema = catalog.schema(name);
@@ -349,7 +389,7 @@ public class CatalogUtils {
      * @return Table with given name. Never null.
      * @throws TableNotFoundValidationException If table with given name is not exists.
      */
-    static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+    public static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
@@ -369,7 +409,7 @@ public class CatalogUtils {
      * @return Zone with given name. Never null.
      * @throws CatalogValidationException If zone with given name is not exists.
      */
-    static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
@@ -397,7 +437,7 @@ public class CatalogUtils {
      * @param name Name of the index of interest.
      * @throws IndexNotFoundValidationException If index does not exist.
      */
-    static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+    public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.index(name);
 
         if (index == null) {
@@ -414,7 +454,7 @@ public class CatalogUtils {
      * @param indexId ID of the index of interest.
      * @throws IndexNotFoundValidationException If index does not exist.
      */
-    static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
+    public static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = catalog.index(indexId);
 
         if (index == null) {
@@ -463,5 +503,20 @@ public class CatalogUtils {
                 : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
 
         return indexByIdMap.values();
+    }
+
+    /**
+     * Returns the timestamp at which the catalog version is guaranteed to be activated on every node of the cluster. This takes into
+     * account possible clock skew between nodes.
+     *
+     * @param catalog Catalog version of interest.
+     */
+    public static HybridTimestamp clusterWideEnsuredActivationTimestamp(Catalog catalog) {
+        HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
+
+        return activationTs.addPhysicalTime(HybridTimestamp.maxClockSkew())
+                // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
+                // logical parts on different nodes of the cluster (see IGNITE-21084).
+                .roundUpToPhysicalTick();
     }
 }

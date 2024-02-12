@@ -29,9 +29,10 @@ import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -59,11 +60,13 @@ public class ClientComputeExecuteColocatedRequest {
             return readTuple(in, table, true).thenCompose(keyTuple -> {
                 List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
                 String jobClassName = in.unpackString();
+                JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
                 Object[] args = unpackArgs(in);
 
                 out.packInt(table.schemaView().lastKnownSchemaVersion());
 
-                JobExecution<Object> execution = compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args);
+                JobExecution<Object> execution =
+                        compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, options, args);
                 sendResultAndStatus(execution, notificationSender);
                 return execution.idAsync().thenAccept(out::packUuid);
             });

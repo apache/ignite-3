@@ -65,8 +65,9 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteScriptRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlParameterMetadataRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlQueryMetadataRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientStreamerBatchSendRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
@@ -108,6 +109,7 @@ import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
@@ -128,7 +130,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.IgniteSql;
@@ -758,8 +759,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(in, sql, igniteTransactions);
 
-            case ClientOp.SQL_PARAM_META:
-                return ClientSqlParameterMetadataRequest.process(in, out, queryProcessor, resources);
+            case ClientOp.SQL_QUERY_META:
+                return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
+
+            case ClientOp.STREAMER_BATCH_SEND:
+                return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);

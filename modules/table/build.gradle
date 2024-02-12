@@ -44,6 +44,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-catalog')
     implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -60,6 +61,7 @@ dependencies {
     testImplementation project(':ignite-storage-rocksdb')
     testImplementation project(':ignite-placement-driver-api')
     testImplementation project(':ignite-system-view-api')
+    testImplementation project(':ignite-failure-handler')
     testImplementation(testFixtures(project(':ignite-api')))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-schema')))
@@ -129,6 +131,7 @@ dependencies {
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-api')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))

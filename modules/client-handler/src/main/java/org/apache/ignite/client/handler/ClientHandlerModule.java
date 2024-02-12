@@ -17,12 +17,12 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -48,6 +48,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
@@ -56,10 +58,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -127,6 +126,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     @TestOnly
+    @SuppressWarnings("unused")
     private volatile ChannelHandler handler;
 
     /**
@@ -213,13 +213,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
         primaryReplicaTracker.start();
 
-        try {
-            channel = startEndpoint(configuration).channel();
-        } catch (InterruptedException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, e);
-        }
-
-        return nullCompletedFuture();
+        return startEndpoint(configuration).thenAccept(ch -> channel = ch);
     }
 
     /** {@inheritDoc} */
@@ -262,12 +256,11 @@ public class ClientHandlerModule implements IgniteComponent {
      *
      * @param configuration Configuration.
      * @return Channel future.
-     * @throws InterruptedException If thread has been interrupted during the start.
-     * @throws IgniteException      When startup has failed.
      */
-    private ChannelFuture startEndpoint(ClientConnectorView configuration) throws InterruptedException {
+    private CompletableFuture<Channel> startEndpoint(ClientConnectorView configuration) {
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
         CompletableFuture<UUID> clusterId = clusterIdSupplier.get();
+        CompletableFuture<Channel> result = new CompletableFuture<>();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
         SslContext sslContext = configuration.ssl().enabled() ? SslContextProvider.createServerSslContext(configuration.ssl()) : null;
@@ -303,6 +296,7 @@ public class ClientHandlerModule implements IgniteComponent {
                             ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
                                     configuration, clusterId, connectionId);
 
+                            //noinspection TestOnlyProblems
                             handler = messageHandler;
 
                             ch.pipeline().addLast(
@@ -319,32 +313,35 @@ public class ClientHandlerModule implements IgniteComponent {
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
 
         int port = configuration.port();
-        Channel ch = null;
 
-        ChannelFuture bindRes = bootstrap.bind(port).await();
+        bootstrap.bind(port).addListener((ChannelFutureListener) bindFut -> {
+            if (bindFut.isSuccess()) {
+                if (LOG.isInfoEnabled()) {
+                    LOG.info("Thin client connector endpoint started successfully [port={}]", port);
+                }
 
-        if (bindRes.isSuccess()) {
-            ch = bindRes.channel();
-        } else if (!(bindRes.cause() instanceof BindException)) {
-            throw new IgniteException(
-                    INTERNAL_ERR,
-                    "Failed to start thin client connector endpoint: " + bindRes.cause().getMessage(),
-                    bindRes.cause());
-        }
+                result.complete(bindFut.channel());
+                return;
+            }
 
-        if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
+            if (bindFut.cause() instanceof BindException) {
+                result.completeExceptionally(
+                        new IgniteException(
+                                PORT_IN_USE_ERR,
+                                "Cannot start thin client connector endpoint. Port " + port + " is in use.",
+                                bindFut.cause())
+                );
+                return;
+            }
 
-            LOG.debug(msg);
+            result.completeExceptionally(
+                    new IgniteException(
+                            INTERNAL_ERR,
+                            "Failed to start thin client connector endpoint: " + bindFut.cause().getMessage(),
+                            bindFut.cause()));
+        });
 
-            throw new IgniteException(ErrorGroups.Network.PORT_IN_USE_ERR, msg);
-        }
-
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Thin client protocol started successfully [port={}]", port);
-        }
-
-        return ch.closeFuture();
+        return result;
     }
 
     private ClientInboundMessageHandler createInboundMessageHandler(

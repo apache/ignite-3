@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * Message that does not need an acknowledgement from the remote node.

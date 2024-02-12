@@ -37,6 +37,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -103,6 +106,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** {@link FilePageStore} factory. */
     private final FilePageStoreFactory filePageStoreFactory;
 
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -110,6 +116,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param storagePath Storage path.
      * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
      * @param pageSize Page size in bytes.
+     * @param failureProcessor Failure processor that is used to handler critical errors
      * @throws IgniteInternalCheckedException If failed.
      */
     public FilePageStoreManager(
@@ -117,9 +124,11 @@ public class FilePageStoreManager implements PageReadWriteManager {
             Path storagePath,
             FileIoFactory filePageStoreFileIoFactory,
             // TODO: IGNITE-17017 Move to common config
-            int pageSize
+            int pageSize,
+            FailureProcessor failureProcessor
     ) throws IgniteInternalCheckedException {
         this.dbDir = storagePath.resolve("db");
+        this.failureProcessor = failureProcessor;
 
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, LOG);
 
@@ -216,7 +225,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             pageStore.read(pageId, pageBuf, keepCrc);
         } catch (IgniteInternalCheckedException e) {
-            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
         }
@@ -236,7 +245,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             return pageStore;
         } catch (IgniteInternalCheckedException e) {
-            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
         }
@@ -253,7 +262,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             return pageId(partId, flags, pageIdx);
         } catch (IgniteInternalCheckedException e) {
-            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
         }

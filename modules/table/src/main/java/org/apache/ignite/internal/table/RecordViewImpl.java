@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,6 +26,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -72,6 +71,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @param tbl Table.
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param marshallers Marshallers provider.
      * @param mapper Record class mapper.
      * @param sql Ignite SQL facade.
      */
@@ -79,13 +79,14 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
+            MarshallersProvider marshallers,
             Mapper<R> mapper,
             IgniteSql sql
     ) {
-        super(tbl, schemaVersions, schemaRegistry, sql);
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
         this.mapper = mapper;
-        marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
+        marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, marshallers, mapper);
     }
 
     /** {@inheritDoc} */
@@ -369,8 +370,6 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             return marsh;
         }
 
-        // TODO: Cache marshaller for schema version or upgrade row?
-
         SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
 
         marsh = marshallerFactory.apply(schema);
@@ -531,11 +530,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                 marshaller(rowConverter.registry().lastKnownSchemaVersion())
         );
 
-        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> {
-            return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.upsertAll(marshal(items, schemaVersion), partitionId);
-            });
-        };
+        StreamerBatchSender<R, Integer> batchSender = (partitionId, items, deleted) ->
+                withSchemaSync(
+                        null,
+                        schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion), deleted, partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
@@ -543,8 +541,9 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+        MarshallerSchema marshallerSchema = schema.marshallerSchema();
+        Marshaller marsh = marshallers.getRowMarshaller(marshallerSchema, mapper, false, true);
         Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-        Marshaller marsh = createMarshaller(toMarshallerColumns(cols), mapper, false, true);
 
         return (row) -> {
             try {

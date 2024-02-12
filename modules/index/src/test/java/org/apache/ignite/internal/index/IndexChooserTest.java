@@ -38,6 +38,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -63,7 +64,7 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        catalogManager.start();
+        assertThat(catalogManager.start(), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
@@ -189,9 +190,6 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         createIndex(INDEX_NAME);
         startBuildingIndex(INDEX_NAME);
         makeIndexAvailable(INDEX_NAME);
-
-        int catalogVersionAfterMakeIndexAvailable = catalogManager.latestCatalogVersion();
-
         dropIndex(INDEX_NAME);
 
         int catalogVersion = catalogManager.latestCatalogVersion();
@@ -202,7 +200,31 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 chooseForRwTxOperation(catalogVersion),
-                contains(index(catalogVersion, PK_INDEX_NAME), index(catalogVersionAfterMakeIndexAvailable, INDEX_NAME))
+                contains(index(catalogVersion, PK_INDEX_NAME), index(catalogVersion, INDEX_NAME))
+        );
+    }
+
+    @ParameterizedTest(name = "withRecovery = {0}")
+    @ValueSource(booleans = {false, true})
+    void testChooseForRwTxOperationAfterRemoveStoppedIndex(boolean withRecovery) {
+        createIndex(INDEX_NAME);
+        startBuildingIndex(INDEX_NAME);
+        makeIndexAvailable(INDEX_NAME);
+        dropIndex(INDEX_NAME);
+
+        int catalogVersionAfterDropIndex = catalogManager.latestCatalogVersion();
+
+        removeIndex(INDEX_NAME);
+
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        if (withRecovery) {
+            recoverIndexCollector();
+        }
+
+        assertThat(
+                chooseForRwTxOperation(catalogVersion),
+                contains(index(catalogVersion, PK_INDEX_NAME), index(catalogVersionAfterDropIndex, INDEX_NAME))
         );
     }
 
@@ -241,15 +263,21 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
                 toStartBuildingIndexCommand(indexName5)
         );
 
-        int catalogVersionBeforeDropIndex4And5 = catalogManager.latestCatalogVersion();
-
-        // after execute: I0(A) I1(A) I3(B)
+        // after execute: I0(A) I1(A) I3(B) I4(S)
         executeCatalogCommands(toDropIndexCommand(indexName4), toDropIndexCommand(indexName5));
 
-        int catalogVersionBeforeDropIndex1 = catalogManager.latestCatalogVersion();
+        int catalogVersionBeforeRemoveIndex4 = catalogManager.latestCatalogVersion();
+
+        // after execute: I0(A) I1(A) I3(B)
+        executeCatalogCommands(toRemoveIndexCommand(indexName4));
+
+        // after execute: I0(A) I1(S) I3(B)
+        executeCatalogCommands(toDropIndexCommand(indexName1));
+
+        int catalogVersionBeforeRemoveIndex1 = catalogManager.latestCatalogVersion();
 
         // after execute: I0(A) I3(B)
-        executeCatalogCommands(toDropIndexCommand(indexName1));
+        executeCatalogCommands(toRemoveIndexCommand(indexName1));
 
         // after execute: I0(A) I3(B) I6(R)
         executeCatalogCommands(toCreateHashIndexCommand(indexName6));
@@ -265,9 +293,9 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
                 chooseForRwTxOperation(catalogVersion),
                 contains(
                         index(catalogVersion, PK_INDEX_NAME),                   // Alive available index0 (pk)
-                        index(catalogVersionBeforeDropIndex1, indexName1),      // Dropped available index1
+                        index(catalogVersionBeforeRemoveIndex1, indexName1),    // Removed available index1
                         index(catalogVersion, indexName3),                      // Building index3
-                        index(catalogVersionBeforeDropIndex4And5, indexName4),  // Dropped available index4
+                        index(catalogVersionBeforeRemoveIndex4, indexName4),    // Removed available index4
                         index(catalogVersion, indexName6)                       // Registered index6
                 )
         );
@@ -291,6 +319,10 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
 
     private void dropIndex(String indexName) {
         TestIndexManagementUtils.dropIndex(catalogManager, indexName);
+    }
+
+    private void removeIndex(String indexName) {
+        TestIndexManagementUtils.removeIndex(catalogManager, indexName);
     }
 
     private List<CatalogIndexDescriptor> chooseForRwTxOperation(int catalogVersion) {
@@ -346,6 +378,12 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         return DropIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .indexName(indexName)
+                .build();
+    }
+
+    private CatalogCommand toRemoveIndexCommand(String indexName) {
+        return RemoveIndexCommand.builder()
+                .indexId(indexId(catalogManager, indexName, clock))
                 .build();
     }
 }

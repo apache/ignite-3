@@ -28,8 +28,11 @@ import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 import static org.apache.ignite.internal.util.CollectionUtils.setOf;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -352,5 +355,24 @@ public class CollectionUtilsTest {
         );
 
         assertThrows(UnsupportedOperationException.class, () -> mapIterable(List.of(1), null, null).iterator().remove());
+    }
+
+    @Test
+    void testViewList() {
+        assertThat(view(List.of(), identity()), empty());
+        assertThat(view(List.of(), Object::toString), empty());
+
+        assertThat(view(List.of(1, 2, 3), identity()), equalTo(List.of(1, 2, 3)));
+        assertThat(view(List.of(1, 2, 3), Integer::longValue), equalTo(List.of(1L, 2L, 3L)));
+
+        List<Integer> list = new ArrayList<>(List.of(1));
+        List<Integer> view = view(list, identity());
+
+        assertThrows(UnsupportedOperationException.class, () -> view.add(0));
+        assertThrows(UnsupportedOperationException.class, () -> view.set(0, 0));
+        assertThrows(UnsupportedOperationException.class, () -> view.remove(0));
+
+        list.add(2);
+        assertThat(view, equalTo(List.of(1, 2)));
     }
 }

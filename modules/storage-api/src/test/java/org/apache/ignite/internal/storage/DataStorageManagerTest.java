@@ -37,6 +37,7 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 import org.apache.ignite.internal.storage.DataStorageModulesTest.FirstDataStorageConfigurationSchema;
@@ -72,7 +73,12 @@ public class DataStorageManagerTest extends BaseIgniteAbstractTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
+                dataStorageModules.createStorageEngines(
+                        "test",
+                        mock(ConfigurationRegistry.class),
+                        workDir,
+                        null,
+                        mock(FailureProcessor.class))
         );
 
         // Check random polymorphicTypeId.
@@ -114,7 +120,12 @@ public class DataStorageManagerTest extends BaseIgniteAbstractTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
+                dataStorageModules.createStorageEngines(
+                        "test",
+                        mock(ConfigurationRegistry.class),
+                        workDir,
+                        null,
+                        mock(FailureProcessor.class))
         );
 
         DataStorageView dataStorageView = dataStorageConfig.value();

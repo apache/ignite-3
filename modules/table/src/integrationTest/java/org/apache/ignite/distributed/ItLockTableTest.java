@@ -28,12 +28,14 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
@@ -47,7 +49,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -64,8 +65,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class ItLockTableTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItLockTableTest.class);
-
-    private static int EMP_TABLE_ID = 2;
 
     private static final int CACHE_SIZE = 10;
 
@@ -94,6 +93,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected static TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    protected static StorageUpdateConfiguration storageUpdateConfiguration;
+
     private ItTxTestCluster txTestCluster;
 
     private HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
@@ -113,6 +115,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                storageUpdateConfiguration,
                 workDir,
                 1,
                 1,
@@ -147,7 +150,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
         };
         txTestCluster.prepareCluster();
 
-        testTable = txTestCluster.startTable(TABLE_NAME, EMP_TABLE_ID, TABLE_SCHEMA);
+        testTable = txTestCluster.startTable(TABLE_NAME, TABLE_SCHEMA);
 
         log.info("Tables have been started");
     }

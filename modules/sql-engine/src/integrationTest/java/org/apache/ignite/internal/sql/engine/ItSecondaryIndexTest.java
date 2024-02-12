@@ -134,6 +134,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testIndexLoopJoin() {
         assertQuery("SELECT /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
                 + "FROM Developer d1, Developer d2 WHERE d1.id = d2.id")
@@ -201,7 +202,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
+                .matches(containsSubPlan("IgnitePkLookup(table=[[PUBLIC, DEVELOPER]]"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
@@ -569,6 +570,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21287")
     public void testOrCondition4() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR (name='Mozart' AND depId=3)")
                 .matches(containsUnion(true))
@@ -579,6 +581,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21287")
     public void testOrCondition5() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR name='Mozart'")
                 .matches(containsUnion(true))
@@ -914,6 +917,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testNullsInCorrNestedLoopJoinSearchRow() {
         try {
             sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");

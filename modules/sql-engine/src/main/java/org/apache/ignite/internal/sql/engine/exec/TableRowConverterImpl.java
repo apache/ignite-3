@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
 import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
 import org.jetbrains.annotations.Nullable;
@@ -34,37 +38,100 @@ import org.jetbrains.annotations.Nullable;
  * Converts rows to execution engine representation.
  */
 public class TableRowConverterImpl implements TableRowConverter {
+
     private final SchemaRegistry schemaRegistry;
 
     private final SchemaDescriptor schemaDescriptor;
 
-    private final BinaryTupleSchema binaryTupleSchema;
+    private final BinaryTupleSchema fullTupleSchema;
 
-    private final int[] mapping;
+    private final BinaryTupleSchema keyTupleSchema;
+
+    /**
+     * Mapping of required columns to their indexes in physical schema.
+     */
+    private final int[] requiredColumnsMapping;
+
+    /**
+     * Mapping of all columns to their indexes in physical schema.
+     */
+    private final int[] fullMapping;
+
+    /**
+     * Mapping of key column indexes to its ordinals in the ordered list.
+     * It is used during a delete operation to assemble key-only binary row from
+     * "truncated" relational node row containing only primary key columns.
+     */
+    private final int[] keyMapping;
+
+    private final boolean skipReshuffling;
 
     /** Constructor. */
     TableRowConverterImpl(
             SchemaRegistry schemaRegistry,
             SchemaDescriptor schemaDescriptor,
-            TableDescriptor descriptor,
             @Nullable BitSet requiredColumns
     ) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
 
-        this.binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+        this.fullTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+        this.keyTupleSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
 
-        int size = requiredColumns == null ? descriptor.columnsCount() : requiredColumns.cardinality();
+        this.skipReshuffling = requiredColumns == null && schemaDescriptor.physicalOrderMatchesLogical();
 
-        mapping = new int[size];
+        int elementCount = schemaDescriptor.length();
+        int size = requiredColumns == null ? elementCount : requiredColumns.cardinality();
 
-        int currentIdx = 0;
-        for (ColumnDescriptor column : descriptor) {
-            if (requiredColumns != null && !requiredColumns.get(column.logicalIndex())) {
-                continue;
+        requiredColumnsMapping = new int[size];
+        fullMapping = new int[elementCount];
+
+        List<Map.Entry<Integer, Column>> tableOrder = new ArrayList<>(elementCount);
+
+        for (int i = 0; i < elementCount; i++) {
+            Column column = schemaDescriptor.column(i);
+            tableOrder.add(Map.entry(column.columnOrder(), column));
+        }
+
+        tableOrder.sort(Entry.comparingByKey());
+
+        int keyIndex = 0;
+        int requiredIndex = 0;
+        keyMapping = new int[schemaDescriptor.keyColumns().length()];
+
+        for (Map.Entry<Integer, Column> e : tableOrder) {
+            Column column = e.getValue();
+            int i = column.schemaIndex();
+
+            fullMapping[i] = column.columnOrder();
+
+            if (schemaDescriptor.isKeyColumn(i)) {
+                keyMapping[keyIndex++] = i;
             }
 
-            mapping[currentIdx++] = schemaDescriptor.column(column.name()).schemaIndex();
+            if (requiredColumns == null || requiredColumns.get(column.columnOrder())) {
+                requiredColumnsMapping[requiredIndex++] = i;
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+        BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
+
+        if (!key) {
+            InternalTuple tuple = schemaDescriptor.physicalOrderMatchesLogical()
+                    ? binaryTuple
+                    : new FormatAwareProjectedTuple(binaryTuple, fullMapping);
+
+            return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, fullTupleSchema);
+        } else {
+            InternalTuple tuple = schemaDescriptor.physicalOrderMatchesLogical()
+                    ? binaryTuple
+                    : new FormatAwareProjectedTuple(binaryTuple, keyMapping);
+
+            return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, keyTupleSchema);
         }
     }
 
@@ -79,17 +146,16 @@ public class TableRowConverterImpl implements TableRowConverter {
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
             InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
 
-            tuple = new FormatAwareProjectedTuple(
-                    tableTuple,
-                    mapping
-            );
+            tuple = skipReshuffling
+                    ? tableTuple
+                    : new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
         } else {
             InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
 
             tuple = new FieldDeserializingProjectedTuple(
-                    binaryTupleSchema,
+                    fullTupleSchema,
                     tableTuple,
-                    mapping
+                    requiredColumnsMapping
             );
         }
 

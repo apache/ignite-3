@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -29,6 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -42,7 +47,11 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration test for CREATE TABLE DDL command.
@@ -273,7 +282,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void checkSchemaUpdatedWithEqAlterColumn() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteImpl node = (IgniteImpl) CLUSTER.aliveNode();
+        IgniteImpl node = CLUSTER.aliveNode();
 
         int tableVersionBefore = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
 
@@ -317,5 +326,38 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 "Functional defaults are not supported for non-primary key columns",
                 () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)")
         );
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    public void testItIsNotPossibleToCreateTablesInSystemSchema(String schema) {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Operations with reserved schemas are not allowed",
+                () -> sql(format("CREATE TABLE {}.SYS_TABLE (NAME VARCHAR PRIMARY KEY, SIZE BIGINT)", schema.toLowerCase())));
+    }
+
+    private static Stream<Arguments> reservedSchemaNames() {
+        return SYSTEM_SCHEMAS.stream().map(Arguments::of);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20680")
+    @Test
+    public void concurrentDrop() {
+        sql("CREATE TABLE test (key INT PRIMARY KEY)");
+
+        var stopFlag = new AtomicBoolean();
+
+        CompletableFuture<Void> selectFuture = CompletableFuture.runAsync(() -> {
+            while (!stopFlag.get()) {
+                sql("SELECT COUNT(*) FROM test");
+            }
+        });
+
+        sql("DROP TABLE test");
+
+        stopFlag.set(true);
+
+        assertThat(selectFuture, willCompleteSuccessfully());
     }
 }

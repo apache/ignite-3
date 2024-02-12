@@ -24,13 +24,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for deployment commands. */
-public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBase {
+public class ItDeploymentUnitTest extends CliIntegrationTest {
 
     private String testFile;
 
@@ -157,7 +157,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should display correct status after deploy to the specified nodes")
     void deployToNodesAndStatusCheck() {
         // When deploy with version
-        String node = allNodeNames().get(1);
+        String node = CLUSTER.node(1).name();
         String id = "test.unit.id.7";
         execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testFile, "--nodes", node);
 
@@ -220,15 +220,15 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
             // Unit is deployed on all requested nodes
             assertDeployed(id);
 
-            for (int i = 0; i < CLUSTER_NODES.size(); i++) {
+            CLUSTER.runningNodes().forEach(ignite -> {
                 resetOutput();
 
-                String nodeUrl = "http://localhost:" + (10300 + i);
+                String nodeUrl = "http://" + ignite.restHttpAddress().toString();
                 execute("node", "unit", "list", "--plain", "--node-url", nodeUrl, id);
 
                 // Unit is deployed on the node
                 assertDeployed(id);
-            }
+            });
         });
     }
 

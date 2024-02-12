@@ -60,7 +60,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteAsync<T>(
+        public async Task<IJobExecution<T>> ExecuteAsync<T>(
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
@@ -69,11 +69,14 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(nodes);
             IgniteArgumentCheck.NotNull(jobClassName);
 
-            return await ExecuteOnOneNode<T>(GetRandomNode(nodes), units, jobClassName, args).ConfigureAwait(false);
+            var nodesCol = GetNodesCollection(nodes);
+            IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
+
+            return await ExecuteOnNodes<T>(nodesCol, units, jobClassName, args).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteColocatedAsync<T>(
+        public async Task<IJobExecution<T>> ExecuteColocatedAsync<T>(
             string tableName,
             IIgniteTuple key,
             IEnumerable<DeploymentUnit> units,
@@ -89,7 +92,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteColocatedAsync<T, TKey>(
+        public async Task<IJobExecution<T>> ExecuteColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
             IEnumerable<DeploymentUnit> units,
@@ -106,7 +109,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(
+        public IDictionary<IClusterNode, Task<IJobExecution<T>>> BroadcastAsync<T>(
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
@@ -116,12 +119,12 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobClassName);
             IgniteArgumentCheck.NotNull(units);
 
-            var res = new Dictionary<IClusterNode, Task<T>>();
+            var res = new Dictionary<IClusterNode, Task<IJobExecution<T>>>();
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
 
             foreach (var node in nodes)
             {
-                var task = ExecuteOnOneNode<T>(node, units0, jobClassName, args);
+                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units0, jobClassName, args);
 
                 res[node] = task;
             }
@@ -132,35 +135,80 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
-        [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
-        private static IClusterNode GetRandomNode(IEnumerable<IClusterNode> nodes)
+        /// <summary>
+        /// Gets the job status.
+        /// </summary>
+        /// <param name="jobId">Job ID.</param>
+        /// <returns>Status.</returns>
+        internal async Task<JobStatus?> GetJobStatusAsync(Guid jobId)
         {
-            var nodesCol = GetNodesCollection(nodes);
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
 
-            IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeGetStatus, writer).ConfigureAwait(false);
+            return Read(res.GetReader());
 
-            var idx = Random.Shared.Next(0, nodesCol.Count);
+            JobStatus? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadJobStatus(reader);
+        }
 
-            return nodesCol.ElementAt(idx);
+        /// <summary>
+        /// Cancels the job.
+        /// </summary>
+        /// <param name="jobId">Job id.</param>
+        /// <returns>
+        /// <c>true</c> when the job is cancelled, <c>false</c> when the job couldn't be cancelled
+        /// (either it's not yet started, or it's already completed), or <c> null</c> if there's no job with the specified id.
+        /// </returns>
+        internal async Task<bool?> CancelJobAsync(Guid jobId)
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeCancel, writer).ConfigureAwait(false);
+            return res.GetReader().ReadBooleanNullable();
+        }
+
+        /// <summary>
+        /// Changes the job priority. After priority change the job will be the last in the queue of jobs with the same priority.
+        /// </summary>
+        /// <param name="jobId">Job id.</param>
+        /// <param name="priority">New priority.</param>
+        /// <returns>
+        /// Returns <c>true</c> if the priority was successfully changed,
+        /// <c>false</c> when the priority couldn't be changed (job is already executing or completed),
+        /// <c>null</c> if the job was not found (no longer exists due to exceeding the retention time limit).
+        /// </returns>
+        internal async Task<bool?> ChangeJobPriorityAsync(Guid jobId, int priority)
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
+            writer.MessageWriter.Write(priority);
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeChangePriority, writer).ConfigureAwait(false);
+            return res.GetReader().ReadBooleanNullable();
+        }
+
+        [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
+        private static IClusterNode GetRandomNode(ICollection<IClusterNode> nodes)
+        {
+            var idx = Random.Shared.Next(0, nodes.Count);
+
+            return nodes.ElementAt(idx);
         }
 
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
+        private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T> writerFunc)
         {
             var w = buf.MessageWriter;
 
-            if (units.TryGetNonEnumeratedCount(out var count))
+            if (items.TryGetNonEnumeratedCount(out var count))
             {
                 w.Write(count);
-                foreach (var unit in units)
+                foreach (var item in items)
                 {
-                    IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
-                    IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
-
-                    w.Write(unit.Name);
-                    w.Write(unit.Version);
+                    writerFunc(item);
                 }
 
                 return;
@@ -171,24 +219,85 @@ namespace Apache.Ignite.Internal.Compute
             var countSpan = buf.GetSpan(5);
             buf.Advance(5);
 
-            foreach (var unit in units)
+            foreach (var item in items)
             {
                 count++;
-                w.Write(unit.Name);
-                w.Write(unit.Version);
+                writerFunc(item);
             }
 
             countSpan[0] = MsgPackCode.Array32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
         }
 
-        private async Task<T> ExecuteOnOneNode<T>(
-            IClusterNode node,
+        private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
+        {
+            WriteEnumerable(units, buf, writerFunc: unit =>
+            {
+                IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
+                IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
+
+                var w = buf.MessageWriter;
+                w.Write(unit.Name);
+                w.Write(unit.Version);
+            });
+        }
+
+        private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf)
+        {
+            WriteEnumerable(nodes, buf, writerFunc: node =>
+            {
+                var w = buf.MessageWriter;
+                w.Write(node.Name);
+            });
+        }
+
+        private static JobStatus ReadJobStatus(MsgPackReader reader)
+        {
+            var id = reader.ReadGuid();
+            var state = (JobState)reader.ReadInt32();
+            var createTime = reader.ReadInstantNullable();
+            var startTime = reader.ReadInstantNullable();
+            var endTime = reader.ReadInstantNullable();
+
+            return new JobStatus(id, state, createTime.GetValueOrDefault(), startTime, endTime);
+        }
+
+        private IJobExecution<T> GetJobExecution<T>(PooledBuffer computeExecuteResult, bool readSchema)
+        {
+            var reader = computeExecuteResult.GetReader();
+
+            if (readSchema)
+            {
+                _ = reader.ReadInt32();
+            }
+
+            var jobId = reader.ReadGuid();
+            var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
+
+            return new JobExecution<T>(jobId, resultTask, this);
+
+            static async Task<(T, JobStatus)> GetResult(NotificationHandler handler)
+            {
+                using var notificationRes = await handler.Task.ConfigureAwait(false);
+                return Read(notificationRes.GetReader());
+            }
+
+            static (T, JobStatus) Read(MsgPackReader reader)
+            {
+                var res = (T)reader.ReadObjectFromBinaryTuple()!;
+                var status = ReadJobStatus(reader);
+
+                return (res, status);
+            }
+        }
+
+        private async Task<IJobExecution<T>> ExecuteOnNodes<T>(
+            ICollection<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
             object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(node);
+            IClusterNode node = GetRandomNode(nodes);
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
@@ -197,25 +306,21 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            var notificationHandler = (NotificationHandler)res.Metadata!;
-            using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
-            return Read(notificationRes);
+            return GetJobExecution<T>(res, readSchema: false);
 
             void Write()
             {
                 var w = writer.MessageWriter;
 
-                w.Write(node.Name);
+                WriteNodeNames(nodes, writer);
                 WriteUnits(units, writer);
                 w.Write(jobClassName);
+
+                // TODO: IGNITE-21334
+                w.Write(0); // Priority.
+                w.Write(0); // Max retries.
+
                 w.WriteObjectCollectionAsBinaryTuple(args);
-            }
-
-            static T Read(in PooledBuffer buf)
-            {
-                var reader = buf.GetReader();
-
-                return (T)reader.ReadObjectFromBinaryTuple()!;
             }
         }
 
@@ -240,7 +345,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
-        private async Task<T> ExecuteColocatedAsync<T, TKey>(
+        private async Task<IJobExecution<T>> ExecuteColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
@@ -271,9 +376,7 @@ namespace Apache.Ignite.Internal.Compute
                             ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
-                    var notificationHandler = (NotificationHandler)res.Metadata!;
-                    using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
-                    return Read(notificationRes);
+                    return GetJobExecution<T>(res, readSchema: true);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
@@ -306,14 +409,14 @@ namespace Apache.Ignite.Internal.Compute
 
                 WriteUnits(units0, bufferWriter);
                 w.Write(jobClassName);
+
+                // TODO: IGNITE-21334
+                w.Write(0); // Priority.
+                w.Write(0); // Max retries.
+
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
                 return colocationHash;
-            }
-
-            static T Read(in PooledBuffer buf)
-            {
-                return (T)buf.GetReader().ReadObjectFromBinaryTuple()!;
             }
         }
     }

@@ -42,6 +42,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -60,7 +61,6 @@ import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -173,8 +173,8 @@ public class JraftServerImpl implements RaftServer {
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
         this.logStorageFactory = IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
-                ? new LogitLogStorageFactory(dataPath.resolve("log"), getLogOptions())
-                : new DefaultLogStorageFactory(dataPath.resolve("log"));
+                ? new LogitLogStorageFactory(service.nodeName(), dataPath.resolve("log"), getLogOptions())
+                : new DefaultLogStorageFactory(service.nodeName(), dataPath.resolve("log"));
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 

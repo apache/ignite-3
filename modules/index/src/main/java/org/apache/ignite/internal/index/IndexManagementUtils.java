@@ -47,8 +47,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 
 /** Helper class for index management. */
@@ -61,6 +63,9 @@ class IndexManagementUtils {
      * {@code "indexBuild.partition.<indexId>.<partitionId>"}.
      */
     static final String PARTITION_BUILD_INDEX_KEY_PREFIX = "indexBuild.partition.";
+
+    /** Timeout to receive the primary replica meta in seconds. */
+    static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
 
     /**
      * Returns {@code true} if the {@code key} is <b>absent</b> in the metastore locally.
@@ -183,9 +188,7 @@ class IndexManagementUtils {
      * @param catalogVersion Catalog version.
      */
     static int getPartitionCountFromCatalog(CatalogService catalogService, int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
-
-        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
+        CatalogIndexDescriptor indexDescriptor = index(catalogService, indexId, catalogVersion);
 
         CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
 
@@ -196,6 +199,20 @@ class IndexManagementUtils {
         assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
 
         return zoneDescriptor.partitions();
+    }
+
+    /**
+     * Finds an index by ID in the requested catalog version. Throws if it does not exist.
+     *
+     * @param catalogService Catalog service to be used to find the index.
+     * @param indexId ID of the index to find.
+     * @param catalogVersion Version of the catalog in which to look for the index.
+     */
+    static CatalogIndexDescriptor index(CatalogService catalogService, int indexId, int catalogVersion) {
+        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
+
+        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
+        return indexDescriptor;
     }
 
     /**
@@ -262,5 +279,57 @@ class IndexManagementUtils {
     static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
                 && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
+    }
+
+    /**
+     * Returns the local node.
+     *
+     * @param clusterService Cluster service.
+     */
+    static ClusterNode localNode(ClusterService clusterService) {
+        return clusterService.topologyService().localMember();
+    }
+
+    /**
+     * Returns {@code true} if the passed node ID is equal to the local node ID, {@code false} otherwise.
+     *
+     * @param clusterService Cluster service.
+     * @param nodeId Node ID of interest.
+     */
+    static boolean isLocalNode(ClusterService clusterService, String nodeId) {
+        return nodeId.equals(localNode(clusterService).id());
+    }
+
+    /**
+     * Enters "busy" state for two locks.
+     *
+     * <p>NOTE: Then you should {@link IndexManagementUtils#leaveBusy(IgniteSpinBusyLock, IgniteSpinBusyLock)} with the same order of
+     * locks.</p>
+     *
+     * @return {@code true} if entered to busy state.
+     */
+    static boolean enterBusy(IgniteSpinBusyLock busyLock0, IgniteSpinBusyLock busyLock1) {
+        if (!busyLock0.enterBusy()) {
+            return false;
+        }
+
+        if (!busyLock1.enterBusy()) {
+            busyLock0.leaveBusy();
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Leaves "busy" state for two locks.
+     *
+     * <p>NOTE: Before this you need to {@link IndexManagementUtils#enterBusy(IgniteSpinBusyLock, IgniteSpinBusyLock)} with the same order
+     * of locks.</p>
+     */
+    static void leaveBusy(IgniteSpinBusyLock busyLock0, IgniteSpinBusyLock busyLock1) {
+        busyLock1.leaveBusy();
+        busyLock0.leaveBusy();
     }
 }

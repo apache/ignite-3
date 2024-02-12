@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -451,9 +452,13 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     void retriesOnInternalSchemaVersionMismatchException() throws Exception {
         SchemaDescriptor schema = schemaDescriptor();
         InternalTable internalTable = spy(createInternalTable(schema));
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
         KeyValueView<Tuple, Tuple> view = new KeyValueBinaryViewImpl(
-                internalTable, new DummySchemaManagerImpl(schema), schemaVersions, mock(IgniteSql.class)
+                internalTable,
+                new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                marshallers, mock(IgniteSql.class)
         );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));

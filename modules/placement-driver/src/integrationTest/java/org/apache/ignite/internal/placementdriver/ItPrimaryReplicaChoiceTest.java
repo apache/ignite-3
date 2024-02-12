@@ -61,6 +61,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -141,6 +142,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertTrue(primaryChanged.get());
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21382")
     @Test
     public void testPrimaryChangeLongHandling() throws Exception {
         TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
@@ -244,6 +246,12 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         NodeUtils.transferPrimary(tbl, null, this::node);
 
+        assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
+        assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
+
+        rwTx.rollback();
+
+
         assertFalse(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(3, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
     }
@@ -305,6 +313,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
                     PART_ID,
                     rwTx.id(),
                     rwTx.commitPartition(),
+                    rwTx.coordinatorId(),
                     new PrimaryReplica(primaryNode, primaryReplicaFut.get().getStartTime().longValue()),
                     idxId,
                     exactKey,

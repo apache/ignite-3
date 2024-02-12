@@ -150,8 +150,8 @@ public class ClientOp {
     /** Execute SQL script. */
     public static final int SQL_EXEC_SCRIPT = 56;
 
-    /** SQL parameter metadata. */
-    public static final int SQL_PARAM_META = 57;
+    /** SQL query metadata. */
+    public static final int SQL_QUERY_META = 57;
 
     /** JDBC get more results command. */
     public static final int JDBC_MORE_RESULTS = 58;
@@ -164,4 +164,7 @@ public class ClientOp {
 
     /** Change compute job priority. */
     public static final int COMPUTE_CHANGE_PRIORITY = 61;
+
+    /** Send streamer batch. */
+    public static final int STREAMER_BATCH_SEND = 62;
 }

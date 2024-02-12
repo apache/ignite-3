@@ -24,8 +24,10 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandSerializationFactory;
@@ -35,9 +37,6 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandSerializationFactory;
-import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.Test;
 
 class PartitionCommandsMarshallerImplTest {
@@ -97,9 +96,7 @@ class PartitionCommandsMarshallerImplTest {
     private FinishTxCommand commandWithRequiredCatalogVersion(int requiredCatalogVersion) {
         return tableMessagesFactory.finishTxCommand()
                 .txId(UUID.randomUUID())
-                .tablePartitionIds(List.of())
                 .requiredCatalogVersion(requiredCatalogVersion)
-                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
     }
 

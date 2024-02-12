@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -38,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -61,7 +63,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -110,6 +111,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerifier = -1;
 
+    private final CatalogService catalogService;
 
     /**
      * The constructor.
@@ -118,6 +120,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
+     * @param catalogService Catalog service.
      */
     public PartitionListener(
             TxManager txManager,
@@ -125,7 +128,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            CatalogService catalogService
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -133,6 +137,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
+        this.catalogService = catalogService;
 
         // TODO: IGNITE-18502 Excessive full partition scan on node start
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
@@ -256,25 +261,28 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
+        UUID txId = cmd.txId();
+
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
                 storageUpdateHandler.handleUpdate(
-                        cmd.txId(),
+                        txId,
                         cmd.rowUuid(),
                         cmd.tablePartitionId().asTablePartitionId(),
                         cmd.rowToUpdate(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
-                        cmd.lastCommitTimestamp()
+                        cmd.lastCommitTimestamp(),
+                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
                 );
             }
 
             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
         }
 
-        replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
     /**
@@ -290,23 +298,26 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
+        UUID txId = cmd.txId();
+
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
                 storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
+                        txId,
                         cmd.rowsToUpdate(),
                         cmd.tablePartitionId().asTablePartitionId(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null
+                        cmd.full() ? cmd.safeTime() : null,
+                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
             }
         }
 
-        replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
     /**
@@ -331,10 +342,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                cmd.tablePartitionIds()
-                        .stream()
-                        .map(TablePartitionIdMessage::asTablePartitionId)
-                        .collect(toList()),
                 cmd.commitTimestamp()
         );
 
@@ -348,7 +355,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 commandTerm
         );
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
@@ -375,10 +382,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
-        storageUpdateHandler.switchWriteIntents(txId, cmd.commit(), cmd.commitTimestamp(),
-                () -> storage.lastApplied(commandIndex, commandTerm));
+        storageUpdateHandler.switchWriteIntents(
+                txId,
+                cmd.commit(),
+                cmd.commitTimestamp(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
+                indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+        );
     }
 
     /**
@@ -596,10 +608,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         ));
     }
 
-    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, String txCoordinatorId) {
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 commit ? COMMITTED : ABORTED,
-                txCoordinatorId,
+                old == null ? null : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
         ));

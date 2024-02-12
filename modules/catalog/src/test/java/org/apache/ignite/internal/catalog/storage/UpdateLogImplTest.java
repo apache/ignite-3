@@ -28,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -36,6 +38,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate.VersionedUpdateSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -43,12 +51,16 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /** Tests to verify {@link UpdateLogImpl}. */
 class UpdateLogImplTest extends BaseIgniteAbstractTest {
@@ -90,7 +102,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         restartMetastore();
 
-        var actualUpdates = new ArrayList<VersionedUpdate>();
+        var actualUpdates = new ArrayList<UpdateLogEvent>();
 
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
@@ -102,8 +114,55 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertThat(actualUpdates, equalTo(expectedUpdates));
     }
 
+    @Test
+    void snapshotAppliedOnStart() throws Exception {
+        // First, let's append a few entries to the update log.
+        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
+
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+
+        List<VersionedUpdate> updates = List.of(
+                singleEntryUpdateOfVersion(1),
+                singleEntryUpdateOfVersion(2),
+                singleEntryUpdateOfVersion(3));
+
+        appendUpdates(updateLogImpl, updates);
+
+        compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
+
+        // Let's restart the log and metastore with recovery.
+        updateLogImpl.stop();
+
+        restartMetastore();
+
+        var actualUpdates = new ArrayList<UpdateLogEvent>();
+
+        createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
+            actualUpdates.add(update);
+
+            return nullCompletedFuture();
+        });
+
+        List<UpdateLogEvent> expectedUpdates = List.of(
+                snapshotEntryOfVersion(2),
+                singleEntryUpdateOfVersion(3)
+        );
+
+        // Let's check that we have recovered to the latest version.
+        assertThat(actualUpdates, equalTo(expectedUpdates));
+    }
+
+    private void compactCatalog(UpdateLogImpl updateLogImpl, SnapshotEntry update) throws InterruptedException {
+        long revisionBeforeAppend = metastore.appliedRevision();
+        assertThat(updateLogImpl.saveSnapshot(update), willCompleteSuccessfully());
+        assertTrue(waitForCondition(
+                () -> metastore.appliedRevision() == revisionBeforeAppend + 1,
+                TimeUnit.SECONDS.toMillis(1))
+        );
+    }
+
     private UpdateLogImpl createUpdateLogImpl() {
-        return new UpdateLogImpl(metastore);
+        return new UpdateLogImpl(metastore, new UpdateLogMarshallerImpl(new TestEntrySerializerProvider()));
     }
 
     private UpdateLogImpl createAndStartUpdateLogImpl(OnUpdateHandler onUpdateHandler) {
@@ -161,7 +220,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         List<Long> causalityTokens = new ArrayList<>();
 
         updateLog.registerUpdateHandler((update, ts, causalityToken) -> {
-            appliedVersions.add(update.version());
+            appliedVersions.add(((VersionedUpdate) update).version());
             causalityTokens.add(causalityToken);
 
             return nullCompletedFuture();
@@ -259,7 +318,15 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         return new VersionedUpdate(version, 1, List.of(new TestUpdateEntry("foo_" + version)));
     }
 
-    static class TestUpdateEntry implements UpdateEntry {
+    private static SnapshotEntry snapshotEntryOfVersion(int version) {
+        Catalog catalog = Mockito.mock(Catalog.class);
+
+        Mockito.when(catalog.version()).thenReturn(version);
+
+        return new SnapshotEntry(catalog);
+    }
+
+    static class TestUpdateEntry implements UpdateEntry, Serializable {
         private static final long serialVersionUID = 4865078624964906600L;
 
         final String payload;
@@ -271,6 +338,11 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         @Override
         public Catalog applyUpdate(Catalog catalog, long causalityToken) {
             return catalog;
+        }
+
+        @Override
+        public int typeId() {
+            return -1;
         }
 
         @Override
@@ -295,6 +367,39 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         @Override
         public String toString() {
             return S.toString(this);
+        }
+    }
+
+    private static class TestEntrySerializerProvider implements CatalogEntrySerializerProvider {
+        @Override
+        public CatalogObjectSerializer<MarshallableEntry> get(int id) {
+            CatalogObjectSerializer<? extends MarshallableEntry> serializer;
+
+            if (id < 0) {
+                serializer = new CatalogObjectSerializer<>() {
+                    @Override
+                    public MarshallableEntry readFrom(IgniteDataInput input) throws IOException {
+                        int length = input.readInt();
+                        byte[] data = input.readByteArray(length);
+
+                        return ByteUtils.fromBytes(data);
+                    }
+
+                    @Override
+                    public void writeTo(MarshallableEntry value, IgniteDataOutput output) throws IOException {
+                        byte[] bytes = ByteUtils.toBytes(value);
+
+                        output.writeInt(bytes.length);
+                        output.writeByteArray(bytes);
+                    }
+                };
+            } else if (id == MarshallableEntryType.VERSIONED_UPDATE.id()) {
+                serializer = new VersionedUpdateSerializer(this);
+            } else {
+                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(id);
+            }
+
+            return (CatalogObjectSerializer<MarshallableEntry>) serializer;
         }
     }
 }

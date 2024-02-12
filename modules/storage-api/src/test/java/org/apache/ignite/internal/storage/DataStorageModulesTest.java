@@ -36,6 +36,7 @@ import java.util.Map;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -107,7 +108,8 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
                 "test",
                 mock(ConfigurationRegistry.class),
                 workDir,
-                null
+                null,
+                mock(FailureProcessor.class)
         );
 
         assertThat(engines, aMapWithSize(2));
@@ -189,7 +191,7 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
 
         when(mock.name()).thenReturn(name);
 
-        when(mock.createEngine(any(), any(), any(), any())).thenReturn(mock(StorageEngine.class));
+        when(mock.createEngine(any(), any(), any(), any(), any())).thenReturn(mock(StorageEngine.class));
 
         return mock;
     }

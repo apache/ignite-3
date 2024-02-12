@@ -51,9 +51,6 @@ int *parameter_set::get_param_bind_offset_ptr() {
 }
 
 void parameter_set::prepare() {
-    m_sql_params.clear();
-
-    m_types_set = false;
     m_param_set_pos = 0;
 
     for (auto &param : m_params)
@@ -91,26 +88,6 @@ void parameter_set::set_params_status(int64_t idx, SQLUSMALLINT status) const {
 void parameter_set::set_params_processed(SQLULEN processed) const {
     if (m_processed_param_rows)
         *m_processed_param_rows = processed;
-}
-
-void parameter_set::update_sql_params(sql_parameter_vector &&meta) {
-    m_sql_params = meta;
-    m_types_set = true;
-}
-
-const sql_parameter *parameter_set::get_sql_param(std::int16_t idx) const {
-    if (idx > 0 && static_cast<std::size_t>(idx) <= m_sql_params.size())
-        return &m_sql_params.at(idx - 1);
-
-    return nullptr;
-}
-
-std::uint16_t parameter_set::get_expected_param_num() {
-    return static_cast<std::uint16_t>(m_sql_params.size());
-}
-
-bool parameter_set::is_metadata_set() const {
-    return m_types_set;
 }
 
 bool parameter_set::is_parameter_selected() const {

@@ -35,6 +35,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Marshaller;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -140,7 +140,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                     if (subscribed) {
                                         return refreshAndGetLeaderWithTerm()
                                                 .thenAcceptAsync(leaderWithTerm -> {
-                                                    if (leaderWithTerm.leader() != null
+                                                    if (!leaderWithTerm.isEmpty()
                                                             && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
                                                         serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
                                                     }
@@ -310,7 +310,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 }
 
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
-                    if (leaderWithTerm.leader() != null) {
+                    if (!leaderWithTerm.isEmpty()) {
                         serverEventHandler.onLeaderElected(
                                 clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
                                 leaderWithTerm.term()

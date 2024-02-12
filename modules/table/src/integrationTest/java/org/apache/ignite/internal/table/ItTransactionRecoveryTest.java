@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -32,9 +33,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -42,6 +47,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
@@ -49,8 +58,10 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
@@ -63,9 +74,7 @@ import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.DefaultMessagingService;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -84,6 +93,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     /** Table name. */
     private static final String TABLE_NAME = "test_table";
+
+    private static final int PART_ID = 0;
 
     @BeforeEach
     @Override
@@ -114,7 +125,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testMultipleRecoveryRequestsIssued() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -169,7 +180,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxIsAborted() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -212,7 +223,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentRecoverNoCoordinator() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -258,7 +269,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentNoRecovery() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -303,7 +314,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentRecoveryAndLockConflict() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -367,7 +378,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testSendCommitAndDie() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -436,7 +447,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCommitAndDieRecoveryFirst() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -511,7 +522,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testRecoveryIsTriggeredOnce() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -588,7 +599,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testFinishAlreadyFinishedTx() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -614,7 +625,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 new HybridTimestampTracker(),
                 ((InternalTransaction) rwTx1).commitPartition(),
                 false,
-                Map.of(((InternalTransaction) rwTx1).commitPartition(), 0L),
+                Map.of(((InternalTransaction) rwTx1).commitPartition(), new IgniteBiTuple<>(txCrdNode2.node(), 0L)),
                 rwTx1Id
         );
 
@@ -625,7 +636,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureRightAfterCommitMsg() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -685,7 +696,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureWhileInflightInProgress() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -769,6 +780,109 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         var rec = view.get(null, Tuple.create().set("key", 42));
 
         assertNull(rec);
+    }
+
+    @Test
+    public void testTsRecoveryForCursor() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        RecordView view1 = node(0).tables().table(TABLE_NAME).recordView();
+
+        for (int i = 0; i < 10; i++) {
+            view1.upsert(null, Tuple.create().set("key", i).set("val", "preload"));
+        }
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        startTransactionWithCursorAndStopNode(txCrdNode);
+
+        IgniteImpl newCoordNode = node(0);
+
+        log.info("New transaction coordinator is chosen [node={}].", newCoordNode.name());
+
+        CompletableFuture<Void> txMsgCaptureFut = new CompletableFuture<>();
+
+        commitPartNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxRecoveryMessage) {
+                txMsgCaptureFut.complete(null);
+            }
+
+            return false;
+        });
+
+        Transaction tx = newCoordNode.transactions().begin();
+
+        RecordView view = newCoordNode.tables().table(TABLE_NAME).recordView();
+
+        var opFut = view.upsertAsync(tx, Tuple.create().set("key", 42).set("val", "new"));
+
+        try {
+            opFut.get();
+        } catch (Exception ex) {
+            log.info("Expected conflict that have to start recovery: " + ex.getMessage());
+        }
+
+        assertThat(txMsgCaptureFut, willCompleteSuccessfully());
+    }
+
+    private UUID startTransactionWithCursorAndStopNode(IgniteImpl txCrdNode) throws Exception {
+        InternalTransaction rwTx = (InternalTransaction) txCrdNode.transactions().begin();
+
+        scanSingleEntryAndLeaveCursorOpen((TableViewInternal) txCrdNode.tables().table(TABLE_NAME), rwTx);
+
+        String txCrdNodeId = txCrdNode.id();
+
+        txCrdNode.stop();
+
+        assertTrue(waitForCondition(
+                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
+                10_000)
+        );
+
+        return rwTx.id();
+    }
+
+    /**
+     * Starts a scan procedure for a specific transaction and reads only the first line from the cursor.
+     *
+     * @param tbl Scanned table.
+     * @param tx Transaction.
+     * @param idxId Index id.
+     * @throws Exception If failed.
+     */
+    private void scanSingleEntryAndLeaveCursorOpen(TableViewInternal tbl, InternalTransaction tx)
+            throws Exception {
+        Publisher<BinaryRow> publisher;
+        if (tx.isReadOnly()) {
+            String primaryId = waitAndGetLeaseholder(node(0), new TablePartitionId(tbl.tableId(), PART_ID));
+
+            ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
+
+            publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode);
+        } else {
+            publisher = tbl.internalTable().scan(PART_ID, tx);
+        }
+
+        List<BinaryRow> scannedRows = new ArrayList<>();
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+
+        Subscription subscription = TestFlowUtils.subscribeToPublisher(scannedRows, publisher, scanned);
+
+        subscription.request(1);
+
+        assertTrue(waitForCondition(() -> scannedRows.size() == 1, 10_000));
+
+        assertFalse(scanned.isDone());
     }
 
     private DefaultMessagingService messaging(IgniteImpl node) {
@@ -899,7 +1013,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
     }
 
-    private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) throws InterruptedException {
+    private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
                 node.clock().now(),
@@ -909,7 +1023,11 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
 
-        return primaryReplicaFut.join().getLeaseholder();
+        return primaryReplicaFut.join();
+    }
+
+    private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+        return waitAndGetPrimaryReplica(node, tblReplicationGrp).getLeaseholder();
     }
 
     private void cancelLease(IgniteImpl leaseholder, ReplicationGroupId groupId) {

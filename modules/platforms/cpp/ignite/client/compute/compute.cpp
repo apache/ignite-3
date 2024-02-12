@@ -19,24 +19,7 @@
 #include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/compute/compute_impl.h"
 
-#include <random>
-
 namespace ignite {
-
-template<typename T>
-typename T::value_type get_random_element(const T &cont) {
-    static std::mutex randomMutex;
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-
-    assert(!cont.empty());
-
-    std::uniform_int_distribution<size_t> distrib(0, cont.size() - 1);
-
-    std::lock_guard<std::mutex> lock(randomMutex);
-
-    return cont[distrib(gen)];
-}
 
 void compute::execute_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
     std::string_view job_class_name, const std::vector<primitive> &args,
@@ -44,7 +27,7 @@ void compute::execute_async(const std::vector<cluster_node> &nodes, const std::v
     detail::arg_check::container_non_empty(nodes, "Nodes container");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
-    m_impl->execute_on_one_node(get_random_element(nodes), units, job_class_name, args, std::move(callback));
+    m_impl->execute_on_nodes(nodes, units, job_class_name, args, std::move(callback));
 }
 
 void compute::broadcast_async(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
@@ -69,7 +52,8 @@ void compute::broadcast_async(const std::set<cluster_node> &nodes, const std::ve
     auto shared_res = std::make_shared<result_group>(std::int32_t(nodes.size()), std::move(callback));
 
     for (const auto &node : nodes) {
-        m_impl->execute_on_one_node(node, units, job_class_name, args, [node, shared_res](auto &&res) {
+        std::vector<cluster_node> candidates = { node };
+        m_impl->execute_on_nodes(candidates, units, job_class_name, args, [node, shared_res](auto &&res) {
             auto &val = *shared_res;
 
             std::lock_guard<std::mutex> lock(val.m_mutex);

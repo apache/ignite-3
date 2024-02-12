@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
@@ -72,7 +74,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -94,6 +96,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -369,7 +372,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.tableId()).thenReturn(tableId);
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
-        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class)));
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1), marshallers, mock(IgniteSql.class)));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {
@@ -389,7 +393,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     private void createAndStartComponents() {
         metaStorageManager = StandaloneMetaStorageManager.create(new TestRocksDbKeyValueStorage(NODE_NAME, workDir));
 
-        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
         indexManager = new IndexManager(
                 mockSchemaManager,
@@ -399,7 +403,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply)
         );
 
-        List.of(metaStorageManager, catalogManager, indexManager).forEach(IgniteComponent::start);
+        assertThat(allOf(metaStorageManager.start(), catalogManager.start(), indexManager.start()), willCompleteSuccessfully());
 
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
         assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
@@ -412,6 +416,10 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     private CatalogIndexDescriptor index(int catalogVersion, String indexName) {
         return CatalogTestUtils.index(catalogManager, catalogVersion, indexName);
+    }
+
+    private @Nullable CatalogIndexDescriptor indexOrNull(int catalogVersion, String indexName) {
+        return CatalogTestUtils.indexOrNull(catalogManager, catalogVersion, indexName);
     }
 
     private void createTable(String tableName) {
@@ -464,9 +472,14 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         var res = new ArrayList<CatalogIndexDescriptor>(indexNames.length);
 
         for (String indexName : indexNames) {
-            res.add(index(catalogManager.latestCatalogVersion(), indexName));
+            int versionBeforeDrop = catalogManager.latestCatalogVersion();
+            CatalogIndexDescriptor indexBeforeDropping = index(versionBeforeDrop, indexName);
 
             dropIndex(indexName);
+
+            CatalogIndexDescriptor indexAfterDropping = indexOrNull(versionBeforeDrop + 1, indexName);
+
+            res.add(indexAfterDropping != null ? indexAfterDropping : indexBeforeDropping);
         }
 
         return res;

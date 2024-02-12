@@ -37,7 +37,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -54,10 +53,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -66,6 +62,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -74,6 +71,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -81,7 +80,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
@@ -125,7 +124,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -138,9 +136,6 @@ import org.jetbrains.annotations.TestOnly;
 public class SqlQueryProcessor implements QueryProcessor {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
-
-    /** Size of the cache for query plans. */
-    private static final int PLAN_CACHE_SIZE = 1024;
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
 
@@ -214,6 +209,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
 
+    /** Cluster SQL configuration. */
+    private final SqlDistributedConfiguration clusterCfg;
+
+    /** Node SQL configuration. */
+    private final SqlLocalConfiguration nodeCfg;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -229,7 +230,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             CatalogManager catalogManager,
             MetricManager metricManager,
             SystemViewManager systemViewManager,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            SqlDistributedConfiguration clusterCfg,
+            SqlLocalConfiguration nodeCfg
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -244,6 +247,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
         this.placementDriver = placementDriver;
+        this.clusterCfg = clusterCfg;
+        this.nodeCfg = nodeCfg;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -257,7 +262,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value()));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
@@ -265,11 +270,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
-                PLAN_CACHE_SIZE,
                 CACHE_FACTORY,
                 dataStorageManager,
                 dataStorageFieldsSupplier.get(),
-                metricManager
+                metricManager,
+                clusterCfg,
+                nodeCfg
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
@@ -300,7 +306,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         var executionTargetProvider = new ExecutionTargetProvider() {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-                return primaryReplicas(table.id())
+                return primaryReplicas(table)
                         .thenApply(replicas -> factory.partitioned(replicas));
             }
 
@@ -324,7 +330,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         };
 
         var mappingService = new MappingServiceImpl(
-                nodeName, executionTargetProvider, CACHE_FACTORY, PLAN_CACHE_SIZE, taskExecutor
+                nodeName,
+                executionTargetProvider,
+                CACHE_FACTORY,
+                clusterCfg.planner().estimatedNumberOfQueries().value(),
+                taskExecutor
         );
 
         logicalTopologyService.addEventListener(mappingService);
@@ -340,6 +350,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
+                executableTableRegistry,
                 dependencyResolver,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
@@ -356,25 +367,17 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
-    private CompletableFuture<List<NodeWithTerm>> primaryReplicas(int tableId) {
-        int catalogVersion = catalogManager.latestCatalogVersion();
+    private CompletableFuture<List<NodeWithConsistencyToken>> primaryReplicas(IgniteTable table) {
+        int partitions = table.partitions();
 
-        Catalog catalog = catalogManager.catalog(catalogVersion);
-
-        CatalogTableDescriptor tblDesc = Objects.requireNonNull(catalog.table(tableId), "table");
-
-        CatalogZoneDescriptor zoneDesc = Objects.requireNonNull(catalog.zone(tblDesc.zoneId()), "zone");
-
-        int partitions = zoneDesc.partitions();
-
-        List<CompletableFuture<NodeWithTerm>> result = new ArrayList<>(partitions);
+        List<CompletableFuture<NodeWithConsistencyToken>> result = new ArrayList<>(partitions);
 
         HybridTimestamp clockNow = clock.now();
 
         // no need to wait all partitions after pruning was implemented.
         for (int partId = 0; partId < partitions; ++partId) {
             int partitionId = partId;
-            ReplicationGroupId partGroupId = new TablePartitionId(tableId, partitionId);
+            ReplicationGroupId partGroupId = new TablePartitionId(table.id(), partitionId);
 
             CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
                     partGroupId,
@@ -394,7 +397,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     assert holder != null : "Unable to map query, nothing holds the lease";
 
-                    return new NodeWithTerm(holder, primaryReplica.getStartTime().longValue());
+                    return new NodeWithConsistencyToken(holder, primaryReplica.getStartTime().longValue());
                 }
             }));
         }
@@ -500,7 +503,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<QueryMetadata> start = new CompletableFuture<>();
+        CompletableFuture<Void> start = new CompletableFuture<>();
 
         CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
@@ -537,7 +540,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> start = new CompletableFuture<>();
+        CompletableFuture<Void> start = new CompletableFuture<>();
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);

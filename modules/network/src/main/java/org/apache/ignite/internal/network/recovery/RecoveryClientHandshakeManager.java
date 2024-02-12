@@ -19,6 +19,9 @@ package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -29,14 +32,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
+import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
+import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -47,9 +56,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
 
 /**
  * Recovery protocol handshake manager for a client.
@@ -68,6 +74,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
+
+    private final ChannelEventLoopsSource channelEventLoopsSource;
 
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
@@ -104,7 +112,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
-    private final FailureHandler failureHandler = new FailureHandler();
+    /** Failure processor that is used to handle critical errors. */
+    private final FailureProcessor failureProcessor;
 
     /**
      * Constructor.
@@ -113,22 +122,27 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * @param consistentId Consistent id.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      */
     public RecoveryClientHandshakeManager(
             UUID launchId,
             String consistentId,
             short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
+            ChannelEventLoopsSource channelEventLoopsSource,
             StaleIdDetector staleIdDetector,
             ChannelCreationListener channelCreationListener,
-            BooleanSupplier stopping
+            BooleanSupplier stopping,
+            FailureProcessor failureProcessor
     ) {
         this.launchId = launchId;
         this.consistentId = consistentId;
         this.connectionId = connectionId;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
+        this.channelEventLoopsSource = channelEventLoopsSource;
         this.staleIdDetector = staleIdDetector;
         this.stopping = stopping;
+        this.failureProcessor = failureProcessor;
 
         localHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -178,6 +192,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         assert recoveryDescriptor != null : "Wrong client handshake flow";
+        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel();
 
         if (message instanceof HandshakeFinishMessage) {
             HandshakeFinishMessage msg = (HandshakeFinishMessage) message;
@@ -192,6 +207,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             }
 
             List<OutNetworkObject> networkMessages = recoveryDescriptor.unacknowledgedMessages();
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Resending on handshake: {}", networkMessages.stream().map(OutNetworkObject::networkMessage).collect(toList()));
+            }
 
             for (OutNetworkObject networkMessage : networkMessages) {
                 channel.write(networkMessage);
@@ -222,6 +240,11 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.remoteLaunchId = handshakeStartMessage.launchId();
         this.remoteConsistentId = handshakeStartMessage.consistentId();
 
+        ChannelKey channelKey = new ChannelKey(remoteConsistentId, remoteLaunchId, connectionId);
+        switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> proceedAfterSavingIds(handshakeStartMessage));
+    }
+
+    private void proceedAfterSavingIds(HandshakeStartMessage handshakeStartMessage) {
         RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
                 remoteConsistentId,
                 remoteLaunchId,
@@ -327,8 +350,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         if (!ignorable) {
-            // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
-            failureHandler.handleFailure(new IgniteException("Handshake rejected by server: " + msg.message()));
+            failureProcessor.process(
+                    new FailureContext(CRITICAL_ERROR, new HandshakeException("Handshake rejected by server: " + msg.message())));
         }
     }
 
@@ -412,6 +435,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         // Complete the master future with the local future of the current handshake as there was no competitor (or we won the competition).
         masterHandshakeCompleteFuture.complete(localHandshakeCompleteFuture);
-        localHandshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId));
+        localHandshakeCompleteFuture.complete(
+                new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId, recoveryDescriptor)
+        );
     }
 }

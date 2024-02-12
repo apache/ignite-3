@@ -27,6 +27,8 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation project(':ignite-code-deployment')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -51,6 +53,8 @@ dependencies {
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-client')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
 }

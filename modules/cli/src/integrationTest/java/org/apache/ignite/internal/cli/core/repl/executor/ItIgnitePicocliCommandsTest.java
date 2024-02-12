@@ -19,7 +19,9 @@ package org.apache.ignite.internal.cli.core.repl.executor;
 
 import static java.util.stream.Collectors.flatMapping;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.ClusterPerTestIntegrationTest.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -36,12 +38,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
@@ -70,7 +72,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /** Integration test for all completions in interactive mode. */
-public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegrationBase {
+public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
 
     private static final String DEFAULT_REST_URL = "http://localhost:10300";
 
@@ -116,7 +118,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     @Override
-    protected String nodeBootstrapConfigTemplate() {
+    protected String getNodeBootstrapConfigTemplate() {
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
@@ -275,7 +277,9 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                         "aimem",
                         "aipersist",
                         "rocksDb",
-                        "storageProfiles"
+                        "storageProfiles",
+                        "criticalWorkers",
+                        "sql"
                 )
         );
     }
@@ -365,7 +369,8 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     @DisplayName("start/stop node affects --node-name suggestions")
     void startStopNodeWhenCompleteNodeName() {
         // Given
-        var igniteNodeName = allNodeNames().get(1);
+        int nodeIndex = 1;
+        var igniteNodeName = allNodeNames().get(nodeIndex);
         // And
         var givenParsedLine = words("node", "status", "--node-name", "");
         // And
@@ -383,7 +388,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         assertThat(complete(givenParsedLine), containsInAnyOrder(allNodeNames().toArray()));
 
         // When stop one node
-        stopNode(igniteNodeName);
+        CLUSTER.stopNode(nodeIndex);
         var actualNodeNames = allNodeNames();
         actualNodeNames.remove(igniteNodeName);
 
@@ -391,10 +396,14 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         await().until(() -> complete(givenParsedLine), containsInAnyOrder(actualNodeNames.toArray()));
 
         // When start the node again
-        startNode(igniteNodeName);
+        CLUSTER.startNode(nodeIndex);
 
         // Then node name comes back to suggestions
         await().until(() -> complete(givenParsedLine), containsInAnyOrder(allNodeNames().toArray()));
+    }
+
+    private static List<String> allNodeNames() {
+        return CLUSTER.runningNodes().map(IgniteImpl::name).collect(toList());
     }
 
     @Test
@@ -476,7 +485,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         List<Candidate> candidates = new ArrayList<>();
         completer.complete(lineReader, typedWords, candidates);
 
-        return candidates.stream().map(Candidate::displ).collect(Collectors.toList());
+        return candidates.stream().map(Candidate::displ).collect(toList());
     }
 
     Named<ParsedLine> named(ParsedLine parsedLine) {
@@ -502,7 +511,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
 
             @Override
             public List<String> words() {
-                return Arrays.stream(words).collect(Collectors.toList());
+                return Arrays.stream(words).collect(toList());
             }
 
             @Override

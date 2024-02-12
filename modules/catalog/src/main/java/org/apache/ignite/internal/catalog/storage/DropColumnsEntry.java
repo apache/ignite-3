@@ -17,25 +17,35 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
-import java.util.Arrays;
-import java.util.Objects;
+import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes dropping of columns.
  */
 public class DropColumnsEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 2970125889493580121L;
+    public static final CatalogObjectSerializer<DropColumnsEntry> SERIALIZER = new DropColumnEntrySerializer();
 
     private final int tableId;
     private final Set<String> columns;
@@ -65,6 +75,11 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     }
 
     @Override
+    public int typeId() {
+        return MarshallableEntryType.DROP_COLUMN.id();
+    }
+
+    @Override
     public CatalogEvent eventType() {
         return CatalogEvent.TABLE_ALTER;
     }
@@ -76,35 +91,51 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+
+        CatalogTableDescriptor currentTableDescriptor = requireNonNull(catalog.table(tableId));
+
+        CatalogTableDescriptor newTableDescriptor = currentTableDescriptor.newDescriptor(
+                currentTableDescriptor.name(),
+                currentTableDescriptor.tableVersion() + 1,
+                currentTableDescriptor.columns().stream()
+                        .filter(col -> !columns.contains(col.name()))
+                        .collect(toList()),
+                causalityToken
+        );
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        Arrays.stream(schema.tables())
-                                .map(table -> table.id() == tableId ? table.newDescriptor(
-                                        table.name(),
-                                        table.tableVersion() + 1,
-                                        table.columns().stream()
-                                                .filter(col -> !columns.contains(col.name()))
-                                                .collect(toList()),
-                                        causalityToken) : table
-                                )
-                                .toArray(CatalogTableDescriptor[]::new),
-                        schema.indexes(),
-                        schema.systemViews(),
-                        causalityToken
-                ), catalog.schemas())
+                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas())
         );
     }
 
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link DropColumnsEntry}.
+     */
+    private static class DropColumnEntrySerializer implements CatalogObjectSerializer<DropColumnsEntry> {
+        @Override
+        public DropColumnsEntry readFrom(IgniteDataInput input) throws IOException {
+            String schemaName = input.readUTF();
+            int tableId = input.readInt();
+            Set<String> columns = CatalogSerializationUtils.readStringCollection(input, size -> new HashSet<>(capacity(size)));
+
+            return new DropColumnsEntry(tableId, columns, schemaName);
+        }
+
+        @Override
+        public void writeTo(DropColumnsEntry object, IgniteDataOutput output) throws IOException {
+            output.writeUTF(object.schemaName);
+            output.writeInt(object.tableId());
+            writeStringCollection(object.columns(), output);
+        }
     }
 }

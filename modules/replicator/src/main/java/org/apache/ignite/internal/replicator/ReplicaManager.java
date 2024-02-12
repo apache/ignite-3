@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -51,9 +50,11 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -75,11 +76,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -231,9 +228,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "replica", LOG)
         );
-
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryReplicaElected);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
@@ -532,7 +526,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
-        return future.isDone() && !future.isCancelled() && !future.isCompletedExceptionally();
+        return future.isDone() && !future.isCompletedExceptionally();
     }
 
     /**
@@ -750,51 +744,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .errorReplicaResponse()
                     .throwable(ex)
                     .build();
-        }
-    }
-
-
-    /**
-     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}. Propagates execution to the
-     *      {@link ReplicaListener#onPrimaryElected(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
-     *      to a given {@link PrimaryReplicaEventParameters#groupId()}.
-     */
-    private CompletableFuture<Boolean> onPrimaryReplicaElected(
-            PrimaryReplicaEventParameters primaryReplicaEventParameters,
-            Throwable throwable
-    ) {
-        CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
-
-        if (replica == null) {
-            return falseCompletedFuture();
-        }
-
-        if (replica.isDone() && !replica.isCompletedExceptionally()) {
-            return replica.join().replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable);
-        } else {
-            return replica.thenCompose(r -> r.replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable));
-        }
-    }
-
-    /**
-     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED}. Propagates execution to the
-     *      {@link ReplicaListener#onPrimaryExpired(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
-     *      to a given {@link PrimaryReplicaEventParameters#groupId()}.
-     */
-    private CompletableFuture<Boolean> onPrimaryReplicaExpired(
-            PrimaryReplicaEventParameters primaryReplicaEventParameters,
-            Throwable throwable
-    ) {
-        CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
-
-        if (replica == null) {
-            return falseCompletedFuture();
-        }
-
-        if (replica.isDone() && !replica.isCompletedExceptionally()) {
-            return replica.join().replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable);
-        } else {
-            return replica.thenCompose(r -> r.replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable));
         }
     }
 

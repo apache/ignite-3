@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
@@ -26,10 +29,13 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NA
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
+import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.nullValue;
@@ -41,15 +47,14 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -59,7 +64,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,11 +79,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private final MetaStorageManagerImpl metaStorageManager = StandaloneMetaStorageManager.create();
 
-    private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+    private final CatalogManager catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+
+    private final ExecutorService executorService = newSingleThreadExecutor();
 
     private final IndexBuilder indexBuilder = new IndexBuilder(
-            NODE_NAME,
-            1,
+            executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture())
     );
 
@@ -91,8 +96,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
-
+        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
@@ -108,11 +112,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 indexAvailabilityController::close,
                 indexBuilder::close,
                 catalogManager::stop,
-                metaStorageManager::stop
+                metaStorageManager::stop,
+                () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
         );
     }
 
@@ -187,7 +192,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         startBuildIndex(indexId);
 
-        finishBuildingIndexForPartition(indexId, 0);
+        finishBuildingIndexForPartition(indexId, 0, indexCreationCatalogVersion(INDEX_NAME));
 
         awaitTillGlobalMetastoreRevisionIsApplied();
 
@@ -258,7 +263,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        finishBuildingIndexForPartition(indexId, 0);
+        finishBuildingIndexForPartition(indexId, 0, indexCreationCatalogVersion(INDEX_NAME));
 
         dropIndex(INDEX_NAME);
 
@@ -278,7 +283,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         int indexId = indexId(INDEX_NAME);
 
         for (int partitionId = 1; partitionId < partitions; partitionId++) {
-            finishBuildingIndexForPartition(indexId, partitionId);
+            finishBuildingIndexForPartition(indexId, partitionId, indexCreationCatalogVersion(INDEX_NAME));
         }
 
         dropIndex(INDEX_NAME);
@@ -299,7 +304,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         int indexId = indexId(INDEX_NAME);
 
         for (int partitionId = 2; partitionId < partitions; partitionId++) {
-            finishBuildingIndexForPartition(indexId, partitionId);
+            finishBuildingIndexForPartition(indexId, partitionId, indexCreationCatalogVersion(INDEX_NAME));
         }
 
         dropIndex(INDEX_NAME);
@@ -350,7 +355,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         partitions = newPartitions;
     }
 
-    private void finishBuildingIndexForPartition(int indexId, int partitionId) {
+    private void finishBuildingIndexForPartition(int indexId, int partitionId, int indexCreationCatalogVersion) {
         // It may look complicated, but the other method through mocking IndexBuilder seems messier.
         IndexStorage indexStorage = mock(IndexStorage.class);
 
@@ -365,7 +370,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexStorage,
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
+                indexCreationCatalogVersion
         );
 
         CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
@@ -425,5 +431,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private static String partitionBuildIndexKey(int indexId, int partitionId) {
         return "indexBuild.partition." + indexId + "." + partitionId;
+    }
+
+    private int indexCreationCatalogVersion(String indexName) {
+        return getIndexStrict(catalogManager, indexName, clock.nowLong()).creationCatalogVersion();
     }
 }

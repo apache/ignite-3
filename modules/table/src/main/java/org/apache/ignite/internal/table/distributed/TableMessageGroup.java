@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GROUP_TYPE;
 
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
@@ -45,12 +46,11 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.table.distributed.replication.request.ScanCloseReplicaRequest;
 
 /**
  * Message group for the table module.
@@ -81,9 +81,9 @@ public interface TableMessageGroup {
     short RW_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 3;
 
     /**
-     * Message type for {@link ReadWriteScanCloseReplicaRequest}.
+     * Message type for {@link ScanCloseReplicaRequest}.
      */
-    short RW_SCAN_CLOSE_REPLICA_REQUEST = 4;
+    short SCAN_CLOSE_REPLICA_REQUEST = 4;
 
     /**
      * Message type for {@link HasDataRequest}.

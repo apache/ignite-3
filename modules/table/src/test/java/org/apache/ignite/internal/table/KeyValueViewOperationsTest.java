@@ -58,7 +58,11 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -69,8 +73,6 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -685,8 +687,9 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
 
         TestKeyObject key = new TestKeyObject(1);
         TestObjectWithAllTypes expectedValue = TestObjectWithAllTypes.randomObject(rnd);
+        MarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
-        BinaryRow resultRow = new KvMarshallerImpl<>(schema, keyMapper, valMapper)
+        BinaryRow resultRow = new KvMarshallerImpl<>(schema, marshallers, keyMapper, valMapper)
                 .marshal(key, expectedValue);
 
         doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
@@ -718,10 +721,12 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
 
         assertEquals(Collections.emptySet(), missedTypes);
 
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
         return new KeyValueViewImpl<>(
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
+                marshallers,
                 mock(IgniteSql.class),
                 keyMapper,
                 valMapper

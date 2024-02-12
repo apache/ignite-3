@@ -294,7 +294,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
     private static PrepareService createPlannerService() {
         PrepareService service = new PrepareServiceImpl("test", 1_000, CaffeineCacheFactory.INSTANCE,
-                mock(DdlSqlToCommandConverter.class), 5_000, mock(MetricManager.class));
+                mock(DdlSqlToCommandConverter.class), 5_000, 2, mock(MetricManager.class));
 
         createdServices.add(service);
 

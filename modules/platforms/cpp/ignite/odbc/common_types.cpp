@@ -112,6 +112,8 @@ environment_attribute environment_attribute_to_internal(int32_t attr) {
 sql_state error_code_to_sql_state(error::code code) {
     switch (code) {
         // Common group. Group code: 1
+        case error::code::CURSOR_CLOSED:
+            return sql_state::S24000_INVALID_CURSOR_STATE;
         case error::code::NODE_STOPPING:
         case error::code::COMPONENT_NOT_STARTED:
         case error::code::ILLEGAL_ARGUMENT:
@@ -150,10 +152,6 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::S08004_CONNECTION_REJECTED;
 
         // Sql group. Group code: 4
-        case error::code::CURSOR_CLOSED:
-            return sql_state::S24000_INVALID_CURSOR_STATE;
-        case error::code::CURSOR_NO_MORE_PAGES:
-            return sql_state::S24000_INVALID_CURSOR_STATE;
         case error::code::SCHEMA_NOT_FOUND:
             return sql_state::S3F000_INVALID_SCHEMA_NAME;
         case error::code::PLANNING_TIMEOUT:
@@ -205,6 +203,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_READ_ONLY_TOO_OLD:
         case error::code::TX_INCOMPATIBLE_SCHEMA:
         case error::code::TX_PRIMARY_REPLICA_EXPIRED:
+        case error::code::TX_ALREADY_FINISHED:
+        case error::code::TX_STALE_OPERATION:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
@@ -272,6 +272,9 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::RESULT_NOT_FOUND:
         case error::code::FAIL_TO_GET_JOB_STATUS:
         case error::code::COMPUTE_JOB_FAILED:
+        case error::code::CHANGE_JOB_PRIORITY_NO_JOB:
+        case error::code::PRIMARY_REPLICA_RESOLVE:
+        case error::code::CHANGE_JOB_PRIORITY_JOB_EXECUTING:
         case error::code::CHANGE_JOB_PRIORITY:
             return sql_state::SHY000_GENERAL_ERROR;
 
@@ -283,6 +286,11 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::PRIMARY_REPLICA_AWAIT_TIMEOUT:
             return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::PRIMARY_REPLICA_AWAIT:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // CriticalWorkers group. Group code: 19
+        case error::code::SYSTEM_WORKER_BLOCKED:
+        case error::code::SYSTEM_CRITICAL_OPERATION_TIMEOUT:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

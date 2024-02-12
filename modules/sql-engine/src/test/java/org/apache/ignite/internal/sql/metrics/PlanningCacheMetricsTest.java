@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.metrics;
 
-import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.DEFAULT_PLANNER_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -49,7 +48,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
     public void plannerCacheStatisticsTest() throws Exception {
         MetricManager metricManager = new MetricManager();
         PrepareService prepareService = new PrepareServiceImpl("test", 2, CaffeineCacheFactory.INSTANCE,
-                null, DEFAULT_PLANNER_TIMEOUT, metricManager);
+                null, 15_000L, 2, metricManager);
 
         prepareService.start();
 

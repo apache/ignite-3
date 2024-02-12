@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
@@ -73,15 +74,18 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -94,6 +98,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -117,9 +122,6 @@ import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
@@ -135,9 +137,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-/**
- * Tests scenarios for table manager.
- */
+/** Tests scenarios for table manager. */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
@@ -197,6 +197,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private GcConfiguration gcConfig;
 
+    /** Storage update configuration. */
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
+
     @InjectConfiguration
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
 
@@ -235,8 +239,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
 
-        catalogMetastore.start();
-        catalogManager.start();
+        assertThat(allOf(catalogMetastore.start(), catalogManager.start()), willCompleteSuccessfully());
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
 
@@ -597,8 +600,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             subscriber.onComplete();
         });
 
-        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(nullCompletedFuture());
-        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(nullCompletedFuture());
+        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
@@ -700,13 +703,11 @@ public class TableManagerTest extends IgniteAbstractTest {
             Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
         VaultManager vaultManager = mock(VaultManager.class);
 
-        when(vaultManager.get(any(ByteArray.class))).thenReturn(nullCompletedFuture());
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
-
         TableManager tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
+                storageUpdateConfiguration,
                 clusterService,
                 rm,
                 replicaMgr,
@@ -728,7 +729,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 catalogManager,
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(node),
-                () -> mock(IgniteSql.class)
+                () -> mock(IgniteSql.class),
+                mock(FailureProcessor.class)
         ) {
 
             @Override
@@ -753,9 +755,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
         };
 
-        sm.start();
-
-        tableManager.start();
+        assertThat(allOf(sm.start(), tableManager.start()), willCompleteSuccessfully());
 
         tblManagerFut.complete(tableManager);
 
@@ -772,10 +772,10 @@ public class TableManagerTest extends IgniteAbstractTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
-                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null)
+                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null, mock(FailureProcessor.class))
         );
 
-        manager.start();
+        assertThat(manager.start(), willCompleteSuccessfully());
 
         return manager;
     }

@@ -35,6 +35,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -87,7 +88,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
     /** Work directory. */
     @WorkDirectory
-    private static Path WORK_DIR;
+    protected static Path WORK_DIR;
 
     /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
     @BeforeEach
@@ -106,7 +107,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {
-            CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes());
+            CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
         }
     }
 
@@ -124,6 +125,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * This method can be overridden to add custom init parameters during cluster initialization.
+     */
+    protected void configureInitParameters(InitParametersBuilder builder) {
+    }
+
+    /**
      * Returns node bootstrap config template.
      *
      * @return Node bootstrap config template.
@@ -136,7 +143,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * After all.
      */
     @AfterAll
-    void afterAll() throws Exception {
+    void afterAll() {
         CLUSTER.shutdown();
     }
 
@@ -179,7 +186,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param zoneName Zone name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, zero to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
      */
     protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, @Nullable String storageEngine) {
         sql(format(
@@ -198,6 +205,27 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
         createZoneOnlyIfNotExists(zoneName, replicas, partitions, null);
+
+        return createTableOnly(tableName, zoneName);
+    }
+
+    /**
+     * Creates zone and table.
+     *
+     * @param zoneName Zone name.
+     * @param tableName Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     */
+    protected static Table createZoneAndTable(
+            String zoneName,
+            String tableName,
+            int replicas,
+            int partitions,
+            @Nullable String storageEngine
+    ) {
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageEngine);
 
         return createTableOnly(tableName, zoneName);
     }
@@ -498,5 +526,20 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
                 10_000L
         ));
+    }
+
+    /**
+     * Inserts data into the table created by {@link #createZoneAndTable(String, String, int, int)} in transaction.
+     *
+     * @param tableName Table name.
+     * @param people People to insert into the table.
+     */
+    protected static void insertPeopleInTransaction(Transaction tx, String tableName, Person... people) {
+        insertDataInTransaction(
+                tx,
+                tableName,
+                List.of("ID", "NAME", "SALARY"),
+                Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
+        );
     }
 }

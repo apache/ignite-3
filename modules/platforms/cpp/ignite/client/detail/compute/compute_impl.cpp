@@ -83,14 +83,23 @@ void write_units(protocol::writer &writer, const std::vector<deployment_unit> &u
     }
 }
 
-void compute_impl::execute_on_one_node(cluster_node node, const std::vector<deployment_unit> &units,
+void compute_impl::execute_on_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
     std::string_view job_class_name, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
 
-    auto writer_func = [&node, job_class_name, &units, args](protocol::writer &writer) {
-        writer.write(node.get_name());
+    auto writer_func = [&nodes, job_class_name, &units, args](protocol::writer &writer) {
+        auto nodes_num = std::int32_t(nodes.size());
+        writer.write(nodes_num);
+        for (const auto &node : nodes) {
+            writer.write(node.get_name());
+        }
         write_units(writer, units);
         writer.write(job_class_name);
+
+        // TODO: IGNITE-21335
+        writer.write(0); // Priority.
+        writer.write(0); // Max retries.
+
         write_primitives_as_binary_tuple(writer, args);
     };
 
@@ -131,6 +140,11 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
                     write_tuple(writer, sch, key, true);
                     write_units(writer, units);
                     writer.write(job);
+
+                    // TODO: IGNITE-21335
+                    writer.write(0); // Priority.
+                    writer.write(0); // Max retries.
+
                     write_primitives_as_binary_tuple(writer, args);
                 };
 

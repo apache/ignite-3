@@ -41,6 +41,7 @@ import org.apache.ignite.lang.util.IgniteNameUtils;
  * @param <T> Type of objects the mapper handles.
  */
 public final class MapperBuilder<T> {
+
     /** Target type. */
     private final Class<T> targetType;
 

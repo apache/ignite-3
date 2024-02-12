@@ -17,17 +17,21 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.util.IgniteUtils.newLinkedHashMap;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
+import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -58,8 +62,13 @@ public class SchemaDescriptor {
     /** Whether schema contains time or timestamp columns. */
     private final boolean hasTemporalColumns;
 
+    private final boolean physicalOrderMatchesLogical;
+
     /** Column mapper. */
     private ColumnMapper colMapper = ColumnMapping.identityMapping();
+
+    /** Marshaller schema. */
+    private MarshallerSchema marshallerSchema;
 
     /**
      * Constructor.
@@ -89,7 +98,7 @@ public class SchemaDescriptor {
 
         assert this.keyCols.nullMapSize() == 0 : "Primary key cannot contain nullable column [cols=" + this.keyCols + ']';
 
-        colMap = new LinkedHashMap<>(keyCols.length + valCols.length);
+        colMap = newLinkedHashMap(keyCols.length + valCols.length);
         var hasTemporalColumns = new AtomicBoolean(false);
 
         Stream.concat(Arrays.stream(this.keyCols.columns()), Arrays.stream(this.valCols.columns()))
@@ -101,6 +110,8 @@ public class SchemaDescriptor {
 
                     colMap.put(c.name(), c);
                 });
+
+        this.physicalOrderMatchesLogical = colMap.values().stream().allMatch(col -> col.columnOrder() == col.schemaIndex());
 
         this.hasTemporalColumns = hasTemporalColumns.get();
 
@@ -171,6 +182,11 @@ public class SchemaDescriptor {
      */
     public void validateColumnIndex(int colIdx) {
         Objects.checkIndex(colIdx, length());
+    }
+
+    /** Returns true if physical order matches the logical order, false otherwise. */
+    public boolean physicalOrderMatchesLogical() {
+        return physicalOrderMatchesLogical;
     }
 
     /**
@@ -261,5 +277,58 @@ public class SchemaDescriptor {
     @Override
     public String toString() {
         return S.toString(SchemaDescriptor.class, this);
+    }
+
+    /** Returns marshaller schema. */
+    public MarshallerSchema marshallerSchema() {
+        if (marshallerSchema == null) {
+            marshallerSchema = new ServerMarshallerSchema(this);
+        }
+        return marshallerSchema;
+    }
+
+    private static class ServerMarshallerSchema implements MarshallerSchema {
+
+        private final SchemaDescriptor schema;
+
+        private MarshallerColumn[] keys;
+
+        private MarshallerColumn[] values;
+
+        private MarshallerColumn[] row;
+
+        private ServerMarshallerSchema(SchemaDescriptor schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public int schemaVersion() {
+            return schema.version();
+        }
+
+        @Override
+        public MarshallerColumn[] keys() {
+            if (keys == null) {
+                keys = MarshallerUtil.toMarshallerColumns(schema.keyColumns().columns());
+            }
+            return keys;
+        }
+
+        @Override
+        public MarshallerColumn[] values() {
+            if (values == null) {
+                values = MarshallerUtil.toMarshallerColumns(schema.valueColumns().columns());
+            }
+            return values;
+        }
+
+        @Override
+        public MarshallerColumn[] row() {
+            if (row == null) {
+                Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+                row = MarshallerUtil.toMarshallerColumns(cols);
+            }
+            return row;
+        }
     }
 }

@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -41,7 +43,7 @@ public class TestCluster implements LifecycleAware {
     private final Map<String, TestNode> nodeByName;
     private final List<LifecycleAware> components;
     private final Runnable initClosure;
-    private final CatalogService catalogService;
+    private final CatalogManager catalogManager;
 
     TestCluster(
             Map<String, TestNode> nodeByName,
@@ -52,11 +54,11 @@ public class TestCluster implements LifecycleAware {
         this.nodeByName = nodeByName;
         this.components = List.of(new ComponentToLifecycleAwareAdaptor(catalogManager), prepareService);
         this.initClosure = initClosure;
-        this.catalogService = catalogManager;
+        this.catalogManager = catalogManager;
     }
 
-    public CatalogService catalogService() {
-        return catalogService;
+    public CatalogManager catalogManager() {
+        return catalogManager;
     }
 
     /**
@@ -69,18 +71,15 @@ public class TestCluster implements LifecycleAware {
         return nodeByName.get(name);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         components.forEach(LifecycleAware::start);
 
         nodeByName.values().forEach(TestNode::start);
 
-
         initClosure.run();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         List<AutoCloseable> closeables = Stream.concat(
@@ -103,7 +102,7 @@ public class TestCluster implements LifecycleAware {
 
         @Override
         public void start() {
-            component.start();
+            assertThat(component.start(), willCompleteSuccessfully());
         }
 
         @Override

@@ -23,11 +23,11 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -65,7 +65,8 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
      * Test verifies result of inner join with different ordering.
      */
     @ParameterizedTest
-    @EnumSource
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
     public void testInnerJoin(JoinType joinType) {
         assertQuery(""
                 + "select t1.c1 c11, t1.c2 c12, t1.c3 c13, t2.c1 c21, t2.c2 c22 "
@@ -248,7 +249,8 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
      * Test verifies result of left join with different ordering.
      */
     @ParameterizedTest
-    @EnumSource
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
     public void testLeftJoin(JoinType joinType) {
         assertQuery(""
                 + "select t1.c1 c11, t1.c2 c12, t1.c3 c13, t2.c1 c21, t2.c2 c22 "
@@ -461,10 +463,9 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
      * Test verifies result of right join with different ordering.
      */
     @ParameterizedTest
-    @EnumSource
+    // right join is not supported by CNLJ
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
     public void testRightJoin(JoinType joinType) {
-        Assumptions.assumeTrue(joinType != JoinType.CORRELATED);
-
         assertQuery(""
                 + "select t1.c1 c11, t1.c2 c12, t2.c1 c21, t2.c2 c22, t2.c3 c23 "
                 + "  from t1 "
@@ -714,7 +715,8 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
      * Tests JOIN with USING clause.
      */
     @ParameterizedTest
-    @EnumSource
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
     public void testJoinWithUsing(JoinType joinType) {
         // Select all join columns.
         assertQuery("SELECT * FROM t1 JOIN t2 USING (c1, c2)", joinType)
@@ -751,7 +753,8 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
      * Tests NATURAL JOIN.
      */
     @ParameterizedTest
-    @EnumSource
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
     public void testNatural(JoinType joinType) {
         // Select all join columns.
         assertQuery("SELECT * FROM t1 NATURAL JOIN t2", joinType)
@@ -838,6 +841,8 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> joinTypes() {
         Stream<Arguments> types = Arrays.stream(JoinType.values())
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove filter below
+                .filter(type -> type != JoinType.CORRELATED)
                 .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
         return types;
