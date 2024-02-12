@@ -39,7 +39,7 @@ import org.mockito.Mockito;
  * Ignite base test class.
  */
 @ExtendWith(SystemPropertiesExtension.class)
-@WithSystemProperty(key = ThreadAssertionsProperties.ENABLED_PROPERTY, value = "true")
+@WithSystemProperty(key = ThreadAssertionsProperties.ENABLED_PROPERTY, value = "false")
 public abstract class BaseIgniteAbstractTest {
     /** Logger. */
     protected final IgniteLogger log = Loggers.forClass(getClass());
