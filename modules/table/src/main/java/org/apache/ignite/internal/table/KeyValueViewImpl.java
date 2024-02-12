@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -236,7 +237,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         }
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshalPairs(pairs.entrySet(), schemaVersion);
+            Collection<BinaryRowEx> rows = marshalPairs(pairs.entrySet(), schemaVersion, null);
 
             return tbl.upsertAll(rows, (InternalTransaction) tx);
         });
@@ -552,7 +553,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary rows.
      */
-    private List<BinaryRowEx> marshalPairs(Collection<Entry<K, V>> pairs, int schemaVersion) {
+    private List<BinaryRowEx> marshalPairs(Collection<Entry<K, V>> pairs, int schemaVersion, @Nullable BitSet deleted) {
         if (pairs.isEmpty()) {
             return Collections.emptyList();
         }
@@ -563,7 +564,15 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         try {
             for (Map.Entry<K, V> pair : pairs) {
-                rows.add(marsh.marshal(Objects.requireNonNull(pair.getKey()), pair.getValue()));
+                boolean isDeleted = deleted != null && deleted.get(rows.size());
+
+                K key = Objects.requireNonNull(pair.getKey());
+
+                Row row = isDeleted
+                        ? marsh.marshal(key)
+                        : marsh.marshal(key, pair.getValue());
+
+                rows.add(row);
             }
         } catch (MarshallerException e) {
             throw new org.apache.ignite.lang.MarshallerException(e);
@@ -691,7 +700,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items, deleted) ->
                 withSchemaSync(
                         null,
-                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion), deleted, partitionId));
+                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

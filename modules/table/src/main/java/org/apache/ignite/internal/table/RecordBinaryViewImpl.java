@@ -438,9 +438,8 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, int schemaVersion, @Nullable BitSet deleted) {
         Collection<BinaryRowEx> mapped = new ArrayList<>(rows.size());
 
-        int i = 0;
         for (Tuple row : rows) {
-            boolean key = deleted != null && deleted.get(i++);
+            boolean key = deleted != null && deleted.get(mapped.size());
             mapped.add(marshal(row, schemaVersion, key));
         }
 
