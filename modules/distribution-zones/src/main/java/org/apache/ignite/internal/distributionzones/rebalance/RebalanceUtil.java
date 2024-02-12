@@ -113,6 +113,8 @@ public class RebalanceUtil {
             MetaStorageManager metaStorageMgr,
             Set<Assignment> tableCfgPartAssignments
     ) {
+        int partNum = partId.partitionId();
+
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
@@ -183,14 +185,14 @@ public class RebalanceUtil {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
                             "Update metastore pending partitions key [key={}, partition={}, table={}/{}, newVal={}]",
-                            partAssignmentsPendingKey.toString(), partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPendingKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
-                            partAssignmentsPlannedKey, partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPlannedKey, partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -198,7 +200,7 @@ public class RebalanceUtil {
                 case PLANNED_KEY_REMOVED_EQUALS_PENDING:
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -207,7 +209,7 @@ public class RebalanceUtil {
                     LOG.info(
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -215,7 +217,7 @@ public class RebalanceUtil {
                 case ASSIGNMENT_NOT_UPDATED:
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partId.partitionId(), tableDescriptor.id(), tableDescriptor.name(),
+                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -223,7 +225,7 @@ public class RebalanceUtil {
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.debug(
                             "Received outdated rebalance trigger event [revision={}, partition={}, table={}/{}]",
-                            revision, partId.partitionId(), tableDescriptor.id(), tableDescriptor.name());
+                            revision, partNum, tableDescriptor.id(), tableDescriptor.name());
 
                     break;
                 default:
