@@ -52,6 +52,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Common test logic for data streamer - client and server APIs.
  */
+@SuppressWarnings("DataFlowIssue")
 public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrationTest {
     public static final String TABLE_NAME = "test_table";
 
@@ -142,15 +143,18 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SimplePublisher<Map.Entry<Integer, PersonValPojo>>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Map.Entry<Integer, PersonValPojo>>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(1, new PersonValPojo("foo")));
-            publisher.submit(Map.entry(2, new PersonValPojo("bar")));
+            publisher.submit(DataStreamerItem.of(Map.entry(1, new PersonValPojo("foo"))));
+            publisher.submit(DataStreamerItem.of(Map.entry(2, new PersonValPojo("bar"))));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertEquals("foo", view.get(null, 1).name);
         assertEquals("bar", view.get(null, 2).name);
+        assertNull(view.get(null, 3));
     }
 
     @Test
@@ -282,6 +286,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 .set("id", id);
     }
 
+    @SuppressWarnings("unused")
     private static class PersonPojo {
         int id;
         String name;
@@ -302,6 +307,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
+    @SuppressWarnings("unused")
     private static class PersonValPojo {
         String name;
         Double salary;
