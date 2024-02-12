@@ -112,7 +112,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -264,8 +264,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 5,
-                "partition-operations",
-                new LogUncaughtExceptionHandler(log),
+                NamedThreadFactory.create("test", "partition-operations", log),
                 false,
                 0
         );

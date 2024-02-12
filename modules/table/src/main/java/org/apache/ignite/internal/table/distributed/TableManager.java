@@ -40,6 +40,8 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -170,6 +172,7 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tostring.S;
@@ -482,7 +485,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "tableManager-io", LOG));
+                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
 
         incomingSnapshotsExecutor = new ThreadPoolExecutor(
                 cpus,
@@ -490,7 +493,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
+                IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();

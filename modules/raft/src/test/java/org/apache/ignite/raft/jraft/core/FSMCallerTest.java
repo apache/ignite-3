@@ -98,7 +98,7 @@ public class FSMCallerTest extends BaseIgniteAbstractTest {
         opts.setBootstrapId(new LogId(10, 1));
         opts.setClosureQueue(this.closureQueue);
         opts.setRaftMessagesFactory(new RaftMessagesFactory());
-        opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("TestFSMDisruptor",
+        opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("test", "TestFSMDisruptor",
             1024,
             () -> new FSMCallerImpl.ApplyTask(),
             1,

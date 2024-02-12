@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
+import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -33,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
@@ -52,7 +54,7 @@ import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
@@ -127,7 +129,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
         this.criticalWorkerRegistry = criticalWorkerRegistry;
 
-        this.outboundExecutor = new CriticalSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound", LOG));
+        this.outboundExecutor = new CriticalSingleThreadExecutor(
+                IgniteThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
+        );
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
         inboundExecutors = new CriticalLazyStripedExecutor(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
@@ -558,18 +562,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     private static class CriticalLazyStripedExecutor extends LazyStripedExecutor {
+        private final String nodeName;
+        private final String poolName;
+
         private final CriticalWorkerRegistry workerRegistry;
 
         private final List<CriticalWorker> registeredWorkers = new CopyOnWriteArrayList<>();
 
         CriticalLazyStripedExecutor(String nodeName, String poolName, CriticalWorkerRegistry workerRegistry) {
-            super(nodeName, poolName);
-
+            this.nodeName = nodeName;
+            this.poolName = poolName;
             this.workerRegistry = workerRegistry;
         }
 
         @Override
-        protected ExecutorService newSingleThreadExecutor(NamedThreadFactory threadFactory) {
+        protected ExecutorService newSingleThreadExecutor(int stripeIndex) {
+            ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, poolName + "-" + stripeIndex, LOG, NOTHING_ALLOWED);
             CriticalSingleThreadExecutor executor = new CriticalSingleThreadExecutor(threadFactory);
 
             workerRegistry.register(executor);

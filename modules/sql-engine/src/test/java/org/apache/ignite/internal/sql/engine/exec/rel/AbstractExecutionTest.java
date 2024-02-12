@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.Pair;
@@ -92,8 +92,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     protected ExecutionContext<T> executionContext(boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
-                    NamedThreadFactory.threadPrefix("fake-test-node", "sqlTestExec"),
-                    new LogUncaughtExceptionHandler(log),
+                    NamedThreadFactory.create("fake-test-node", "sqlTestExec", log),
                     false,
                     0);
 
@@ -144,12 +143,11 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         /** {@inheritDoc} */
         public IgniteTestStripedThreadPoolExecutor(
                 int concurrentLvl,
-                String threadNamePrefix,
-                Thread.UncaughtExceptionHandler exHnd,
+                ThreadFactory threadFactory,
                 boolean allowCoreThreadTimeOut,
                 long keepAliveTime
         ) {
-            super(concurrentLvl, threadNamePrefix, exHnd, allowCoreThreadTimeOut, keepAliveTime);
+            super(concurrentLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime);
 
             fut = IgniteTestUtils.runAsync(() -> {
                 while (!stop.get()) {

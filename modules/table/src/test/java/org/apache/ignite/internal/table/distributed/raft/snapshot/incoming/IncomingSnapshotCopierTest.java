@@ -416,7 +416,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private static BinaryRow createRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR)
+        return new RowAssembler(SCHEMA_DESCRIPTOR, -1)
                 .appendStringNotNull(key)
                 .appendStringNotNull(value)
                 .build();

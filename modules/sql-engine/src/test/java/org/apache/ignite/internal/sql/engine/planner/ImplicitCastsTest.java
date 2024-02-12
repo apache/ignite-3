@@ -63,7 +63,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Type coercion related tests that ensure that the necessary casts are placed where it is necessary.
  */
 public class ImplicitCastsTest extends AbstractPlannerTest {
-
     private static TestTable tableWithColumn(String tableName, String columnName, RelDataType columnType) {
         return TestBuilders.table()
                 .name(tableName)
@@ -318,6 +317,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
 
                 // DEFAULT is not coerced
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", (table) -> {
                             return table.name("T1")
                                     .addColumn("INT_COL", NativeTypes.INT32)
@@ -476,6 +476,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
 
         return Stream.of(
                 checkStatement(setup)
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t3", "str_col", NativeTypes.stringOf(36))
                         .sql("INSERT INTO t3 VALUES('1111'::UUID)")
                         .project("CAST(CAST(_UTF-8'1111'):UUID NOT NULL):VARCHAR(36) CHARACTER SET \"UTF-8\" NOT NULL"),

@@ -427,6 +427,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                 ConnectionManagerWrapper manager2 = startManager(4001)
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+            waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
 
             OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
 
@@ -453,6 +454,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                 ConnectionManagerWrapper manager2 = startManager(4001)
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+            waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
 
             dropAcksFrom(manager2);
 

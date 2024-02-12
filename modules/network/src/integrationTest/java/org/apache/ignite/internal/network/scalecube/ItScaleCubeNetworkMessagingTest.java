@@ -959,7 +959,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         // Open a channel to allow a silencer to be installed on it.
         openDefaultChannelBetween(sender, receiver);
-        OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(receiver);
+        OutgoingAcknowledgementSilencer ackSilencer = dropAcksWhenDefaultChannelOpens(receiver);
 
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),
@@ -996,10 +996,20 @@ class ItScaleCubeNetworkMessagingTest {
         return send(messageFactory.testMessage().build(), sender, receiver);
     }
 
-    private static OutgoingAcknowledgementSilencer dropAcksFrom(ClusterService clusterService) throws InterruptedException {
+    private static OutgoingAcknowledgementSilencer dropAcksWhenDefaultChannelOpens(ClusterService clusterService)
+            throws InterruptedException {
         DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
 
-        return OutgoingAcknowledgementSilencer.installOn(messagingService.connectionManager().channels().values());
+        ConnectionManager connectionManager = messagingService.connectionManager();
+        assertTrue(
+                waitForCondition(
+                        () -> connectionManager.channels().keySet().stream().anyMatch(key -> key.type() == ChannelType.DEFAULT),
+                        SECONDS.toMillis(10)
+                ),
+                "Did not see a default channel to be opened on the connection manager"
+        );
+
+        return OutgoingAcknowledgementSilencer.installOn(connectionManager.channels().values());
     }
 
     private void provokeAckFor(ClusterService sideToGetAck, ClusterService sideToSendAck) {
@@ -1019,7 +1029,7 @@ class ItScaleCubeNetworkMessagingTest {
         echoMessagesBackAt(outcast);
 
         openDefaultChannelBetween(notOutcast, outcast);
-        dropAcksFrom(outcast);
+        dropAcksWhenDefaultChannelOpens(outcast);
 
         CompletableFuture<Void> sendFuture = operation.send(
                 notOutcast.messagingService(),
@@ -1045,7 +1055,7 @@ class ItScaleCubeNetworkMessagingTest {
         echoMessagesBackAt(receiver);
 
         openDefaultChannelBetween(sender, receiver);
-        dropAcksFrom(receiver);
+        dropAcksWhenDefaultChannelOpens(receiver);
 
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),

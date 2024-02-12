@@ -101,7 +101,7 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setNodeMetrics(new NodeMetrics(false));
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
-        opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("TestLogManagerDisruptor",
+        opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("test", "TestLogManagerDisruptor",
             1024,
             () -> new LogManagerImpl.StableClosureEvent(),
             1,
