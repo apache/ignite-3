@@ -475,6 +475,32 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void updateAllOrderTest() {
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+
+        RecordView<Tuple> view = table.recordView();
+        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
+        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
+
+        List<BinaryRowEx> rows = new ArrayList<>();
+
+        int count = 100;
+
+        for (int i = 0; i < count; i++) {
+            // Same key, different values.
+            rows.add(createKeyValueRow(1, i, "row-" + i));
+        }
+
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        internalTable.updateAll(rows, null, partitionId).join();
+
+        var res = view.get(null, Tuple.create().set("key", 1L));
+        assertEquals(99, res.intValue("valInt"));
+        assertEquals("row-99", res.stringValue("valStr"));
+    }
+
+    @Test
     public void updateAllWithDeleteTest() {
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
