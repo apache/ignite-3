@@ -80,6 +80,7 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
@@ -314,7 +315,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                         incomingTxStateTableStorage,
                         mvGc,
                         mock(IndexUpdateHandler.class),
-                        mock(GcUpdateHandler.class)
+                        mock(GcUpdateHandler.class),
+                        mock(FullStateTransferIndexChooser.class)
                 )),
                 catalogService,
                 mock(SnapshotMeta.class),
@@ -563,7 +565,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             return null;
         }).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -607,7 +609,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         // Let's add an error on the rebalance.
         doThrow(StorageException.class).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(

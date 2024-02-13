@@ -154,6 +154,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
@@ -368,6 +369,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
+    /** Index chooser for full state transfer. */
+    private final FullStateTransferIndexChooser fullStateTransferIndexChooser;
+
     /**
      * Creates a new table manager.
      *
@@ -520,16 +524,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txStateStoragePool,
                 TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
+
+        fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService);
     }
 
     @Override
     public CompletableFuture<Void> start() {
-        inBusyLock(busyLock, () -> {
+        return inBusyLockAsync(busyLock, () -> {
             mvGc.start();
 
             lowWatermark.start();
 
             transactionStateResolver.start();
+
+            fullStateTransferIndexChooser.start();
 
             CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
@@ -568,9 +576,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             });
 
             partitionReplicatorNodeRecovery.start();
-        });
 
-        return nullCompletedFuture();
+            return nullCompletedFuture();
+        });
     }
 
     private void processAssignmentsOnRecovery(long recoveryRevision) {
@@ -1034,7 +1042,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         txStateTableStorage,
                         mvGc,
                         partitionUpdateHandlers.indexUpdateHandler,
-                        partitionUpdateHandlers.gcUpdateHandler
+                        partitionUpdateHandlers.gcUpdateHandler,
+                        fullStateTransferIndexChooser
                 ),
                 catalogService,
                 incomingSnapshotsExecutor
@@ -1078,6 +1087,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         IgniteUtils.closeAllManually(
                 lowWatermark,
                 mvGc,
+                fullStateTransferIndexChooser,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),

@@ -476,16 +476,18 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         PartitionAccess partition = partitionSnapshotStorage.partition();
 
+        int snapshotCatalogVersion = snapshotMeta.requiredCatalogVersion();
+
         if (i == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
             assert entry.txId() != null;
             assert entry.commitTableId() != null;
             assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-            partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+            partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId(), snapshotCatalogVersion);
         } else {
             // Writes committed version.
-            partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[i]));
+            partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[i]), snapshotCatalogVersion);
         }
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -49,6 +50,9 @@ public class TableTestUtils {
 
     /** Index name. */
     public static final String INDEX_NAME = "TEST_INDEX";
+
+    /** Name of the primary key index for {@link #TABLE_NAME}. */
+    public static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
     /** Column name. */
     public static final String COLUMN_NAME = "TEST_COLUMN";
