@@ -256,6 +256,26 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
+    @Test
+    public void testSameItemMultipleUpdatesOrder() {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            for (int i = 0; i < 100; i++) {
+                publisher.submit(DataStreamerItem.of(tuple(1, "foo-" + i)));
+                publisher.submit(DataStreamerItem.removed(tupleKey(1)));
+                publisher.submit(DataStreamerItem.of(tuple(1, "bar-" + i)));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertEquals("bar-99", view.get(null, tupleKey(1)).stringValue("name"));
+    }
+
     @SuppressWarnings("resource")
     @Test
     public void testSchemaUpdateWhileStreaming() throws InterruptedException {
