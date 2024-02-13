@@ -74,6 +74,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for the internal table API.
@@ -474,15 +476,21 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         }
     }
 
-    @Test
-    public void updateAllOrderTest() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void updateAllOrderTest(boolean existingKey) {
+        RecordView<Tuple> view = table.recordView();
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
         List<BinaryRowEx> rows = new ArrayList<>();
 
         int count = 100;
         int lastId = count - 1;
-        long id = 123456;
+        long id = existingKey ? 1 : 12345;
         BitSet deleted = new BitSet(count);
+
+        if (existingKey) {
+            view.upsert(null, Tuple.create().set("key", id).set("valInt", 1).set("valStr", "val1"));
+        }
 
         for (int i = 0; i < count; i++) {
             if (i % 2 == 0) {
@@ -498,7 +506,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         internalTable.updateAll(rows, deleted, partitionId).join();
 
-        RecordView<Tuple> view = table.recordView();
         Tuple res = view.get(null, Tuple.create().set("key", id));
         assertEquals(lastId, res.intValue("valInt"));
         assertEquals("row-" + lastId, res.stringValue("valStr"));
