@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -40,7 +42,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -93,7 +95,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 30,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "build-index", LOG)
+                IgniteThreadFactory.create(nodeName, "build-index", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         executor.allowCoreThreadTimeOut(true);

@@ -1,5 +1,5 @@
 N0
-INSERT INTO t1_n1 VALUES(1, 1, 1)
+INSERT INTO t1_n1 VALUES (1, 1, 1), (2, 2, 2)
 ---
 Fragment#0 root
   executionNodes: [N0]

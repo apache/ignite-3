@@ -483,24 +483,28 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     public Stream<DynamicTest> testInsertDynamicParams() {
         return Stream.of(
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("INSERT INTO t1 VALUES (?)", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .project("?0"),
 
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", "c1", NativeTypes.INT64)
                         .sql("INSERT INTO t1 VALUES (?)", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .project("CAST(?0):BIGINT"),
 
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", "c1", NativeTypes.INT64)
                         .sql("INSERT INTO t1 VALUES (?)", Unspecified.UNKNOWN)
                         .parameterTypes(nullable(NativeTypes.INT64))
                         .project("?0"),
 
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", "c1", NativeTypes.INT64)
                         .sql("INSERT INTO t1 VALUES (?)", new Object[]{null})
                         .parameterTypes(new NativeType[]{null})
@@ -513,6 +517,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .project("?0"),
 
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("INSERT INTO t1 VALUES (?), (2), (?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
@@ -521,6 +526,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 // compatible type
 
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", "c1", NativeTypes.INT64)
                         .sql("INSERT INTO t1 VALUES (?)", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
@@ -530,6 +536,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 // Incompatible types in dynamic params
 
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("INSERT INTO t1 VALUES (?)", "10")
                         .fails("Values passed to VALUES operator must have compatible types"),

@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalOrSimpleName;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -168,6 +171,9 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private Collection<String> columnNames;
 
         @Nullable
+        private String indexName;
+
+        @Nullable
         private Criteria where;
 
         /**
@@ -197,6 +203,17 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         /**
          * Set the given criteria.
          *
+         * @param indexName The predicate to filter entries or {@code null} to return all entries from the underlying table.
+         */
+        public SqlSerializer.Builder indexName(@Nullable String indexName) {
+            this.indexName = indexName;
+
+            return this;
+        }
+
+        /**
+         * Set the given criteria.
+         *
          * @param where The predicate to filter entries or {@code null} to return all entries from the underlying table.
          */
         public SqlSerializer.Builder where(@Nullable Criteria where) {
@@ -216,8 +233,18 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             }
 
             SqlSerializer ser = new SqlSerializer()
-                    .append("SELECT * ")
-                    .append("FROM ").append(quoteIfNeeded(tableName));
+                    .append("SELECT");
+
+            if (!nullOrBlank(indexName)) {
+                if (!canonicalOrSimpleName(indexName)) {
+                    throw new IllegalArgumentException("Index name must be alphanumeric with underscore and start with letter. Was: "
+                            + indexName);
+                }
+
+                ser.append(" /*+ FORCE_INDEX(").append(normalizeIndexName(indexName)).append(") */");
+            }
+
+            ser.append(" * FROM ").append(quoteIfNeeded(tableName));
 
             if (where != null) {
                 if (CollectionUtils.nullOrEmpty(columnNames)) {
@@ -231,6 +258,10 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             }
 
             return ser;
+        }
+
+        private static String normalizeIndexName(String name) {
+            return quote(name.toUpperCase(Locale.ROOT));
         }
     }
 }

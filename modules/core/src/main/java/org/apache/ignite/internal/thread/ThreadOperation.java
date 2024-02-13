@@ -26,5 +26,11 @@ public enum ThreadOperation {
     /** Storage write. */
     STORAGE_WRITE,
     /** Make a blocking wait (involving taking a lock or waiting on a conditional variable or waiting for time to pass. */
-    WAIT
+    WAIT;
+
+    /**
+     * Empty list of operations denoting that no potentially blocking/time consuming operations are allowed
+     * to be executed on a thread.
+     */
+    public static final ThreadOperation[] NOTHING_ALLOWED = new ThreadOperation[0];
 }

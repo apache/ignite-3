@@ -41,10 +41,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
-import org.apache.ignite.internal.sql.engine.rel.IgnitePkLookup;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 
 /**
@@ -118,13 +116,15 @@ public final class PlannerHelper {
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
 
-            // if after all operators being pushed down an entire tree was collapsed to a single node,
-            // then, probably, we may replaced it with optimized lookup by a primary key
-            if (rel instanceof IgniteLogicalTableScan) {
-                IgniteRel igniteRel = IgnitePkLookup.convert((IgniteLogicalTableScan) rel);
+            {
+                // the sole purpose of this code block is to limit scope of `simpleOperation` variable.
+                // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
+                // thus if result meets our expectation, then return the result, otherwise discard it and
+                // proceed with regular flow
+                RelNode simpleOperation = planner.transform(PlannerPhase.HEP_TO_SIMPLE_KEY_VALUE_OPERATION, rel.getTraitSet(), rel);
 
-                if (igniteRel != null) {
-                    return igniteRel;
+                if (simpleOperation instanceof IgniteRel) {
+                    return (IgniteRel) simpleOperation;
                 }
             }
 

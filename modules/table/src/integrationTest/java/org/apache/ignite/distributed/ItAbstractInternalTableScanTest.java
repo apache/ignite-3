@@ -381,7 +381,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * @return {@link BinaryRow} based on given key and value.
      */
     private static BinaryRow prepareRow(String entryKey, String entryVal) {
-        return new RowAssembler(ROW_SCHEMA)
+        return new RowAssembler(ROW_SCHEMA, -1)
                 .appendString(Objects.requireNonNull(entryKey, "entryKey"))
                 .appendString(Objects.requireNonNull(entryVal, "entryVal"))
                 .build();

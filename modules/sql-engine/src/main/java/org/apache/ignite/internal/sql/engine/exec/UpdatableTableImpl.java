@@ -42,11 +42,13 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.RowBatch;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
 
@@ -65,26 +67,26 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final HybridClock clock;
 
+    private final InternalTable table;
+
     private final ReplicaService replicaService;
 
     private final PartitionExtractor partitionExtractor;
 
     private final TableRowConverter rowConverter;
 
-    /**
-     * Constructor.
-     *
-     * @param desc Table descriptor.
-     */
-    public UpdatableTableImpl(
+    /** Constructor. */
+    UpdatableTableImpl(
             int tableId,
             TableDescriptor desc,
             int partitions,
+            InternalTable table,
             ReplicaService replicaService,
             HybridClock clock,
             TableRowConverter rowConverter
     ) {
         this.tableId = tableId;
+        this.table = table;
         this.desc = desc;
         this.replicaService = replicaService;
         this.clock = clock;
@@ -112,6 +114,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
 
+        @SuppressWarnings("unchecked")
         CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
 
         int batchNum = 0;
@@ -170,6 +173,23 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @Override
     public TableDescriptor descriptor() {
         return desc;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> CompletableFuture<Void> insert(InternalTransaction tx, ExecutionContext<RowT> ectx, RowT row) {
+        BinaryRowEx tableRow = rowConverter.toBinaryRow(ectx, row, false);
+
+        return table.insert(tableRow, tx)
+                .thenApply(success -> {
+                    if (success) {
+                        return null;
+                    }
+
+                    RowHandler<RowT> rowHandler = ectx.rowHandler();
+
+                    throw conflictKeysException(List.of(rowHandler.toString(row)));
+                });
     }
 
     /** {@inheritDoc} */
@@ -253,6 +273,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
 
+        @SuppressWarnings("unchecked")
         CompletableFuture<List<RowT>>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 
         int batchNum = 0;

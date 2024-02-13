@@ -62,7 +62,8 @@ public class ThreadAssertingMvTableStorage implements MvTableStorage {
 
     @Override
     public @Nullable MvPartitionStorage getMvPartition(int partitionId) {
-        return tableStorage.getMvPartition(partitionId);
+        MvPartitionStorage partition = tableStorage.getMvPartition(partitionId);
+        return partition == null ? null : new ThreadAssertingMvPartitionStorage(partition);
     }
 
     @Override
