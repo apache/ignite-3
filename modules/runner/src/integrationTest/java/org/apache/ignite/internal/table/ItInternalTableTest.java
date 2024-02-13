@@ -485,19 +485,27 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         List<BinaryRowEx> rows = new ArrayList<>();
 
         int count = 100;
+        int lastId = count - 1;
+        long id = 1;
+        BitSet deleted = new BitSet(count);
 
         for (int i = 0; i < count; i++) {
-            // Same key, different values.
-            rows.add(createKeyValueRow(1, i, "row-" + i));
+            if (i % 2 == 0) {
+                rows.add(createKeyRow(id));
+                deleted.set(i);
+            }
+            else {
+                rows.add(createKeyValueRow(id, i, "row-" + i));
+            }
         }
 
         int partitionId = internalTable.partitionId(rows.get(0));
 
-        internalTable.updateAll(rows, null, partitionId).join();
+        internalTable.updateAll(rows, deleted, partitionId).join();
 
-        var res = view.get(null, Tuple.create().set("key", 1L));
-        assertEquals(99, res.intValue("valInt"));
-        assertEquals("row-99", res.stringValue("valStr"));
+        var res = view.get(null, Tuple.create().set("key", id));
+        assertEquals(lastId, res.intValue("valInt"));
+        assertEquals("row-" + lastId, res.stringValue("valStr"));
     }
 
     @Test
