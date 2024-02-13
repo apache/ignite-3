@@ -230,4 +230,9 @@ public class FakeTxManager implements TxManager {
     public void removeInflight(UUID txId) {
         // No-op.
     }
+
+    @Override
+    public HybridClock clock() {
+        return clock;
+    }
 }

@@ -1,0 +1,245 @@
+package org.apache.ignite.distributed;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+/** Replica safeTime propagation tests. */
+@ExtendWith(ConfigurationExtension.class)
+public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
+    private static final int SAFE_TIME_100_000 = 100_000;
+
+    private static final int SAFE_TIME_90_000 = 90_000;
+
+    @InjectConfiguration("mock: { fsync: false }")
+    private RaftConfiguration raftConfiguration;
+
+    private static final int BASE_PORT = 1234;
+
+    private static final Set<String> NODE_NAMES = Set.of("node1", "node2", "node3");
+
+    private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final StaticNodeFinder NODE_FINDER = new StaticNodeFinder(
+            IntStream.range(BASE_PORT, BASE_PORT + 5)
+                    .mapToObj(p -> new NetworkAddress("localhost", p))
+                    .collect(Collectors.toList())
+    );
+
+    private int port = BASE_PORT;
+
+    private Map<String, PartialNode> cluster;
+
+    @BeforeEach
+    public void before(TestInfo testInfo) throws Exception {
+        cluster = NODE_NAMES.parallelStream().collect(Collectors.toMap(Function.identity(), PartialNode::new));
+
+        Collection<CompletableFuture<Void>> startingFutures  = new ArrayList<>(3);
+        for(PartialNode node: cluster.values()) {
+            startingFutures.add(node.start());
+        }
+
+        CompletableFuture<Void> clusterReadyFuture = CompletableFuture.allOf(startingFutures.toArray(CompletableFuture[]::new));
+
+        assertThat(clusterReadyFuture, willCompleteSuccessfully());
+    }
+
+    @AfterEach
+    public void after() throws Exception {
+        for (PartialNode partialNode : cluster.values()) {
+            try {
+                partialNode.stop();
+            } catch (NodeStoppingException ignored) {
+                // No-op, multiple stop.
+            }
+        }
+    }
+
+    /**
+     * Test verifies that safeTime watermark is replicated over all nodes of a replication group.
+     * <ol>
+     *     <li>Send command with safe time 10.</li>
+     *     <li>Stop the leader - the only node that actually do safeTime watermark validation within onBeforeApply.</li>
+     *     <li>Send command with safe time 10 (that is less than previously applied) to the new leader and verify
+     *     that SafeTimeReorderException is thrown.</li>
+     * </ol>
+     */
+    @Test
+    public void testSafeTimeReorderingOnLeaderReElection() throws Exception {
+        // Send command with safe time 10
+        PartialNode someNode = cluster.values().iterator().next();
+
+        RaftGroupService raftClient = someNode.raftClient();
+
+        // Guarantees that leader was elected and initialized with current timestamp. Thus firstSafeTime evaluated few lines below
+        // will be greater than initial safe time watermark assigned on leader election.
+        assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
+
+        long firstSafeTime = someNode.clock().nowLong();
+
+        CompletableFuture<Object> firstSafeTimeCommandFuture = raftClient.run(
+                REPLICA_MESSAGES_FACTORY
+                        .safeTimeSyncCommand()
+                        .safeTimeLong(firstSafeTime)
+                        .build()
+        );
+
+        assertThat(firstSafeTimeCommandFuture, willCompleteSuccessfully());
+
+        // Stop the leader - the only node that actually do safeTime watermark validation within onBeforeApply.
+        assertNotNull(raftClient.leader());
+
+        PartialNode nodeTopStop = cluster.get(raftClient.leader().consistentId());
+
+        assertNotNull(nodeTopStop);
+
+        nodeTopStop.stop();
+
+        // Select alive raft client
+        Optional<PartialNode> aliveNode = cluster.values().stream().filter(node -> !node.nodeName.equals(nodeTopStop.nodeName)).findFirst();
+
+        assertTrue(aliveNode.isPresent());
+
+        RaftGroupService anotherClient = aliveNode.get().raftClient();
+
+        // Send command with safe time 10 (that is less than previously applied) to the new leader and verify
+        // that SafeTimeReorderException is thrown.
+        CompletableFuture<Object> secondSafeTimeCommandFuture = anotherClient.run(
+                REPLICA_MESSAGES_FACTORY
+                        .safeTimeSyncCommand()
+                        .safeTimeLong(firstSafeTime -1)
+                        .build()
+        );
+
+        assertThat(secondSafeTimeCommandFuture, CompletableFutureExceptionMatcher.willThrow(SafeTimeReorderException.class));
+    }
+
+
+    private class PartialNode {
+        private final String nodeName;
+
+        private ClusterService clusterService;
+
+        private Loza raftManager;
+
+        private RaftGroupService raftClient;
+
+        private HybridClock clock;
+
+        PartialNode(String nodeName) {
+            this.nodeName = nodeName;
+            this.clock = new HybridClockImpl();
+        }
+
+        CompletableFuture<Void> start() throws Exception {
+            clusterService = ClusterServiceTestUtils.clusterService(nodeName, port++, NODE_FINDER);
+
+            clusterService.start();
+
+            raftManager = new Loza(
+                    clusterService,
+                    raftConfiguration,
+                    workDir.resolve(nodeName + "_loza"),
+                    new HybridClockImpl(),
+                    new RaftGroupEventsClientListener()
+            );
+
+            raftManager.start();
+
+            TxManager txManagerMock = mock(TxManager.class);
+            when(txManagerMock.clock()).thenReturn(clock);
+
+            return raftManager.startRaftGroupNode(
+                            new RaftNodeId(GROUP_ID, new Peer(nodeName)),
+                            fromConsistentIds(NODE_NAMES),
+                            new PartitionListener(
+                                    txManagerMock,
+                                    mock(PartitionDataStorage.class),
+                                    mock(StorageUpdateHandler.class),
+                                    mock(TxStateStorage.class),
+                                    mock(PendingComparableValuesTracker.class),
+                                    mock(PendingComparableValuesTracker.class),
+                                    mock(CatalogService.class)
+                            ),
+                            RaftGroupEventsListener.noopLsnr,
+                            RaftGroupOptions.defaults()
+                    )
+                    .thenApply(raftClient -> {
+                        this.raftClient = raftClient;
+                        return null;
+                    });
+        }
+
+        void stop() throws Exception {
+            closeAll(
+                    raftManager == null ? null : () -> raftManager.stopRaftNodes(GROUP_ID),
+                    raftManager == null ? null : raftManager::beforeNodeStop,
+                    clusterService == null ? null : clusterService::beforeNodeStop,
+                    raftManager == null ? null : raftManager::stop,
+                    clusterService == null ? null : clusterService::stop
+            );
+        }
+
+        RaftGroupService raftClient() {
+            return raftClient;
+        }
+
+        public HybridClock clock() {
+            return clock;
+        }
+    }
+}

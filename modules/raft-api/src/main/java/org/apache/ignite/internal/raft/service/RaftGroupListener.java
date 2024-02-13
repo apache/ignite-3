@@ -81,4 +81,8 @@ public interface RaftGroupListener {
      * Invoked once after a raft node has been shut down.
      */
     void onShutdown();
+
+    default void onLeaderStart() {
+        // No-op.
+    }
 }
