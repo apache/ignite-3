@@ -50,6 +50,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -256,15 +257,23 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
-    @Test
-    public void testSameItemMultipleUpdatesOrder() {
+    @ParameterizedTest
+    @CsvSource({"10, false", "10, true", "1000, false", "1000, true"})
+    public void testSameItemMultipleUpdatesOrder(int pageSize, boolean existingKey) {
+        int id = pageSize + (existingKey ? 1 : 2);
         RecordView<Tuple> view = defaultTable().recordView();
+
+        if (existingKey) {
+            view.upsert(null, tuple(id, "old"));
+        } else {
+            view.delete(null, tupleKey(id));
+        }
+
         CompletableFuture<Void> streamerFut;
 
-        int id = 1;
-
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
-            streamerFut = view.streamData(publisher, null);
+            DataStreamerOptions options = DataStreamerOptions.builder().pageSize(pageSize).build();
+            streamerFut = view.streamData(publisher, options);
 
             for (int i = 0; i < 100; i++) {
                 publisher.submit(DataStreamerItem.of(tuple(id, "foo-" + i)));
