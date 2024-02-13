@@ -118,7 +118,6 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
      * Checks the condition after cluster and raft clients initialization.
      *
      * @param leaderName Current leader name.
-     * @return Condition result.
      */
     protected abstract void afterClusterInit(String leaderName) throws InterruptedException;
 
@@ -126,7 +125,6 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
      * Checks the condition after leader change.
      *
      * @param leaderName Current leader name.
-     * @return Condition result.
      */
     protected abstract void afterLeaderChange(String leaderName) throws InterruptedException;
 
