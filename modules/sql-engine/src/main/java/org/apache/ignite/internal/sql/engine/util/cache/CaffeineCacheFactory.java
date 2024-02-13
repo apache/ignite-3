@@ -38,7 +38,7 @@ public class CaffeineCacheFactory implements CacheFactory {
     private final Executor executor;
 
     private CaffeineCacheFactory() {
-        this.executor = null;
+        this(null);
     }
 
     private CaffeineCacheFactory(@Nullable Executor executor) {
@@ -47,7 +47,7 @@ public class CaffeineCacheFactory implements CacheFactory {
 
     /** Creates a cache factory with the given executor for running auxiliary tasks. */
     @TestOnly
-    public static CacheFactory create(@Nullable Executor executor) {
+    public static CacheFactory create(Executor executor) {
         return new CaffeineCacheFactory(executor);
     }
 
