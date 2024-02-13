@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.thread;
 
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 
+import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -45,5 +48,20 @@ class IgniteThreadFactoryTest {
 
         assertThat(threadName1Ref.get(), is("%nodeName%poolName-0"));
         assertThat(threadName2Ref.get(), is("%nodeName%poolName-1"));
+    }
+
+    @Test
+    void producesRequestedAllowedOperations() throws Exception {
+        ThreadFactory threadFactory = IgniteThreadFactory.create("nodeName", "poolName", LOG, STORAGE_WRITE);
+
+        AtomicReference<Set<ThreadOperation>> allowedOperationsRef = new AtomicReference<>();
+
+        Thread thread = threadFactory.newThread(() -> {
+            allowedOperationsRef.set(((ThreadAttributes) Thread.currentThread()).allowedOperations());
+        });
+        thread.start();
+        thread.join();
+
+        assertThat(allowedOperationsRef.get(), contains(STORAGE_WRITE));
     }
 }
