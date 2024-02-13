@@ -357,6 +357,19 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     private Row marshal(Tuple tuple, int schemaVersion, boolean keyOnly) throws IgniteException {
         TupleMarshaller marshaller = marshaller(schemaVersion);
 
+        return marshal(tuple, marshaller, keyOnly);
+    }
+
+    /**
+     * Marshal a tuple to a row.
+     *
+     * @param tuple The tuple.
+     * @param marshaller Marshaller.
+     * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
+     * @return Row.
+     * @throws IgniteException If failed to marshal tuple.
+     */
+    private static Row marshal(Tuple tuple, TupleMarshaller marshaller, boolean keyOnly) {
         try {
             if (keyOnly) {
                 return marshaller.marshalKey(tuple);
@@ -437,10 +450,11 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, int schemaVersion, @Nullable BitSet deleted) {
         Collection<BinaryRowEx> mapped = new ArrayList<>(rows.size());
+        TupleMarshaller marshaller = marshaller(schemaVersion);
 
         for (Tuple row : rows) {
             boolean key = deleted != null && deleted.get(mapped.size());
-            mapped.add(marshal(row, schemaVersion, key));
+            mapped.add(marshal(row, marshaller, key));
         }
 
         return mapped;
