@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
-import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -302,7 +301,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         startedTxs.incrementAndGet();
 
         if (!readOnly) {
-            updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
+            txStateVolatileStorage.initialize(txId, localNodeId);
 
             return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId);
         }
@@ -688,7 +687,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public void beforeNodeStop() {
         orphanDetector.stop();
-        txStateVolatileStorage.stop();
     }
 
     @Override
@@ -698,6 +696,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         busyLock.block();
+
+        txStateVolatileStorage.stop();
 
         txCleanupRequestHandler.stop();
 
