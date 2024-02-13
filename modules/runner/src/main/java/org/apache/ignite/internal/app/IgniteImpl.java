@@ -658,6 +658,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
+                threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 clock,
                 outgoingSnapshotsManager,
@@ -672,7 +673,14 @@ public class IgniteImpl implements Ignite {
                 failureProcessor
         );
 
-        indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
+        indexManager = new IndexManager(
+                schemaManager,
+                distributedTblMgr,
+                catalogManager,
+                metaStorageMgr,
+                threadPoolsManager.tableIoExecutor(),
+                registry
+        );
 
         indexBuildingManager = new IndexBuildingManager(
                 name,
@@ -765,7 +773,11 @@ public class IgniteImpl implements Ignite {
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
-        if (!ThreadAssertions.enabled()) {
+        boolean enabled = ThreadAssertions.enabled();
+
+        LOG.info("Thread assertions enablement status: {}", enabled);
+
+        if (!enabled) {
             return storageEngines;
         }
 

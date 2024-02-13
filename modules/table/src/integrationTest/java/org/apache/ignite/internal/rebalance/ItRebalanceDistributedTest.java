@@ -203,7 +203,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * Test suite for rebalance process, when replicas' number changed.
@@ -1122,7 +1121,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService,
                     raftManager,
                     replicaManager,
-                    Mockito.mock(LockManager.class),
+                    mock(LockManager.class),
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
@@ -1130,6 +1129,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
+                    threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
@@ -1178,7 +1178,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 }
             };
 
-            indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageManager, registry);
+            indexManager = new IndexManager(
+                    schemaManager,
+                    tableManager,
+                    catalogManager,
+                    metaStorageManager,
+                    threadPoolsManager.tableIoExecutor(),
+                    registry
+            );
         }
 
         private void waitForMetadataCompletenessAtNow() {

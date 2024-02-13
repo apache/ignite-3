@@ -340,8 +340,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         dropTable(DYNAMIC_TABLE_FOR_DROP_NAME);
 
-        verify(mvTableStorage).destroy();
-        verify(txStateTableStorage).destroy();
+        verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
+        verify(txStateTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
@@ -718,6 +718,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 msm,
                 sm = new SchemaManager(revisionUpdater, catalogManager, msm),
                 budgetView -> new LocalLogStorageFactory(),
+                partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
