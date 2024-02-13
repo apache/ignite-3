@@ -103,11 +103,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to detect and retry safe time reordering within onBeforeApply. */
     private volatile long maxObservableSafeTime = -1;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerifier = -1;
 
@@ -476,7 +474,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onLeaderStart() {
-        maxObservableSafeTime = txManager.clock().nowLong() + CLOCK_SKEW;
+        maxObservableSafeTime = txManager.clock().now().addPhysicalTime(CLOCK_SKEW).longValue();
     }
 
     @Override
