@@ -498,8 +498,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             if (i % 2 == 0) {
                 rows.add(createKeyRow(id));
                 deleted.set(i);
-            }
-            else {
+            } else {
                 rows.add(createKeyValueRow(id, i, "row-" + i));
             }
         }
