@@ -258,7 +258,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @ParameterizedTest
-    @CsvSource({"10, false", "10, true", "1000, false", "1000, true"})
+    @CsvSource({"100, false", "100, true", "1000, false", "1000, true"})
     public void testSameItemMultipleUpdatesOrder(int pageSize, boolean existingKey) {
         int id = pageSize + (existingKey ? 1 : 2);
         RecordView<Tuple> view = defaultTable().recordView();
