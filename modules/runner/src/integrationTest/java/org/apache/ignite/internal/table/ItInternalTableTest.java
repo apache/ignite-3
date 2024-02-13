@@ -477,16 +477,11 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     @Test
     public void updateAllOrderTest() {
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
-
-        RecordView<Tuple> view = table.recordView();
-        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
-        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
-
         List<BinaryRowEx> rows = new ArrayList<>();
 
         int count = 100;
         int lastId = count - 1;
-        long id = 1;
+        long id = 123456;
         BitSet deleted = new BitSet(count);
 
         for (int i = 0; i < count; i++) {
@@ -503,7 +498,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         internalTable.updateAll(rows, deleted, partitionId).join();
 
-        var res = view.get(null, Tuple.create().set("key", id));
+        RecordView<Tuple> view = table.recordView();
+        Tuple res = view.get(null, Tuple.create().set("key", id));
         assertEquals(lastId, res.intValue("valInt"));
         assertEquals("row-" + lastId, res.stringValue("valStr"));
     }
