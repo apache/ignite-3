@@ -224,7 +224,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         int count = 5_000;
 
         RecordView<Tuple> view = defaultTable().recordView();
-        view.upsertAll(null, IntStream.range(1, count).mapToObj(i -> tuple(-i, "del-" + i)).collect(Collectors.toList()));
+        view.upsertAll(null, IntStream.range(0, count).mapToObj(i -> tuple(i, "old-" + i)).collect(Collectors.toList()));
 
         CompletableFuture<Void> streamerFut;
 
@@ -232,19 +232,27 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             var options = DataStreamerOptions.builder().pageSize(33).build();
             streamerFut = view.streamData(publisher, options);
 
-            for (int i = 1; i < count + 1; i++) {
-                publisher.submit(DataStreamerItem.of(tuple(i, "x-" + i)));
-                publisher.submit(DataStreamerItem.removed(tupleKey(-i)));
+            for (int i = 0; i < count; i++) {
+                DataStreamerItem<Tuple> item = i % 2 == 0
+                        ? DataStreamerItem.of(tuple(i, "new-" + i))
+                        : DataStreamerItem.removed(tupleKey(i));
+
+                publisher.submit(item);
             }
         }
 
         streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
 
-        List<Tuple> res = view.getAll(null, IntStream.range(-count, count + 1).mapToObj(i -> tupleKey(i)).collect(Collectors.toList()));
+        List<Tuple> res = view.getAll(null, IntStream.range(0, count).mapToObj(i -> tupleKey(i)).collect(Collectors.toList()));
 
         for (int i = 0; i < count; i++) {
-            assertEquals("x-" + (i + 1), res.get(i + count + 1).stringValue("name"));
-            assertNull(res.get(i));
+            Tuple tuple = res.get(i);
+
+            if (i % 2 == 0) {
+                assertEquals("new-" + i, tuple.stringValue("name"));
+            } else {
+                assertNull(tuple);
+            }
         }
     }
 
