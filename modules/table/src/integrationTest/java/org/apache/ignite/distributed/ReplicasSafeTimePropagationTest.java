@@ -52,7 +52,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/** Replica safeTime propagation tests. */
+/**
+ * Replica safeTime propagation tests.
+ */
 @ExtendWith(ConfigurationExtension.class)
 public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
@@ -167,7 +169,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         sendSafeTimeSyncCommand(raftClient, firstSafeTime, false);
 
         // Stop all nodes
-        for (PartialNode node: cluster.values()
+        for (PartialNode node : cluster.values()
         ) {
             node.stop();
         }
