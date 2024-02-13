@@ -2248,6 +2248,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             timedBinaryRowMessageBuilder.binaryRowMessage(binaryRowMessage(searchRows.get(i)));
                         }
 
+                        // TODO: testSameItemMultipleUpdatesOrder should produce only one row to update, since one key is used?
+                        // Why are there 200 updates?
                         rowsToUpdate.put(lockedRow.uuid(), timedBinaryRowMessageBuilder.build());
 
                         rows.add(lockedRow);
