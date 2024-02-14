@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,10 +41,13 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for full state transfer. */
@@ -85,7 +89,17 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     /**
-     * Скоро.
+     * Collect indexes for {@link PartitionAccess#addWrite(RowId, BinaryRow, UUID, int, int, int)}.
+     *
+     * <p>Approximate index selection algorithm:</p>
+     * <ul>
+     *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
+     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING}.</li>
+     *     <li>If the index in status {@link CatalogIndexStatus#REGISTERED} and it is in this status on the active version of the catalog
+     *     for {@code beginTs}.</li>
+     *     <li>For read-only indexes, if their {@link CatalogIndexStatus#STOPPING} status activation time is strictly less than
+     *     {@code beginTs}.</li>
+     * </ul>
      *
      * @param catalogVersion Catalog version of the incoming partition snapshot.
      * @param tableId Table ID for which indexes will be chosen.
@@ -109,7 +123,15 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     /**
-     * Скоро.
+     * Collect indexes for {@link PartitionAccess#addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)}.
+     *
+     * <p>Approximate index selection algorithm:</p>
+     * <ul>
+     *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
+     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING}.</li>
+     *     <li>For read-only indexes, if their {@link CatalogIndexStatus#STOPPING} status activation time is strictly less than
+     *     {@code beginTs}.</li>
+     * </ul>
      *
      * @param catalogVersion Catalog version of the incoming partition snapshot.
      * @param tableId Table ID for which indexes will be chosen.
