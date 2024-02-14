@@ -183,7 +183,7 @@ public final class Commons {
     }
 
     private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
-        return SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
+        return SqlTypeCoercionRule.instance(IgniteCustomAssignmentsRules.instance().getTypeMapping());
     }
 
     /**

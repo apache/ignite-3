@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.AFFINITY_FUNCTION;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
@@ -27,43 +29,56 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.D
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_STORAGE_ENGINE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToByteExact;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToIntExact;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToLongExact;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToShortExact;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
+import java.time.Period;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlIntervalLiteral;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlUnknownLiteral;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
@@ -413,7 +428,7 @@ public class DdlSqlToCommandConverter {
             ColumnType columnType = TypeUtils.columnType(relType);
             assert columnType != null : "RelType to columnType conversion should not return null";
 
-            Object val = fromLiteral(columnType, (SqlLiteral) expression);
+            Object val = fromLiteral(columnType, (SqlLiteral) expression, relType.getPrecision());
             return DefaultValueDefinition.constant(val);
         } else {
             throw new IllegalArgumentException("Unsupported default expression: " + expression.getKind());
@@ -441,8 +456,11 @@ public class DdlSqlToCommandConverter {
 
             Function<ColumnType, DefaultValue> resolveDfltFunc;
 
+            @Nullable RelDataType relType = cmd.type();
+
             if (expr instanceof SqlLiteral) {
-                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, (SqlLiteral) expr));
+                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, (SqlLiteral) expr, relType == null
+                        ? PRECISION_NOT_SPECIFIED : relType.getPrecision()));
             } else {
                 throw new IllegalStateException("Invalid expression type " + expr.getKind());
             }
@@ -824,60 +842,142 @@ public class DdlSqlToCommandConverter {
     /**
      * Creates a value of required type from the literal.
      */
-    private static @Nullable Object fromLiteral(ColumnType columnType, SqlLiteral literal) {
+    private static @Nullable Object fromLiteral(ColumnType columnType, SqlLiteral literal, int precision) {
         if (literal.getValue() == null) {
             return null;
         }
 
         try {
             switch (columnType) {
-                case STRING:
-                    return literal.getValueAs(String.class);
+                case PERIOD: {
+                    if (!(literal instanceof SqlCharStringLiteral) && !(literal instanceof SqlIntervalLiteral)) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                "Default expression is of numeric type and can`t be applied to interval type");
+                    }
+                    String strValue = Objects.requireNonNull(literal.toValue());
+                    // reject possible exponent
+                    if (strValue.toLowerCase(Locale.ROOT).contains("e")) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                "Invalid input syntax for interval type: " + literal.toValue());
+                    }
+                    literal = SqlLiteral.createExactNumeric(strValue, literal.getParserPosition());
+                    int val = convertToIntExact(literal.longValue(false));
+                    return fromInternal(val, Period.class);
+                }
+                case DURATION: {
+                    if (!(literal instanceof SqlCharStringLiteral) && !(literal instanceof SqlIntervalLiteral)) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                "Default expression is of numeric type and can`t be applied to interval type");
+                    }
+                    String strValue = Objects.requireNonNull(literal.toValue());
+                    // reject possible exponent
+                    if (strValue.toLowerCase(Locale.ROOT).contains("e")) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                "Invalid input syntax for interval type: " + literal.toValue());
+                    }
+                    literal = SqlLiteral.createExactNumeric(strValue, literal.getParserPosition());
+                    long val = convertToLongExact(Objects.requireNonNull(literal.bigDecimalValue()));
+                    return fromInternal(val, Duration.class);
+                }
+                case STRING: {
+                    String val = literal.toValue();
+                    // varchar without limitation
+                    if (precision != PRECISION_NOT_SPECIFIED && Objects.requireNonNull(val).length() > precision) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                format("Value too long for type character({})", precision));
+                    }
+                    return val;
+                }
+                case UUID:
+                    return UUID.fromString(Objects.requireNonNull(literal.toValue()));
                 case DATE: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.DATE);
-                    return LocalDate.ofEpochDay(literal0.getValueAs(DateString.class).getDaysSinceEpoch());
+                    try {
+                        literal = SqlParserUtil.parseDateLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                        int val = literal.getValueAs(DateString.class).getDaysSinceEpoch();
+                        return fromInternal(val, LocalDate.class);
+                    } catch (CalciteContextException e) {
+                        literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                        TimestampString tsString = literal.getValueAs(TimestampString.class);
+                        int val = convertToIntExact(TimeUnit.MILLISECONDS.toDays(tsString.getMillisSinceEpoch()));
+                        return fromInternal(val, LocalDate.class);
+                    }
                 }
                 case TIME: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.TIME);
-                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal0.getValueAs(TimeString.class).getMillisOfDay()));
+                    literal = SqlParserUtil.parseTimeLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                    int val = literal.getValueAs(TimeString.class).getMillisOfDay();
+                    return fromInternal(val, LocalTime.class);
                 }
                 case DATETIME: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.TIMESTAMP);
-                    var tsString = literal0.getValueAs(TimestampString.class);
+                    literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                    var tsString = literal.getValueAs(TimestampString.class);
 
-                    return LocalDateTime.ofEpochSecond(
-                            TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
-                            (int) (TimeUnit.MILLISECONDS.toNanos(tsString.getMillisSinceEpoch() % 1000)),
-                            ZoneOffset.UTC
-                    );
+                    return fromInternal(tsString.getMillisSinceEpoch(), LocalDateTime.class);
                 }
                 case TIMESTAMP:
                     // TODO: IGNITE-17376
                     throw new UnsupportedOperationException("Type is not supported: " + columnType);
-                case INT32:
-                    return literal.getValueAs(Integer.class);
-                case INT64:
-                    return literal.getValueAs(Long.class);
-                case INT16:
-                    return literal.getValueAs(Short.class);
-                case INT8:
-                    return literal.getValueAs(Byte.class);
+                case INT32: {
+                    acceptStringOrNumericLiteral(literal, columnType);
+                    long val = literal.longValue(false);
+                    return convertToIntExact(val);
+                }
+                case INT64: {
+                    acceptStringOrNumericLiteral(literal, columnType);
+                    BigDecimal val = literal.bigDecimalValue();
+                    return convertToLongExact(Objects.requireNonNull(val));
+                }
+                case INT16: {
+                    acceptStringOrNumericLiteral(literal, columnType);
+                    long val = literal.longValue(false);
+                    return convertToShortExact(val);
+                }
+                case INT8: {
+                    acceptStringOrNumericLiteral(literal, columnType);
+                    long val = literal.longValue(false);
+                    return convertToByteExact(val);
+                }
                 case DECIMAL:
+                    acceptStringOrNumericLiteral(literal, columnType);
                     return literal.getValueAs(BigDecimal.class);
                 case DOUBLE:
+                    acceptStringOrNumericLiteral(literal, columnType);
                     return literal.getValueAs(Double.class);
                 case FLOAT:
+                    acceptStringOrNumericLiteral(literal, columnType);
                     return literal.getValueAs(Float.class);
                 case BYTE_ARRAY:
-                    return literal.getValueAs(byte[].class);
+                    byte[] arr = literal.getValueAs(byte[].class);
+                    // varbinary without limitation
+                    if (precision != PRECISION_NOT_SPECIFIED && Objects.requireNonNull(arr).length > precision) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                format("Value too long for type binary({})", precision));
+                    }
+                    return arr;
                 case BOOLEAN:
-                    return literal.getValueAs(Boolean.class);
+                    String val = Objects.requireNonNull(literal.toValue());
+                    val = val.trim().toLowerCase();
+
+                    if ("true".equals(val) || "yes".equals(val) || "1".equals(val)) {
+                        return true;
+                    }
+
+                    if ("false".equals(val) || "no".equals(val) || "0".equals(val)) {
+                        return false;
+                    }
+                    throw new SqlException(STMT_VALIDATION_ERR,
+                            format("Illegal expression for type boolean({})", literal.toValue()));
                 default:
                     throw new IllegalStateException("Unknown type [type=" + columnType + ']');
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(STMT_VALIDATION_ERR, "Unable convert literal", th);
+            throw new SqlException(STMT_VALIDATION_ERR, "Unable convert literal: " + literal.toValue(), th);
+        }
+    }
+
+    private static void acceptStringOrNumericLiteral(SqlLiteral literal, ColumnType columnType) {
+        if (!(literal instanceof SqlNumericLiteral) && !(literal instanceof SqlCharStringLiteral)) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Default expression can`t be applied to type " + columnType);
         }
     }
 

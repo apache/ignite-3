@@ -17,8 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static org.apache.calcite.sql.type.SqlTypeName.EXACT_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.FLOAT;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.REAL;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDataStorageNames;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -27,24 +38,44 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Stream;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 
 /**
  * For {@link DdlSqlToCommandConverter} testing.
@@ -158,6 +189,290 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         );
     }
 
+    @SuppressWarnings({"ThrowableNotThrown"})
+    @TestFactory
+    public Stream<DynamicTest> numericDefaultWithIntervalTypes() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        for (SqlTypeName numType : NUMERIC_TYPES) {
+            for (SqlTypeName intervalType : INTERVAL_TYPES) {
+                RelDataType initialNumType = Commons.typeFactory().createSqlType(numType);
+                ColumnType colType = columnType(initialNumType);
+                Object value = generateValueByType(1000, Objects.requireNonNull(colType));
+                String intervalTypeStr = makeUsableIntervalType(intervalType.getName());
+                String sql = format("CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})", intervalTypeStr, value);
+                testItems.add(DynamicTest.dynamicTest(String.format("NOT ALLOW: %s", sql),
+                        () -> assertThrowsSqlException(STMT_VALIDATION_ERR, "Unable convert literal",
+                                () -> converter.convert((SqlDdl) parse(sql), ctx))));
+
+                String sqlQuoted = format("CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT '{}')", intervalTypeStr, value);
+                testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sqlQuoted),
+                        () -> {
+                            CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sqlQuoted), ctx);
+                            ColumnDefinition def = cmd.columns().get(1);
+                            DefaultValueDefinition.ConstantValue defVal = def.defaultValueDefinition();
+                            Object defaultValue = defVal.value();
+                            Number num = (Number) value;
+
+                            Object expectedDefault;
+                            if (intervalTypeStr.contains("YEAR") || intervalTypeStr.contains("MONTH")) {
+                                int interm = num.intValue();
+                                expectedDefault = fromInternal(interm, Period.class);
+                            } else {
+                                long interm = num.longValue();
+                                expectedDefault = fromInternal(interm, Duration.class);
+                            }
+
+                            assertEquals(expectedDefault, defaultValue);
+                        }));
+            }
+        }
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> intervalDefaultsWithNumericTypes() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        for (SqlTypeName intervalType : INTERVAL_TYPES) {
+            for (SqlTypeName numType : NUMERIC_TYPES) {
+                String value = makeUsableIntervalValue(intervalType.getName());
+
+                fillTestCase(numType.getName(), value, testItems, false, ctx);
+            }
+        }
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> nonIntervalDefaultsWithIntervalTypes() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        String[] values = {"'01:01:02'", "'2020-01-02 01:01:01'", "'2020-01-02'", "true", "'true'", "x'01'"};
+
+        for (String value : values) {
+            for (SqlTypeName intervalType : INTERVAL_TYPES) {
+                fillTestCase(makeUsableIntervalType(intervalType.getName()), value, testItems, false, ctx);
+            }
+        }
+
+        return testItems.stream();
+    }
+
+    @SuppressWarnings({"ThrowableNotThrown"})
+    @Test
+    public void testUuidWithDefaults() throws SqlParseException {
+        PlanningContext ctx = createContext();
+        String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d UUID DEFAULT {})";
+
+        String sql = format(template, "NULL");
+        CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
+        ColumnDefinition def = cmd.columns().get(1);
+        DefaultValueDefinition.ConstantValue defVal = def.defaultValueDefinition();
+        assertNull(defVal.value());
+
+        UUID uuid = UUID.randomUUID();
+        sql = format(template, "'" + uuid + "'");
+        cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
+        def = cmd.columns().get(1);
+        defVal = def.defaultValueDefinition();
+        assertEquals(uuid, defVal.value());
+
+        String[] values = {"'01:01:02'", "'2020-01-02 01:01:01'", "'2020-01-02'", "true", "'true'", "x'01'", "INTERVAL '1' DAY"};
+        for (String value : values) {
+            String sql0 = format(template, value);
+            assertThrowsSqlException(STMT_VALIDATION_ERR, "Unable convert literal", () -> converter.convert((SqlDdl) parse(sql0), ctx));
+        }
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> testErroneousStrNotAllowedWithIntervals() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        for (SqlTypeName intervalType : INTERVAL_TYPES) {
+            String value = makeUsableIntervalType(intervalType.getName());
+
+            fillTestCase(value, "'2.03562227E9'", testItems, false, ctx);
+        }
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> numericTypesWithNumericDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+        String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})";
+
+        String[] numbers = {"100.4", "100.6", "100"};
+
+        for (String value : numbers) {
+            for (SqlTypeName numericType : NUMERIC_TYPES) {
+                String sql = format(template, numericType, value);
+
+                testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () -> {
+                    CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
+                    ColumnDefinition def = cmd.columns().get(1);
+                    DefaultValueDefinition.ConstantValue defVal = def.defaultValueDefinition();
+                    Object defaultValue = defVal.value();
+
+                    Number num = (Number) defaultValue;
+                    if (EXACT_TYPES.contains(numericType)) {
+                        assertEquals(Math.round(Math.floor(Double.parseDouble(value))), num.intValue());
+                    } else {
+                        if (numericType == FLOAT || numericType == REAL) {
+                            assertEquals(Float.parseFloat(value), num.floatValue());
+                        } else {
+                            assertEquals(Double.parseDouble(value), num.doubleValue());
+                        }
+                    }
+                }));
+            }
+        }
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> numericTypesWithNonNumericDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        String[] values = {"'01:01:02'", "'2020-01-02 01:01:01'", "'2020-01-02'", "true", "'true'", "x'01'", "INTERVAL '1' DAY"};
+
+        for (String value : values) {
+            for (SqlTypeName numericType : NUMERIC_TYPES) {
+                fillTestCase(numericType.getName(), value, testItems, false, ctx);
+            }
+        }
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> testCharTypesWithDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        fillTestCase("CHAR", "1", testItems, true, ctx, "1");
+        fillTestCase("CHAR", "'1'", testItems, true, ctx, "1");
+        fillTestCase("CHAR(2)", "12", testItems, true, ctx, "12");
+        fillTestCase("CHAR", "12", testItems, false, ctx);
+        fillTestCase("VARCHAR", "12", testItems, true, ctx, "12");
+        fillTestCase("VARCHAR", "'12'", testItems, true, ctx, "12");
+        fillTestCase("VARCHAR(2)", "123", testItems, false, ctx);
+        fillTestCase("VARCHAR(2)", "'123'", testItems, false, ctx);
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> timestampWithDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        fillTestCase("TIMESTAMP", "'2020-01-02 01:01:01.23'", testItems, true, ctx,
+                LocalDateTime.of(2020, 1, 2, 1, 1, 1, 230_000_000));
+        fillTestCase("TIMESTAMP", "'2020-01-02'", testItems, true, ctx,
+                LocalDateTime.of(2020, 1, 2, 0, 0));
+        fillTestCase("TIMESTAMP", "'01:01:02'", testItems, false, ctx);
+        fillTestCase("TIMESTAMP", "'1'", testItems, false, ctx);
+        fillTestCase("TIMESTAMP", "1", testItems, false, ctx);
+        fillTestCase("TIMESTAMP", "'2020-01-02 01:01:01ERR'", testItems, false, ctx);
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> dateWithDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        fillTestCase("DATE", "'2020-01-02 01:01:01'", testItems, true, ctx,
+                LocalDate.of(2020, 1, 2));
+        fillTestCase("DATE", "'2020-01-02'", testItems, true, ctx,
+                LocalDate.of(2020, 1, 2));
+        fillTestCase("DATE", "'01:01:01'", testItems, false, ctx);
+        fillTestCase("DATE", "'1'", testItems, false, ctx);
+        fillTestCase("DATE", "1", testItems, false, ctx);
+        fillTestCase("DATE", "'2020-01-02ERR'", testItems, false, ctx);
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> timeWithDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        fillTestCase("TIME", "'2020-01-02 01:01:01'", testItems, false, ctx);
+        fillTestCase("TIME", "'2020-01-02'", testItems, false, ctx);
+        fillTestCase("TIME", "'01:01:01.2'", testItems, true, ctx,
+                LocalTime.of(1, 1, 1, 200000000));
+        fillTestCase("TIME", "'1'", testItems, false, ctx);
+        fillTestCase("TIME", "1", testItems, false, ctx);
+        fillTestCase("TIME", "'01:01:01ERR'", testItems, false, ctx);
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> binaryWithDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        fillTestCase("BINARY", "x'01'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1}, byte[].class));
+        fillTestCase("BINARY", "'01'", testItems, false, ctx);
+        fillTestCase("BINARY", "1", testItems, false, ctx);
+        fillTestCase("BINARY", "x'0102'", testItems, false, ctx);
+        fillTestCase("BINARY(2)", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, byte[].class));
+        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, byte[].class));
+        fillTestCase("VARBINARY", "'0102'", testItems, false, ctx);
+        fillTestCase("VARBINARY", "1", testItems, false, ctx);
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> booleanWithDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        fillTestCase("BOOLEAN", "'true'", testItems, true, ctx, true);
+        fillTestCase("BOOLEAN", "'1'", testItems, true, ctx, true);
+        fillTestCase("BOOLEAN", "'yes'", testItems, true, ctx, true);
+
+        fillTestCase("BOOLEAN", "'false'", testItems, true, ctx, false);
+        fillTestCase("BOOLEAN", "'0'", testItems, true, ctx, false);
+        fillTestCase("BOOLEAN", "'no'", testItems, true, ctx, false);
+
+        fillTestCase("BOOLEAN", "'2'", testItems, false, ctx);
+
+        return testItems.stream();
+    }
+
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-19274 is implemented.")
+    @TestFactory
+    public Stream<DynamicTest> timestampWithTzWithDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+        String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})";
+
+        {
+            String sql = format(template, "TIMESTAMP_WITH_LOCAL_TIME_ZONE", "'2020-01-02 01:01:01'");
+
+            testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () ->
+                    converter.convert((SqlDdl) parse(sql), ctx)));
+        }
+
+        return testItems.stream();
+    }
+
     @Test
     public void tableWithAutogenPkColumn() throws SqlParseException {
         var node = parse("CREATE TABLE t (id varchar default gen_random_uuid primary key, val int)");
@@ -193,5 +508,50 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 return actual instanceof ColumnDefinition && checker.apply((ColumnDefinition) actual) == Boolean.TRUE;
             }
         };
+    }
+
+    // Transforms INTERVAL_YEAR_MONTH -> INTERVAL YEAR
+    private static String makeUsableIntervalType(String typeName) {
+        if (typeName.lastIndexOf('_') != typeName.indexOf('_')) {
+            typeName = typeName.substring(0, typeName.lastIndexOf('_'));
+        }
+        typeName = typeName.replace("_", " ");
+        return typeName;
+    }
+
+    // Transforms INTERVAL_YEAR_MONTH -> INTERVAL '1' YEAR
+    private static String makeUsableIntervalValue(String typeName) {
+        return makeUsableIntervalType(typeName).replace(" ", " '1' ");
+    }
+
+    private void fillTestCase(String type, String val, List<DynamicTest> testItems, boolean acceptable, PlanningContext ctx) {
+        fillTestCase(type, val, testItems, acceptable, ctx, null);
+    }
+
+    @SuppressWarnings({"ThrowableNotThrown"})
+    private void fillTestCase(String type, String val, List<DynamicTest> testItems, boolean acceptable, PlanningContext ctx,
+            @Nullable Object compare) {
+        String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})";
+        String sql = format(template, type, val);
+
+        if (acceptable) {
+            testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () -> {
+                CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
+                ColumnDefinition def = cmd.columns().get(1);
+                DefaultValueDefinition.ConstantValue defVal = def.defaultValueDefinition();
+                Object defaultValue = defVal.value();
+                if (compare != null) {
+                    if (compare instanceof byte[]) {
+                        assertArrayEquals((byte[]) compare, (byte[]) defaultValue);
+                    } else {
+                        assertEquals(compare, defaultValue);
+                    }
+                }
+            }));
+        } else {
+            testItems.add(DynamicTest.dynamicTest(String.format("NOT ALLOW: %s", sql), () ->
+                    assertThrowsSqlException(STMT_VALIDATION_ERR, "Unable convert literal", () ->
+                            converter.convert((SqlDdl) parse(sql), ctx))));
+        }
     }
 }

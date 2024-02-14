@@ -496,13 +496,13 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     public void testInsertDefaultValue() {
         checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
-        checkWrongDefault("VARCHAR", "10");
+        checkWrongDefault("VARCHAR(1)", "10");
         checkWrongDefault("INT", "'10'");
         checkWrongDefault("INT", "TRUE");
         checkWrongDefault("DATE", "10");
         checkWrongDefault("DATE", "TIME '01:01:01'");
         checkWrongDefault("TIME", "TIMESTAMP '2021-01-01 01:01:01'");
-        checkWrongDefault("BOOLEAN", "1");
+        checkWrongDefault("BOOLEAN", "2");
 
         // TODO: IGNITE-17373
         // checkWrongDefault("INTERVAL DAYS", "INTERVAL '10' MONTHS");
