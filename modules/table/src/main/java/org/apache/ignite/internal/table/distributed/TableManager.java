@@ -1410,20 +1410,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             // TODO: IGNITE-18703 Destroy raft log and meta
-            CompletableFuture<Void> destroyTableStoragesFuture = allOf(stopReplicaFutures)
+            return allOf(stopReplicaFutures)
                     .thenComposeAsync(
                             unused -> allOf(
                                     internalTable.storage().destroy(),
                                     runAsync(() -> internalTable.txStateStorage().destroy(), ioExecutor)
                             ),
                             ioExecutor
-                    );
-
-            CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId());
-
-            return allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture)
-                    .thenApply(v -> map);
+                    ).thenApply(v -> map);
         }));
+
+        schemaManager.dropRegistry(causalityToken, tableId);
 
         startedTables.remove(tableId);
 

@@ -561,7 +561,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         createTableManager(tblManagerFut, (mvTableStorage) -> {
