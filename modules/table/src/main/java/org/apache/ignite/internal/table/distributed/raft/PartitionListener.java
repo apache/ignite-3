@@ -80,11 +80,11 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
-    /** Transaction manager. */
-    private final TxManager txManager;
-
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
+
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
@@ -108,7 +108,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerifier = -1;
-
 
     /**
      * The constructor.

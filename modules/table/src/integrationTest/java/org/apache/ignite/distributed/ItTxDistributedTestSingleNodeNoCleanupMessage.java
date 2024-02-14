@@ -55,6 +55,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -156,7 +157,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
                     PlacementDriver placementDriver,
-                    ClusterNodeResolver clusterNodeResolver
+                    ClusterNodeResolver clusterNodeResolver,
+                    CursorManager cursorManager
             ) {
                 return new PartitionReplicaListener(
                         mvDataStorage,
@@ -179,7 +181,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         schemaSyncService,
                         catalogService,
                         placementDriver,
-                        clusterNodeResolver
+                        clusterNodeResolver,
+                        cursorManager
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {

@@ -92,6 +92,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -397,7 +398,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 new TestPlacementDriver(LOCAL_NODE),
-                mock(ClusterNodeResolver.class)
+                mock(ClusterNodeResolver.class),
+                new CursorManager()
         );
 
         partitionListener = new PartitionListener(

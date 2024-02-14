@@ -126,6 +126,7 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -194,6 +195,8 @@ public class ItTxTestCluster {
     protected Map<String, ReplicaService> replicaServices;
 
     protected Map<String, TxManager> txManagers;
+
+    protected Map<String, CursorManager> cursorManagers;
 
     protected TxManager clientTxManager;
 
@@ -319,6 +322,7 @@ public class ItTxTestCluster {
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
+        cursorManagers = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
@@ -390,6 +394,8 @@ public class ItTxTestCluster {
             txMgr.start();
 
             txManagers.put(node.name(), txMgr);
+
+            cursorManagers.put(node.name(), new CursorManager());
 
             txStateStorages.put(node.name(), new TestTxStateStorage());
         }
@@ -588,7 +594,8 @@ public class ItTxTestCluster {
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         placementDriver,
-                                        nodeResolver
+                                        nodeResolver,
+                                        cursorManagers.get(assignment)
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -686,7 +693,8 @@ public class ItTxTestCluster {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
-            ClusterNodeResolver clusterNodeResolver
+            ClusterNodeResolver clusterNodeResolver,
+            CursorManager cursorManager
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -709,7 +717,8 @@ public class ItTxTestCluster {
                 schemaSyncService,
                 catalogService,
                 placementDriver,
-                clusterNodeResolver
+                clusterNodeResolver,
+                cursorManager
         );
     }
 

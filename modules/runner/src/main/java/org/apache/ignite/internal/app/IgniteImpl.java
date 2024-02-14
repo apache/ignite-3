@@ -177,10 +177,12 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxResourceCleanupManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
@@ -348,6 +350,12 @@ public class IgniteImpl implements Ignite {
 
     /** Local node RW transaction completion checker for indexes. */
     private final IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker;
+
+    /** Cleanup manager for tx resources. */
+    private final CursorManager cursorManager;
+
+    /** Cleanup manager for tx resources. */
+    private final TxResourceCleanupManager txResourceCleanupManager;
 
     /**
      * The Constructor.
@@ -640,6 +648,8 @@ public class IgniteImpl implements Ignite {
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
+        cursorManager = new CursorManager();
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
@@ -667,7 +677,8 @@ public class IgniteImpl implements Ignite {
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
                 this::sql,
-                failureProcessor
+                failureProcessor,
+                cursorManager
         );
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
@@ -760,6 +771,8 @@ public class IgniteImpl implements Ignite {
         );
 
         restComponent = createRestComponent(name);
+
+        txResourceCleanupManager = new TxResourceCleanupManager(name, cursorManager, clusterSvc.topologyService());
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
@@ -946,7 +959,8 @@ public class IgniteImpl implements Ignite {
                                     qryEngine,
                                     clientHandlerModule,
                                     deploymentManager,
-                                    sql
+                                    sql,
+                                    txResourceCleanupManager
                             );
 
                             // The system view manager comes last because other components

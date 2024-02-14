@@ -175,6 +175,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -364,6 +365,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Configuration for {@link StorageUpdateHandler}. */
     private final StorageUpdateConfiguration storageUpdateConfig;
 
+    private final CursorManager cursorManager;
+
     /**
      * Creates a new table manager.
      *
@@ -413,7 +416,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            CursorManager cursorManager
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -436,6 +440,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.placementDriver = placementDriver;
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
+        this.cursorManager = cursorManager;
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -984,7 +989,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsStripe),
                 catalogService,
                 new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsStripe),
-                clusterService.topologyService()
+                clusterService.topologyService(),
+                cursorManager
         );
     }
 

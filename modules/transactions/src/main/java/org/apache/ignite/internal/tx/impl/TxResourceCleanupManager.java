@@ -17,44 +17,83 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.impl.CursorManager.CursorInfo;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNodeResolver;
 
-public class TxResourceCleanupManager {
+public class TxResourceCleanupManager implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxResourceCleanupManager.class);
 
     private static final int RESOURCE_CLEANUP_EXECUTOR_SIZE = 1;
 
-    private static final int RESOURCE_CLEANUP_INTERVAL_MILLISECONDS = 1;
+    private static final int RESOURCE_CLEANUP_INTERVAL_MILLISECONDS = IgniteSystemProperties
+            .getInteger("RESOURCE_CLEANUP_INTERVAL_MILLISECONDS", 30_000);
 
     private final ScheduledExecutorService resourceCleanupExecutor;
 
-    public TxResourceCleanupManager(String nodeName) {
+    private final CursorManager cursorManager;
+
+    private final ClusterNodeResolver clusterNodeResolver;
+
+    public TxResourceCleanupManager(
+            String nodeName,
+            CursorManager cursorManager,
+            ClusterNodeResolver clusterNodeResolver
+    ) {
         resourceCleanupExecutor = new ScheduledThreadPoolExecutor(RESOURCE_CLEANUP_EXECUTOR_SIZE,
                 NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG));
+        this.cursorManager = cursorManager;
+        this.clusterNodeResolver = clusterNodeResolver;
     }
 
-    public void start() {
+    @Override
+    public CompletableFuture<Void> start() {
         resourceCleanupExecutor.scheduleAtFixedRate(
-                this::cleanupOrphanCursors,
+                this::cleanupOrphanTxResources,
                 0,
                 RESOURCE_CLEANUP_INTERVAL_MILLISECONDS,
                 TimeUnit.MILLISECONDS
         );
+
+        return nullCompletedFuture();
     }
 
+    @Override
     public void stop() {
         shutdownAndAwaitTermination(resourceCleanupExecutor, 10, TimeUnit.SECONDS);
     }
 
-    private void cleanupOrphanCursors() {
+    private void cleanupOrphanTxResources() {
+        Map<IgniteUuid, CursorInfo> cursorInfos = cursorManager.cursors();
 
+        for (Map.Entry<IgniteUuid, CursorInfo> cursorInfoEntry : cursorInfos.entrySet()) {
+            CursorInfo cursorInfo = cursorInfoEntry.getValue();
+
+            if (clusterNodeResolver.getById(cursorInfo.txCoordinatorId()) == null) {
+                try {
+                    cursorManager.closeCursor(cursorInfoEntry.getKey());
+                } catch (IgniteException e) {
+                    LOG.warn("Error occured during the orphan cursor closing [txCoordinatorId={}]", e, cursorInfo.txCoordinatorId());
+                }
+            }
+        }
     }
 }
