@@ -152,7 +152,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         // Send command with safe time less than previously applied to the new leader and verify that SafeTimeReorderException is thrown.
         sendSafeTimeSyncCommand(anotherClient, firstSafeTime - 1, true);
 
-        sendSafeTimeSyncCommand(anotherClient, aliveNode.get().clock.nowLong(), false);
+        sendSafeTimeSyncCommand(anotherClient, calculateSafeTime(aliveNode.get().clock), false);
     }
 
     /**
@@ -197,6 +197,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         // Send command with safe time less than previously applied to the leader before the restart
         // and verify that SafeTimeReorderException is thrown.
         sendSafeTimeSyncCommand(someNode.raftClient, firstSafeTime - 1, true);
+
+        sendSafeTimeSyncCommand(someNode.raftClient, calculateSafeTime(someNode.clock), false);
     }
 
     private void startCluster(Map<String, PartialNode> cluster) throws Exception {
