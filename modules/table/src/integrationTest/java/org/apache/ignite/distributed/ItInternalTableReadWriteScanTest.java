@@ -31,6 +31,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,7 +42,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
     private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = new HybridTimestampTracker();
 
     @Override
-    protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
+    protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
         if (tx == null) {
             return internalTbl.scan(part, null);
         }
@@ -57,7 +58,6 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         );
     }
 
-    @Override
     @Test
     public void testInvalidPartitionParameterScan() {
         assertThrows(

@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.Objects.requireNonNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.Flow.Publisher;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +41,7 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
     private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = new HybridTimestampTracker();
 
     @Override
-    protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
+    protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
         requireNonNull(tx);
 
         return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), mock(ClusterNode.class));
@@ -61,5 +63,21 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
     @Override
     protected void validateTxAbortedState(InternalTransaction tx) {
         // noop since we do not store state for readonly transactions.
+    }
+
+    /**
+     * Checks that {@link IllegalArgumentException} is thrown in case of invalid partition.
+     */
+    @Test
+    public void testInvalidPartitionParameterScan() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> scan(-1, startTx())
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> scan(1, startTx())
+        );
     }
 }

@@ -63,6 +63,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -284,22 +285,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
         if (tx != null) {
             assertEquals(TxState.ABORTED, tx.state());
         }
-    }
-
-    /**
-     * Checks that {@link IllegalArgumentException} is thrown in case of invalid partition.
-     */
-    @Test
-    public void testInvalidPartitionParameterScan() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> scan(-1, startTx())
-        );
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> scan(1, startTx())
-        );
     }
 
     /**
@@ -539,5 +524,5 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
-    protected abstract Publisher<BinaryRow> scan(int part, InternalTransaction tx);
+    protected abstract Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx);
 }
