@@ -17,17 +17,15 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-
 import java.util.Objects;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
 import org.jetbrains.annotations.Nullable;
@@ -57,22 +55,21 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * Creates KV marshaller.
      *
      * @param schema Schema descriptor.
+     * @param marshallers Marshaller provider.
      * @param mapper Mapper for record objects.
      */
-    public RecordMarshallerImpl(SchemaDescriptor schema, Mapper<R> mapper) {
+    public RecordMarshallerImpl(SchemaDescriptor schema, MarshallersProvider marshallers, Mapper<R> mapper) {
         assert mapper instanceof PojoMapper;
 
         this.schema = schema;
 
         recClass = mapper.targetType();
 
-        MarshallerColumn[] keyColumns = toMarshallerColumns(schema.keyColumns().columns());
-        MarshallerColumn[] valueColumns = toMarshallerColumns(schema.valueColumns().columns());
+        MarshallerSchema marshallerSchema = schema.marshallerSchema();
 
-        keyMarsh = Marshaller.createMarshaller(keyColumns, mapper, true, true);
-        valMarsh = Marshaller.createMarshaller(valueColumns, mapper, false, true);
-
-        recMarsh = Marshaller.createMarshaller(ArrayUtils.concat(keyColumns, valueColumns), mapper, false, false);
+        keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, mapper, true, true);
+        valMarsh = marshallers.getValuesMarshaller(marshallerSchema, mapper, false, true);
+        recMarsh = marshallers.getRowMarshaller(marshallerSchema, mapper, false, false);
     }
 
     /** {@inheritDoc} */

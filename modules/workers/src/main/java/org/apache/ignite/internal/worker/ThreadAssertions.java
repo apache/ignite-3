@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.worker;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
+
+import java.util.Set;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.ThreadAttributes;
@@ -26,17 +30,20 @@ import org.apache.ignite.internal.thread.ThreadOperation;
  * Tools to assert that the current thread allows to perform a requested operation.
  */
 public class ThreadAssertions {
-    public static final String ENABLED_PROPERTY = "ignite.thread.assertions.enabled";
-
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
-    private static final boolean ENABLED = Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "false"));
+    /** Names of theads on which the assertions are skipped. */
+    private static final Set<String> BLACKLISTED_THREAD_NAMES = Set.of(
+            "main",
+            // JUnit worker thread name
+            "Test worker"
+    );
 
     /**
      * Returns {@code true} if thread assertions are enabled.
      */
     public static boolean enabled() {
-        return ENABLED;
+        return IgniteSystemProperties.getBoolean(THREAD_ASSERTIONS_ENABLED, false);
     }
 
     /**
@@ -56,16 +63,20 @@ public class ThreadAssertions {
     private static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
         Thread currentThread = Thread.currentThread();
 
-        // TODO: IGNITE-21439 - actually throw AssertionError if the operation is not allowed.
+        if (BLACKLISTED_THREAD_NAMES.contains(currentThread.getName())) {
+            return;
+        }
 
         if (!(currentThread instanceof ThreadAttributes)) {
             LOG.warn("Thread {} does not have allowed operations", trackerException(), currentThread);
 
-            return;
+            throw new AssertionError("Thread does not have allowed operations");
         }
 
         if (!((ThreadAttributes) currentThread).allows(requestedOperation)) {
-            LOG.warn("Thread {} is not allowed to {}", trackerException(), currentThread, requestedOperation);
+            LOG.warn("Thread {} is not allowed to do {}", trackerException(), currentThread, requestedOperation);
+
+            throw new AssertionError("Thread is not allowed to do " + requestedOperation);
         }
     }
 

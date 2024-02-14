@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import com.typesafe.config.Config;
@@ -172,7 +174,7 @@ import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOn
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -375,7 +377,7 @@ public class IgniteImpl implements Ignite {
 
         threadPoolsManager = new ThreadPoolsManager(name);
 
-        vaultMgr = createVault(name, workDir);
+        vaultMgr = createVault(workDir);
 
         metricManager = new MetricManager();
 
@@ -666,6 +668,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
+                threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 clock,
                 outgoingSnapshotsManager,
@@ -681,7 +684,14 @@ public class IgniteImpl implements Ignite {
                 cursorManager
         );
 
-        indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
+        indexManager = new IndexManager(
+                schemaManager,
+                distributedTblMgr,
+                catalogManager,
+                metaStorageMgr,
+                threadPoolsManager.tableIoExecutor(),
+                registry
+        );
 
         indexBuildingManager = new IndexBuildingManager(
                 name,
@@ -760,7 +770,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 nettyBootstrapFactory,
                 sql,
-                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId()),
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag()),
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
@@ -776,7 +786,11 @@ public class IgniteImpl implements Ignite {
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
-        if (!ThreadAssertions.enabled()) {
+        boolean enabled = ThreadAssertions.enabled();
+
+        LOG.info("Thread assertions enablement status: {}", enabled);
+
+        if (!enabled) {
             return storageEngines;
         }
 
@@ -883,7 +897,9 @@ public class IgniteImpl implements Ignite {
      *         {@code workDir} specified by the user.
      */
     public CompletableFuture<Ignite> start(Path configPath) {
-        ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
+        ExecutorService startupExecutor = Executors.newSingleThreadExecutor(
+                IgniteThreadFactory.create(name, "start", LOG, STORAGE_READ, STORAGE_WRITE)
+        );
 
         try {
             metricManager.registerSource(new JvmMetricSource());
@@ -892,7 +908,7 @@ public class IgniteImpl implements Ignite {
 
             lifecycleManager.startComponent(vaultMgr);
 
-            vaultMgr.putName(name).get();
+            vaultMgr.putName(name);
 
             // Node configuration manager startup.
             lifecycleManager.startComponent(nodeCfgMgr);
@@ -1229,7 +1245,7 @@ public class IgniteImpl implements Ignite {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(String nodeName, Path workDir) {
+    private static VaultManager createVault(Path workDir) {
         Path vaultPath = workDir.resolve(VAULT_DB_PATH);
 
         try {
@@ -1238,7 +1254,7 @@ public class IgniteImpl implements Ignite {
             throw new IgniteInternalException(e);
         }
 
-        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
+        return new VaultManager(new PersistentVaultService(vaultPath));
     }
 
     /**

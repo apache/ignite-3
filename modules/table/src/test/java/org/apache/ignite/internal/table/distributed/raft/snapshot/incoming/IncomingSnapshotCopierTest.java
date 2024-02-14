@@ -318,7 +318,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 )),
                 catalogService,
                 mock(SnapshotMeta.class),
-                executorService
+                executorService,
+                0
         );
     }
 
@@ -416,7 +417,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private static BinaryRow createRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR)
+        return new RowAssembler(SCHEMA_DESCRIPTOR, -1)
                 .appendStringNotNull(key)
                 .appendStringNotNull(value)
                 .build();
@@ -635,7 +636,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
                 partitionSnapshotStorage,
-                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME))
+                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME)),
+                0
         );
 
         Thread anotherThread = new Thread(copier::cancel);
@@ -680,8 +682,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         MessagingService messagingService = mock(MessagingService.class);
 
+        int leaderCatalogVersion = 42;
+        when(catalogService.catalogReadyFuture(leaderCatalogVersion)).thenReturn(new CompletableFuture<>());
         when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong()))
-                .thenReturn(completedFuture(snapshotMetaResponse(42)));
+                .thenReturn(completedFuture(snapshotMetaResponse(leaderCatalogVersion)));
 
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
@@ -695,7 +699,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 mock(SnapshotCopierOptions.class)
         );
 
-        assertThat(runAsync(snapshotCopier::join), willSucceedIn(1, TimeUnit.SECONDS));
+        assertThat(runAsync(snapshotCopier::join), willSucceedIn(10, TimeUnit.SECONDS));
 
         assertEquals(RaftError.EBUSY.getNumber(), snapshotCopier.getCode());
 

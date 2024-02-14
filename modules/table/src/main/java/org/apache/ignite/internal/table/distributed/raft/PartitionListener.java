@@ -20,7 +20,9 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -38,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -55,7 +58,6 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
-import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -101,13 +103,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to detect and retry safe time reordering within onBeforeApply. */
-    private long maxObservableSafeTime = -1;
+    private volatile long maxObservableSafeTime = -1;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerifier = -1;
+
+    private final CatalogService catalogService;
 
     /**
      * The constructor.
@@ -116,6 +118,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
+     * @param catalogService Catalog service.
      */
     public PartitionListener(
             TxManager txManager,
@@ -123,7 +126,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            CatalogService catalogService
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -131,17 +135,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
-
-        // TODO: IGNITE-18502 Excessive full partition scan on node start
-        try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
-            while (cursor.hasNext()) {
-                ReadResult readResult = cursor.next();
-
-                if (readResult.isWriteIntent()) {
-                    storageUpdateHandler.handleWriteIntentRead(readResult.transactionId(), readResult.rowId());
-                }
-            }
-        }
+        this.catalogService = catalogService;
     }
 
     @Override
@@ -162,7 +156,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
                 long proposedSafeTime = cmd.safeTime().longValue();
 
-                assert proposedSafeTime > maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
+                // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
+                // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
+                // by raft client because of either TimeoutException or inner raft server recoverable exception.
+                assert proposedSafeTime >= maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
                         + maxObservableSafeTimeVerifier + ", proposed=" + proposedSafeTime + "]";
 
                 maxObservableSafeTimeVerifier = proposedSafeTime;
@@ -254,25 +251,28 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
+        UUID txId = cmd.txId();
+
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
                 storageUpdateHandler.handleUpdate(
-                        cmd.txId(),
+                        txId,
                         cmd.rowUuid(),
                         cmd.tablePartitionId().asTablePartitionId(),
                         cmd.rowToUpdate(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
-                        cmd.lastCommitTimestamp()
+                        cmd.lastCommitTimestamp(),
+                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
                 );
             }
 
             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
         }
 
-        replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
     /**
@@ -288,23 +288,26 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
+        UUID txId = cmd.txId();
+
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
                 storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
+                        txId,
                         cmd.rowsToUpdate(),
                         cmd.tablePartitionId().asTablePartitionId(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null
+                        cmd.full() ? cmd.safeTime() : null,
+                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
             }
         }
 
-        replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
     /**
@@ -371,8 +374,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
-        storageUpdateHandler.switchWriteIntents(txId, cmd.commit(), cmd.commitTimestamp(),
-                () -> storage.lastApplied(commandIndex, commandTerm));
+        storageUpdateHandler.switchWriteIntents(
+                txId,
+                cmd.commit(),
+                cmd.commitTimestamp(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
+                indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+        );
     }
 
     /**
@@ -465,13 +473,21 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     @Override
+    public void onLeaderStart() {
+        maxObservableSafeTime = txManager.clock().now().addPhysicalTime(CLOCK_SKEW).longValue();
+    }
+
+    @Override
     public boolean onBeforeApply(Command command) {
         // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
             long proposedSafeTime = cmd.safeTime().longValue();
 
-            if (proposedSafeTime > maxObservableSafeTime) {
+            // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
+            // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
+            // by raft client because of either TimeoutException or inner raft server recoverable exception.
+            if (proposedSafeTime >= maxObservableSafeTime) {
                 maxObservableSafeTime = proposedSafeTime;
             } else {
                 throw new SafeTimeReorderException();

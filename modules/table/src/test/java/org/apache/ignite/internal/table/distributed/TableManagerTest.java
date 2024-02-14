@@ -77,7 +77,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -113,7 +112,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -266,8 +265,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 5,
-                "partition-operations",
-                new LogUncaughtExceptionHandler(log),
+                NamedThreadFactory.create("test", "partition-operations", log),
                 false,
                 0
         );
@@ -343,8 +341,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         dropTable(DYNAMIC_TABLE_FOR_DROP_NAME);
 
-        verify(mvTableStorage).destroy();
-        verify(txStateTableStorage).destroy();
+        verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
+        verify(txStateTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
@@ -705,9 +703,6 @@ public class TableManagerTest extends IgniteAbstractTest {
             Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
         VaultManager vaultManager = mock(VaultManager.class);
 
-        when(vaultManager.get(any(ByteArray.class))).thenReturn(nullCompletedFuture());
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
-
         TableManager tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -724,6 +719,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 msm,
                 sm = new SchemaManager(revisionUpdater, catalogManager, msm),
                 budgetView -> new LocalLogStorageFactory(),
+                partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),

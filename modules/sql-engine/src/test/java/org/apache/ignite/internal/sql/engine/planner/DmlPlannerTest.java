@@ -37,10 +37,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests to verify DML plans.
+ * Tests to verify multi-step versions of DML plans.
  */
 public class DmlPlannerTest extends AbstractPlannerTest {
-
     /**
      * Test for INSERT .. VALUES when table has a single distribution.
      */
@@ -51,7 +50,9 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         // There should be no exchanges and other operations.
         assertPlan("INSERT INTO TEST1 (C1, C2) VALUES(1, 2)", schema,
-                isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteValues.class))));
+                isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteValues.class))),
+                DISABLE_KEY_VALUE_MODIFY_RULES
+        );
     }
 
     /**
@@ -68,7 +69,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
-                                .and(hasChildThat(isInstanceOf(IgniteExchange.class).and(e -> distribution.equals(e.distribution())))))
+                                .and(hasChildThat(isInstanceOf(IgniteExchange.class).and(e -> distribution.equals(e.distribution()))))),
+                DISABLE_KEY_VALUE_MODIFY_RULES
         );
     }
 

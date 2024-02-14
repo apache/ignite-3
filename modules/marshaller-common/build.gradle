@@ -26,6 +26,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation libs.jetbrains.annotations
+    implementation libs.caffeine
 
     testAnnotationProcessor libs.jmh.annotation.processor
 

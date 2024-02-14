@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.marshaller;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.jetbrains.annotations.Nullable;
@@ -87,5 +88,26 @@ public class MarshallerColumn {
 
     public int scale() {
         return scale;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        // NOTE: This code ries on the fact that marshaller for a list of columns is used by client code
+        // and client code does not provide `defValSup`. Because of that `defValSup`  does not participate in equality/hashcode.
+        // It can't do that anyway, since instances of functional interfaces have no identity.
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MarshallerColumn that = (MarshallerColumn) o;
+        return scale == that.scale && Objects.equals(name, that.name) && type == that.type;
+    }
+
+    @Override
+    public int hashCode() {
+        // See comment in equals method.
+        return Objects.hash(name, type, scale);
     }
 }

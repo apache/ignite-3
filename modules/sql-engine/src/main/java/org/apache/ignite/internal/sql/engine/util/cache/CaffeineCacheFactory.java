@@ -20,11 +20,13 @@ package org.apache.ignite.internal.sql.engine.util.cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.checkerframework.checker.index.qual.NonNegative;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Factory that creates caches backed by {@link Caffeine} cache.
@@ -32,7 +34,21 @@ import org.jetbrains.annotations.Nullable;
 public class CaffeineCacheFactory implements CacheFactory {
     public static final CacheFactory INSTANCE = new CaffeineCacheFactory();
 
+    @Nullable
+    private final Executor executor;
+
     private CaffeineCacheFactory() {
+        this(null);
+    }
+
+    private CaffeineCacheFactory(@Nullable Executor executor) {
+        this.executor = executor;
+    }
+
+    /** Creates a cache factory with the given executor for running auxiliary tasks. */
+    @TestOnly
+    public static CacheFactory create(Executor executor) {
+        return new CaffeineCacheFactory(executor);
     }
 
     /** {@inheritDoc} */
@@ -40,6 +56,10 @@ public class CaffeineCacheFactory implements CacheFactory {
     public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
         Caffeine<Object, Object> builder = Caffeine.newBuilder()
                 .maximumSize(size);
+
+        if (executor != null) {
+            builder.executor(executor);
+        }
 
         if (statCounter != null) {
             builder.recordStats(() -> new CaffeineStatsCounterAdapter(statCounter));

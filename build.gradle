@@ -58,7 +58,8 @@ ext {
             "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
             "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
             "-Dio.netty.tryReflectionSetAccessible=true",
-            "-XX:+HeapDumpOnOutOfMemoryError"
+            "-XX:+HeapDumpOnOutOfMemoryError",
+            "-ea"
     ]
 
     compilerArgs = [

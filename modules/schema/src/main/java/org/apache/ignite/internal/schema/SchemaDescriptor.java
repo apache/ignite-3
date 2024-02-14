@@ -23,12 +23,17 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
+import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -50,6 +55,8 @@ public class SchemaDescriptor {
     /** Colocation columns. */
     private final Column[] colocationCols;
 
+    private final List<Column> columns;
+
     /** Colocation columns. */
     private final @Nullable Map<Column, Integer> colocationColIndexes;
 
@@ -63,6 +70,9 @@ public class SchemaDescriptor {
 
     /** Column mapper. */
     private ColumnMapper colMapper = ColumnMapping.identityMapping();
+
+    /** Marshaller schema. */
+    private MarshallerSchema marshallerSchema;
 
     /**
      * Constructor.
@@ -89,6 +99,11 @@ public class SchemaDescriptor {
         this.ver = ver;
         this.keyCols = new Columns(0, keyCols);
         this.valCols = new Columns(keyCols.length, valCols);
+
+        this.columns = Stream.concat(
+                Arrays.stream(this.keyCols.columns()),
+                Arrays.stream(this.valCols.columns())
+        ).collect(Collectors.toList());
 
         assert this.keyCols.nullMapSize() == 0 : "Primary key cannot contain nullable column [cols=" + this.keyCols + ']';
 
@@ -156,7 +171,7 @@ public class SchemaDescriptor {
     public Column column(int colIdx) {
         validateColumnIndex(colIdx);
 
-        return colIdx < keyCols.length() ? keyCols.column(colIdx) : valCols.column(colIdx - keyCols.length());
+        return columns.get(colIdx);
     }
 
     /**
@@ -167,6 +182,11 @@ public class SchemaDescriptor {
      */
     public @Nullable Column column(String name) {
         return colMap.get(name);
+    }
+
+    /** Returns columns in the order their appear in serialized tuple. */
+    public List<Column> columns() {
+        return columns;
     }
 
     /**
@@ -237,7 +257,7 @@ public class SchemaDescriptor {
      * @return Total number of columns in schema.
      */
     public int length() {
-        return keyCols.length() + valCols.length();
+        return columns.size();
     }
 
     /**
@@ -271,5 +291,58 @@ public class SchemaDescriptor {
     @Override
     public String toString() {
         return S.toString(SchemaDescriptor.class, this);
+    }
+
+    /** Returns marshaller schema. */
+    public MarshallerSchema marshallerSchema() {
+        if (marshallerSchema == null) {
+            marshallerSchema = new ServerMarshallerSchema(this);
+        }
+        return marshallerSchema;
+    }
+
+    private static class ServerMarshallerSchema implements MarshallerSchema {
+
+        private final SchemaDescriptor schema;
+
+        private MarshallerColumn[] keys;
+
+        private MarshallerColumn[] values;
+
+        private MarshallerColumn[] row;
+
+        private ServerMarshallerSchema(SchemaDescriptor schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public int schemaVersion() {
+            return schema.version();
+        }
+
+        @Override
+        public MarshallerColumn[] keys() {
+            if (keys == null) {
+                keys = MarshallerUtil.toMarshallerColumns(schema.keyColumns().columns());
+            }
+            return keys;
+        }
+
+        @Override
+        public MarshallerColumn[] values() {
+            if (values == null) {
+                values = MarshallerUtil.toMarshallerColumns(schema.valueColumns().columns());
+            }
+            return values;
+        }
+
+        @Override
+        public MarshallerColumn[] row() {
+            if (row == null) {
+                Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+                row = MarshallerUtil.toMarshallerColumns(cols);
+            }
+            return row;
+        }
     }
 }

@@ -47,7 +47,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
@@ -244,7 +243,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         var notTunedDisruptor = nodeOptions.getfSMCallerExecutorDisruptor();
 
         nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
-                NamedThreadFactory.threadPrefix(node.name() + "-test", "JRaft-FSMCaller-Disruptor"),
+                node.name() + "-test",
+                "JRaft-FSMCaller-Disruptor",
                 64,
                 () -> new ApplyTask(),
                 1,

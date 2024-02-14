@@ -32,23 +32,42 @@ Latest release artifacts (source release and binary packages) are [available](ht
 
 ### Run Ignite from released artifact
 
-To start Ignite you need to download latest zip archive from the [Ignite web page](https://ignite.apache.org/download.cgi).
-After unpacking it, go to the ignite3-db-3.0.0-beta1 folder and run the following command:
+To start Ignite you need to download latest zip archive from the [Ignite web page](https://ignite.apache.org/download.cgi). 
+Scroll down to the "Binary releases" section and download the version you are interested in.
 
-```
-bin/ignite3db start
+Here is the command you can run to download current latest release:
+
+```shell
+https://dlcdn.apache.org/ignite/3.0.0-beta1/ignite3-3.0.0-beta1.zip
 ```
 
-After that you need to connect to your node with Ignite CLI:
-
+```shell
+unzip ignite3-3.0.0-beta1.zip
 ```
-ignite3-cli-3.0.0-beta1/bin/ignite3
+After this you should have two directories: `ignite3-db-3.0.0-<version>` and `ignite3-cli-3.0.0-<version>`. 
+The first one contains everything you need to start Ignite node, and the second one contains Ignite CLI tool.
+
+After unpacking it, go to the `ignite3-db-3.0.0-<version>` folder and run the following command:
+
+```shell
+cd ignite3-db-3.0.0-beta1
+./bin/ignite3db start
+```
+
+This command starts the Ignite node with the name `defaultNode`. 
+If you want to change any node configuration, change values in `etc/ignite-config.conf` before the start.
+
+After that you need to connect to your node with Ignite CLI in interactive mode:
+
+```shell
+cd ../ignite3-cli-3.0.0-beta1
+./bin/ignite3
 ```
 
 In CLI you need to initialize simple cluster via the following command:
 
 ```
-cluster init -n=sampleCluster -m=defaultNode
+cluster init --cluster-name myCluster --cmg-node defaultNode --meta-storage-node defaultNode
 ```
 
 Now CLI can be switched into SQL interactive mode with command:
@@ -70,20 +89,31 @@ SELECT * FROM Person;
 
 Ignite distributive zip archive can be built with [Gradle](https://gradle.org/):
 
-```
+```shell
 ./gradlew clean distZip
 ```
 
-Build artifacts can be found in packaging/db and packaging/cli directories.
+Build artifacts can be found in `packaging/db` and `packaging/cli` directories.
 
 ## Run from source using Docker
 
 Ignite can be started with the help of Docker:
 
-```
+```shell
 ./gradlew docker
 cd packaging/docker
 docker compose up -d
+```
+
+You can also run the CLI within the Docker:
+
+```shell
+docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
+```
+
+```
+> connect http://node1:10300
+> cluster init --cluster-name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
 ```
 
 For more information, you can check the [Developer notes](./DEVNOTES.md)

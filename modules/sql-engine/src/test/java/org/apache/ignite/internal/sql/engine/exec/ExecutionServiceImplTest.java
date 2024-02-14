@@ -588,7 +588,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public void exceptionArrivingBeforeRootFragmentExecutesDoesNotLeaveQueryHanging() {
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
-        QueryPlan plan = prepare("INSERT INTO test_tbl(ID, VAL) VALUES (1, 1)", ctx);
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         CountDownLatch queryFailedLatch = new CountDownLatch(1);
 

@@ -99,8 +99,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
-
         internalTbl = new DummyInternalTableImpl(
                 mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration, storageUpdateConfiguration);
     }
@@ -383,7 +381,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * @return {@link BinaryRow} based on given key and value.
      */
     private static BinaryRow prepareRow(String entryKey, String entryVal) {
-        return new RowAssembler(ROW_SCHEMA)
+        return new RowAssembler(ROW_SCHEMA, -1)
                 .appendString(Objects.requireNonNull(entryKey, "entryKey"))
                 .appendString(Objects.requireNonNull(entryVal, "entryVal"))
                 .build();

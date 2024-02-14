@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.concurrent.Executors;
@@ -43,6 +42,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,7 +76,7 @@ public class LowWatermark implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final AtomicReference<HybridTimestamp> lowWatermark = new AtomicReference<>();
+    private volatile HybridTimestamp lowWatermark;
 
     private final AtomicReference<ScheduledFuture<?>> lastScheduledTaskFuture = new AtomicReference<>();
 
@@ -119,48 +119,43 @@ public class LowWatermark implements ManuallyCloseable {
      */
     public void start() {
         inBusyLock(busyLock, () -> {
-            vaultManager.get(LOW_WATERMARK_VAULT_KEY)
-                    .thenCompose(vaultEntry -> inBusyLock(busyLock, () -> {
-                        if (vaultEntry == null) {
-                            scheduleUpdateLowWatermarkBusy();
+            HybridTimestamp lowWatermark = readLowWatermarkFromVault();
 
-                            return nullCompletedFuture();
-                        }
+            if (lowWatermark == null) {
+                LOG.info("Previous value of the low watermark was not found, will schedule to update it");
 
-                        HybridTimestamp lowWatermark = ByteUtils.fromBytes(vaultEntry.value());
+                scheduleUpdateLowWatermarkBusy();
 
-                        return txManager.updateLowWatermark(lowWatermark)
-                                .thenApply(unused -> {
-                                    this.lowWatermark.set(lowWatermark);
+                return;
+            }
 
-                                    runGcAndScheduleUpdateLowWatermarkBusy(lowWatermark);
+            LOG.info(
+                    "Low watermark has been successfully retrieved from the vault and is scheduled to be updated: {}",
+                    lowWatermark
+            );
 
-                                    return lowWatermark;
-                                });
+            txManager.updateLowWatermark(lowWatermark)
+                    .thenRun(() -> inBusyLock(busyLock, () -> {
+                        this.lowWatermark = lowWatermark;
+
+                        runGcAndScheduleUpdateLowWatermarkBusy(lowWatermark);
                     }))
-                    .whenComplete((lowWatermark, throwable) -> {
-                        if (throwable != null) {
-                            if (!(throwable instanceof NodeStoppingException)) {
-                                LOG.error("Error getting low watermark", throwable);
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null && !(throwable instanceof NodeStoppingException)) {
+                            LOG.error("Error during the Watermark manager start", throwable);
 
-                                failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
+                            failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
 
-                                inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
-                            }
-                        } else {
-                            if (lowWatermark == null) {
-                                LOG.info(
-                                        "Previous value of the low watermark was not found, will schedule to update it"
-                                );
-                            } else {
-                                LOG.info(
-                                        "Low watermark has been successfully got from the vault and is scheduled to be updated: {}",
-                                        lowWatermark
-                                );
-                            }
+                            inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                         }
                     });
         });
+    }
+
+    private @Nullable HybridTimestamp readLowWatermarkFromVault() {
+        VaultEntry vaultEntry = vaultManager.get(LOW_WATERMARK_VAULT_KEY);
+
+        return vaultEntry == null ? null : ByteUtils.fromBytes(vaultEntry.value());
     }
 
     @Override
@@ -184,7 +179,7 @@ public class LowWatermark implements ManuallyCloseable {
      * Returns the current low watermark, {@code null} means no low watermark has been assigned yet.
      */
     public @Nullable HybridTimestamp getLowWatermark() {
-        return lowWatermark.get();
+        return lowWatermark;
     }
 
     void updateLowWatermark() {
@@ -195,18 +190,13 @@ public class LowWatermark implements ManuallyCloseable {
             // created, then we can safely promote the candidate as a new low watermark, store it in vault, and we can safely start cleaning
             // up the stale/junk data in the tables.
             txManager.updateLowWatermark(lowWatermarkCandidate)
-                    .thenComposeAsync(
-                            unused -> inBusyLock(
-                                    busyLock,
-                                    () -> vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate))
-                            ),
-                            scheduledThreadPool
-                    )
-                    .thenRun(() -> inBusyLock(busyLock, () -> {
-                        lowWatermark.set(lowWatermarkCandidate);
+                    .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                        vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate));
+
+                        lowWatermark = lowWatermarkCandidate;
 
                         runGcAndScheduleUpdateLowWatermarkBusy(lowWatermarkCandidate);
-                    }))
+                    }), scheduledThreadPool)
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
                             if (!(throwable instanceof NodeStoppingException)) {
@@ -250,7 +240,7 @@ public class LowWatermark implements ManuallyCloseable {
                 -lowWatermarkConfig.dataAvailabilityTime().value() - getMaxClockSkew()
         );
 
-        HybridTimestamp lowWatermark = this.lowWatermark.get();
+        HybridTimestamp lowWatermark = this.lowWatermark;
 
         assert lowWatermark == null || lowWatermarkCandidate.compareTo(lowWatermark) > 0 :
                 "lowWatermark=" + lowWatermark + ", lowWatermarkCandidate=" + lowWatermarkCandidate;

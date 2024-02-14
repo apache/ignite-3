@@ -47,6 +47,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -57,10 +58,12 @@ import org.junit.jupiter.api.Test;
  * <p>Should be in sync with org.apache.ignite.internal.table.TupleBuilderImplTest.
  */
 public class ClientTupleTest {
+    private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
             new ClientColumn("ID", ColumnType.INT64, false, true, 0, 0),
             new ClientColumn("NAME", ColumnType.STRING, false, false, -1, 1)
-    }, null);
+    }, null, marshallers);
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
             new ClientColumn("I8", ColumnType.INT8, false, false, -1, 0),
@@ -82,7 +85,7 @@ public class ClientTupleTest {
             new ClientColumn("PERIOD", ColumnType.PERIOD, false, false, -1, 16),
             new ClientColumn("DURATION", ColumnType.DURATION, false, false, -1, 17),
             new ClientColumn("NUMBER", ColumnType.NUMBER, false, false, -1, 18)
-    }, null);
+    }, null, marshallers);
 
     private static final UUID GUID = UUID.randomUUID();
 

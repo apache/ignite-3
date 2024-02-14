@@ -37,6 +37,7 @@ import static org.apache.ignite.table.criteria.Criteria.or;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.of;
@@ -204,5 +205,52 @@ class SqlSerializerTest {
 
         assertThat(ser.toString(), endsWith(format("FROM {} WHERE {} = ?", quote("Test"), quote("Aa"))));
         assertArrayEquals(new Object[]{1}, ser.getArguments());
+    }
+
+    @Test
+    void testIndexName() {
+        SqlSerializer ser = new SqlSerializer.Builder()
+                .tableName("test")
+                .indexName("idx_a")
+                .columns(Set.of("a"))
+                .where(columnValue(quote("a"), equalTo(1)))
+                .build();
+
+        assertThat(ser.toString(), startsWith("SELECT /*+ FORCE_INDEX(\"IDX_A\") */ * FROM"));
+        assertArrayEquals(new Object[]{1}, ser.getArguments());
+
+        ser = new SqlSerializer.Builder()
+                .tableName("test")
+                .indexName("PUBLIC.idx_a")
+                .columns(Set.of("a"))
+                .where(columnValue(quote("a"), equalTo(1)))
+                .build();
+
+        assertThat(ser.toString(), startsWith("SELECT /*+ FORCE_INDEX(\"PUBLIC.IDX_A\") */ * FROM"));
+        assertArrayEquals(new Object[]{1}, ser.getArguments());
+
+        IllegalArgumentException iae = assertThrows(
+                IllegalArgumentException.class,
+                () -> new SqlSerializer.Builder()
+                        .tableName("test")
+                        .indexName("'idx_a'")
+                        .columns(Set.of("a"))
+                        .where(columnValue(quote("a"), equalTo(1)))
+                        .build()
+        );
+
+        assertThat(iae.getMessage(), containsString("Index name must be alphanumeric with underscore and start with letter. Was: 'idx_a'"));
+
+        iae = assertThrows(
+                IllegalArgumentException.class,
+                () -> new SqlSerializer.Builder()
+                        .tableName("test")
+                        .indexName("1idx_a")
+                        .columns(Set.of("a"))
+                        .where(columnValue(quote("a"), equalTo(1)))
+                        .build()
+        );
+
+        assertThat(iae.getMessage(), containsString("Index name must be alphanumeric with underscore and start with letter. Was: 1idx_a"));
     }
 }

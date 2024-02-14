@@ -125,6 +125,14 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var nodeId = unpacker.unpackString();
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(); // Cluster id.
+            unpacker.skipValue(); // Cluster name.
+
+            unpacker.skipValue(); // Major.
+            unpacker.skipValue(); // Minor.
+            unpacker.skipValue(); // Maintenance.
+            unpacker.skipValue(); // Patch.
+            unpacker.skipValue(); // Pre release.
+
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
@@ -133,7 +141,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(46, len);
+            assertEquals(72, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -257,6 +265,13 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var nodeId = unpacker.unpackString();
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(); // Cluster id.
+            unpacker.skipValue(); // Cluster name.
+
+            unpacker.skipValue(); // Major.
+            unpacker.skipValue(); // Minor.
+            unpacker.skipValue(); // Maintenance.
+            unpacker.skipValue(); // Patch.
+            unpacker.skipValue(); // Pre release.
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
@@ -265,7 +280,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(46, len);
+            assertEquals(72, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);

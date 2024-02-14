@@ -25,9 +25,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -37,19 +34,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * <p>After having been stopped, it never executes anything.
  */
 abstract class LazyStripedExecutor implements ManuallyCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(LazyStripedExecutor.class);
-
-    private final String nodeName;
-    private final String poolName;
-
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReferenceArray<ExecutorService> array = new AtomicReferenceArray<>(Short.MAX_VALUE + 1);
-
-    LazyStripedExecutor(String nodeName, String poolName) {
-        this.nodeName = nodeName;
-        this.poolName = poolName;
-    }
 
     /**
      * Executes a command on a stripe with the given index. If the executor is stopped, does nothing.
@@ -83,8 +70,7 @@ abstract class LazyStripedExecutor implements ManuallyCloseable {
                 return existing;
             }
 
-            NamedThreadFactory threadFactory = NamedThreadFactory.create(nodeName, poolName + "-" + index, LOG);
-            ExecutorService newExecutor = newSingleThreadExecutor(threadFactory);
+            ExecutorService newExecutor = newSingleThreadExecutor(index);
 
             array.set(index, newExecutor);
 
@@ -95,9 +81,9 @@ abstract class LazyStripedExecutor implements ManuallyCloseable {
     /**
      * Creates a new single thread executor to serve a stripe.
      *
-     * @param threadFactory Thread factory to be used by the executor.
+     * @param stripeIndex Stripe index for which the executor is being created.
      */
-    protected abstract ExecutorService newSingleThreadExecutor(NamedThreadFactory threadFactory);
+    protected abstract ExecutorService newSingleThreadExecutor(int stripeIndex);
 
     @Override
     public void close() {

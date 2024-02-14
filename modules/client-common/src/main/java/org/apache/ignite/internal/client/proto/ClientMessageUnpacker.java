@@ -837,6 +837,30 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads a nullable byte.
+     *
+     * @return Byte value or {@code null}.
+     */
+    public @Nullable Byte unpackByteNullable() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+        return unpackByte();
+    }
+
+    /**
+     * Reads a nullable string.
+     *
+     * @return String value or {@code null}.
+     */
+    public @Nullable String unpackStringNullable() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+        return unpackString();
+    }
+
+    /**
      * Reads an {@link Instant}.
      *
      * @return {@link Instant} value.

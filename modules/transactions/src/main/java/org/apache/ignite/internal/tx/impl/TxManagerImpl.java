@@ -20,11 +20,12 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
-import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -51,6 +52,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -80,7 +82,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
@@ -153,6 +155,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Prevents double stopping of the tracker. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /**
+     * Total number of started transaction.
+     * TODO: IGNITE-21440 Implement transaction metrics.
+     */
+    private final AtomicInteger startedTxs = new AtomicInteger();
+
+    /**
+     * Total number of finished transaction.
+     * TODO: IGNITE-21440 Implement transaction metrics.
+     */
+    private final AtomicInteger finishedTxs = new AtomicInteger();
+
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -228,7 +243,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(clusterService.nodeName(), "tx-async-cleanup", LOG)
+                IgniteThreadFactory.create(clusterService.nodeName(), "tx-async-cleanup", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
@@ -280,9 +295,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
         HybridTimestamp beginTimestamp = readOnly ? clock.now() : createBeginTimestampWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
+
+        startedTxs.incrementAndGet();
 
         if (!readOnly) {
+            txStateVolatileStorage.initialize(txId, localNodeId);
+
             return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId);
         }
 
@@ -348,6 +366,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
         TxState finalState;
 
+        finishedTxs.incrementAndGet();
+
         if (commit) {
             timestampTracker.update(clock.now());
 
@@ -374,6 +394,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}].", commitIntent, txId, enlistedGroups);
+
+        finishedTxs.incrementAndGet();
 
         assert enlistedGroups != null;
 
@@ -635,16 +657,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
-                .filter(e -> isFinalState(e.txState()))
-                .count());
+        return finishedTxs.get();
     }
 
     @Override
     public int pending() {
-        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
-                .filter(e -> e.txState() == PENDING)
-                .count());
+        return startedTxs.get() - finishedTxs.get();
     }
 
     @Override
@@ -667,7 +685,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public void beforeNodeStop() {
         orphanDetector.stop();
-        txStateVolatileStorage.stop();
     }
 
     @Override
@@ -677,6 +694,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         busyLock.block();
+
+        txStateVolatileStorage.stop();
 
         txCleanupRequestHandler.stop();
 
@@ -711,6 +730,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
+        finishedTxs.incrementAndGet();
+
         CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureById.remove(txIdAndTimestamp);
 
         assert readOnlyTxFuture != null : txIdAndTimestamp;
@@ -776,6 +797,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         // Avoid completion under lock.
         tuple.onRemovedInflights();
+    }
+
+    @Override
+    public HybridClock clock() {
+        return clock;
     }
 
     @Override
