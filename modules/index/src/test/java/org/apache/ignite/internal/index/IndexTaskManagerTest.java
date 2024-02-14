@@ -25,19 +25,22 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.dropIndex;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -46,7 +49,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -59,9 +62,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/** For {@link IndexBuildingStarterController} testing. */
+/** For {@link IndexTaskManager} testing. */
 @ExtendWith(MockitoExtension.class)
-public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
+public class IndexTaskManagerTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
@@ -71,9 +74,9 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
     private final ClusterService clusterService = createClusterService();
 
     @Mock
-    private IndexBuildingStarter indexBuildingStarter;
+    private ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
 
-    private @Nullable IndexBuildingStarterController controller;
+    private @Nullable IndexTaskManager taskManager;
 
     @BeforeEach
     void setUp() {
@@ -81,15 +84,15 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
-        controller = new IndexBuildingStarterController(catalogManager, placementDriver, clusterService, indexBuildingStarter);
+        taskManager = new IndexTaskManager(catalogManager, placementDriver, clusterService, changeIndexStatusTaskScheduler);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        IgniteUtils.closeAllManually(
                 catalogManager::beforeNodeStop,
                 catalogManager::stop,
-                controller == null ? null : controller::close
+                taskManager
         );
     }
 
@@ -97,11 +100,36 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
     void testStartTaskOnIndexCreateEvent() {
         setPrimaryReplicaLocalNode();
 
-        verify(indexBuildingStarter, never()).scheduleTask(any());
+        verify(changeIndexStatusTaskScheduler, never()).scheduleStartBuildingTask(any());
 
         createIndex();
 
-        verify(indexBuildingStarter).scheduleTask(eq(indexDescriptor()));
+        verify(changeIndexStatusTaskScheduler).scheduleStartBuildingTask(eq(indexDescriptor()));
+    }
+
+    @Test
+    void testStartTaskOnIndexDropEvent() {
+        setPrimaryReplicaLocalNode();
+
+        createIndex();
+
+        CatalogIndexDescriptor indexDescriptor = indexDescriptor();
+
+        int indexId = indexDescriptor.id();
+
+        assertThat(
+                catalogManager.execute(List.of(
+                        StartBuildingIndexCommand.builder().indexId(indexId).build(),
+                        MakeIndexAvailableCommand.builder().indexId(indexId).build())
+                ),
+                willCompleteSuccessfully()
+        );
+
+        verify(changeIndexStatusTaskScheduler, never()).scheduleRemoveIndexTask(any());
+
+        dropIndex();
+
+        verify(changeIndexStatusTaskScheduler).scheduleRemoveIndexTask(argThat(descriptor -> descriptor.id() == indexId));
     }
 
     @Test
@@ -112,9 +140,9 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
 
         CatalogIndexDescriptor indexDescriptor = indexDescriptor();
 
-        dropIndex(catalogManager, INDEX_NAME);
+        dropIndex();
 
-        verify(indexBuildingStarter).stopTask(eq(indexDescriptor));
+        verify(changeIndexStatusTaskScheduler).stopTask(eq(indexDescriptor));
     }
 
     @Test
@@ -123,11 +151,11 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
 
         CatalogIndexDescriptor indexDescriptor = indexDescriptor();
 
-        verify(indexBuildingStarter, never()).scheduleTask(eq(indexDescriptor));
+        verify(changeIndexStatusTaskScheduler, never()).scheduleStartBuildingTask(eq(indexDescriptor));
 
         setPrimaryReplicaLocalNode();
 
-        verify(indexBuildingStarter).scheduleTask(eq(indexDescriptor));
+        verify(changeIndexStatusTaskScheduler).scheduleStartBuildingTask(eq(indexDescriptor));
     }
 
     @Test
@@ -138,11 +166,15 @@ public class IndexBuildingStarterControllerTest extends IgniteAbstractTest {
 
         setPrimaryReplicaAnotherNode();
 
-        verify(indexBuildingStarter).stopTasks(eq(tableId()));
+        verify(changeIndexStatusTaskScheduler).stopTasks(eq(tableId()));
     }
 
     private void createIndex() {
         TestIndexManagementUtils.createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+    }
+
+    private void dropIndex() {
+        TestIndexManagementUtils.dropIndex(catalogManager, INDEX_NAME);
     }
 
     private void setPrimaryReplicaLocalNode() {

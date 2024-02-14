@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
@@ -40,9 +41,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.ClockWaiter;
-import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -66,27 +66,36 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * Task of switching the index from {@link CatalogIndexStatus#REGISTERED} to state {@link CatalogIndexStatus#BUILDING}, it is expected that
- * the task is executed on the node that is the primary replica for partition {@code 0} of the table for which the index is being created.
+ * Class representing an abstract task to move an index between different states.
  *
- * <br><p>Approximate algorithm for the task:</p>
- * <ul>
- *     <li>Waiting for the activation (on every cluster node) of the catalog version in which the index was created.</li>
- *     <li>Make sure that the local node is still the primary replica for partition {@code 0} of the table.</li>
- *     <li>Get the logical topology from the CMG leader.</li>
+ * <p>Such tasks are intended to be used in cases, when an index cannot be transferred to a new state by simply issuing a corresponding
+ * command. These cases include:
+ *
+ * <ol>
+ *     <li>Changing the state of an index from {@link CatalogIndexStatus#REGISTERED} to {@link CatalogIndexStatus#BUILDING};</li>
+ *     <li>Changing the state of an index from {@link CatalogIndexStatus#STOPPING} to {@code READ_ONLY} ({@code READ_ONLY} state is
+ *     equivalent to the index being removed to the catalog).</li>
+ * </ol>
+ *
+ * <p>Approximate algorithm for a task:
+ * <ol>
+ *     <li>Wait for the activation (on every cluster node) of the catalog version specified by
+ *     {@link CatalogIndexDescriptor#txWaitCatalogVersion()};</li>
+ *     <li>Make sure that the local node is still the primary replica for partition {@code 0} of the table that the index belongs to;</li>
+ *     <li>Retrieve the logical topology from the CMG leader;</li>
  *     <li>For each node in the logical topology, send {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} and process the following
  *     results: <ul>
- *         <li>{@link IsNodeFinishedRwTransactionsStartedBeforeResponse#finished()} was {@code true}, finishing sending request.</li>
- *         <li>{@link IsNodeFinishedRwTransactionsStartedBeforeResponse#finished()} was {@code false}, after a short interval send the
- *         request again.</li>
- *         <li>Node has left the physical topology, after a short interval send the request again.</li>
- *         <li>Node has left the logical topology, finishing sending request.</li>
+ *         <li>If {@link IsNodeFinishedRwTransactionsStartedBeforeResponse#finished()} is {@code true} - finish request processing;</li>
+ *         <li>If {@link IsNodeFinishedRwTransactionsStartedBeforeResponse#finished()} is {@code false} - send the request again after a
+ *         short period of time;</li>
+ *         <li>If the target node has left the physical topology - send the request again after a short period of time;</li>
+ *         <li>If the target node has left the logical topology - finish request processing.</li>
  *     </ul></li>
- *     <li>Change the index status to {@link CatalogIndexStatus#BUILDING}.</li>
- * </ul>
+ *     <li>Execute the Catalog command to change the state of the index.</li>
+ * </ol>
  */
-class IndexBuildingStarterTask {
-    private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingStarterTask.class);
+abstract class ChangeIndexStatusTask {
+    private static final IgniteLogger LOG = Loggers.forClass(ChangeIndexStatusTask.class);
 
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
@@ -116,7 +125,7 @@ class IndexBuildingStarterTask {
 
     private final AtomicBoolean taskStopGuard = new AtomicBoolean();
 
-    IndexBuildingStarterTask(
+    ChangeIndexStatusTask(
             CatalogIndexDescriptor indexDescriptor,
             CatalogManager catalogManager,
             PlacementDriver placementDriver,
@@ -149,27 +158,32 @@ class IndexBuildingStarterTask {
         }
 
         try {
-            return supplyAsync(() -> awaitActivateForCatalogVersionOfIndexCreation()
-                    .thenCompose(unused -> ensureThatLocalNodeStillPrimaryReplica())
-                    .thenCompose(unused -> inBusyLocks(logicalTopologyService::logicalTopologyOnLeader))
-                    .thenComposeAsync(this::awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation, executor)
-                    .thenComposeAsync(unused -> switchIndexToBuildingStatus(), executor), executor)
-                    .thenCompose(Function.identity())
-                    .handle((unused, throwable) -> {
+            LOG.info("Starting task to change index status. Index: {}", indexDescriptor);
+
+            return awaitCatalogVersionActivation()
+                    .thenComposeAsync(unused -> ensureThatLocalNodeStillPrimaryReplica(), executor)
+                    .thenComposeAsync(unused -> inBusyLocks(logicalTopologyService::logicalTopologyOnLeader), executor)
+                    .thenComposeAsync(this::awaitFinishRwTxsBeforeCatalogVersion, executor)
+                    .thenComposeAsync(unused -> inBusyLocks(() -> catalogManager.execute(switchIndexStatusCommand())), executor)
+                    .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);
 
                             if (!(cause instanceof IndexTaskStoppingException) && !(cause instanceof NodeStoppingException)) {
-                                LOG.error("Error starting index building: {}", cause, indexDescriptor.id());
+                                LOG.error("Error starting index task: {}", cause, indexDescriptor.id());
                             }
                         }
-
-                        return null;
                     });
         } finally {
             leaveBusy();
         }
     }
+
+    /**
+     * Returns a CatalogCommand that will be submitted to the Catalog after all RW transactions that had observed the Catalog at
+     * {@link CatalogIndexDescriptor#txWaitCatalogVersion()} have finished their execution.
+     */
+    abstract CatalogCommand switchIndexStatusCommand();
 
     /** Stops the execution of a task. */
     void stop() {
@@ -180,12 +194,12 @@ class IndexBuildingStarterTask {
         taskBusyLock.block();
     }
 
-    private CompletableFuture<Void> awaitActivateForCatalogVersionOfIndexCreation() {
+    private CompletableFuture<Void> awaitCatalogVersionActivation() {
         return inBusyLocks(() -> {
-            Catalog catalog = catalogManager.catalog(indexDescriptor.creationCatalogVersion());
+            Catalog catalog = catalogManager.catalog(indexDescriptor.txWaitCatalogVersion());
 
             assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
-                    indexDescriptor.id(), indexDescriptor.creationCatalogVersion());
+                    indexDescriptor.id(), indexDescriptor.txWaitCatalogVersion());
 
             return clockWaiter.waitFor(clusterWideEnsuredActivationTimestamp(catalog));
         });
@@ -229,7 +243,7 @@ class IndexBuildingStarterTask {
         });
     }
 
-    private CompletableFuture<Void> awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation(LogicalTopologySnapshot logicalTopologySnapshot) {
+    private CompletableFuture<Void> awaitFinishRwTxsBeforeCatalogVersion(LogicalTopologySnapshot logicalTopologySnapshot) {
         return inBusyLocks(() -> {
             Set<LogicalNode> remainingNodes = ConcurrentHashMap.newKeySet();
             remainingNodes.addAll(logicalTopologySnapshot.nodes());
@@ -237,8 +251,8 @@ class IndexBuildingStarterTask {
             var nodeLeftLogicalTopologyListener = new NodeLeftLogicalTopologyListener(remainingNodes);
             logicalTopologyService.addEventListener(nodeLeftLogicalTopologyListener);
 
-            CompletableFuture[] futures = remainingNodes.stream()
-                    .map(node -> awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation(node, remainingNodes))
+            CompletableFuture<?>[] futures = remainingNodes.stream()
+                    .map(node -> awaitFinishRwTxsBeforeCatalogVersion(node, remainingNodes))
                     .toArray(CompletableFuture[]::new);
 
             return allOf(futures)
@@ -246,10 +260,7 @@ class IndexBuildingStarterTask {
         });
     }
 
-    private CompletableFuture<NetworkMessage> awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation(
-            LogicalNode targetNode,
-            Set<LogicalNode> remainingNodes
-    ) {
+    private CompletableFuture<Void> awaitFinishRwTxsBeforeCatalogVersion(LogicalNode targetNode, Set<LogicalNode> remainingNodes) {
         return inBusyLocks(() -> {
             if (!remainingNodes.contains(targetNode)) {
                 // Target node left logical topology, there is no need to do anything.
@@ -259,17 +270,22 @@ class IndexBuildingStarterTask {
             IsNodeFinishedRwTransactionsStartedBeforeRequest request = isNodeFinishedRwTransactionsStartedBeforeRequest();
 
             return clusterService.messagingService().invoke(targetNode, request, INVOKE_MESSAGE_TIMEOUT_MILLS)
-                    .handle((message, throwable) -> {
-                        if (throwable != null) {
-                            Throwable cause = unwrapCause(throwable);
+                    .exceptionally(throwable -> {
+                        Throwable cause = unwrapCause(throwable);
 
-                            if (!(cause instanceof TimeoutException) && !(cause instanceof RecipientLeftException)) {
-                                return CompletableFuture.<NetworkMessage>failedFuture(cause);
-                            }
-                        } else if (((IsNodeFinishedRwTransactionsStartedBeforeResponse) message).finished()) {
+                        if (!(cause instanceof TimeoutException) && !(cause instanceof RecipientLeftException)) {
+                            throw new CompletionException(cause);
+                        }
+
+                        return null;
+                    })
+                    .thenCompose(message -> {
+                        if (message != null && ((IsNodeFinishedRwTransactionsStartedBeforeResponse) message).finished()) {
+                            LOG.debug("All transactions have finished on node {}. Remaining nodes: {}", targetNode, remainingNodes);
+
                             remainingNodes.remove(targetNode);
 
-                            return completedFuture(message);
+                            return nullCompletedFuture();
                         }
 
                         // Let's try to send the message again, but after a short time.
@@ -277,21 +293,17 @@ class IndexBuildingStarterTask {
                             Executor delayedExecutor = delayedExecutor(RETRY_SEND_MESSAGE_TIMEOUT_MILLS, MILLISECONDS, executor);
 
                             return supplyAsync(
-                                    () -> awaitFinishRwTxsBeforeCatalogVersionOfIndexCreation(targetNode, remainingNodes),
+                                    () -> awaitFinishRwTxsBeforeCatalogVersion(targetNode, remainingNodes),
                                     delayedExecutor
                             ).thenCompose(Function.identity());
                         });
-                    }).thenCompose(Function.identity());
+                    });
         });
-    }
-
-    private CompletableFuture<Void> switchIndexToBuildingStatus() {
-        return inBusyLocks(() -> catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexDescriptor.id()).build()));
     }
 
     private IsNodeFinishedRwTransactionsStartedBeforeRequest isNodeFinishedRwTransactionsStartedBeforeRequest() {
         return FACTORY.isNodeFinishedRwTransactionsStartedBeforeRequest()
-                .targetCatalogVersion(indexDescriptor.creationCatalogVersion())
+                .targetCatalogVersion(indexDescriptor.txWaitCatalogVersion())
                 .build();
     }
 

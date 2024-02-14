@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,7 +46,9 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -63,6 +67,8 @@ import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -113,6 +119,37 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 .returns(4, 4)
                 .returns(5, 5)
                 .check();
+    }
+
+    @Test
+    void testDropIndexDuringTransaction() throws Exception {
+        int partitions = initialNodes();
+
+        int replicas = initialNodes();
+
+        createAndPopulateTable(replicas, partitions);
+
+        createIndex(INDEX_NAME);
+
+        checkIndexBuild(partitions, replicas, INDEX_NAME);
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        // Start a transaction. We expect that the index will not be removed until this transaction completes.
+        Transaction tx = node.transactions().begin(new TransactionOptions().readOnly(false));
+
+        dropIndex(INDEX_NAME);
+
+        CatalogService catalog = node.catalogManager();
+
+        CatalogIndexDescriptor indexDescriptor = catalog.index(INDEX_NAME, node.clock().nowLong());
+
+        assertThat(indexDescriptor, is(notNullValue()));
+        assertThat(indexDescriptor.status(), is(CatalogIndexStatus.STOPPING));
+
+        tx.commit();
+
+        assertTrue(waitForCondition(() -> catalog.index(INDEX_NAME, node.clock().nowLong()) == null, 10_000));
     }
 
     @Test

@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.index;
 
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.tostring.S;
 
-/** {@link IndexBuildingStarterTask} ID. */
-class IndexBuildingStarterTaskId {
+/** {@link ChangeIndexStatusTask} ID. */
+class ChangeIndexStatusTaskId {
     private final int tableId;
 
     private final int indexId;
 
-    IndexBuildingStarterTaskId(int tableId, int indexId) {
-        this.tableId = tableId;
-        this.indexId = indexId;
+    private final CatalogIndexStatus status;
+
+    ChangeIndexStatusTaskId(CatalogIndexDescriptor indexDescriptor) {
+        this.tableId = indexDescriptor.tableId();
+        this.indexId = indexDescriptor.id();
+        this.status = indexDescriptor.status();
     }
 
     public int tableId() {
@@ -47,20 +52,21 @@ class IndexBuildingStarterTaskId {
             return false;
         }
 
-        IndexBuildingStarterTaskId that = (IndexBuildingStarterTaskId) o;
+        ChangeIndexStatusTaskId that = (ChangeIndexStatusTaskId) o;
 
-        return tableId == that.tableId && indexId == that.indexId;
+        return tableId == that.tableId && indexId == that.indexId && status == that.status;
     }
 
     @Override
     public int hashCode() {
         int result = tableId;
         result = 31 * result + indexId;
+        result = 31 * result + status.hashCode();
         return result;
     }
 
     @Override
     public String toString() {
-        return S.toString(IndexBuildingStarterTaskId.class, this);
+        return S.toString(ChangeIndexStatusTaskId.class, this);
     }
 }

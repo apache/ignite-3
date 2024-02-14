@@ -344,6 +344,37 @@ public class CatalogUtils {
     }
 
     /**
+     * Replaces the index descriptor that has the same ID as the {@code newIndexDescriptor} in the given {@code schema}.
+     *
+     * @param schema Schema, which index descriptor needs to be replaced.
+     * @param newIndexDescriptor Index descriptor which will replace the descriptor with the same ID in the schema.
+     * @return New schema descriptor with a replaced index descriptor.
+     * @throws CatalogValidationException If the index descriptor with the same ID is not present in the schema.
+     */
+    public static CatalogSchemaDescriptor replaceIndex(CatalogSchemaDescriptor schema, CatalogIndexDescriptor newIndexDescriptor) {
+        CatalogIndexDescriptor[] indexDescriptors = schema.indexes().clone();
+
+        for (int i = 0; i < indexDescriptors.length; i++) {
+            if (indexDescriptors[i].id() == newIndexDescriptor.id()) {
+                indexDescriptors[i] = newIndexDescriptor;
+
+                return new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        schema.tables(),
+                        indexDescriptors,
+                        schema.systemViews(),
+                        newIndexDescriptor.updateToken()
+                );
+            }
+        }
+
+        throw new CatalogValidationException(String.format(
+                "Index with ID %d has not been found in schema with ID %d", newIndexDescriptor.id(), schema.id()
+        ));
+    }
+
+    /**
      * Return default length according to supplied type.
      *
      * @param columnType Column type.

@@ -3772,7 +3772,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         CatalogIndexDescriptor indexDescriptor = latestIndexDescriptorInBuildingStatus(catalogService, tableId());
 
         if (indexDescriptor != null) {
-            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.txWaitCatalogVersion());
         }
 
         catalogService.listen(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
@@ -3795,7 +3795,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
 
             if (indexDescriptor.tableId() == tableId()) {
-                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.txWaitCatalogVersion());
             }
 
             return falseCompletedFuture();
