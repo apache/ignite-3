@@ -100,6 +100,7 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -111,6 +112,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
@@ -175,7 +177,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
     /** Cluster ID. */
-    private final CompletableFuture<UUID> clusterId;
+    private final CompletableFuture<ClusterTag> clusterTag;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -214,7 +216,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param compute Compute.
      * @param clusterService Cluster.
      * @param sql SQL.
-     * @param clusterId Cluster ID.
+     * @param clusterTag Cluster tag.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
      * @param clock Hybrid clock.
@@ -227,7 +229,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             IgniteComputeInternal compute,
             ClusterService clusterService,
             IgniteSql sql,
-            CompletableFuture<UUID> clusterId,
+            CompletableFuture<ClusterTag> clusterTag,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             HybridClock clock,
@@ -243,7 +245,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert compute != null;
         assert clusterService != null;
         assert sql != null;
-        assert clusterId != null;
+        assert clusterTag != null;
         assert metrics != null;
         assert authenticationManager != null;
         assert clock != null;
@@ -258,7 +260,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.clusterService = clusterService;
         this.sql = sql;
         this.queryProcessor = processor;
-        this.clusterId = clusterId;
+        this.clusterTag = clusterTag;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clock = clock;
@@ -381,7 +383,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClusterNode localMember = clusterService.topologyService().localMember();
             packer.packString(localMember.id());
             packer.packString(localMember.name());
-            packer.packUuid(clusterId.join());
+
+            ClusterTag tag = clusterTag.join();
+            packer.packUuid(tag.clusterId());
+            packer.packString(tag.clusterName());
+
+            // Pack current version
+            packer.packByte(IgniteProductVersion.CURRENT_VERSION.major());
+            packer.packByte(IgniteProductVersion.CURRENT_VERSION.minor());
+            packer.packByte(IgniteProductVersion.CURRENT_VERSION.maintenance());
+            packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
+            packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
 
             packer.packBinaryHeader(0); // Features.
             packer.packInt(0); // Extensions.

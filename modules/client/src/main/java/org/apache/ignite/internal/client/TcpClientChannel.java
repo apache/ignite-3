@@ -637,6 +637,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var addr = sock.remoteAddress();
             var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
             var clusterId = unpacker.unpackUuid();
+            unpacker.unpackString(); // cluster name
+
+            unpacker.unpackByte(); // cluster version major
+            unpacker.unpackByte(); // cluster version minor
+            unpacker.unpackByte(); // cluster version maintenance
+            unpacker.unpackByteNullable(); // cluster version patch
+            unpacker.unpackStringNullable(); // cluster version pre release
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValues(featuresLen);

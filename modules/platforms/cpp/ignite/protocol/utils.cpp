@@ -146,6 +146,11 @@ std::int8_t unpack_object(const msgpack_object &object) {
 }
 
 template<>
+std::uint8_t unpack_object(const msgpack_object &object) {
+    return unpack_uint<std::uint8_t>(object);
+}
+
+template<>
 std::string unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_STR)
         throw ignite_error("The value in stream is not a string : " + std::to_string(object.type));

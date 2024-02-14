@@ -814,5 +814,12 @@ public class JraftServerImpl implements RaftServer {
         public void onShutdown() {
             listener.onShutdown();
         }
+
+        @Override
+        public void onLeaderStart(long term) {
+            super.onLeaderStart(term);
+
+            listener.onLeaderStart();
+        }
     }
 }
