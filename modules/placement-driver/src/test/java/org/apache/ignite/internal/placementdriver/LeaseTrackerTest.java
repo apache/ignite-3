@@ -44,6 +44,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -67,7 +68,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
 
         when(msManager.getLocally(any(), anyLong())).thenAnswer(invocation -> emptyEntry);
 
-        LeaseTracker leaseTracker = new LeaseTracker(msManager);
+        LeaseTracker leaseTracker = new LeaseTracker(msManager, mock(ClusterNodeResolver.class));
         leaseTracker.startTrack(0L);
 
         AtomicReference<PrimaryReplicaEventParameters> parametersRef = new AtomicReference<>();

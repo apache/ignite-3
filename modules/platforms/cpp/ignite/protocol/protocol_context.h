@@ -19,6 +19,7 @@
 
 #include "ignite/protocol/protocol_version.h"
 
+#include "ignite/common/server_version.h"
 #include "ignite/common/uuid.h"
 
 namespace ignite::protocol {
@@ -58,12 +59,46 @@ public:
      */
     void set_cluster_id(uuid id) { m_cluster_id = id; }
 
+    /**
+     * Get server version.
+     *
+     * @return cluster version.
+     */
+    [[nodiscard]] server_version get_server_version() const { return m_server_version; }
+
+    /**
+     * Set server version.
+     *
+     * @param ver Version to set.
+     */
+    void set_server_version(server_version ver) { m_server_version = std::move(ver); }
+
+    /**
+     * Get cluster name.
+     *
+     * @return cluster name.
+     */
+    [[nodiscard]] std::string get_cluster_name() const { return m_cluster_name; }
+
+    /**
+     * Set cluster name.
+     *
+     * @param ver Name to set.
+     */
+    void set_cluster_name(std::string name) { m_cluster_name = std::move(name); }
+
 private:
     /** Protocol version. */
     protocol_version m_version{protocol_version::get_current()};
 
     /** Cluster ID. */
     uuid m_cluster_id;
+
+    /** Server version. */
+    server_version m_server_version{};
+
+    /** Cluster name. */
+    std::string m_cluster_name{};
 };
 
 } // namespace ignite::protocol

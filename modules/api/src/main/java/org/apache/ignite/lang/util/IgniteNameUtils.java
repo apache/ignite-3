@@ -17,12 +17,15 @@
 
 package org.apache.ignite.lang.util;
 
+import java.util.regex.Pattern;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility methods used for cluster's named objects: schemas, tables, columns, indexes, etc.
  */
 public final class IgniteNameUtils {
+    private static final Pattern NAME_PATTER = Pattern.compile("^(?:\\p{Alpha}\\w*)(?:\\.\\p{Alpha}\\w*)?$");
+
     /** No instance methods. */
     private IgniteNameUtils() {
     }
@@ -59,6 +62,16 @@ public final class IgniteNameUtils {
      */
     public static String canonicalName(String schemaName, String objectName) {
         return quote(schemaName) + '.' + quote(objectName);
+    }
+
+    /**
+     * Tests if given string is fully qualified name in canonical form or simple name.
+     *
+     * @param s String to test.
+     * @return {@code True} if given string is fully qualified name in canonical form or simple name.
+     */
+    public static boolean canonicalOrSimpleName(String s) {
+        return NAME_PATTER.matcher(s).matches();
     }
 
     /**

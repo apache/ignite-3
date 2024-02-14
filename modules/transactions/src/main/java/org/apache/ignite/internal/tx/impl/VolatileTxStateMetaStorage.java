@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Collection;
 import java.util.UUID;
@@ -26,16 +26,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
 public class VolatileTxStateMetaStorage {
-    /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
 
@@ -50,9 +46,19 @@ public class VolatileTxStateMetaStorage {
      * Stops the detector.
      */
     public void stop() {
-        busyLock.block();
-
         txStateMap.clear();
+    }
+
+    /**
+     * Initializes the meta state for a created transaction.
+     *
+     * @param txId Transaction id.
+     * @param txCrdId Transaction coordinator id.
+     */
+    public void initialize(UUID txId, String txCrdId) {
+        TxStateMeta previous = txStateMap.put(txId, new TxStateMeta(PENDING, txCrdId, null, null));
+
+        assert previous == null : "Transaction state has already defined [txId=" + txCrdId + ", state=" + previous.txState() + ']';
     }
 
     /**
@@ -62,18 +68,7 @@ public class VolatileTxStateMetaStorage {
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
      */
-    public <T extends TxStateMeta> T updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return inBusyLock(busyLock, () -> updateMetaInternal(txId, updater));
-    }
-
-    /**
-     * The internal method for atomically changing the state meta of a transaction.
-     *
-     * @param txId Transaction id.
-     * @param updater Transaction meta updater.
-     * @return Updated transaction state.
-     */
-    private @Nullable <T extends TxStateMeta> T updateMetaInternal(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public @Nullable <T extends TxStateMeta> T updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
         return (T) txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
@@ -94,7 +89,7 @@ public class VolatileTxStateMetaStorage {
      * @return The state meta or null if the state is unknown.
      */
     public TxStateMeta state(UUID txId) {
-        return inBusyLock(busyLock, () -> txStateMap.get(txId));
+        return txStateMap.get(txId);
     }
 
     /**
@@ -103,6 +98,6 @@ public class VolatileTxStateMetaStorage {
      * @return Collection of transaction meta states.
      */
     public Collection<TxStateMeta> states() {
-        return inBusyLock(busyLock, txStateMap::values);
+        return txStateMap.values();
     }
 }

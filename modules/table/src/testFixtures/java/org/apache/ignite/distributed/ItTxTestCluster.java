@@ -123,7 +123,6 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -335,8 +334,7 @@ public class ItTxTestCluster {
 
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 20,
-                NamedThreadFactory.threadPrefix("test", "partition-operations"),
-                new LogUncaughtExceptionHandler(LOG),
+                NamedThreadFactory.create("test", "partition-operations", LOG),
                 false,
                 0
         );

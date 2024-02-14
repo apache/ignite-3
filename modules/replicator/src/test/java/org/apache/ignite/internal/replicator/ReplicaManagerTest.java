@@ -48,7 +48,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -94,8 +93,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         requestsExecutor = new StripedThreadPoolExecutor(
                 5,
-                NamedThreadFactory.threadPrefix(nodeName, "partition-operations"),
-                new LogUncaughtExceptionHandler(log),
+                NamedThreadFactory.create(nodeName, "partition-operations", log),
                 false,
                 0
         );

@@ -45,9 +45,7 @@ protected:
         tuple_view = table->get_record_binary_view();
     }
 
-    void TearDown() override {
-        m_client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS SCHEMA_SYN_TEST"}, {});
-    }
+    void TearDown() override { m_client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS SCHEMA_SYN_TEST"}, {}); }
 
     /** Ignite client. */
     ignite_client m_client;

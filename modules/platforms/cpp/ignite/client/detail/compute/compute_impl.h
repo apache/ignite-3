@@ -47,8 +47,8 @@ public:
         , m_tables(std::move(tables)) {}
 
     /**
-     * Executes a compute job represented by the given class on one of the specified node asynchronously. If the node leaves the cluster,
-     * it will be restarted on one of the candidate nodes.
+     * Executes a compute job represented by the given class on one of the specified node asynchronously. If the node
+     * leaves the cluster, it will be restarted on one of the candidate nodes.
      *
      * @param nodes Candidate node to use for the job execution.
      * @param units Deployment units. Can be empty.

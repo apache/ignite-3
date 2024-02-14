@@ -36,6 +36,6 @@ public interface DataStreamerTarget<T> {
      * @return Future that will be completed when the stream is finished.
      */
     CompletableFuture<Void> streamData(
-            Flow.Publisher<T> publisher,
+            Flow.Publisher<DataStreamerItem<T>> publisher,
             @Nullable DataStreamerOptions options);
 }
