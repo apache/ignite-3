@@ -142,7 +142,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         nodeTopStop.stop();
 
-        // Select alive raft client
+        // Select alive raft client.
         Optional<PartialNode> aliveNode = cluster.values().stream().filter(node -> !node.nodeName.equals(nodeTopStop.nodeName)).findFirst();
 
         assertTrue(aliveNode.isPresent());
@@ -185,7 +185,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         // Send command with safe time X.
         sendSafeTimeSyncCommand(raftClient, firstSafeTime, false);
 
-        // Stop all nodes
+        // Stop all nodes.
         for (PartialNode node : cluster.values()
         ) {
             node.stop();
