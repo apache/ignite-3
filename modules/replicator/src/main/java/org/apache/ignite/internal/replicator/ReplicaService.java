@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.JumpToExecutorByConsistentId;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.network.ClusterNode;
 
 /** The service is intended to execute requests on replicas. */
@@ -75,6 +77,30 @@ public class ReplicaService {
     }
 
     /**
+     * The constructor of replica client.
+     *
+     * @param messagingService Cluster message service.
+     * @param clock A hybrid logical clock.
+     * @param localConsistentId Consistent ID (aka node name) of the current node.
+     * @param executor Executor on which responses from remote replicas will be handled.
+     */
+    public ReplicaService(
+            MessagingService messagingService,
+            HybridClock clock,
+            String localConsistentId,
+            StripedThreadPoolExecutor executor
+    ) {
+        this(
+                new JumpToExecutorByConsistentId(
+                        messagingService,
+                        localConsistentId,
+                        request -> ReplicationGroupStripes.stripeFor(((ReplicaRequest) request).groupId(), executor)
+                ),
+                clock
+        );
+    }
+
+    /**
      * Sends request to the replica node.
      *
      * @param targetNodeConsistentId A consistent id of the replica node..
@@ -87,8 +113,7 @@ public class ReplicaService {
     private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
         CompletableFuture<R> res = new CompletableFuture<>();
 
-        // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
-        messagingService.invoke(targetNodeConsistentId, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
+        messagingService.invoke(targetNodeConsistentId, req, RPC_TIMEOUT).whenComplete((response, throwable) -> {
             if (throwable != null) {
                 throwable = unwrapCause(throwable);
 

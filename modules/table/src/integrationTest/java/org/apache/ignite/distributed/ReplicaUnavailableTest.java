@@ -120,8 +120,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         clusterService = startNode(testInfo, NODE_NAME, NODE_PORT_BASE + 1, nodeFinder);
 
-        replicaService = new ReplicaService(clusterService.messagingService(), clock);
-
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
         // This test is run without Meta storage.
@@ -132,6 +130,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log),
                 false,
                 0
+        );
+
+        replicaService = new ReplicaService(
+                clusterService.messagingService(),
+                clock, NODE_NAME,
+                requestsExecutor
         );
 
         replicaManager = new ReplicaManager(

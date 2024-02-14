@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
+    implementation project(':ignite-network')
     implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
