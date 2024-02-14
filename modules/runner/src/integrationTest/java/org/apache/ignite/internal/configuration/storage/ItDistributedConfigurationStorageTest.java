@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -51,6 +50,9 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -59,11 +61,8 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -114,7 +113,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         Node(TestInfo testInfo, Path workDir) {
             var addr = new NetworkAddress("localhost", 10000);
 
-            vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, addr.port()), workDir.resolve("vault")));
+            vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
 
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
@@ -170,7 +169,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
-            cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
+            cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
         }
 
         /**

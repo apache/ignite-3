@@ -18,8 +18,8 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
 import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
+import static org.apache.ignite.internal.table.TxAbstractTest.startNode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -45,6 +45,8 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
@@ -68,7 +70,6 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -77,9 +78,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -130,8 +129,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         requestsExecutor = new StripedThreadPoolExecutor(
                 5,
-                NamedThreadFactory.threadPrefix(NODE_NAME, "partition-operations"),
-                new LogUncaughtExceptionHandler(log),
+                NamedThreadFactory.create(NODE_NAME, "partition-operations", log),
                 false,
                 0
         );
@@ -207,6 +205,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .binaryTuple(binaryRow.tupleSlice())
                 .requestType(RequestType.RW_GET)
                 .enlistmentConsistencyToken(1L)
+                .coordinatorId(clusterService.topologyService().localMember().id())
                 .build();
     }
 
@@ -315,7 +314,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     private static BinaryRow createKeyValueRow(long id, long value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);

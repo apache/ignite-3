@@ -180,7 +180,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     /**
      * Starts the Vault component.
      */
-    public static VaultManager createVault(String nodeName, Path workDir) {
+    public static VaultManager createVault(Path workDir) {
         Path vaultPath = workDir.resolve(Paths.get("vault"));
 
         try {
@@ -189,7 +189,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             throw new IgniteInternalException(e);
         }
 
-        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
+        return new VaultManager(new PersistentVaultService(vaultPath));
     }
 
     /**

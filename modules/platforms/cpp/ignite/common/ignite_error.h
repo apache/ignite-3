@@ -44,6 +44,15 @@ public:
     /**
      * Constructor.
      *
+     * @param message Message.
+     */
+    explicit ignite_error(std::string message, std::int32_t flags) noexcept
+        : m_message(std::move(message))
+        , m_flags(flags) {} // NOLINT(bugprone-throw-keyword-missing)
+
+    /**
+     * Constructor.
+     *
      * @param statusCode Status code.
      * @param message Message.
      */
@@ -61,7 +70,7 @@ public:
     explicit ignite_error(error::code code, std::string message, std::exception_ptr cause) noexcept
         : m_status_code(code)
         , m_message(std::move(message))
-        , m_cause(std::move(cause)) {} // NOLINT(bugprone-throw-keyword-missing)
+        , m_cause(cause) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Get error message.
@@ -87,6 +96,14 @@ public:
      */
     [[nodiscard]] std::exception_ptr get_cause() const noexcept { return m_cause; }
 
+    /**
+     * Get flags.
+     * Internal method.
+     *
+     * @return Flags.
+     */
+    [[nodiscard]] std::int32_t get_flags() const noexcept { return m_flags; }
+
 private:
     /** Status code. */
     error::code m_status_code{error::code::GENERIC};
@@ -96,6 +113,9 @@ private:
 
     /** Cause. */
     std::exception_ptr m_cause;
+
+    /** Flags. */
+    std::int32_t m_flags{0};
 };
 
 } // namespace ignite

@@ -120,8 +120,9 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 name,
                 catalogTableDescriptor.id(),
                 false,
-                List.of(columns),
-                AVAILABLE
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                List.of(columns)
         );
 
         when(catalogService.index(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);

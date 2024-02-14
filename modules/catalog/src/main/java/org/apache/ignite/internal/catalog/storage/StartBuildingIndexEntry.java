@@ -19,14 +19,19 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 
+import java.io.IOException;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Entry for {@link StartBuildingIndexCommand}. */
 public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
-    private static final long serialVersionUID = 6738120002994636883L;
+    public static final CatalogObjectSerializer<StartBuildingIndexEntry> SERIALIZER = new StartBuildingIndexEntrySerializer();
 
     /** Constructor. */
     public StartBuildingIndexEntry(int indexId) {
@@ -41,5 +46,27 @@ public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry impl
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
         return new StartBuildingIndexEventParameters(causalityToken, catalogVersion, indexId);
+    }
+
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.START_BUILDING_INDEX.id();
+    }
+
+    /**
+     * Serializer for {@link StartBuildingIndexEntry}.
+     */
+    private static class StartBuildingIndexEntrySerializer implements CatalogObjectSerializer<StartBuildingIndexEntry> {
+        @Override
+        public StartBuildingIndexEntry readFrom(IgniteDataInput input) throws IOException {
+            int indexId = input.readInt();
+
+            return new StartBuildingIndexEntry(indexId);
+        }
+
+        @Override
+        public void writeTo(StartBuildingIndexEntry object, IgniteDataOutput output) throws IOException {
+            output.writeInt(object.indexId);
+        }
     }
 }

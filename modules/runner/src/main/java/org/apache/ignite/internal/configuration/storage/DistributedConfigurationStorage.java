@@ -90,7 +90,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      */
     private volatile long changeId;
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("dst-cfg", LOG));
+    private final ExecutorService threadPool;
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 
@@ -99,8 +99,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      *
      * @param metaStorageMgr Meta storage manager.
      */
-    public DistributedConfigurationStorage(MetaStorageManager metaStorageMgr) {
+    public DistributedConfigurationStorage(String nodeName, MetaStorageManager metaStorageMgr) {
         this.metaStorageMgr = metaStorageMgr;
+
+        threadPool = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "dst-cfg", LOG));
     }
 
     @Override

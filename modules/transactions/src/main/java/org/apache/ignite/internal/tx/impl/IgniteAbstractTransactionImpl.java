@@ -42,6 +42,11 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** The transaction manager. */
     protected final TxManager txManager;
 
+    /**
+     * Transaction coordinator inconsistent ID.
+     */
+    private final String coordinatorId;
+
     /** The transaction context. */
     protected final TraceSpan traceSpan;
 
@@ -50,10 +55,12 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      *
      * @param txManager The tx manager.
      * @param id The id.
+     * @param coordinatorId Transaction coordinator inconsistent ID.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, TraceSpan traceSpan) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, String coordinatorId, TraceSpan traceSpan) {
         this.txManager = txManager;
         this.id = id;
+        this.coordinatorId = coordinatorId;
         this.traceSpan = traceSpan;
     }
 
@@ -61,6 +68,16 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Override
     public UUID id() {
         return id;
+    }
+
+    /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return Transaction coordinator inconsistent ID.
+     */
+    @Override
+    public String coordinatorId() {
+        return coordinatorId;
     }
 
     /** {@inheritDoc} */

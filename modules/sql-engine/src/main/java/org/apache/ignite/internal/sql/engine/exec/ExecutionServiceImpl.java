@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -52,8 +53,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -72,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
@@ -99,9 +99,7 @@ import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -131,6 +129,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private static final List<InternalSqlRow> NOT_APPLIED_ANSWER = List.of(new InternalSqlRowSingleBoolean(false));
 
+    private static final FragmentDescription DUMMY_DESCRIPTION = new FragmentDescription(
+            0, true, Long2ObjectMaps.emptyMap(), null, null
+    );
+
     private final MessageService messageService;
 
     private final TopologyService topSrvc;
@@ -148,6 +150,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private final DdlCommandHandler ddlCmdHnd;
 
     private final ExecutionDependencyResolver dependencyResolver;
+
+    private final ExecutableTableRegistry tableRegistry;
 
     private final ImplementorFactory<RowT> implementorFactory;
 
@@ -179,11 +183,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             MappingService mappingService,
+            ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
             long shutdownTimeout
     ) {
-        HashFunctionFactoryImpl<RowT> rowHashFunctionFactory = new HashFunctionFactoryImpl<>(handler);
-
         return new ExecutionServiceImpl<>(
                 msgSrvc,
                 topSrvc,
@@ -192,10 +195,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 ddlCommandHandler,
                 taskExecutor,
                 handler,
+                tableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
-                        rowHashFunctionFactory,
                         mailboxRegistry,
                         exchangeSrvc,
                         deps),
@@ -223,6 +226,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DdlCommandHandler ddlCmdHnd,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
+            ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory,
             long shutdownTimeout
@@ -235,6 +239,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.ddlCmdHnd = ddlCmdHnd;
+        this.tableRegistry = tableRegistry;
         this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
         this.shutdownTimeout = shutdownTimeout;
@@ -286,16 +291,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     /** {@inheritDoc} */
     @Override
+    @SuppressWarnings("CastConflictsWithInstanceof") // IDEA incorrectly highlights casts in EXPLAIN and DDL branches
     public AsyncCursor<InternalSqlRow> executePlan(
             InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx
     ) {
         SqlQueryType queryType = plan.type();
-        assert queryType != null : "Root plan can not be a fragment";
 
         switch (queryType) {
             case DML:
-                // TODO a barrier between previous operation and this one
             case QUERY:
+                if (plan instanceof ExecutablePlan) {
+                    return executeExecutablePlan(tx, ctx, (ExecutablePlan) plan, ctx.prefetchCallback());
+                }
+
+                assert plan instanceof MultiStepPlan : plan.getClass();
+
                 return executeQuery(tx, ctx, (MultiStepPlan) plan);
             case EXPLAIN:
                 return executeExplain((ExplainPlan) plan, ctx.prefetchCallback());
@@ -316,6 +326,26 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         return mgr.close(true);
+    }
+
+    private AsyncCursor<InternalSqlRow> executeExecutablePlan(
+            InternalTransaction tx,
+            BaseQueryContext ctx,
+            ExecutablePlan plan,
+            @Nullable QueryPrefetchCallback callback
+    ) {
+        ExecutionContext<RowT> ectx = new ExecutionContext<>(
+                taskExecutor,
+                ctx.queryId(),
+                localNode,
+                localNode.name(),
+                DUMMY_DESCRIPTION,
+                handler,
+                Commons.parametersMap(ctx.parameters()),
+                TxAttributes.fromTx(tx)
+        );
+
+        return plan.execute(ectx, tx, tableRegistry, callback);
     }
 
     private AsyncCursor<InternalSqlRow> executeDdl(DdlPlan plan, @Nullable QueryPrefetchCallback callback) {
@@ -350,9 +380,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private AsyncCursor<InternalSqlRow> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
-        IgniteRel clonedRoot = Cloner.clone(plan.plan().root(), Commons.cluster());
-
-        String planString = RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+        String planString = plan.plan().explain();
 
         InternalSqlRow res = new InternalSqlRowSingleString(planString);
 
@@ -981,6 +1009,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private void enlistPartitions(MappedFragment mappedFragment, InternalTransaction tx) {
+            // no need to traverse the tree if fragment has no tables
+            if (mappedFragment.fragment().tables().isEmpty()) {
+                return;
+            }
+
             new IgniteRelShuttle() {
                 @Override
                 public IgniteRel visit(IgniteIndexScan rel) {
@@ -998,19 +1031,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public IgniteRel visit(IgniteTableModify rel) {
-                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
-
-                    List<NodeWithTerm> assignments = mappedFragment.groupsBySourceId()
-                            .get(UpdatableTableImpl.MODIFY_NODE_SOURCE_ID).assignments();
-
-                    assert assignments != null : "Table assignments must be available";
-
-                    enlist(tableId, assignments);
+                    enlist(rel);
 
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, List<NodeWithTerm> assignments) {
+                private void enlist(int tableId, List<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -1022,17 +1048,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     for (int p = 0; p < partsCnt; p++) {
                         TablePartitionId tablePartId = new TablePartitionId(tableId, p);
 
-                        NodeWithTerm enlistmentToken = assignments.get(p);
+                        NodeWithConsistencyToken assignment = assignments.get(p);
 
                         tx.enlist(tablePartId,
-                                new IgniteBiTuple<>(topSrvc.getByConsistentId(enlistmentToken.name()), enlistmentToken.term()));
+                                new IgniteBiTuple<>(
+                                        topSrvc.getByConsistentId(assignment.name()),
+                                        assignment.enlistmentConsistencyToken())
+                        );
                     }
                 }
 
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    List<NodeWithTerm> assignments = mappedFragment.groupsBySourceId().get(rel.sourceId()).assignments();
+                    ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
+                    List<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
                     enlist(tableId, assignments);
                 }

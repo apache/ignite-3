@@ -202,7 +202,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
+                .matches(containsSubPlan("IgniteKeyValueGet(table=[[PUBLIC, DEVELOPER]]"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }

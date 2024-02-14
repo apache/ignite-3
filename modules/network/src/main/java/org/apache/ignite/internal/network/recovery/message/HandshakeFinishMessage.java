@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.recovery.message;
 
 import static org.apache.ignite.internal.network.NetworkMessageTypes.HANDSHAKE_FINISH;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Handshake finish message, contains the quantity of the received messages.

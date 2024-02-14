@@ -49,6 +49,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -83,6 +84,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
+
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
@@ -97,7 +101,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     public void setUp(TestInfo testInfo) {
         when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
 
-        internalTbl = new DummyInternalTableImpl(mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration);
+        internalTbl = new DummyInternalTableImpl(
+                mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration, storageUpdateConfiguration);
     }
 
     /**
@@ -378,7 +383,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * @return {@link BinaryRow} based on given key and value.
      */
     private static BinaryRow prepareRow(String entryKey, String entryVal) {
-        return new RowAssembler(ROW_SCHEMA)
+        return new RowAssembler(ROW_SCHEMA, -1)
                 .appendString(Objects.requireNonNull(entryKey, "entryKey"))
                 .appendString(Objects.requireNonNull(entryVal, "entryVal"))
                 .build();

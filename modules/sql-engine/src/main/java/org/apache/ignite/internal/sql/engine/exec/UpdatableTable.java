@@ -20,9 +20,11 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.rel.ModifyNode;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
  * The interface describe a table that could be updated by {@link ModifyNode}.
@@ -40,11 +42,29 @@ public interface UpdatableTable {
      * @param ectx An execution context.
      * @param rows Rows to insert.
      * @param <RowT> A type of the row sql runtime working with.
+     * @param colocationGroup Colocation group with assignments for this operations.
      * @return A future representing the completion of the operation.
      */
     <RowT> CompletableFuture<?> insertAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
+    );
+
+    /**
+     * Insert given row into the table.
+     *
+     * <p>This method accepts instance of the transaction, thus MUST be issued on initiator node.
+     *
+     * @param tx A transaction within which the insert is issued.
+     * @param ectx An execution context. Used mainly to acquire {@link RowHandler}.
+     * @param row A row to insert.
+     * @param <RowT> A type of sql row.
+     * @return Future representing result of operation. Future will be completed successfully
+     *      iif row has been inserted, will be completed exceptionally otherwise.
+     */
+    <RowT> CompletableFuture<Void> insert(
+            InternalTransaction tx, ExecutionContext<RowT> ectx, RowT row
     );
 
     /**
@@ -56,11 +76,13 @@ public interface UpdatableTable {
      * @param ectx An execution context.
      * @param rows Rows to upsert.
      * @param <RowT> A type of the row sql runtime working with.
+     * @param colocationGroup Colocation group with assignments for this operations.
      * @return A future representing the completion of the operation.
      */
     <RowT> CompletableFuture<?> upsertAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     );
 
     /**
@@ -73,10 +95,12 @@ public interface UpdatableTable {
      * @param ectx An execution context.
      * @param rows Rows to delete.
      * @param <RowT> A type of the row sql runtime working with.
+     * @param colocationGroup Colocation group with assignments for this operations.
      * @return A future representing the completion of the operation.
      */
     <RowT> CompletableFuture<?> deleteAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     );
 }

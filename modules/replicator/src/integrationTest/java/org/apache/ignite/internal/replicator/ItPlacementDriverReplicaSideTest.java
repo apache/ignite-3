@@ -52,6 +52,10 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -69,19 +73,14 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -128,8 +127,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     public void beforeTest(TestInfo testInfo) {
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 20,
-                NamedThreadFactory.threadPrefix("test", "partition-operations"),
-                new LogUncaughtExceptionHandler(log),
+                NamedThreadFactory.create("test", "partition-operations", log),
                 false,
                 0
         );

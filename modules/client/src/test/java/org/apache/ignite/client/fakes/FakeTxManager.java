@@ -19,7 +19,6 @@ package org.apache.ignite.client.fakes;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -86,7 +85,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
                 return null;
             }
 
@@ -108,7 +107,7 @@ public class FakeTxManager implements TxManager {
             @Override
             public IgniteBiTuple<ClusterNode, Long> enlist(
                     TablePartitionId tablePartitionId,
-                    IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+                    IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
                 return null;
             }
 
@@ -135,6 +134,11 @@ public class FakeTxManager implements TxManager {
             @Override
             public boolean isReadOnly() {
                 return readOnly;
+            }
+
+            @Override
+            public String coordinatorId() {
+                return null;
             }
 
             @Override
@@ -188,7 +192,7 @@ public class FakeTxManager implements TxManager {
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, Long> enlistedGroups,
+            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             UUID txId
     ) {
         return nullCompletedFuture();
@@ -196,7 +200,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            Collection<TablePartitionId> partitions,
+            Map<TablePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

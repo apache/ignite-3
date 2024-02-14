@@ -56,11 +56,11 @@ public class LogitLogStorageFactory implements LogStorageFactory {
      * @param baseLogStoragesPath Location of all log storages, created by this factory.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(Path baseLogStoragesPath, StoreOptions storeOptions) {
+    public LogitLogStorageFactory(String nodeName, Path baseLogStoragesPath, StoreOptions storeOptions) {
         this.baseLogStoragesPath = baseLogStoragesPath;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("logit-checkpoint-executor", LOG)
+                NamedThreadFactory.create(nodeName, "logit-checkpoint-executor", LOG)
         );
 
         checkVmOptions();

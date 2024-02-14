@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**

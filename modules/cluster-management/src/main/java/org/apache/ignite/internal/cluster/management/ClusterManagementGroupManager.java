@@ -59,6 +59,8 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -69,8 +71,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
@@ -108,8 +108,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Delayed executor. */
-    private final ScheduledExecutorService scheduledExecutor =
-            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("cmg-manager", LOG));
+    private final ScheduledExecutorService scheduledExecutor;
 
     private final ClusterService clusterService;
 
@@ -152,6 +151,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         this.configuration = configuration;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
+
+        scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
+        );
     }
 
     /**
@@ -244,17 +247,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      */
     @Nullable
     private CompletableFuture<CmgRaftService> recoverLocalState() {
-        LocalState localState;
-
-        try {
-            localState = localStateStorage.getLocalState().get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new IgniteInternalException("Interrupted while retrieving local CMG state", e);
-        } catch (ExecutionException e) {
-            throw new IgniteInternalException("Error while retrieving local CMG state", e);
-        }
+        LocalState localState = localStateStorage.getLocalState();
 
         if (localState == null) {
             return null;
@@ -333,8 +326,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .thenCompose(state -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
-                    return localStateStorage.saveLocalState(localState)
-                            .thenCompose(v -> joinCluster(service, state.clusterTag()));
+                    localStateStorage.saveLocalState(localState);
+
+                    return joinCluster(service, state.clusterTag());
                 });
     }
 
@@ -437,7 +431,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                 raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
-                localStateStorage.clear().get();
+                localStateStorage.clear();
             } catch (Exception e) {
                 throw new IgniteInternalException("Error when cleaning the CMG state", e);
             }
@@ -575,8 +569,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .thenCompose(service -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
-                    return localStateStorage.saveLocalState(localState)
-                            .thenCompose(v -> joinCluster(service, state.clusterTag()));
+                    localStateStorage.saveLocalState(localState);
+
+                    return joinCluster(service, state.clusterTag());
                 });
     }
 

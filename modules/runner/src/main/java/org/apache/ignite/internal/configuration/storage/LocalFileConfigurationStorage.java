@@ -62,6 +62,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link ConfigurationStorage} based on local file configuration storage.
@@ -88,9 +89,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     private final AtomicReference<ConfigurationStorageListener> lsnrRef = new AtomicReference<>();
 
     /** Thread pool for configuration updates notifications. */
-    private final ExecutorService notificationsThreadPool = Executors.newFixedThreadPool(
-            2, new NamedThreadFactory("cfg-file", LOG)
-    );
+    private final ExecutorService notificationsThreadPool;
 
     /** Tracks all running futures. */
     private final InFlightFutures futureTracker = new InFlightFutures();
@@ -104,10 +103,25 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      * @param configPath Path to node bootstrap configuration file.
      * @param generator Configuration tree generator.
      */
+    @TestOnly
     public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator) {
+        this("test", configPath, generator);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param configPath Path to node bootstrap configuration file.
+     * @param generator Configuration tree generator.
+     */
+    public LocalFileConfigurationStorage(String nodeName, Path configPath, ConfigurationTreeGenerator generator) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
+
+        notificationsThreadPool = Executors.newFixedThreadPool(
+                2, NamedThreadFactory.create(nodeName, "cfg-file", LOG)
+        );
 
         checkAndRestoreConfigFile();
     }

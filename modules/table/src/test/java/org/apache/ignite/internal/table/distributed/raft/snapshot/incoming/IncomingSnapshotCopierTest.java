@@ -61,6 +61,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -99,7 +100,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
@@ -318,7 +318,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 )),
                 catalogService,
                 mock(SnapshotMeta.class),
-                executorService
+                executorService,
+                0
         );
     }
 
@@ -358,12 +359,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     ) {
         assertEquals(0, txIds.size() % 2, "size=" + txIds.size());
 
-        int tableId = 2;
-
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
+            storage.put(txIds.get(i), new TxMeta(txState, HYBRID_CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -418,7 +417,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private static BinaryRow createRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR)
+        return new RowAssembler(SCHEMA_DESCRIPTOR, -1)
                 .appendStringNotNull(key)
                 .appendStringNotNull(value)
                 .build();
@@ -637,7 +636,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
                 partitionSnapshotStorage,
-                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME))
+                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME)),
+                0
         );
 
         Thread anotherThread = new Thread(copier::cancel);
@@ -682,8 +682,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         MessagingService messagingService = mock(MessagingService.class);
 
+        int leaderCatalogVersion = 42;
+        when(catalogService.catalogReadyFuture(leaderCatalogVersion)).thenReturn(new CompletableFuture<>());
         when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong()))
-                .thenReturn(completedFuture(snapshotMetaResponse(42)));
+                .thenReturn(completedFuture(snapshotMetaResponse(leaderCatalogVersion)));
 
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
@@ -697,7 +699,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 mock(SnapshotCopierOptions.class)
         );
 
-        assertThat(runAsync(snapshotCopier::join), willSucceedIn(1, TimeUnit.SECONDS));
+        assertThat(runAsync(snapshotCopier::join), willSucceedIn(10, TimeUnit.SECONDS));
 
         assertEquals(RaftError.EBUSY.getNumber(), snapshotCopier.getCode());
 

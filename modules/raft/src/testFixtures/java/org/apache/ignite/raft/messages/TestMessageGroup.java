@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.messages;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.raft.server.counter.GetValueCommand;
 import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
 

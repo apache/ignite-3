@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
@@ -39,6 +40,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -52,11 +54,9 @@ import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,8 +92,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     protected ExecutionContext<T> executionContext(boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
-                    NamedThreadFactory.threadPrefix("fake-test-node", "sqlTestExec"),
-                    new LogUncaughtExceptionHandler(log),
+                    NamedThreadFactory.create("fake-test-node", "sqlTestExec", log),
                     false,
                     0);
 
@@ -107,7 +106,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
             IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
         }
 
-        FragmentDescription fragmentDesc = new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null);
+        FragmentDescription fragmentDesc = getFragmentDescription();
 
         return new ExecutionContext<>(
                 taskExecutor,
@@ -119,6 +118,10 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node"))
         );
+    }
+
+    protected FragmentDescription getFragmentDescription() {
+        return new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null);
     }
 
     protected Object[] row(Object... fields) {
@@ -140,12 +143,11 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         /** {@inheritDoc} */
         public IgniteTestStripedThreadPoolExecutor(
                 int concurrentLvl,
-                String threadNamePrefix,
-                Thread.UncaughtExceptionHandler exHnd,
+                ThreadFactory threadFactory,
                 boolean allowCoreThreadTimeOut,
                 long keepAliveTime
         ) {
-            super(concurrentLvl, threadNamePrefix, exHnd, allowCoreThreadTimeOut, keepAliveTime);
+            super(concurrentLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime);
 
             fut = IgniteTestUtils.runAsync(() -> {
                 while (!stop.get()) {

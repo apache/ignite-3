@@ -21,22 +21,13 @@ import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
-import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultService;
 import org.jetbrains.annotations.Nullable;
@@ -61,12 +52,6 @@ public class PersistentVaultService implements VaultService {
         RocksDB.loadLibrary();
     }
 
-    private static final IgniteLogger LOG = Loggers.forClass(PersistentVaultService.class);
-
-    private final ExecutorService threadPool;
-
-    private final InFlightFutures futureTracker = new InFlightFutures();
-
     private final Options options = options();
 
     private volatile RocksDB db;
@@ -77,13 +62,10 @@ public class PersistentVaultService implements VaultService {
     /**
      * Creates persistent vault service.
      *
-     * @param nodeName Node name.
      * @param path base path for RocksDB
      */
-    public PersistentVaultService(String nodeName, Path path) {
+    public PersistentVaultService(Path path) {
         this.path = path;
-
-        threadPool = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "vault", LOG));
     }
 
     private static Options options() {
@@ -115,61 +97,46 @@ public class PersistentVaultService implements VaultService {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
-        IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
-
-        futureTracker.cancelInFlightFutures();
-
-        RocksUtils.closeAll(options, db);
+        RocksUtils.closeAll(db, options);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<VaultEntry> get(ByteArray key) {
-        return supplyAsync(() -> {
-            try {
-                byte[] value = db.get(key.bytes());
+    public @Nullable VaultEntry get(ByteArray key) {
+        try {
+            byte[] value = db.get(key.bytes());
 
-                return value == null ? null : new VaultEntry(key, value);
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException("Unable to read data from RocksDB", e);
-            }
-        });
+            return value == null ? null : new VaultEntry(key, value);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Unable to read data from RocksDB", e);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> put(ByteArray key, byte @Nullable [] val) {
-        return runAsync(() -> {
-            try {
-                if (val == null) {
-                    db.delete(key.bytes());
-                } else {
-                    try (TraceSpan ignored = span("vaultStoragePutData")) {
+    public void put(ByteArray key, byte @Nullable [] val) {
+        try {
+            if (val == null) {
+                db.delete(key.bytes());
+            } else {
+                try (TraceSpan ignored = span("vaultStoragePutData")) {
                         db.put(key.bytes(), val);
                     }
-                }
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException("Unable to write data to RocksDB", e);
             }
-        });
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Unable to write data to RocksDB", e);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> remove(ByteArray key) {
-        return runAsync(() -> {
-            try {
-                db.delete(key.bytes());
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException("Unable to remove data to RocksDB", e);
-            }
-        });
+    public void remove(ByteArray key) {
+        try {
+            db.delete(key.bytes());
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Unable to remove data to RocksDB", e);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<VaultEntry> range(ByteArray fromKey, ByteArray toKey) {
         var readOpts = new ReadOptions();
@@ -192,49 +159,30 @@ public class PersistentVaultService implements VaultService {
             public void close() {
                 super.close();
 
-                RocksUtils.closeAll(upperBound, readOpts);
+                RocksUtils.closeAll(readOpts, upperBound);
             }
         };
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
-        return runAsync(() -> {
-            try (
-                    var writeBatch = new WriteBatch();
-                    var writeOpts = new WriteOptions()
-            ) {
-                for (var entry : vals.entrySet()) {
-                    if (entry.getValue() == null) {
-                        writeBatch.delete(entry.getKey().bytes());
-                    } else {
-                        writeBatch.put(entry.getKey().bytes(), entry.getValue());
-                    }
+    public void putAll(Map<ByteArray, byte[]> vals) {
+        try (
+                var writeBatch = new WriteBatch();
+                var writeOpts = new WriteOptions()
+        ) {
+            for (var entry : vals.entrySet()) {
+                if (entry.getValue() == null) {
+                    writeBatch.delete(entry.getKey().bytes());
+                } else {
+                    writeBatch.put(entry.getKey().bytes(), entry.getValue());
                 }
+            }
 
-                try (TraceSpan ignored = span("putAll")) {
+            try (TraceSpan ignored = span("putAll")) {
                     db.write(writeOpts, writeBatch);
                 }
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException("Unable to write data to RocksDB", e);
-            }
-        });
-    }
-
-    private <T> CompletableFuture<T> supplyAsync(Supplier<T> supplier) {
-        CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier, threadPool);
-
-        futureTracker.registerFuture(future);
-
-        return future;
-    }
-
-    private CompletableFuture<Void> runAsync(Runnable runnable) {
-        CompletableFuture<Void> future = CompletableFuture.runAsync(runnable, threadPool);
-
-        futureTracker.registerFuture(future);
-
-        return future;
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Unable to write data to RocksDB", e);
+        }
     }
 }

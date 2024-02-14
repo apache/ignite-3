@@ -30,6 +30,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -80,18 +82,28 @@ public class TableImpl implements TableViewInternal {
 
     private final Map<Integer, IndexWrapper> indexWrapperById = new ConcurrentHashMap<>();
 
+    private final MarshallersProvider marshallers;
+
     /**
      * Constructor.
      *
      * @param tbl The table.
      * @param lockManager Lock manager.
      * @param schemaVersions Schema versions access.
+     * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions, IgniteSql sql) {
+    public TableImpl(
+            InternalTable tbl,
+            LockManager lockManager,
+            SchemaVersions schemaVersions,
+            MarshallersProvider marshallers,
+            IgniteSql sql
+    ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.schemaVersions = schemaVersions;
+        this.marshallers = marshallers;
         this.sql = sql;
     }
 
@@ -106,7 +118,7 @@ public class TableImpl implements TableViewInternal {
      */
     @TestOnly
     public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions, IgniteSql sql) {
-        this(tbl, lockManager, schemaVersions, sql);
+        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql);
 
         this.schemaReg = schemaReg;
     }
@@ -156,22 +168,22 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, recMapper, sql);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, marshallers, recMapper, sql);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, sql);
+        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, marshallers, sql);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, sql, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, marshallers, sql, keyMapper, valMapper);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, sql);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, marshallers, sql);
     }
 
     @Override
@@ -195,7 +207,7 @@ public class TableImpl implements TableViewInternal {
         Objects.requireNonNull(keyMapper);
 
         BinaryRowEx keyRow;
-        var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), keyMapper, keyMapper);
+        var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, keyMapper, keyMapper);
         try {
             keyRow = marshaller.marshal(key);
         } catch (MarshallerException e) {

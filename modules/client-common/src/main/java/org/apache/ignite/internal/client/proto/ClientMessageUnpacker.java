@@ -694,6 +694,16 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads a nullable bit set.
+     *
+     * @return Bit set or null.
+     * @throws MessageTypeException when type is not BitSet.
+     */
+    public @Nullable BitSet unpackBitSetNullable() {
+        return tryUnpackNil() ? null : unpackBitSet();
+    }
+
+    /**
      * Reads an integer array.
      *
      * @return Integer array.

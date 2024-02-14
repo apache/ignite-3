@@ -82,6 +82,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
@@ -122,7 +124,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Implements a query plan.
@@ -148,14 +149,12 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * Constructor.
      *
      * @param ctx Root context.
-     * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
      * @param resolvedDependencies Dependencies required to execute this query.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
-            HashFunctionFactory<RowT> hashFuncFactory,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSvc,
             ResolvedDependencies resolvedDependencies) {
@@ -165,7 +164,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         this.resolvedDependencies = resolvedDependencies;
 
         expressionFactory = ctx.expressionFactory();
-        destinationFactory = new DestinationFactory<>(ctx.rowHandler(), hashFuncFactory, resolvedDependencies);
+        destinationFactory = new DestinationFactory<>(ctx.rowHandler(), resolvedDependencies);
     }
 
     /** {@inheritDoc} */
@@ -210,7 +209,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteTrimExchange rel) {
         assert TraitUtils.distribution(rel).getType() == HASH_DISTRIBUTED;
 
-        ColocationGroup targetGroup = ctx.target();
+        ColocationGroup targetGroup = ctx.group(rel.sourceId());
 
         assert targetGroup != null;
 
@@ -399,7 +398,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 idx,
                 scannableTable,
                 tbl.descriptor(),
-                group.partitionsWithTerms(ctx.localNode().name()),
+                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
                 comp,
                 ranges,
                 filters,
@@ -440,7 +439,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 rowFactory,
                 scannableTable,
-                group.partitionsWithTerms(ctx.localNode().name()),
+                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
@@ -660,7 +659,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         IgniteTable table = rel.getTable().unwrapOrThrow(IgniteTable.class);
         UpdatableTable updatableTable = resolvedDependencies.updatableTable(table.id());
 
-        ModifyNode<RowT> node = new ModifyNode<>(ctx, updatableTable, rel.getOperation(), rel.getUpdateColumnList());
+        ModifyNode<RowT> node = new ModifyNode<>(ctx, updatableTable, rel.sourceId(), rel.getOperation(), rel.getUpdateColumnList());
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -880,7 +879,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteExchange rel) {
-        throw new AssertionError();
+        throw new AssertionError(rel.getClass());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteKeyValueGet rel) {
+        throw new AssertionError(rel.getClass());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteKeyValueModify rel) {
+        throw new AssertionError(rel.getClass());
     }
 
     private Node<RowT> visit(RelNode rel) {

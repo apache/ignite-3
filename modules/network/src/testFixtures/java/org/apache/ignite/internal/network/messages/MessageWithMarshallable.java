@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.network.messages;
 
 import java.util.Map;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.serialization.SimpleSerializableObject;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 
 /** Message with a marshallable field. */
 @Transferable(TestMessageTypes.TEST_MESSAGE_WITH_MARSHALLABLE)

@@ -34,6 +34,8 @@ import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -82,6 +84,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param tbl Table storage.
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
@@ -90,16 +93,17 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
+            MarshallersProvider marshallers,
             IgniteSql sql,
             Mapper<K> keyMapper,
             Mapper<V> valueMapper
     ) {
-        super(tbl, schemaVersions, schemaRegistry, sql);
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
         this.keyMapper = keyMapper;
         this.valueMapper = valueMapper;
 
-        marshallerFactory = (schema) -> new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
+        marshallerFactory = (schema) -> new KvMarshallerImpl<>(schema, marshallers, keyMapper, valueMapper);
     }
 
     /** {@inheritDoc} */
@@ -512,8 +516,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             return marsh;
         }
 
-        // TODO: Cache marshaller for schema version or upgrade row?
-
         SchemaRegistry registry = rowConverter.registry();
 
         marsh = marshallerFactory.apply(registry.schema(schemaVersion));
@@ -728,11 +730,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
                     marshaller(rowConverter.registry().lastKnownSchemaVersion())
             );
 
-            StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> {
-                return withSchemaSync(null, (schemaVersion) -> {
-                    return this.tbl.upsertAll(marshalPairs(items, schemaVersion), partitionId);
-                });
-            };
+            StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items, deleted) ->
+                 withSchemaSync(
+                        null,
+                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion), deleted, partitionId));
 
             return DataStreamer.streamData(publisher, options, batchSender, partitioner);
         });
@@ -744,8 +745,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Column[] keyCols = schema.keyColumns().columns();
         Column[] valCols = schema.valueColumns().columns();
 
-        Marshaller keyMarsh = createMarshaller(toMarshallerColumns(keyCols), keyMapper, false, true);
-        Marshaller valMarsh = createMarshaller(toMarshallerColumns(valCols), valueMapper, false, true);
+        MarshallerSchema marshallerSchema = schema.marshallerSchema();
+        Marshaller keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, false, true);
+        Marshaller valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, false, true);
 
         return (row) -> {
             try {

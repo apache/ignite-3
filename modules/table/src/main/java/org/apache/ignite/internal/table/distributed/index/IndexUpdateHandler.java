@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
+
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -34,9 +38,7 @@ import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Index update handler.
- */
+/** Index update handler. */
 public class IndexUpdateHandler {
     private final TableIndexStoragesSupplier indexes;
 
@@ -52,18 +54,21 @@ public class IndexUpdateHandler {
     /**
      * Adds a binary row to the indexes, if the tombstone then skips such operation.
      *
-     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
      *
      * @param binaryRow Binary row to insert.
      * @param rowId Row ID.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    public void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
+    public void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId, @Nullable List<Integer> indexIds) {
+        assert indexIds == null || !indexIds.isEmpty() : indexIds;
+
         if (binaryRow == null) { // skip removes
             return;
         }
 
         span("IndexUpdateHandler.addToIndexes", (ignored) -> {
-            for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
+            for (TableSchemaAwareIndexStorage index : indexes(indexIds)) {
                 index.put(binaryRow, rowId);
             }
         });
@@ -74,14 +79,20 @@ public class IndexUpdateHandler {
      * Removes the row only if no previous value's index matches index of the row to remove, because if it matches, then the index
      * might still be in use.
      *
-     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
      *
      * @param rowToRemove Row to remove from indexes.
      * @param rowId Row id.
      * @param previousValues Cursor with previous version of the row.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    public void tryRemoveFromIndexes(BinaryRow rowToRemove, RowId rowId, Cursor<ReadResult> previousValues) {
-        TableSchemaAwareIndexStorage[] indexes = this.indexes.get().values().toArray(new TableSchemaAwareIndexStorage[0]);
+    public void tryRemoveFromIndexes(
+            BinaryRow rowToRemove,
+            RowId rowId,
+            Cursor<ReadResult> previousValues,
+            @Nullable List<Integer> indexIds
+    ) {
+        TableSchemaAwareIndexStorage[] indexes = indexesSnapshot(indexIds);
 
         ByteBuffer[] indexValues = new ByteBuffer[indexes.length];
 
@@ -127,7 +138,7 @@ public class IndexUpdateHandler {
     /**
      * Builds an exist index for all versions of a row.
      *
-     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
      *
      * @param indexId Index ID.
      * @param rowStream Stream of rows to build the index without tombstones.
@@ -148,20 +159,58 @@ public class IndexUpdateHandler {
         index.storage().setNextRowIdToBuild(nextRowIdToBuild);
     }
 
-    /**
-     * Waits for indexes to be created.
-     */
+    /** Waits for indexes to be created. */
     // TODO: IGNITE-19513 Fix it, we should have already waited for the indexes to be created
     public void waitIndexes() {
         indexes.get();
     }
 
-    /**
-     * Waits for the specific index to be created.
-     */
+    /** Waits for the specific index to be created. */
     public void waitForIndex(int indexId) {
         indexes.addIndexToWaitIfAbsent(indexId);
 
         waitIndexes();
+    }
+
+    private Iterable<TableSchemaAwareIndexStorage> indexes(@Nullable List<Integer> indexIds) {
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexes.get();
+
+        assert !indexStorageById.isEmpty();
+
+        if (indexIds == null) {
+            return indexStorageById.values();
+        }
+
+        return mapIterable(indexIds, indexId -> {
+            TableSchemaAwareIndexStorage indexStorage = indexStorageById.get(indexId);
+
+            assert indexStorage != null : indexId;
+
+            return indexStorage;
+        }, null);
+    }
+
+    private TableSchemaAwareIndexStorage[] indexesSnapshot(@Nullable List<Integer> indexIds) {
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexes.get();
+
+        assert !indexStorageById.isEmpty();
+
+        if (indexIds == null) {
+            return indexStorageById.values().toArray(TableSchemaAwareIndexStorage[]::new);
+        }
+
+        var res = new TableSchemaAwareIndexStorage[indexIds.size()];
+
+        for (int i = 0; i < indexIds.size(); i++) {
+            Integer indexId = indexIds.get(i);
+
+            TableSchemaAwareIndexStorage indexStorage = indexStorageById.get(indexId);
+
+            assert indexStorage != null : indexId;
+
+            res[i] = indexStorage;
+        }
+
+        return res;
     }
 }

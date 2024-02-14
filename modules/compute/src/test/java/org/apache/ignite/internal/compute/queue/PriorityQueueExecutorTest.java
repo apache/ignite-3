@@ -24,6 +24,7 @@ import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.compute.JobState.QUEUED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithStateAndCreateTimeStartTime;
@@ -32,6 +33,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -242,6 +244,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 execution::status,
                 jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
         );
+        assertThat(execution.resultAsync(), willBe(0));
     }
 
     @Test
@@ -262,6 +265,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 execution::status,
                 jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
         );
+        assertThat(execution.resultAsync(), willThrow(InterruptedException.class));
     }
 
     @Test
@@ -274,7 +278,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         assertThat(execution.cancel(), is(false));
 
-        assertThat(execution.status().state(), is(COMPLETED));
+        assertThat(execution.status(), is(jobStatusWithState(COMPLETED)));
+        assertThat(execution.resultAsync(), willBe(0));
     }
 
     @Test
@@ -302,7 +307,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         latch.countDown();
 
         // And check that the canceled task was removed from the queue and never executed
-        assertThat(execution.resultAsync(), willTimeoutIn(100, TimeUnit.MILLISECONDS));
+        assertThat(execution.resultAsync(), willThrow(CancellationException.class));
     }
 
     @Test
@@ -446,6 +451,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task3.isDone(), is(false));
         assertThat(task4.isDone(), is(false));
 
+        //Change priority on task3, it should be executed before task2 and task4
+        assertThat(runningExecution.changePriority(20), is(true));
 
         //Task 1 should be completed
         latch1.countDown();
@@ -453,9 +460,6 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
         assertThat(task4.isDone(), is(false));
-
-        //Change priority on task3, it should be executed before task2 and task4
-        assertThat(runningExecution.changePriority(20), is(true));
 
         //Current executing task is 3 because we changed priority
         latch2.countDown();

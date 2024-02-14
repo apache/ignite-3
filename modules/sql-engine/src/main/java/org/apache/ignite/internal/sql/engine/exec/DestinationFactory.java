@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
@@ -35,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Partitioned;
 import org.apache.ignite.internal.sql.engine.trait.RandomNode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Factory that resolves {@link IgniteDistribution} trait, which represents logical {@link DistributionFunction} function, into its
@@ -43,19 +44,16 @@ import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
  */
 class DestinationFactory<RowT> {
     private final RowHandler<RowT> rowHandler;
-    private final HashFunctionFactory<RowT> hashFunctionFactory;
     private final ResolvedDependencies dependencies;
 
     /**
      * Constructor.
      *
      * @param rowHandler Row handler.
-     * @param hashFunctionFactory Hash-function factory required to resolve hash-based distributions.
      * @param dependencies Dependencies required to resolve row value dependent distributions.
      */
-    DestinationFactory(RowHandler<RowT> rowHandler, HashFunctionFactory<RowT> hashFunctionFactory, ResolvedDependencies dependencies) {
+    DestinationFactory(RowHandler<RowT> rowHandler, ResolvedDependencies dependencies) {
         this.rowHandler = rowHandler;
-        this.hashFunctionFactory = hashFunctionFactory;
         this.dependencies = dependencies;
     }
 
@@ -93,17 +91,21 @@ class DestinationFactory<RowT> {
 
                 assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
 
-                List<String> assignments = Commons.transform(group.assignments(), NodeWithTerm::name);
+                List<String> assignments = Commons.transform(group.assignments(), NodeWithConsistencyToken::name);
 
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();
-
+                    Supplier<PartitionCalculator> calculator = dependencies.partitionCalculator(tableId);
                     TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
 
-                    return new Partitioned<>(assignments, hashFunctionFactory.create(keys.toIntArray(), tableDescriptor));
+                    var resolver = new TablePartitionExtractor<>(calculator.get(), keys.toIntArray(), tableDescriptor, rowHandler);
+
+                    return new Partitioned<>(assignments, resolver);
                 }
 
-                return new Partitioned<>(assignments, hashFunctionFactory.create(keys.toIntArray()));
+                var resolver = new RehashingPartitionExtractor<>(group.nodeNames().size(), keys.toIntArray(), rowHandler);
+
+                return new Partitioned<>(group.nodeNames(), resolver);
             }
             default:
                 throw new IllegalStateException("Unsupported distribution function.");

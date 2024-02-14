@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**

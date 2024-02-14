@@ -21,8 +21,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 
 /**
  * A group of a sources which shares common set of nodes and assignments to be executed.
@@ -38,10 +38,10 @@ public class ColocationGroup implements Serializable {
 
     private final List<String> nodeNames;
 
-    private final List<NodeWithTerm> assignments;
+    private final List<NodeWithConsistencyToken> assignments;
 
     /** Constructor. */
-    public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, List<NodeWithTerm> assignments) {
+    public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, List<NodeWithConsistencyToken> assignments) {
         this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");
         this.nodeNames = Objects.requireNonNull(nodeNames, "nodeNames");
         this.assignments = Objects.requireNonNull(assignments, "assignments");
@@ -65,27 +65,27 @@ public class ColocationGroup implements Serializable {
      * Get list of partitions (index) and nodes (items) having an appropriate partition in OWNING state, calculated for
      * distributed tables, involved in query execution.
      */
-    public List<NodeWithTerm> assignments() {
+    public List<NodeWithConsistencyToken> assignments() {
         return assignments;
     }
 
     /**
-     * Returns list of pairs containing the partition number to scan on the given node with the corresponding primary replica term.
+     * Returns list of pairs containing the partition number to scan on the given node with the corresponding enlistment consistency token.
      *
      * @param nodeName Cluster node consistent ID.
-     * @return List of pairs containing the partition number to scan on the given node with the corresponding primary replica term.
+     * @return List of pairs containing the partition number to scan on the given node with the corresponding enlistment consistency token.
      */
-    public List<PartitionWithTerm> partitionsWithTerms(String nodeName) {
-        List<PartitionWithTerm> partsWithTerms = new ArrayList<>();
+    public List<PartitionWithConsistencyToken> partitionsWithConsistencyTokens(String nodeName) {
+        List<PartitionWithConsistencyToken> partsWithConsistencyTokens = new ArrayList<>();
 
         for (int p = 0; p < assignments.size(); p++) {
-            NodeWithTerm nodeWithTerm = assignments.get(p);
+            NodeWithConsistencyToken nodeWithConsistencyToken = assignments.get(p);
 
-            if (Objects.equals(nodeName, nodeWithTerm.name())) {
-                partsWithTerms.add(new PartitionWithTerm(p, nodeWithTerm.term()));
+            if (Objects.equals(nodeName, nodeWithConsistencyToken.name())) {
+                partsWithConsistencyTokens.add(new PartitionWithConsistencyToken(p, nodeWithConsistencyToken.enlistmentConsistencyToken()));
             }
         }
 
-        return partsWithTerms;
+        return partsWithConsistencyTokens;
     }
 }

@@ -63,6 +63,8 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -95,13 +97,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /** Listener to update a leases cache. */
     private final UpdateListener updateListener = new UpdateListener();
 
+    /** Cluster node resolver. */
+    private final ClusterNodeResolver clusterNodeResolver;
+
     /**
      * Constructor.
      *
      * @param msManager Meta storage manager.
      */
-    public LeaseTracker(MetaStorageManager msManager) {
+    public LeaseTracker(MetaStorageManager msManager, ClusterNodeResolver clusterNodeResolver) {
         this.msManager = msManager;
+        this.clusterNodeResolver = clusterNodeResolver;
     }
 
     /**
@@ -231,6 +237,28 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         }
     }
 
+    private void awaitPrimaryReplica(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            CompletableFuture<ReplicaMeta> resultFuture
+    ) {
+        inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
+                .thenAccept(replicaMeta -> {
+                    ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+
+                    if (leaseholderNode == null && !resultFuture.isDone()) {
+                        awaitPrimaryReplica(
+                                groupId,
+                                replicaMeta.getExpirationTime().tick(),
+                                resultFuture
+                        );
+                    } else {
+                        resultFuture.complete(replicaMeta);
+                    }
+                })
+        );
+    }
+
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
             ReplicationGroupId groupId,
@@ -238,17 +266,20 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
-        return spanWithResult("awaitPrimaryReplica", span -> {
-            return inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
+        CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
+
+        spanWithResult("awaitPrimaryReplica", span -> {
+            awaitPrimaryReplica(groupId, timestamp, future);
+
+            return future
                     .orTimeout(timeout, unit)
                     .exceptionally(e -> {
                         if (e instanceof TimeoutException) {
-                            throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp,
-                                    leases.leaseByGroupId().get(groupId), e);
+                            throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp, leases.leaseByGroupId().get(groupId), e);
                         }
 
                         throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
-                    }));
+                    });
         });
     }
 

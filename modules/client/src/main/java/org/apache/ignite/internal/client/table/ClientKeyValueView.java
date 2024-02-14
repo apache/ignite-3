@@ -529,10 +529,13 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Entry<K, V>, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
+        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
+                ClientOp.STREAMER_BATCH_SEND,
                 (s, w) -> {
-                    writeSchemaAndTx(s, w, null);
+                    w.out().packInt(tbl.tableId());
+                    w.out().packInt(partition);
+                    w.out().packBitSetNullable(deleted);
+                    w.out().packInt(s.version());
                     w.out().packInt(items.size());
 
                     for (Entry<K, V> e : items) {
@@ -540,7 +543,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     }
                 },
                 r -> null,
-                PartitionAwarenessProvider.of(nodeId),
+                PartitionAwarenessProvider.of(partition),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);

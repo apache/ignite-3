@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
@@ -28,7 +27,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -50,16 +48,18 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
+     * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param readTimestamp The read timestamp.
      */
     ReadOnlyTransactionImpl(
             TxManagerImpl txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
+            String txCoordinatorId,
             HybridTimestamp readTimestamp,
             TraceSpan traceSpan
     ) {
-        super(txManager, id, traceSpan);
+        super(txManager, id, txCoordinatorId, traceSpan);
 
         this.readTimestamp = readTimestamp;
         this.observableTsTracker = observableTsTracker;
@@ -81,13 +81,16 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(
+            TablePartitionId tablePartitionId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
+    ) {
         // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
         return null;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
         return null;
     }
 
@@ -115,10 +118,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         observableTsTracker.update(executionTimestamp);
 
-        return traceSpan.endWhenComplete(((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()))
-                .thenRun(() -> txManager.updateTxMeta(
-                        id(),
-                        old -> new TxStateMeta(COMMITTED, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp())
-                )));
+        return traceSpan.endWhenComplete(((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp,
+                id())));
     }
 }

@@ -178,9 +178,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
             var streamerFut = view.streamData(publisher, options);
 
-            // Stream 10 items while buffer capacity is 2 to trigger back pressure.
+            // Stream 20 items (5 per partition) while buffer capacity is 2 to trigger back pressure.
             var submitFut = CompletableFuture.runAsync(() -> {
-                for (long i = 0; i < 10; i++) {
+                for (long i = 0; i < 20; i++) {
                     publisher.submit(tuple(i, "foo_" + i));
                 }
             });
@@ -250,7 +250,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
 
         assertThrows(ExecutionException.class, () -> streamFut.get(5, TimeUnit.SECONDS));
-        logger.assertLogContains("Not retrying operation [opCode=13, opType=TUPLE_UPSERT_ALL, attempt=3");
+        logger.assertLogContains("Not retrying operation [opCode=62, opType=STREAMER_BATCH_SEND, attempt=3");
         logger.assertLogContains("Failed to send batch to partition");
     }
 
