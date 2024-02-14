@@ -99,8 +99,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
-
         internalTbl = new DummyInternalTableImpl(
                 mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration, storageUpdateConfiguration);
     }

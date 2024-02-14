@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
-import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -103,11 +103,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to detect and retry safe time reordering within onBeforeApply. */
-    private long maxObservableSafeTime = -1;
+    private volatile long maxObservableSafeTime = -1;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerifier = -1;
 
@@ -138,17 +136,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
-
-        // TODO: IGNITE-18502 Excessive full partition scan on node start
-        try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
-            while (cursor.hasNext()) {
-                ReadResult readResult = cursor.next();
-
-                if (readResult.isWriteIntent()) {
-                    storageUpdateHandler.handleWriteIntentRead(readResult.transactionId(), readResult.rowId());
-                }
-            }
-        }
     }
 
     @Override
@@ -169,7 +156,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
                 long proposedSafeTime = cmd.safeTime().longValue();
 
-                assert proposedSafeTime > maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
+                // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
+                // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
+                // by raft client because of either TimeoutException or inner raft server recoverable exception.
+                assert proposedSafeTime >= maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
                         + maxObservableSafeTimeVerifier + ", proposed=" + proposedSafeTime + "]";
 
                 maxObservableSafeTimeVerifier = proposedSafeTime;
@@ -483,13 +473,21 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     @Override
+    public void onLeaderStart() {
+        maxObservableSafeTime = txManager.clock().now().addPhysicalTime(CLOCK_SKEW).longValue();
+    }
+
+    @Override
     public boolean onBeforeApply(Command command) {
         // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
             long proposedSafeTime = cmd.safeTime().longValue();
 
-            if (proposedSafeTime > maxObservableSafeTime) {
+            // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
+            // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
+            // by raft client because of either TimeoutException or inner raft server recoverable exception.
+            if (proposedSafeTime >= maxObservableSafeTime) {
                 maxObservableSafeTime = proposedSafeTime;
             } else {
                 throw new SafeTimeReorderException();
