@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readNullableString;
-
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
@@ -62,7 +60,7 @@ public class CatalogStorageProfileDescriptor {
     private static class StorageProfileDescriptorSerializer implements CatalogObjectSerializer<CatalogStorageProfileDescriptor> {
         @Override
         public CatalogStorageProfileDescriptor readFrom(IgniteDataInput input) throws IOException {
-            String storageProfileDescriptor = readNullableString(input);
+            String storageProfileDescriptor = input.readUTF();
 
             return new CatalogStorageProfileDescriptor(storageProfileDescriptor);
         }
