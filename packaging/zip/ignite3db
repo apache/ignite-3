@@ -18,7 +18,9 @@
 #
 set -o errexit # Exit on error
 set -o nounset # Exit on unset variables
-set -o pipefail # Exit if any command in a pipeline fails
+if [ -n "$(command -v bash)" ]; then
+  set -o pipefail # Exit if any command in a pipeline fails
+fi
 
 
 SCRIPT_DIR=$(dirname "$0")
@@ -44,15 +46,15 @@ start() {
   $CMD >>"${STARTUP_LOG_FILE}" 2>&1 </dev/null & echo $! >${IGNITE_HOME}/pid
 
   rest_address_file=${WORK_DIR}/rest-address
+  max_attempts=30
   count=0
-  max_attempts=60 # 30 seconds, considering sleep of 0.5s
   while [ ! -f "$rest_address_file" ] && [ "$count" -lt "$max_attempts" ]; do
-    sleep 0.5
-    ((count++))
+    sleep 1
+    count=$((count + 1))
   done
 
  if [ ! -f "$rest_address_file" ]; then
-     echo "Failure: Application did not start within the expected time frame." >&2
+     echo "Failure: Application did not start within the expected time frame. Check out ${STARTUP_LOG_FILE}." >&2
      exit 1
  else
      rest_address=$(cat "$rest_address_file")
