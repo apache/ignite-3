@@ -153,8 +153,7 @@ void table_impl::get_latest_schema_async(ignite_callback<std::shared_ptr<schema>
         bool reload_schema = false;
         try {
             callback({std::move(schema)});
-        }
-        catch (ignite_error& err) {
+        } catch (ignite_error &err) {
             reload_schema = err.get_flags() & std::int32_t(error_flag::UNMAPPED_COLUMNS_PRESENT);
             if (!reload_schema)
                 throw;

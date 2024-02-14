@@ -22,10 +22,11 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -62,6 +63,8 @@ public class TestServer {
     private final AuthenticationManager authenticationManager;
 
     private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
+
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     private long idleTimeout = 5000;
 
@@ -129,7 +132,7 @@ public class TestServer {
                 clusterService,
                 bootstrapFactory,
                 mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()),
+                () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server")),
                 mock(MetricManager.class),
                 metrics,
                 authenticationManager,

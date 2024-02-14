@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.framework;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -197,8 +196,6 @@ public class TestNode implements LifecycleAware {
     public QueryPlan prepare(String query) {
         ParsedResult parsedResult = parserService.parse(query);
         BaseQueryContext ctx = createContext();
-
-        assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
         return await(prepareService.prepareAsync(parsedResult, ctx));
     }

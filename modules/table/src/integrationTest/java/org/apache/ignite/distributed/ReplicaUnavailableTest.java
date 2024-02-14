@@ -70,7 +70,6 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -130,8 +129,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         requestsExecutor = new StripedThreadPoolExecutor(
                 5,
-                NamedThreadFactory.threadPrefix(NODE_NAME, "partition-operations"),
-                new LogUncaughtExceptionHandler(log),
+                NamedThreadFactory.create(NODE_NAME, "partition-operations", log),
                 false,
                 0
         );
@@ -316,7 +314,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     private static BinaryRow createKeyValueRow(long id, long value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);

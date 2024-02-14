@@ -67,6 +67,17 @@ handshake_response parse_handshake_response(bytes_view message) {
     UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
     res.context.set_cluster_id(reader.read_uuid());
+    res.context.set_cluster_name(reader.read_string());
+
+    auto dbms_ver_major = reader.read_uint8();
+    auto dbms_ver_minor = reader.read_uint8();
+    auto dbms_ver_maintenance = reader.read_uint8();
+    auto dbms_ver_patch = reader.read_uint8_nullable();
+    auto dbms_ver_pre_release = reader.read_string_nullable();
+
+    res.context.set_server_version(
+        {dbms_ver_major, dbms_ver_minor, dbms_ver_maintenance, dbms_ver_patch, dbms_ver_pre_release});
+
     reader.skip(); // Features.
     reader.skip(); // Extensions.
 

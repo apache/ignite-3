@@ -138,7 +138,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 54, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 80, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(
@@ -148,7 +148,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 159, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 185, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(

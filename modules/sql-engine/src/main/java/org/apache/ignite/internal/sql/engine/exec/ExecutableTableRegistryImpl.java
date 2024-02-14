@@ -93,7 +93,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     TableRowConverter rowConverter = converterFactory.create(null);
 
                     UpdatableTableImpl updatableTable = new UpdatableTableImpl(sqlTable.id(), tableDescriptor, internalTable.partitions(),
-                            replicaService, clock, rowConverter);
+                            internalTable, replicaService, clock, rowConverter);
 
                     return new ExecutableTableImpl(scannableTable, updatableTable, sqlTable.partitionCalculator());
                 });
