@@ -34,11 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -49,7 +45,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.AbstractTopologyAwareGroupServiceTest;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,7 +61,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
-    private Map<String, PlacementDriverManager> placementDriverManagers = new HashMap<>();
+    private final Map<String, PlacementDriverManager> placementDriverManagers = new HashMap<>();
 
     @Mock
     MetaStorageManager msm;
@@ -160,39 +156,5 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
         when(entry.empty()).thenReturn(true);
 
         return entry;
-    }
-
-    /**
-     * Test implementation of {@link LogicalTopologyService}.
-     */
-    protected static class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
-        private final ClusterService clusterService;
-
-        public LogicalTopologyServiceTestImpl(ClusterService clusterService) {
-            this.clusterService = clusterService;
-        }
-
-        @Override
-        public void addEventListener(LogicalTopologyEventListener listener) {
-
-        }
-
-        @Override
-        public void removeEventListener(LogicalTopologyEventListener listener) {
-
-        }
-
-        @Override
-        public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
-            return completedFuture(new LogicalTopologySnapshot(
-                    1,
-                    clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()))
-            );
-        }
-
-        @Override
-        public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
-            return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
-        }
     }
 }

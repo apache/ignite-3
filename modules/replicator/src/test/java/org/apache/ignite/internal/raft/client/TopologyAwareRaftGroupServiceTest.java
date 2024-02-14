@@ -33,12 +33,12 @@ public class TopologyAwareRaftGroupServiceTest extends AbstractTopologyAwareGrou
     }
 
     @Override
-    protected void afterClusterInit(String leaderName) throws InterruptedException {
+    protected void afterClusterInit(String leaderName) {
         // No-op.
     }
 
     @Override
-    protected void afterLeaderChange(String leaderName) throws InterruptedException {
+    protected void afterLeaderChange(String leaderName) {
         // No-op.
     }
 
