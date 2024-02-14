@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_STOPPING;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -28,7 +29,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -61,18 +64,24 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         this.catalogService = catalogService;
     }
 
-    /** Recovers internal structures on node recovery. */
+    /** Starts the component. */
     public void start() {
-        inBusyLockSafe(busyLock, this::addListenersBusy);
+        inBusyLockSafe(busyLock, () -> {
+            addListenersBusy();
+
+            recoveryReadOnlyIndexesBusy();
+        });
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
+
+        readOnlyIndexes.clear();
     }
 
     /**
@@ -123,6 +132,8 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
             Predicate<CatalogIndexDescriptor> addRegisteredIndexPredicate
     ) {
         List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersion, tableId);
+
+        assert !indexes.isEmpty() : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
 
         // Lazy set.
         List<CatalogIndexDescriptor> result = null;
@@ -239,5 +250,32 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         assert catalog != null : catalogVersion;
 
         return catalog.time();
+    }
+
+    private void recoveryReadOnlyIndexesBusy() {
+        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
+        // At the moment, we will only use tables from the latest version (not dropped), since so far only replicas for them are started
+        // on the node.
+        int[] tableIds = catalogService.tables(latestCatalogVersion).stream().mapToInt(CatalogObjectDescriptor::id).toArray();
+
+        Map<Integer, ReadOnlyIndexInfo> readOnlyIndexes = new HashMap<>();
+
+        for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
+            Catalog catalog = catalogService.catalog(catalogVersion);
+
+            assert catalog != null : catalogVersion;
+
+            for (int tableId : tableIds) {
+                for (CatalogIndexDescriptor index : catalog.indexes(tableId)) {
+                    if (index.status() == STOPPING) {
+                        readOnlyIndexes.computeIfAbsent(index.id(), indexId -> new ReadOnlyIndexInfo(tableId, catalog.time(), indexId));
+                    }
+                }
+            }
+        }
+
+        this.readOnlyIndexes.addAll(readOnlyIndexes.values());
     }
 }

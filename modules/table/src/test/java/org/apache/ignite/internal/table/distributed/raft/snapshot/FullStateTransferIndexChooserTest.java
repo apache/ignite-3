@@ -49,6 +49,8 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** For {@link FullStateTransferIndexChooser} testing. */
 public class FullStateTransferIndexChooserTest {
@@ -154,8 +156,9 @@ public class FullStateTransferIndexChooserTest {
         assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId, buildingIndexId, availableIndexId, stoppingIndexId));
     }
 
-    @Test
-    void chooseForAddWriteCommittedWithSecondaryAndReadOnlyIndexes() {
+    @ParameterizedTest(name = "recovery = {0}")
+    @ValueSource(booleans = {false, true})
+    void chooseForAddWriteCommittedWithSecondaryAndReadOnlyIndexes(boolean recovery) {
         createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
         createSimpleBuildingIndex(BUILDING_INDEX_NAME);
 
@@ -172,13 +175,20 @@ public class FullStateTransferIndexChooserTest {
         dropIndex(BUILDING_INDEX_NAME);
         removeIndex(READ_ONLY_INDEX_NAME);
 
+        if (recovery) {
+            indexChooser.close();
+            indexChooser = new FullStateTransferIndexChooser(catalogManager);
+            indexChooser.start();
+        }
+
         assertThat(chooseForAddWriteCommittedLatest(commitTsBeforeStoppingIndex), contains(pkIndexId, readOnlyIndexId));
         assertThat(chooseForAddWriteCommittedLatest(commitTsOnStoppingIndex), contains(pkIndexId));
         assertThat(chooseForAddWriteCommittedLatest(clock.now()), contains(pkIndexId));
     }
 
-    @Test
-    void chooseForAddWriteWithSecondaryAndReadOnlyIndexes() {
+    @ParameterizedTest(name = "recovery = {0}")
+    @ValueSource(booleans = {false, true})
+    void chooseForAddWriteWithSecondaryAndReadOnlyIndexes(boolean recovery) {
         createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
         createSimpleBuildingIndex(BUILDING_INDEX_NAME);
 
@@ -194,6 +204,12 @@ public class FullStateTransferIndexChooserTest {
         dropIndex(REGISTERED_INDEX_NAME);
         dropIndex(BUILDING_INDEX_NAME);
         removeIndex(READ_ONLY_INDEX_NAME);
+
+        if (recovery) {
+            indexChooser.close();
+            indexChooser = new FullStateTransferIndexChooser(catalogManager);
+            indexChooser.start();
+        }
 
         assertThat(chooseForAddWriteLatest(beginTsBeforeStoppingIndex), contains(pkIndexId, readOnlyIndexId));
         assertThat(chooseForAddWriteLatest(beginTsOnStoppingIndex), contains(pkIndexId));

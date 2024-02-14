@@ -1158,7 +1158,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long causalityToken,
             int catalogVersion,
             CatalogTableDescriptor tableDescriptor,
-            // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
+            // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
             boolean onNodeRecovery
     ) {
         return inBusyLockAsync(busyLock, () -> {
@@ -1220,7 +1220,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogZoneDescriptor zoneDescriptor,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
             int catalogVersion,
-            // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
+            // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
             boolean onNodeRecovery
     ) {
         String tableName = tableDescriptor.name();
@@ -1250,7 +1250,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get());
 
-        // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
+        // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
