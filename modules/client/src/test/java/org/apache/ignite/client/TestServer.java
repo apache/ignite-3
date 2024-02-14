@@ -44,6 +44,8 @@ import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.ClientClusterNode;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -88,6 +90,8 @@ public class TestServer implements AutoCloseable {
     private final Ignite ignite;
 
     private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
+
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /**
      * Constructor.
@@ -205,6 +209,11 @@ public class TestServer implements AutoCloseable {
             authenticationManager.start();
         }
 
+        ClusterTag tag = msgFactory.clusterTag()
+                .clusterName("Test Server")
+                .clusterId(clusterId)
+                .build();
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                 ignite,
@@ -214,7 +223,7 @@ public class TestServer implements AutoCloseable {
                 responseDelay,
                 clusterService,
                 compute,
-                clusterId,
+                tag,
                 metrics,
                 authenticationManager,
                 clock,
@@ -228,7 +237,7 @@ public class TestServer implements AutoCloseable {
                         clusterService,
                         bootstrapFactory,
                         ignite.sql(),
-                        () -> CompletableFuture.completedFuture(clusterId),
+                        () -> CompletableFuture.completedFuture(tag),
                         mock(MetricManager.class),
                         metrics,
                         authenticationManager,

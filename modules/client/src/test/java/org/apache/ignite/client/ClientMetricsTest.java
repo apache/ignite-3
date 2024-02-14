@@ -228,12 +228,12 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().build();
 
         assertEquals(15, metrics().bytesSent());
-        assertEquals(50, metrics().bytesReceived());
+        assertEquals(76, metrics().bytesReceived());
 
         client.tables().tables();
 
         assertEquals(21, metrics().bytesSent());
-        assertEquals(71, metrics().bytesReceived());
+        assertEquals(97, metrics().bytesReceived());
     }
 
     @Test

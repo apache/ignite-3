@@ -52,7 +52,7 @@ void compute::broadcast_async(const std::set<cluster_node> &nodes, const std::ve
     auto shared_res = std::make_shared<result_group>(std::int32_t(nodes.size()), std::move(callback));
 
     for (const auto &node : nodes) {
-        std::vector<cluster_node> candidates = { node };
+        std::vector<cluster_node> candidates = {node};
         m_impl->execute_on_nodes(candidates, units, job_class_name, args, [node, shared_res](auto &&res) {
             auto &val = *shared_res;
 
