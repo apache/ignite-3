@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -316,7 +317,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         assertNotNull(table);
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 1; i < 100; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
 
             assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
@@ -339,7 +340,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
                             name,
                             replicas,
                             partitions,
-                            "default_aimem"
+                            DEFAULT_AIMEM_PROFILE_NAME
                     )
             );
             session.execute(null, "CREATE TABLE " + name

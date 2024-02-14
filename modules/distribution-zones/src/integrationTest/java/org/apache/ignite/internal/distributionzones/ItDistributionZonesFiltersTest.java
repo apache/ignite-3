@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
@@ -62,8 +64,14 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     @Language("JSON")
     private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
+    private static final String STORAGE_PROFILES = String.format("'%s, %s'", DEFAULT_ROCKSDB_PROFILE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME);
+
     @Language("JSON")
-    private static final String STORAGE_PROFILES = "{default_rocksdb:{engine:\"rocksDb\"},default_aipersist:{engine:\"aipersist\"}}";
+    private static final String STORAGE_PROFILES_CONFIGS = String.format(
+            "{%s:{engine:\"rocksDb\"}, %s:{engine:\"aipersist\"}}",
+            DEFAULT_ROCKSDB_PROFILE_NAME,
+            DEFAULT_AIPERSIST_PROFILE_NAME
+    );
 
     private static final String COLUMN_KEY = "key";
 
@@ -93,7 +101,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return createStartConfig(NODE_ATTRIBUTES, STORAGE_PROFILES);
+        return createStartConfig(NODE_ATTRIBUTES, STORAGE_PROFILES_CONFIGS);
     }
 
     @Override
@@ -109,16 +117,15 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21387")
     void testFilteredDataNodesPropagatedToStable() throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
-        String storageProfiles = "'default_rocksdb, default_aipersist'";
 
         // This node do not pass the filter
         @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"SSD\"}}";
 
-        IgniteImpl node = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES));
+        IgniteImpl node = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
         Session session = node.sql().createSession();
 
-        session.execute(null, createZoneSql(2, 3, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, storageProfiles));
+        session.execute(null, createZoneSql(2, 3, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
 
         session.execute(null, createTableSql());
 
@@ -148,7 +155,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         startNode(2, createStartConfig(secondNodeAttributes, notMatchingProfiles));
 
         // This node pass the filter and storage profiles of a node match zone's storage profiles.
-        startNode(3, createStartConfig(secondNodeAttributes, STORAGE_PROFILES));
+        startNode(3, createStartConfig(secondNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
         int zoneId = getZoneId(node);
 
@@ -184,13 +191,12 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     @Test
     void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
-        String storageProfiles = "'default_rocksdb, default_aipersist'";
 
         IgniteImpl node0 = node(0);
 
         Session session = node0.sql().createSession();
 
-        session.execute(null, createZoneSql(2, 3, 10_000, 10_000, filter, storageProfiles));
+        session.execute(null, createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES));
 
         session.execute(null, createTableSql());
 
@@ -215,7 +221,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
         // This node pass the filter
-        startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES));
+        startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
         // Expected size is 1 because we have timers equals to 10000, so no scale up will be propagated.
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1, getZoneId(node0));
@@ -242,13 +248,12 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     @Test
     void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
-        String storageProfiles = "'default_rocksdb, default_aipersist'";
 
         IgniteImpl node0 = node(0);
 
         Session session = node0.sql().createSession();
 
-        session.execute(null, createZoneSql(2, 3, 10_000, 10_000, filter, storageProfiles));
+        session.execute(null, createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES));
 
         session.execute(null, createTableSql());
 
@@ -273,7 +278,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
         // This node pass the filter
-        startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES));
+        startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
         int zoneId = getZoneId(node0);
 
@@ -306,7 +311,6 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     @Test
     void testFilteredEmptyDataNodesDoNotTriggerRebalance() throws Exception {
         String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
-        String storageProfiles = "'default_rocksdb, default_aipersist'";
 
         // This node do not pass the filter.
         IgniteImpl node0 = node(0);
@@ -314,11 +318,11 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // This node passes the filter
         @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
 
-        IgniteImpl node1 = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES));
+        IgniteImpl node1 = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
         Session session = node1.sql().createSession();
 
-        session.execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, storageProfiles));
+        session.execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
 
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(
                 node0,
@@ -353,7 +357,6 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     @Test
     void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate() throws Exception {
         String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
-        String storageProfiles = "'default_rocksdb, default_aipersist'";
 
         // This node do not pass the filter.
         IgniteImpl node0 = node(0);
@@ -361,11 +364,11 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // This node passes the filter
         @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
 
-        startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES));
+        startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
         Session session = node0.sql().createSession();
 
-        session.execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, storageProfiles));
+        session.execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
 
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(
                 node0,
@@ -478,7 +481,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     private static String createTableSql() {
         return String.format(
                 "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) WITH STORAGE_PROFILE='%s',PRIMARY_ZONE='%s'",
-                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, "default_aipersist", ZONE_NAME
+                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, DEFAULT_AIPERSIST_PROFILE_NAME, ZONE_NAME
         );
     }
 

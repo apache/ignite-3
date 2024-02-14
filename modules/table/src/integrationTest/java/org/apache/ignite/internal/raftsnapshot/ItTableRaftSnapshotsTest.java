@@ -20,6 +20,9 @@ package org.apache.ignite.internal.raftsnapshot;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
@@ -124,9 +127,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             + "  },\n"
             + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
             + "  storage.profiles: {"
-            + "        default_aipersist.engine: aipersist, "
-            + "        default_aimem.engine: aimem, "
-            + "        default_rocksdb.engine: rocksDb"
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
             + "  },\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
