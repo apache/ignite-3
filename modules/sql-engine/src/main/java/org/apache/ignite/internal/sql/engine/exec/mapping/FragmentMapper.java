@@ -37,6 +37,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
@@ -183,7 +185,17 @@ class FragmentMapper {
 
         @Override
         public Mapping visit(IgniteExchange rel) {
-            throw new AssertionError("Unexpected call: " + rel);
+            throw new AssertionError(rel.getClass());
+        }
+
+        @Override
+        public Mapping visit(IgniteKeyValueGet rel) {
+            throw new AssertionError(rel.getClass());
+        }
+
+        @Override
+        public Mapping visit(IgniteKeyValueModify rel) {
+            throw new AssertionError(rel.getClass());
         }
 
         @Override

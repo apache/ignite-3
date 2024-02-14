@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.thread;
 
-import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -32,7 +31,7 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
      * Create striped thread pool.
      *
      * @param concurrencyLvl          Concurrency level.
-     * @param threadNamePrefix       Thread name prefix.
+     * @param threadFactory Factory used to create threads.
      * @param allowCoreThreadTimeOut Sets the policy governing whether core threads may time out and terminate if no tasks arrive within the
      *                               keep-alive time.
      * @param keepAliveTime          When the number of threads is greater than the core, this is the maximum time that excess idle threads
@@ -40,22 +39,18 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
      */
     public StripedThreadPoolExecutor(
             int concurrencyLvl,
-            String threadNamePrefix,
-            UncaughtExceptionHandler exHnd,
+            ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
             long keepAliveTime) {
-        super(createExecutors(concurrencyLvl, threadNamePrefix, exHnd, allowCoreThreadTimeOut, keepAliveTime));
+        super(createExecutors(concurrencyLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime));
     }
 
     private static ExecutorService[] createExecutors(
             int concurrencyLvl,
-            String threadNamePrefix,
-            UncaughtExceptionHandler exHnd,
+            ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
             long keepAliveTime) {
         ExecutorService[] execs = new ExecutorService[concurrencyLvl];
-
-        ThreadFactory factory = new NamedThreadFactory(threadNamePrefix, true, exHnd);
 
         for (int i = 0; i < concurrencyLvl; i++) {
             ThreadPoolExecutor executor = new ThreadPoolExecutor(
@@ -64,7 +59,7 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
                     keepAliveTime,
                     TimeUnit.MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    factory
+                    threadFactory
             );
 
             executor.allowCoreThreadTimeOut(allowCoreThreadTimeOut);

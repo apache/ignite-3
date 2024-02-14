@@ -166,6 +166,29 @@ public class ClientRecordSerializer<R> {
         }
     }
 
+    void writeStreamerRecs(
+            int partitionId,
+            Collection<R> recs,
+            @Nullable BitSet deleted,
+            ClientSchema schema,
+            PayloadOutputChannel out
+    ) {
+        ClientMessagePacker w = out.out();
+
+        w.packInt(tableId);
+        w.packInt(partitionId);
+        w.packBitSetNullable(deleted);
+        w.packInt(schema.version());
+        w.packInt(recs.size());
+
+        Marshaller marshaller = schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
+        int columnCount = columnCount(schema, TuplePart.KEY_AND_VAL);
+
+        for (R rec : recs) {
+            writeRecRaw(rec, w, marshaller, columnCount);
+        }
+    }
+
     List<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
         var cnt = in.unpackInt();
 

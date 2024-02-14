@@ -192,7 +192,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param zoneName Zone name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, zero to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
      */
     protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, @Nullable String storageEngine) {
         sql(format(
@@ -211,6 +211,27 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
         createZoneOnlyIfNotExists(zoneName, replicas, partitions, null);
+
+        return createTableOnly(tableName, zoneName);
+    }
+
+    /**
+     * Creates zone and table.
+     *
+     * @param zoneName Zone name.
+     * @param tableName Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     */
+    protected static Table createZoneAndTable(
+            String zoneName,
+            String tableName,
+            int replicas,
+            int partitions,
+            @Nullable String storageEngine
+    ) {
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageEngine);
 
         return createTableOnly(tableName, zoneName);
     }
@@ -511,5 +532,20 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
                 10_000L
         ));
+    }
+
+    /**
+     * Inserts data into the table created by {@link #createZoneAndTable(String, String, int, int)} in transaction.
+     *
+     * @param tableName Table name.
+     * @param people People to insert into the table.
+     */
+    protected static void insertPeopleInTransaction(Transaction tx, String tableName, Person... people) {
+        insertDataInTransaction(
+                tx,
+                tableName,
+                List.of("ID", "NAME", "SALARY"),
+                Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
+        );
     }
 }

@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.engine;
 
+import static org.mockito.Mockito.mock;
+
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
@@ -55,7 +58,8 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
                 storageConfiguration,
                 ioRegistry,
                 workDir,
-                null
+                null,
+                mock(FailureProcessor.class)
         );
     }
 }

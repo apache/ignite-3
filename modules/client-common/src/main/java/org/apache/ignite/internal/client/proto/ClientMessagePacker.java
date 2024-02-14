@@ -272,6 +272,32 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a byte value.
+     *
+     * @param v the value to be written.
+     */
+    public void packByteNullable(@Nullable Byte v) {
+        if (v == null) {
+            packNil();
+        } else {
+            packByte(v);
+        }
+    }
+
+    /**
+     * Writes a string value.
+     *
+     * @param v the value to be written.
+     */
+    public void packStringNullable(@Nullable String v) {
+        if (v == null) {
+            packNil();
+        } else {
+            packString(v);
+        }
+    }
+
+    /**
      * Writes a float value.
      *
      * @param v the value to be written.
@@ -507,6 +533,19 @@ public class ClientMessagePacker implements AutoCloseable {
         packExtensionTypeHeader(ClientMsgPackType.BITMASK, data.length);
 
         buf.writeBytes(data);
+    }
+
+    /**
+     * Writes a bit set.
+     *
+     * @param val Bit set value.
+     */
+    public void packBitSetNullable(@Nullable BitSet val) {
+        if (val == null) {
+            packNil();
+        } else {
+            packBitSet(val);
+        }
     }
 
     /**

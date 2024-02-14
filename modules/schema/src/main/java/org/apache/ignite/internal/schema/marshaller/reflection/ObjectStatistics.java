@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
+import java.util.List;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -82,7 +83,7 @@ class ObjectStatistics {
 
         int totalValueSize = keyStat.getEstimatedValueSize();
 
-        return new RowAssembler(schema.keyColumns(), null, schema.version(), totalValueSize);
+        return new RowAssembler(schema.version(), List.of(schema.keyColumns().columns()), totalValueSize);
     }
 
     static RowAssembler createAssembler(

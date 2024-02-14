@@ -17,16 +17,21 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.Serializable;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+
+import java.io.IOException;
 import java.util.List;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Storage profiles descriptor.
  */
-public class CatalogStorageProfilesDescriptor implements Serializable {
-    private static final long serialVersionUID = 5067833777302411785L;
-
+public class CatalogStorageProfilesDescriptor {
+    public static CatalogObjectSerializer<CatalogStorageProfilesDescriptor> SERIALIZER = new StorageProfilesDescriptorSerializer();
     private final List<CatalogStorageProfileDescriptor> storageProfiles;
 
     private final CatalogStorageProfileDescriptor defaultStorageProfile;
@@ -62,5 +67,23 @@ public class CatalogStorageProfilesDescriptor implements Serializable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link CatalogStorageProfilesDescriptor}.
+     */
+    private static class StorageProfilesDescriptorSerializer implements CatalogObjectSerializer<CatalogStorageProfilesDescriptor> {
+        @Override
+        public CatalogStorageProfilesDescriptor readFrom(IgniteDataInput input) throws IOException {
+            List<CatalogStorageProfileDescriptor> storageProfileDescriptors =
+                    readList(CatalogStorageProfileDescriptor.SERIALIZER, input);
+
+            return new CatalogStorageProfilesDescriptor(storageProfileDescriptors);
+        }
+
+        @Override
+        public void writeTo(CatalogStorageProfilesDescriptor descriptor, IgniteDataOutput output) throws IOException {
+            writeList(descriptor.storageProfiles, CatalogStorageProfileDescriptor.SERIALIZER, output);
+        }
     }
 }

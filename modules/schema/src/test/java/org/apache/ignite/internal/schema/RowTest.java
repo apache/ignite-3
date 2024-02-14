@@ -580,7 +580,7 @@ public class RowTest {
     private static void checkValues(SchemaDescriptor schema, Object... vals) {
         assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.length);
 
-        RowAssembler asm = new RowAssembler(schema);
+        RowAssembler asm = new RowAssembler(schema, -1);
 
         for (Object val : vals) {
             asm.appendValue(val);

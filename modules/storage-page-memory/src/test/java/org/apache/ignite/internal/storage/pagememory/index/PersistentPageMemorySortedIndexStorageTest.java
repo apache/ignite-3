@@ -19,10 +19,12 @@ package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -55,7 +57,14 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, storageConfiguration, ioRegistry, workDir, null);
+        engine = new PersistentPageMemoryStorageEngine(
+                "test",
+                engineConfig,
+                storageConfiguration,
+                ioRegistry,
+                workDir,
+                null,
+                mock(FailureProcessor.class));
 
         engine.start();
 

@@ -46,6 +46,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
@@ -80,6 +81,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 checkpointConfig,
                 mock(FilePageStoreManager.class),
                 mock(PartitionMetaManager.class),
@@ -191,6 +193,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 checkpointConfig,
                 filePageStoreManager,
                 mock(PartitionMetaManager.class),

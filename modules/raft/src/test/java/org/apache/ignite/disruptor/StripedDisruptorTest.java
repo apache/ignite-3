@@ -40,11 +40,11 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
      * Checks the correctness of disruptor batching in a handler. This test creates only one stripe in order to the real Disruptor is shared
      * between two groups.
      *
-     * @throws Exception If fialed.
+     * @throws Exception If failed.
      */
     @Test
     public void testDisruptorBatch() throws Exception {
-        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
                 16384,
                 NodeIdAwareTestObj::new,
                 1,
@@ -90,11 +90,11 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     /**
      * The test checks that the Striped Disruptor work same as real one in the circumstances when we have only one consumer group.
      *
-     * @throws Exception If fialed.
+     * @throws Exception If failed.
      */
     @Test
     public void testDisruptorSimple() throws Exception {
-        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
                 16384,
                 NodeIdAwareTestObj::new,
                 5,

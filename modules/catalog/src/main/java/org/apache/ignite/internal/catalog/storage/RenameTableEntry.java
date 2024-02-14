@@ -21,16 +21,21 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 
+import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Entry representing a rename of a table. */
 public class RenameTableEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 4841281816270322196L;
+    public static final CatalogObjectSerializer<RenameTableEntry> SERIALIZER = new RenameTableEntrySerializer();
 
     private final int tableId;
 
@@ -39,6 +44,11 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
     public RenameTableEntry(int tableId, String newTableName) {
         this.tableId = tableId;
         this.newTableName = newTableName;
+    }
+
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.RENAME_TABLE.id();
     }
 
     @Override
@@ -72,5 +82,24 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 catalog.zones(),
                 replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas())
         );
+    }
+
+    /**
+     * Serializer for {@link RenameTableEntry}.
+     */
+    private static class RenameTableEntrySerializer implements CatalogObjectSerializer<RenameTableEntry> {
+        @Override
+        public RenameTableEntry readFrom(IgniteDataInput input) throws IOException {
+            int tableId = input.readInt();
+            String newTableName = input.readUTF();
+
+            return new RenameTableEntry(tableId, newTableName);
+        }
+
+        @Override
+        public void writeTo(RenameTableEntry entry, IgniteDataOutput output) throws IOException {
+            output.writeInt(entry.tableId);
+            output.writeUTF(entry.newTableName);
+        }
     }
 }

@@ -658,6 +658,14 @@ sql_result sql_connection::make_request_handshake() {
 
             return sql_result::AI_ERROR;
         }
+
+        auto server_ver_str = response.context.get_server_version().to_string();
+        LOG_MSG("Server version: " << server_ver_str);
+        m_info.set_info(SQL_DBMS_VER, server_ver_str);
+
+        auto cluster_name = response.context.get_cluster_name();
+        LOG_MSG("Cluster name: " << cluster_name);
+        m_info.set_info(SQL_SERVER_NAME, cluster_name);
     } catch (const odbc_error &err) {
         add_status_record(err);
 

@@ -127,6 +127,13 @@ public:
     [[nodiscard]] std::int8_t read_int8() { return read_object<std::int8_t>(); }
 
     /**
+     * Read uint8.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] std::uint8_t read_uint8() { return read_object<std::uint8_t>(); }
+
+    /**
      * Read int16.
      *
      * @return Value.
@@ -160,6 +167,13 @@ public:
      * @return Value or nullopt if the next value in stream is nil.
      */
     [[nodiscard]] std::optional<std::int32_t> read_int32_nullable() { return read_object_nullable<std::int32_t>(); }
+
+    /**
+     * Read uint8 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is nil.
+     */
+    [[nodiscard]] std::optional<std::uint8_t> read_uint8_nullable() { return read_object_nullable<std::uint8_t>(); }
 
     /**
      * Read int64 number.

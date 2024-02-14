@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -213,4 +214,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId The transction id
      */
     void removeInflight(UUID txId);
+
+    /** Returns the node's hybrid clock. */
+    HybridClock clock();
 }

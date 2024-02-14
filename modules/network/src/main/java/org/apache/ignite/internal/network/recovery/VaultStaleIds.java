@@ -28,7 +28,7 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 
 /**
- * {@link StaleIds} implementating using Vault as a persistent storage.
+ * {@link StaleIds} implementation using Vault as a persistent storage.
  */
 public class VaultStaleIds implements StaleIds {
     private static final ByteArray STALE_IDS_KEY = new ByteArray("network.staleIds");
@@ -64,7 +64,7 @@ public class VaultStaleIds implements StaleIds {
     }
 
     private Set<String> loadStaleIdsFromVault() {
-        VaultEntry entry = vaultManager.get(STALE_IDS_KEY).join();
+        VaultEntry entry = vaultManager.get(STALE_IDS_KEY);
 
         if (entry == null) {
             return new LinkedHashSet<>();
@@ -99,6 +99,6 @@ public class VaultStaleIds implements StaleIds {
     private void saveIdsToVault() {
         String joinedIds = String.join("\n", staleIds);
 
-        vaultManager.put(STALE_IDS_KEY, joinedIds.getBytes(UTF_8)).join();
+        vaultManager.put(STALE_IDS_KEY, joinedIds.getBytes(UTF_8));
     }
 }

@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -371,7 +373,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.tableId()).thenReturn(tableId);
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
-        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class)));
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1), marshallers, mock(IgniteSql.class)));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {
@@ -398,6 +401,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 mockTableManager,
                 catalogManager,
                 metaStorageManager,
+                ForkJoinPool.commonPool(),
                 (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply)
         );
 

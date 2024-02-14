@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -66,7 +67,8 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
                 storageConfiguration,
                 ioRegistry,
                 workDir,
-                new LongJvmPauseDetector(nodeName)
+                new LongJvmPauseDetector(nodeName),
+                mock(FailureProcessor.class)
         );
 
         engine.start();

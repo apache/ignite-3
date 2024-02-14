@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.Serializable;
+import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readNullableString;
+
+import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Storage profile descriptor.
  */
-public class CatalogStorageProfileDescriptor implements Serializable {
-    private static final long serialVersionUID = 1653344099975758919L;
+public class CatalogStorageProfileDescriptor {
+    public static CatalogObjectSerializer<CatalogStorageProfileDescriptor> SERIALIZER = new StorageProfileDescriptorSerializer();
 
     private final String storageProfile;
 
@@ -49,5 +54,22 @@ public class CatalogStorageProfileDescriptor implements Serializable {
      */
     public String storageProfile() {
         return storageProfile;
+    }
+
+    /**
+     * Serializer for {@link CatalogStorageProfilesDescriptor}.
+     */
+    private static class StorageProfileDescriptorSerializer implements CatalogObjectSerializer<CatalogStorageProfileDescriptor> {
+        @Override
+        public CatalogStorageProfileDescriptor readFrom(IgniteDataInput input) throws IOException {
+            String storageProfileDescriptor = readNullableString(input);
+
+            return new CatalogStorageProfileDescriptor(storageProfileDescriptor);
+        }
+
+        @Override
+        public void writeTo(CatalogStorageProfileDescriptor descriptor, IgniteDataOutput output) throws IOException {
+            output.writeUTF(descriptor.storageProfile());
+        }
     }
 }

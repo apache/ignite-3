@@ -580,4 +580,17 @@ public class ErrorGroups {
         /** Primary replica await error. */
         public static final int PRIMARY_REPLICA_AWAIT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 2);
     }
+
+    /** Critical workers error group. */
+    @ErrorCodeGroup
+    public static class CriticalWorkers {
+        /** Critical workers error group. */
+        public static final ErrorGroup CRITICAL_WORKERS_ERR_GROUP = registerGroup("WORKERS", (short) 19);
+
+        /** System worker does not update its heartbeat for a long time. */
+        public static final int SYSTEM_WORKER_BLOCKED_ERR = CRITICAL_WORKERS_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** System-critical operation timed out. */
+        public static final int SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR = CRITICAL_WORKERS_ERR_GROUP.registerErrorCode((short) 2);
+    }
 }

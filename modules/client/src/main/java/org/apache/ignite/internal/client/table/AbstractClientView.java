@@ -116,8 +116,9 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
+    public Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName,
+            @Nullable CriteriaQueryOptions opts) {
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, null, opts)));
     }
 
     /** {@inheritDoc} */
@@ -125,6 +126,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     public CompletableFuture<AsyncCursor<T>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
+            @Nullable String indexName,
             @Nullable CriteriaQueryOptions opts
     ) {
         CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
@@ -134,7 +136,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                     SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
 
                     Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
-                    Session session = new ClientSessionBuilder(tbl.channel()).build();
+                    Session session = new ClientSessionBuilder(tbl.channel(), tbl.marshallers()).build();
 
                     return session.executeAsync(tx, statement, ser.getArguments())
                             .<AsyncCursor<T>>thenApply(resultSet -> {

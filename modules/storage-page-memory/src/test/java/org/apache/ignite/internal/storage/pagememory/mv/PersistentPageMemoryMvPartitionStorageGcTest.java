@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import java.nio.file.Path;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -57,7 +58,8 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, storageConfiguration, ioRegistry, workDir, null);
+        engine = new PersistentPageMemoryStorageEngine(
+                "test", engineConfig, storageConfiguration, ioRegistry, workDir, null, mock(FailureProcessor.class));
 
         engine.start();
 

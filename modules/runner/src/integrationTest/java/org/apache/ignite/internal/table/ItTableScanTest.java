@@ -54,6 +54,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
@@ -88,6 +90,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests to check a scan internal command.
  */
+@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 public class ItTableScanTest extends BaseSqlIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test";
@@ -957,7 +960,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Entire row.
      */
     private Row createKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema, -1);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
@@ -973,7 +976,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Entire row.
      */
     private Row createOldKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema, -1);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);

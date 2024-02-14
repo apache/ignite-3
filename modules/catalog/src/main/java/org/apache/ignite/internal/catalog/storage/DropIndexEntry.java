@@ -17,18 +17,23 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes drop of an index (it's not the final removal of an index from the Catalog, but it's just a switch to
  * the {@link CatalogIndexStatus#STOPPING} state.
  */
 public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
-    private static final long serialVersionUID = -604729846502020728L;
+    public static final DropIndexEntrySerializer SERIALIZER = new DropIndexEntrySerializer();
 
     private final int tableId;
 
@@ -55,6 +60,11 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
     }
 
     @Override
+    public int typeId() {
+        return MarshallableEntryType.DROP_INDEX.id();
+    }
+
+    @Override
     public CatalogEvent eventType() {
         return CatalogEvent.INDEX_STOPPING;
     }
@@ -67,5 +77,24 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link DropIndexEntry}.
+     */
+    private static class DropIndexEntrySerializer implements CatalogObjectSerializer<DropIndexEntry> {
+        @Override
+        public DropIndexEntry readFrom(IgniteDataInput input) throws IOException {
+            int indexId = input.readInt();
+            int tableId = input.readInt();
+
+            return new DropIndexEntry(indexId, tableId);
+        }
+
+        @Override
+        public void writeTo(DropIndexEntry entry, IgniteDataOutput out) throws IOException {
+            out.writeInt(entry.indexId());
+            out.writeInt(entry.tableId());
+        }
     }
 }

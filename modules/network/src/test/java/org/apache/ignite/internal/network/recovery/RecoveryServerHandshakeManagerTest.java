@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -101,6 +102,9 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
     private final AtomicBoolean serverHandshakeManagerStopping = new AtomicBoolean(false);
+
+    @Mock
+    private FailureProcessor failureProcessor;
 
     @BeforeEach
     void initMocks() {
@@ -170,7 +174,8 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
                 () -> List.of(channel.eventLoop()),
                 new AllIdsAreFresh(),
                 channelCreationListener,
-                stopping
+                stopping,
+                failureProcessor
         );
 
         manager.onInit(context);

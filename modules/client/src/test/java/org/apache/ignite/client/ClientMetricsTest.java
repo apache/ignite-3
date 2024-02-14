@@ -228,12 +228,12 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().build();
 
         assertEquals(15, metrics().bytesSent());
-        assertEquals(50, metrics().bytesReceived());
+        assertEquals(76, metrics().bytesReceived());
 
         client.tables().tables();
 
         assertEquals(21, metrics().bytesSent());
-        assertEquals(71, metrics().bytesReceived());
+        assertEquals(97, metrics().bytesReceived());
     }
 
     @Test
@@ -259,7 +259,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         streamerFut.orTimeout(3, TimeUnit.SECONDS).join();
 
         assertEquals(2, metrics().streamerItemsSent());
-        assertEquals(1, metrics().streamerBatchesSent());
+        assertEquals(2, metrics().streamerBatchesSent());
         assertEquals(0, metrics().streamerBatchesActive());
         assertEquals(0, metrics().streamerItemsQueued());
     }

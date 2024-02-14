@@ -106,6 +106,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -268,7 +269,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         List<IgniteComponent> components = new ArrayList<>();
 
-        VaultManager vault = createVault(name, dir);
+        VaultManager vault = createVault(dir);
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -297,7 +298,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var threadPools = new ThreadPoolsManager(name);
 
-        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler());
+        var failureProcessor = new FailureProcessor(name);
+
+        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler(), failureProcessor);
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         var nettyWorkersRegistrar = new NettyWorkersRegistrar(
@@ -313,7 +316,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
                 new VaultStaleIds(vault),
-                workerRegistry
+                workerRegistry,
+                failureProcessor
         );
 
         var hybridClock = new HybridClockImpl();
@@ -389,7 +393,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             }
         };
 
-        var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr);
+        var cfgStorage = new DistributedConfigurationStorage("test", metaStorageMgr);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
@@ -452,7 +456,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         name,
                         nodeCfgMgr.configurationRegistry(),
                         storagePath,
-                        null
+                        null,
+                        failureProcessor
                 )
         );
 
@@ -510,6 +515,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
+                threadPools.tableIoExecutor(),
                 threadPools.partitionOperationsExecutor(),
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
@@ -520,10 +526,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 catalogManager,
                 new HybridTimestampTracker(),
                 placementDriverManager.placementDriver(),
-                sqlRef::get
+                sqlRef::get,
+                failureProcessor
         );
 
-        var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
+        var indexManager = new IndexManager(
+                schemaManager,
+                tableManager,
+                catalogManager,
+                metaStorageMgr,
+                threadPools.tableIoExecutor(),
+                registry
+        );
 
         var metricManager = new MetricManager();
 
@@ -556,13 +570,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Start.
 
         vault.start();
-        vault.putName(name).join();
+        vault.putName(name);
 
         nodeCfgMgr.start();
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
                 threadPools,
+                failureProcessor,
                 workerRegistry,
                 nettyBootstrapFactory,
                 nettyWorkersRegistrar,
@@ -628,28 +643,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     /**
-     * Starts a node with the given parameters.
-     *
-     * @param idx Node index.
-     * @param forceAwait Await primary replica lease re-election. Wll be removed after https://issues.apache.org/jira/browse/IGNITE-21181
-     * @return Created node instance.
-     */
-    private IgniteImpl startNode(int idx, boolean forceAwait) {
-        IgniteImpl ignite = startNode(idx, null);
-
-        // TODO: Remove https://issues.apache.org/jira/browse/IGNITE-21181
-        if (forceAwait) {
-            try {
-                Thread.sleep(5_000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        return ignite;
-    }
-
-    /**
      * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
      */
     private List<IgniteImpl> startNodes(int amount) {
@@ -684,7 +677,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     public void emptyNodeTest() {
-        IgniteImpl ignite = startNode(0, false);
+        IgniteImpl ignite = startNode(0);
 
         int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
@@ -692,7 +685,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         stopNode(0);
 
-        ignite = startNode(0, false);
+        ignite = startNode(0);
 
         nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
@@ -714,11 +707,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19091")
     public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
-        IgniteImpl ignite1 = startNode(0, false);
+        IgniteImpl ignite1 = startNode(0);
 
         createTableWithoutData(ignite1, TABLE_NAME, 2, 1);
 
-        IgniteImpl ignite2 = startNode(1, false);
+        IgniteImpl ignite2 = startNode(1);
 
         String sql = "SELECT id FROM " + TABLE_NAME + " WHERE id > 0 ORDER BY id";
 
@@ -752,7 +745,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         stopNode(0);
 
-        ignite1 = startNode(0, true);
+        ignite1 = startNode(0);
 
         try (Session session1 = ignite1.sql().createSession()) {
             ResultSet<SqlRow> res3 = session1.execute(null, sql);
@@ -766,7 +759,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     public void changeConfigurationOnStartTest() {
-        IgniteImpl ignite = startNode(0, false);
+        IgniteImpl ignite = startNode(0);
 
         int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
@@ -790,7 +783,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     public void changeNodeAttributesConfigurationOnStartTest() {
-        IgniteImpl ignite = startNode(0, false);
+        IgniteImpl ignite = startNode(0);
 
         Map<String, String> attributes = new HashMap<>();
 
@@ -832,13 +825,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     public void nodeWithDataTest() {
-        IgniteImpl ignite = startNode(0, false);
+        IgniteImpl ignite = startNode(0);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 1);
 
         stopNode(0);
 
-        ignite = startNode(0, true);
+        ignite = startNode(0);
 
         checkTableWithData(ignite, TABLE_NAME);
     }
@@ -872,7 +865,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             forceSnapshotUsageOnRestart(main);
         }
 
-        IgniteImpl second = startNode(1, true);
+        IgniteImpl second = startNode(1);
 
         checkTableWithData(second, TABLE_NAME);
 
@@ -919,7 +912,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     public void nodeWithDataAndIndexRebuildTest() {
-        IgniteImpl ignite = startNode(0, false);
+        IgniteImpl ignite = startNode(0);
 
         int partitions = 20;
 
@@ -948,7 +941,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         stopNode(0);
 
-        ignite = startNode(0, true);
+        ignite = startNode(0);
 
         checkTableWithData(ignite, TABLE_NAME);
 
@@ -997,14 +990,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         Ignite ignite;
 
         if (directOrder) {
-            startNode(0, true);
-            ignite = startNode(1, true);
+            startNode(0);
+            ignite = startNode(1);
         } else {
             // Since the first node is the CMG leader, the second node can't be started synchronously (it won't be able to join the cluster
             // and the future will never resolve).
             CompletableFuture<Ignite> future = startNodeAsync(1, null);
 
-            startNode(0, true);
+            startNode(0);
 
             assertThat(future, willCompleteSuccessfully());
 
@@ -1044,9 +1037,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20137")
     public void testOneNodeRestartWithGap() {
-        IgniteImpl ignite = startNode(0, false);
+        IgniteImpl ignite = startNode(0);
 
-        startNode(1, false);
+        startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2);
 
@@ -1060,7 +1053,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
 
-        IgniteImpl ignite1 = startNode(1, false);
+        IgniteImpl ignite1 = startNode(1);
 
         TableManager tableManager = (TableManager) ignite1.tables();
 
@@ -1075,15 +1068,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     public void testRecoveryOnOneNode() {
-        IgniteImpl ignite = startNode(0, false);
+        IgniteImpl ignite = startNode(0);
 
-        IgniteImpl node = startNode(1, false);
+        IgniteImpl node = startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
 
         stopNode(1);
 
-        node = startNode(1, false);
+        node = startNode(1);
 
         TableManager tableManager = (TableManager) node.tables();
 
@@ -1105,7 +1098,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         stopNode(0);
         stopNode(1);
 
-        startNode(0, false);
+        startNode(0);
 
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
@@ -1219,7 +1212,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         log.info("Starting the node.");
 
-        IgniteImpl newNode = startNode(nodes.size() - 1, true);
+        IgniteImpl newNode = startNode(nodes.size() - 1);
 
         checkTableWithData(nodes.get(0), "t1");
         checkTableWithData(nodes.get(0), "t2");
@@ -1234,7 +1227,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     public void updateClusterCfgWithDefaultValue() {
-        IgniteImpl ignite = startNode(0, false);
+        IgniteImpl ignite = startNode(0);
 
         GcConfiguration gcConfiguration = ignite.clusterConfiguration()
                 .getConfiguration(GcConfiguration.KEY);
@@ -1269,7 +1262,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         inhibitor.stopInhibit();
 
-        IgniteImpl restartedNode = startNode(restartedNodeIndex, false);
+        IgniteImpl restartedNode = startNode(restartedNodeIndex);
 
         TableImpl table = (TableImpl) restartedNode.tables().table(TABLE_NAME);
 
@@ -1305,7 +1298,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         forceSnapshotUsageOnRestart(nodes.get(0));
 
-        IgniteImpl restartedNode = startNode(restartedNodeIndex, false);
+        IgniteImpl restartedNode = startNode(restartedNodeIndex);
 
         TableImpl table = (TableImpl) restartedNode.tables().table(TABLE_NAME);
 

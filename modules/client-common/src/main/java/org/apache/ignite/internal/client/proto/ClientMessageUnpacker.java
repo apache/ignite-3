@@ -694,6 +694,16 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads a nullable bit set.
+     *
+     * @return Bit set or null.
+     * @throws MessageTypeException when type is not BitSet.
+     */
+    public @Nullable BitSet unpackBitSetNullable() {
+        return tryUnpackNil() ? null : unpackBitSet();
+    }
+
+    /**
      * Reads an integer array.
      *
      * @return Integer array.
@@ -824,6 +834,30 @@ public class ClientMessageUnpacker implements AutoCloseable {
             return null;
         }
         return unpackInstant();
+    }
+
+    /**
+     * Reads a nullable byte.
+     *
+     * @return Byte value or {@code null}.
+     */
+    public @Nullable Byte unpackByteNullable() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+        return unpackByte();
+    }
+
+    /**
+     * Reads a nullable string.
+     *
+     * @return String value or {@code null}.
+     */
+    public @Nullable String unpackStringNullable() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+        return unpackString();
     }
 
     /**

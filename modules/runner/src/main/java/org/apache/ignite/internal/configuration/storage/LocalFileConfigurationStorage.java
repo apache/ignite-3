@@ -67,6 +67,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link ConfigurationStorage} based on local file configuration storage.
@@ -96,9 +97,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     private final AtomicReference<ConfigurationStorageListener> lsnrRef = new AtomicReference<>();
 
     /** Thread pool for configuration updates notifications. */
-    private final ExecutorService notificationsThreadPool = Executors.newFixedThreadPool(
-            2, new NamedThreadFactory("cfg-file", LOG)
-    );
+    private final ExecutorService notificationsThreadPool;
 
     /** Tracks all running futures. */
     private final InFlightFutures futureTracker = new InFlightFutures();
@@ -113,11 +112,28 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      * @param generator Configuration tree generator.
      * @param module Configuration module, which provides configuration patches.
      */
+    @TestOnly
     public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
+        this("test", configPath, generator, module);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param configPath Path to node bootstrap configuration file.
+     * @param generator Configuration tree generator.
+     * @param module Configuration module, which provides configuration patches.
+     */
+    public LocalFileConfigurationStorage(
+            String nodeName, Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
         this.module = module;
+
+        notificationsThreadPool = Executors.newFixedThreadPool(
+                2, NamedThreadFactory.create(nodeName, "cfg-file", LOG)
+        );
 
         checkAndRestoreConfigFile();
     }

@@ -53,7 +53,6 @@ public interface Mapper<T> {
      */
     static <O> Mapper<O> of(Class<O> type) {
         if (nativelySupported(type)) {
-            // TODO: Cache mappers (IGNITE-16094).
             return new OneColumnMapperImpl<>(type, null, null);
         } else {
             return builder(type).automap().build();

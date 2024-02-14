@@ -52,7 +52,8 @@ import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedCo
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
-import org.apache.ignite.internal.sql.engine.rel.IgnitePkLookup;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -179,7 +180,7 @@ public class PrepareServiceImpl implements PrepareService {
                 THREAD_TIMEOUT_MS,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, "sql-planning-pool"), LOG)
+                NamedThreadFactory.create(nodeName, "sql-planning-pool", LOG)
         );
 
         planningPool.allowCoreThreadTimeOut(true);
@@ -340,8 +341,12 @@ public class PrepareServiceImpl implements PrepareService {
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
 
-                if (clonedTree instanceof IgnitePkLookup) {
-                    return new KeyValueGetPlan(nextPlanId(), (IgnitePkLookup) clonedTree, resultSetMetadata, parameterMetadata);
+                if (clonedTree instanceof IgniteKeyValueGet) {
+                    int schemaVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+
+                    return new KeyValueGetPlan(
+                            nextPlanId(), schemaVersion, (IgniteKeyValueGet) clonedTree, resultSetMetadata, parameterMetadata
+                    );
                 }
 
                 return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
@@ -398,6 +403,14 @@ public class PrepareServiceImpl implements PrepareService {
                 // In order let GC collect that, let's reattach tree to an empty cluster
                 // before storing tree in plan cache
                 IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
+
+                if (clonedTree instanceof IgniteKeyValueModify) {
+                    int schemaVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+
+                    return new KeyValueModifyPlan(
+                            nextPlanId(), schemaVersion, (IgniteKeyValueModify) clonedTree, DML_METADATA, parameterMetadata
+                    );
+                }
 
                 return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA, parameterMetadata);
             }, planningPool));

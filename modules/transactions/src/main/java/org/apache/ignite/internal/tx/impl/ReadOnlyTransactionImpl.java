@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
@@ -27,7 +26,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -118,10 +116,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         observableTsTracker.update(executionTimestamp);
 
-        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()))
-                .thenRun(() -> txManager.updateTxMeta(
-                        id(),
-                        old -> new TxStateMeta(COMMITTED, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp())
-                ));
+        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
     }
 }

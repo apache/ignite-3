@@ -40,6 +40,8 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -105,6 +108,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -168,6 +172,7 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tostring.S;
@@ -363,6 +368,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Configuration for {@link StorageUpdateHandler}. */
     private final StorageUpdateConfiguration storageUpdateConfig;
 
+    /** Marshallers provider. */
+    private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
     /**
      * Creates a new table manager.
      *
@@ -379,10 +387,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param schemaManager Schema manager.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *         volatile tables.
+     * @param ioExecutor Separate executor for IO operations like partition storage initialization or partition raft group meta data
+     *     persisting.
+     * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
+     *     will be executed.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
+     * @param failureProcessor Failure processor that is used to process critical errors.
      */
     public TableManager(
             String nodeName,
@@ -400,6 +413,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
+            ExecutorService ioExecutor,
             StripedThreadPoolExecutor partitionOperationsExecutor,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
@@ -410,7 +424,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogService catalogService,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
-            Supplier<IgniteSql> sql
+            Supplier<IgniteSql> sql,
+            FailureProcessor failureProcessor
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -422,6 +437,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
+        this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
@@ -462,20 +478,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 NamedThreadFactory.create(nodeName, "tx-state-storage-pool", LOG));
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
-                NamedThreadFactory.create(nodeName, "scan-query-executor-", LOG));
+                IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
         int cpus = Runtime.getRuntime().availableProcessors();
-
-        ioExecutor = new ThreadPoolExecutor(
-                Math.min(cpus * 3, 25),
-                Integer.MAX_VALUE,
-                100,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "tableManager-io", LOG));
 
         incomingSnapshotsExecutor = new ThreadPoolExecutor(
                 cpus,
@@ -483,7 +491,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
+                IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
@@ -494,7 +502,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         mvGc = new MvGc(nodeName, gcConfig);
 
-        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
+        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc, failureProcessor);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 
@@ -1072,7 +1080,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 lowWatermark,
                 mvGc,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),
@@ -1231,7 +1238,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 placementDriver
         );
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions, sql.get());
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get());
 
         // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));
@@ -1255,7 +1262,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
-                (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenCompose(newAssignments -> {
+                (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
@@ -1271,7 +1278,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         return newValue;
                     });
-                })));
+                }, ioExecutor)));
 
         // We bring the future outside to avoid OutdatedTokenException.
         CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
@@ -1405,9 +1412,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             // TODO: IGNITE-18703 Destroy raft log and meta
             CompletableFuture<Void> destroyTableStoragesFuture = allOf(stopReplicaFutures)
-                    .thenCompose(unused -> allOf(
-                            internalTable.storage().destroy(),
-                            runAsync(() -> internalTable.txStateStorage().destroy(), ioExecutor))
+                    .thenComposeAsync(
+                            unused -> allOf(
+                                    internalTable.storage().destroy(),
+                                    runAsync(() -> internalTable.txStateStorage().destroy(), ioExecutor)
+                            ),
+                            ioExecutor
                     );
 
             CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId());
@@ -1923,7 +1933,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionUpdateHandlers.storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                storageIndexTracker
+                storageIndexTracker,
+                catalogService
         );
 
         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
@@ -2195,7 +2206,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 
                     return stopPartition(tablePartitionId, table)
-                            .thenCompose(v -> destroyPartitionStorages(tablePartitionId, table));
+                            .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
                 });
     }
 

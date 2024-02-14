@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
@@ -47,8 +48,9 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
     @Test
     public void plannerCacheStatisticsTest() throws Exception {
         MetricManager metricManager = new MetricManager();
-        PrepareService prepareService = new PrepareServiceImpl("test", 2, CaffeineCacheFactory.INSTANCE,
-                null, 15_000L, 2, metricManager);
+        // Run clean up tasks in the current thread, so no eviction event is delayed.
+        CacheFactory cacheFactory = CaffeineCacheFactory.create(Runnable::run);
+        PrepareService prepareService = new PrepareServiceImpl("test", 2, cacheFactory, null, 15_000L, 2, metricManager);
 
         prepareService.start();
 

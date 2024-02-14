@@ -248,6 +248,9 @@ public class ClientUtils {
             case ClientOp.SQL_QUERY_META:
                 return null;
 
+            case ClientOp.STREAMER_BATCH_SEND:
+                return ClientOperationType.STREAMER_BATCH_SEND;
+
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
                 throw new UnsupportedOperationException("Invalid op code: " + opCode);
