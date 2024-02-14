@@ -21,15 +21,12 @@ import static java.util.Collections.unmodifiableMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_CLOSE_ERR;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteUuid;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteException;
 
