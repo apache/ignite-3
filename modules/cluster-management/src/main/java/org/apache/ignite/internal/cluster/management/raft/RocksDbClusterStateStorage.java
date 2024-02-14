@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.file.Path;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -100,7 +102,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public void put(byte[] key, byte[] value) {
-        try {
+        try (TraceSpan ignored = span("rocksDbClusterStateStoragePut")) {
             db.put(key, value);
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to put data into Rocks DB", e);
@@ -121,7 +123,9 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
             batch.put(key, value);
 
-            db.write(options, batch);
+            try (TraceSpan ignored = span("RocksDB write")) {
+                db.write(options, batch);
+            }
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to replace data in Rocks DB", e);
         }
@@ -146,7 +150,9 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
                 batch.delete(key);
             }
 
-            db.write(options, batch);
+            try (TraceSpan ignored = span("RocksDB write")) {
+                db.write(options, batch);
+            }
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to remove data from Rocks DB", e);
         }

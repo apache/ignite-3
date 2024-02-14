@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -111,7 +114,9 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        partitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+        try (TraceSpan ignored = span("lastApplied")) {
+            partitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+        }
     }
 
     @Override
@@ -130,9 +135,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs)
             throws TxIdMismatchException, StorageException {
-        handleSnapshotInterference(rowId);
+        try (TraceSpan ignored = span("addWriteCommitted")) {
+            handleSnapshotInterference(rowId);
 
-        partitionStorage.addWriteCommitted(rowId, row, commitTs);
+            partitionStorage.addWriteCommitted(rowId, row, commitTs);
+        }
     }
 
     @Override
@@ -144,9 +151,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        handleSnapshotInterference(rowId);
+        try (TraceSpan ignored = span("commitWrite")) {
+            handleSnapshotInterference(rowId);
 
-        partitionStorage.commitWrite(rowId, timestamp);
+            partitionStorage.commitWrite(rowId, timestamp);
+        }
     }
 
     @Override

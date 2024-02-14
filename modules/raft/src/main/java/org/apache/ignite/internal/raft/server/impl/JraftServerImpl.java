@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.server.impl;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.File;
@@ -673,7 +674,9 @@ public class JraftServerImpl implements RaftServer {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
 
-                        WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
+                        WriteCommand command = done == null
+                                ? spanWithResult("unmarshall", (span) -> marshaller.unmarshall(data))
+                                : done.command();
 
                         long commandIndex = iter.getIndex();
                         long commandTerm = iter.getTerm();

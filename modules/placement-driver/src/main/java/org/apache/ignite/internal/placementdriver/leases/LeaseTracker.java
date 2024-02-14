@@ -238,7 +238,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
-        return spanWithResult("LeaseTracker.awaitPrimaryReplica", span -> {
+        return spanWithResult("awaitPrimaryReplica", span -> {
             return inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
                     .orTimeout(timeout, unit)
                     .exceptionally(e -> {
@@ -254,7 +254,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        return spanWithResult("LeaseTracker.getPrimaryReplica", span -> {
+        return spanWithResult("getPrimaryReplica", span -> {
             return inBusyLockAsync(busyLock, () -> {
                 Lease lease = getLease(replicationGroupId);
 

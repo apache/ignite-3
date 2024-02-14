@@ -56,6 +56,7 @@ dependencies {
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.opentelemetry.instrumentation.annotations
 }

@@ -21,11 +21,11 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tracing.TracingManager.wrap;
+import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
@@ -82,6 +82,7 @@ import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
@@ -283,7 +284,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
         try (var txSpan = asyncSpan("tx operation")) {
-            return spanWithResult("TxManagerImpl.begin", (span) -> {
+            return spanWithResult("beginTransaction", (span) -> {
                 span.addAttribute("timestampTracker", timestampTracker::toString);
                 span.addAttribute("readOnly", () -> String.valueOf(readOnly));
 
@@ -357,19 +358,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
-        TxState finalState;
+        try (TraceSpan ignored = span("finishFull")) {
+            TxState finalState;
 
-        if (commit) {
-            timestampTracker.update(clock.now());
+            if (commit) {
+                timestampTracker.update(clock.now());
 
-            finalState = COMMITTED;
-        } else {
-            finalState = ABORTED;
+                finalState = COMMITTED;
+            } else {
+                finalState = ABORTED;
+            }
+
+            updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
+
+            decrementRwTxCount(txId);
         }
-
-        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
-
-        decrementRwTxCount(txId);
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {

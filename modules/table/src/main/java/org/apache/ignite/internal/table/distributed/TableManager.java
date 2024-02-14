@@ -1586,7 +1586,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
     private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
-        return spanWithResult("TableManager.tableAsyncInternal", (span) ->
+        return spanWithResult("tableAsync", (span) ->
                 inBusyLockAsync(busyLock, () -> {
                     HybridTimestamp now = clock.now();
 

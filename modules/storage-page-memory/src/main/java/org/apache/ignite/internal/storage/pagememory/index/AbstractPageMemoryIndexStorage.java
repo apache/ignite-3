@@ -21,6 +21,7 @@ package org.apache.ignite.internal.storage.pagememory.index;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuiltInvokeClosure;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -245,12 +247,14 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public boolean hasNext() {
-            return busy(() -> {
-                try {
-                    return advanceIfNeededBusy();
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Error while advancing the cursor", e);
-                }
+            return spanWithResult("hasNextPageMemoryIndexStorage", (span) -> {
+                return busy(() -> {
+                    try {
+                        return advanceIfNeededBusy();
+                    } catch (IgniteInternalCheckedException e) {
+                        throw new StorageException("Error while advancing the cursor", e);
+                    }
+                });
             });
         }
 

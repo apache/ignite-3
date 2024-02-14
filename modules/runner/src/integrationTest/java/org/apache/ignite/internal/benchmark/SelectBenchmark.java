@@ -179,8 +179,9 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for KV get via embedded client.
      */
     @Benchmark
+    @BenchmarkMode(Mode.SingleShotTime)
     public void kvGetWithTracing() {
-        rootSpan("get", (parentSpan) -> {
+        rootSpan("kvGetBenchmark", (parentSpan) -> {
             keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
 
             return null;
@@ -201,7 +202,8 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + SelectBenchmark.class.getSimpleName() + ".kvGet*")
+                .include(".*" + SelectBenchmark.class.getSimpleName() + ".kvGetWithTracing*")
+                .param("clusterSize", "1")
                 .param("fsync", "false")
                 .build();
 

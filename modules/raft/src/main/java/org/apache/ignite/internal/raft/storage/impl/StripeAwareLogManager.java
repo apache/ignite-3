@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -225,7 +228,9 @@ public class StripeAwareLogManager extends LogManagerImpl {
 
             // At first, all log storages should prepare the data by adding it to the write batch in the log storage factory.
             for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
-                appendBatcher.appendToStorage();
+                try (TraceSpan ignored = span("StripeAwareAppendBatcher#appendToStorage")) {
+                    appendBatcher.appendToStorage();
+                }
             }
 
             if (!appendBatchers.isEmpty()) {
@@ -234,7 +239,7 @@ public class StripeAwareLogManager extends LogManagerImpl {
                 // which makes it far easier to use in current jraft code.
                 // The reason why we don't call this method on log factory, for example, is because the factory doesn't have proper access
                 // to the RAFT configuration, and can't say, whether it should use "fsync" or not, for example.
-                try {
+                try (TraceSpan ignored = span("StripeAwareAppendBatcher#commitWriteBatch")) {
                     appendBatchers.iterator().next().commitWriteBatch();
                 } catch (Exception e) {
                     LOG.error("**Critical error**, failed to appendEntries.", e);
@@ -249,7 +254,9 @@ public class StripeAwareLogManager extends LogManagerImpl {
 
             // When data is committed, we can notify all stable closures and send response messages.
             for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
-                appendBatcher.notifyClosures();
+                try (TraceSpan ignored = span("StripeAwareAppendBatcher#notifyClosures")) {
+                    appendBatcher.notifyClosures();
+                }
             }
 
             appendBatchers.clear();

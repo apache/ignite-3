@@ -17,9 +17,11 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.internal.tracing.TracingManager;import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -42,7 +44,7 @@ public class InterceptingActionRequestProcessor extends ActionRequestProcessor {
 
     @Override
     protected void handleRequestInternal(RpcContext rpcCtx, Node node, ActionRequest request, Marshaller commandsMarshaller) {
-        Message interceptionResult = interceptor.intercept(rpcCtx, request, commandsMarshaller);
+        Message interceptionResult = spanWithResult("intercept", (span) -> interceptor.intercept(rpcCtx, request, commandsMarshaller));
 
         if (interceptionResult != null) {
             rpcCtx.sendResponse(interceptionResult);

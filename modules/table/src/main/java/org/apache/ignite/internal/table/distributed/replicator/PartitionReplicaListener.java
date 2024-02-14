@@ -988,8 +988,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? nullCompletedFuture()
-                : safeTime.waitFor(request.readTimestamp());
+        CompletableFuture<Void> safeReadFuture = spanWithResult("safeReadFuture", (span) -> isPrimaryInTimestamp(isPrimary, readTimestamp)
+                ? nullCompletedFuture() : safeTime.waitFor(request.readTimestamp()));
 
         return safeReadFuture.thenCompose(unused -> resolveRowByPkForReadOnly(primaryKey, readTimestamp));
     }
@@ -3136,8 +3136,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param <T> Type of the {@code result}.
      */
     private <T> CompletableFuture<T> awaitCleanup(@Nullable RowId rowId, T result) {
-        return (rowId == null ? nullCompletedFuture() : rowCleanupMap.getOrDefault(rowId, nullCompletedFuture()))
-                .thenApply(ignored -> result);
+        return spanWithResult("awaitCleanup", (span) -> (rowId == null ? nullCompletedFuture() : rowCleanupMap.getOrDefault(rowId, nullCompletedFuture()))
+                .thenApply(ignored -> result));
     }
 
     /**
@@ -3182,7 +3182,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private BinaryTuple resolvePk(ByteBuffer bytes) {
-        return pkIndexStorage.get().resolve(bytes);
+        return spanWithResult("resolvePk", (span) -> pkIndexStorage.get().resolve(bytes));
     }
 
     private List<BinaryTuple> resolvePks(List<ByteBuffer> bytesList) {
@@ -3591,7 +3591,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Boolean> resolveWriteIntentReadability(ReadResult writeIntent, @Nullable HybridTimestamp timestamp) {
         UUID txId = writeIntent.transactionId();
 
-        return transactionStateResolver.resolveTxState(
+        return spanWithResult("resolveWriteIntentReadability", (span) -> transactionStateResolver.resolveTxState(
                         txId,
                         new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
                         timestamp)
@@ -3601,7 +3601,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return canReadFromWriteIntent(txId, transactionMeta, timestamp);
-                });
+                }));
     }
 
     /**
@@ -3649,7 +3649,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Integer> validateWriteAgainstSchemaAfterTakingLocks(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
-        return spanWithResult("PartitionReplicaListener.validateWriteAgainstSchemaAfterTakingLocks", (span) -> {
+        return spanWithResult("validateWriteAgainstSchemaAfterTakingLocks", (span) -> {
             return reliableCatalogVersionFor(operationTimestamp)
                     .thenApply(catalogVersion -> {
                         failIfSchemaChangedSinceTxStart(txId, operationTimestamp);

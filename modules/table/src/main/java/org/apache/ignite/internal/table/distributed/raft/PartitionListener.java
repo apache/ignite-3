@@ -67,6 +67,7 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -566,7 +567,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             PendingComparableValuesTracker<T, Void> tracker,
             T newValue
     ) {
-        try {
+        try (TraceSpan ignored = span("updateTrackerIgnoringTrackerClosedException")) {
             tracker.update(newValue, null);
         } catch (TrackerClosedException ignored) {
             // No-op.

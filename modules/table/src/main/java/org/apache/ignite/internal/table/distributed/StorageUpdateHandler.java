@@ -211,7 +211,7 @@ public class StorageUpdateHandler {
             return;
         }
 
-        span("StorageUpdateHandler.performStorageCleanupIfNeeded", (span) -> {
+        span("performStorageCleanupIfNeeded", (span) -> {
             try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
                 // Okay, lastCommitTs is not null. It means that we are changing the previously committed data.
                 // However, we could have previously called cleanup for the same row.
@@ -267,7 +267,7 @@ public class StorageUpdateHandler {
      * @param previousRow Previous write value.
      */
     private void tryRemovePreviousWritesIndex(RowId rowId, BinaryRow previousRow) {
-        span("StorageUpdateHandler.tryRemovePreviousWritesIndex", (span) -> {
+        span("tryRemovePreviousWritesIndex", (span) -> {
             try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
                 if (!cursor.hasNext()) {
                     return;

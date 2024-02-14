@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import com.lmax.disruptor.EventHandler;
+import static org.apache.ignite.internal.tracing.TracingManager.span;import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
@@ -291,61 +291,62 @@ public class LogManagerImpl implements LogManager {
     @Override
     public void appendEntries(final List<LogEntry> entries, final StableClosure done) {
         assert(done != null);
-
-        Requires.requireNonNull(done, "done");
-        if (this.hasError) {
-            entries.clear();
-            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.EIO, "Corrupted LogStorage"));
-            return;
-        }
-        boolean doUnlock = true;
-        this.writeLock.lock();
-        try {
-            if (!entries.isEmpty() && !checkAndResolveConflict(entries, done, this.writeLock)) {
-                // If checkAndResolveConflict returns false, the done will be called in it.
+        span("appendEntries", (span) -> {
+            Requires.requireNonNull(done, "done");
+            if (this.hasError) {
                 entries.clear();
+                Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.EIO, "Corrupted LogStorage"));
                 return;
             }
-            for (int i = 0; i < entries.size(); i++) {
-                final LogEntry entry = entries.get(i);
-                // Set checksum after checkAndResolveConflict
-                if (this.raftOptions.isEnableLogEntryChecksum()) {
-                    entry.setChecksum(entry.checksum());
+            boolean doUnlock = true;
+            this.writeLock.lock();
+            try {
+                if (!entries.isEmpty() && !checkAndResolveConflict(entries, done, this.writeLock)) {
+                    // If checkAndResolveConflict returns false, the done will be called in it.
+                    entries.clear();
+                    return;
                 }
-                if (entry.getType() == EntryType.ENTRY_TYPE_CONFIGURATION) {
-                    Configuration oldConf = new Configuration();
-                    if (entry.getOldPeers() != null) {
-                        oldConf = new Configuration(entry.getOldPeers(), entry.getOldLearners());
+                for (int i = 0; i < entries.size(); i++) {
+                    final LogEntry entry = entries.get(i);
+                    // Set checksum after checkAndResolveConflict
+                    if (this.raftOptions.isEnableLogEntryChecksum()) {
+                        entry.setChecksum(entry.checksum());
                     }
-                    final ConfigurationEntry conf = new ConfigurationEntry(entry.getId(),
-                        new Configuration(entry.getPeers(), entry.getLearners()), oldConf);
-                    this.configManager.add(conf);
+                    if (entry.getType() == EntryType.ENTRY_TYPE_CONFIGURATION) {
+                        Configuration oldConf = new Configuration();
+                        if (entry.getOldPeers() != null) {
+                            oldConf = new Configuration(entry.getOldPeers(), entry.getOldLearners());
+                        }
+                        final ConfigurationEntry conf = new ConfigurationEntry(entry.getId(),
+                            new Configuration(entry.getPeers(), entry.getLearners()), oldConf);
+                        this.configManager.add(conf);
+                    }
+                }
+                if (!entries.isEmpty()) {
+                    done.setFirstLogIndex(entries.get(0).getId().getIndex());
+                    this.logsInMemory.addAll(entries);
+                }
+                done.setEntries(entries);
+
+                doUnlock = false;
+                if (!wakeupAllWaiter(this.writeLock)) {
+                    notifyLastLogIndexListeners();
+                }
+
+                // publish event out of lock
+                this.diskQueue.publishEvent((event, sequence) -> {
+                  event.reset();
+                  event.nodeId = this.nodeId;
+                  event.type = EventType.OTHER;
+                  event.done = done;
+                });
+            }
+            finally {
+                if (doUnlock) {
+                    this.writeLock.unlock();
                 }
             }
-            if (!entries.isEmpty()) {
-                done.setFirstLogIndex(entries.get(0).getId().getIndex());
-                this.logsInMemory.addAll(entries);
-            }
-            done.setEntries(entries);
-
-            doUnlock = false;
-            if (!wakeupAllWaiter(this.writeLock)) {
-                notifyLastLogIndexListeners();
-            }
-
-            // publish event out of lock
-            this.diskQueue.publishEvent((event, sequence) -> {
-              event.reset();
-              event.nodeId = this.nodeId;
-              event.type = EventType.OTHER;
-              event.done = done;
-            });
-        }
-        finally {
-            if (doUnlock) {
-                this.writeLock.unlock();
-            }
-        }
+        });
     }
 
     /**

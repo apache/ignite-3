@@ -115,10 +115,10 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         observableTsTracker.update(executionTimestamp);
 
-        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()))
+        return traceSpan.endWhenComplete(((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()))
                 .thenRun(() -> txManager.updateTxMeta(
                         id(),
                         old -> new TxStateMeta(COMMITTED, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp())
-                ));
+                )));
     }
 }

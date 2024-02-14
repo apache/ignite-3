@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.Externalizable;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DeclaredType;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
@@ -107,18 +110,20 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     /** {@inheritDoc} */
     @Override
     public MarshalledObject marshal(@Nullable Object object) throws MarshalException {
-        MarshallingContext context = new MarshallingContext();
+        try (TraceSpan ignored = span("marshalUserObject")) {
+            MarshallingContext context = new MarshallingContext();
 
-        UosIgniteOutputStream output = freshByteArrayOutputStream();
-        try {
-            marshalShared(object, output, context);
-        } catch (IOException e) {
-            throw new MarshalException("Cannot marshal", e);
-        } finally {
-            output.release();
+            UosIgniteOutputStream output = freshByteArrayOutputStream();
+            try {
+                marshalShared(object, output, context);
+            } catch (IOException e) {
+                throw new MarshalException("Cannot marshal", e);
+            } finally {
+                output.release();
+            }
+
+            return new MarshalledObject(output.array(), context.usedDescriptorIds());
         }
-
-        return new MarshalledObject(output.array(), context.usedDescriptorIds());
     }
 
     private UosIgniteOutputStream freshByteArrayOutputStream() {
@@ -274,7 +279,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     public <T> T unmarshal(byte[] bytes, Object mergedDescriptors) throws UnmarshalException {
         var input = new IgniteUnsafeDataInput(bytes);
 
-        try {
+        try (TraceSpan ignored = span("unmarshalUserObject")) {
             UnmarshallingContext context = new UnmarshallingContext(input, (DescriptorRegistry) mergedDescriptors, classLoader);
             T result = unmarshalShared(input, context);
 

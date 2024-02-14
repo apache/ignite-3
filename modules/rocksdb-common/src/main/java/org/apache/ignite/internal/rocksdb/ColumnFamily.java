@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.rocksdb;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -116,7 +119,9 @@ public class ColumnFamily {
      * @see RocksDB#put(ColumnFamilyHandle, byte[], byte[])
      */
     public void put(byte[] key, byte[] value) throws RocksDBException {
-        db.put(cfHandle, key, value);
+        try (TraceSpan ignored = span("columnFamilyPut")) {
+            db.put(cfHandle, key, value);
+        }
     }
 
     /**

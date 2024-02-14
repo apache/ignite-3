@@ -504,7 +504,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
             return null;
         }
 
-        return TableRow.valueTuple(rowConverter.resolveRow(row, schemaVersion));
+        return spanWithResult("unmarshalValue", (span) -> TableRow.valueTuple(rowConverter.resolveRow(row, schemaVersion)));
     }
 
     /**

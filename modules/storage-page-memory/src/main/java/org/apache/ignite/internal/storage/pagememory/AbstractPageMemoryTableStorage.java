@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -227,7 +229,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             return clearStorageAndUpdateDataStructures(mvPartitionStorage)
                     .thenAccept(unused ->
                             mvPartitionStorage.runConsistently(locker -> {
-                                mvPartitionStorage.lastAppliedOnRebalance(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+                                try (TraceSpan ignored = span("startRebalancePartitoins")) {
+                                    mvPartitionStorage.lastAppliedOnRebalance(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+                                }
 
                                 return null;
                             })
@@ -241,7 +245,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 clearStorageAndUpdateDataStructures(mvPartitionStorage)
                         .thenAccept(unused -> {
                             mvPartitionStorage.runConsistently(locker -> {
-                                mvPartitionStorage.lastAppliedOnRebalance(0, 0);
+                                try (TraceSpan ignored = span("abortRebalancePartitions")) {
+                                    mvPartitionStorage.lastAppliedOnRebalance(0, 0);
+                                }
 
                                 return null;
                             });
@@ -260,9 +266,11 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     ) {
         return inBusyLock(busyLock, () -> mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.runConsistently(locker -> {
-                mvPartitionStorage.lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
+                try (TraceSpan ignored = span("finishRebalancePartitions")) {
+                    mvPartitionStorage.lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
 
-                mvPartitionStorage.committedGroupConfigurationOnRebalance(groupConfig);
+                    mvPartitionStorage.committedGroupConfigurationOnRebalance(groupConfig);
+                }
 
                 return null;
             });

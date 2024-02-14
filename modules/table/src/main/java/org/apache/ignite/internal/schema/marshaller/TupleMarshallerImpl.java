@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -105,8 +106,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
         try {
-            InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
-            InternalTuple valTuple0 = toInternalTuple(schema, valTuple, false);
+            InternalTuple keyTuple0 = spanWithResult("keyMarshaller", (span) -> toInternalTuple(schema, keyTuple, true));
+            InternalTuple valTuple0 = spanWithResult("valueMarshaller", (span) -> toInternalTuple(schema, valTuple, false));
 
             if (keyTuple0.knownColumns() != keyTuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -120,7 +121,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                                 schema.version(), extraColumnNames(valTuple, false, schema)));
             }
 
-            return buildRow(schema, keyTuple0, valTuple0);
+            return spanWithResult("buildRow", (span) -> buildRow(schema, keyTuple0, valTuple0));
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }

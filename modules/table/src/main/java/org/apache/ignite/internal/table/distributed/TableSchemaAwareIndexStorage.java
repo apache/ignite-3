@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -27,6 +30,7 @@ import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -78,9 +82,11 @@ public class TableSchemaAwareIndexStorage {
      * @param rowId An identifier of a row in a main storage.
      */
     public void put(BinaryRow binaryRow, RowId rowId) {
-        BinaryTuple tuple = indexRowResolver.extractColumns(binaryRow);
+        BinaryTuple tuple = spanWithResult("extractColumns", (span) -> indexRowResolver.extractColumns(binaryRow));
 
-        storage.put(new IndexRowImpl(tuple, rowId));
+        try (TraceSpan ignored = span("putIndex")) {
+            storage.put(new IndexRowImpl(tuple, rowId));
+        }
     }
 
     /**

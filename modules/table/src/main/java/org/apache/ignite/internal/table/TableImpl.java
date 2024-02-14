@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
@@ -312,13 +314,15 @@ public class TableImpl implements TableViewInternal {
     }
 
     private void awaitIndexes() {
-        List<CompletableFuture<?>> toWait = new ArrayList<>();
+        try (TraceSpan ignored = span("awaitIndexes")) {
+            List<CompletableFuture<?>> toWait = new ArrayList<>();
 
-        toWait.add(pkId);
+            toWait.add(pkId);
 
-        toWait.addAll(indexesToWait.values());
+            toWait.addAll(indexesToWait.values());
 
-        allOf(toWait.toArray(CompletableFuture[]::new)).join();
+            allOf(toWait.toArray(CompletableFuture[]::new)).join();
+        }
     }
 
     /**

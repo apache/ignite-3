@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.util.List;
+import static org.apache.ignite.internal.tracing.TracingManager.span;import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -26,7 +26,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tracing.TracingManager;import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.internal.tracing.TracingManager;import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -181,8 +181,12 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
-            try {
-                executor.execute(() -> finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message));
+            try (TraceSpan span = span("executorDelay")) {
+                executor.execute(() -> {
+                    span.close();
+
+                    finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message);
+                });
             } catch (RejectedExecutionException e) {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
                 LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());

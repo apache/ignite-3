@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.US_ASCII;import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +30,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -287,7 +287,9 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             final byte[] vs = new byte[8];
             Bits.putLong(vs, 0, firstLogIndex);
             checkState();
-            this.db.put(this.confHandle, this.writeOptions, FIRST_LOG_IDX_KEY, vs);
+            try (TraceSpan ignored = span("saveFirstLogIndex")) {
+                this.db.put(this.confHandle, this.writeOptions, FIRST_LOG_IDX_KEY, vs);
+            }
             return true;
         }
         catch (final RocksDBException e) {
@@ -331,7 +333,9 @@ public class RocksDBLogStorage implements LogStorage, Describer {
         }
         try (final WriteBatch batch = new WriteBatch()) {
             template.execute(batch);
-            this.db.write(this.writeOptions, batch);
+            try (TraceSpan ignored = span("execute batch")) {
+                this.db.write(this.writeOptions, batch);
+            }
         }
         catch (final RocksDBException e) {
             LOG.error("Execute batch failed with rocksdb exception.", e);
@@ -517,7 +521,9 @@ public class RocksDBLogStorage implements LogStorage, Describer {
                 final byte[] valueBytes = this.logEntryEncoder.encode(entry);
                 final byte[] newValueBytes = onDataAppend(logIndex, valueBytes, writeCtx);
                 writeCtx.startJob();
-                this.db.put(this.defaultHandle, this.writeOptions, getKeyBytes(logIndex), newValueBytes);
+                try (TraceSpan ignored = span("appendEntry")) {
+                    this.db.put(this.defaultHandle, this.writeOptions, getKeyBytes(logIndex), newValueBytes);
+                }
                 writeCtx.joinAll();
                 if (newValueBytes != valueBytes) {
                     doSync();

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PART
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -237,7 +239,9 @@ public class RocksDbTableStorage implements MvTableStorage {
             SharedRocksDbInstance.deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_META_PREFIX, tableId));
             SharedRocksDbInstance.deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_CONF_PREFIX, tableId));
 
-            rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+            try (TraceSpan ignored = span("destroyTableData")) {
+                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+            }
         } catch (RocksDBException e) {
             throw new StorageException("Failed to destroy table data. [tableId={}]", e, getTableId());
         }
@@ -255,7 +259,9 @@ public class RocksDbTableStorage implements MvTableStorage {
             if (partition.lastAppliedIndex() == 0L) {
                 // Explicitly save meta-information about partition's creation.
                 partition.runConsistently(locker -> {
-                    partition.lastApplied(partition.lastAppliedIndex(), partition.lastAppliedTerm());
+                    try (TraceSpan ignored = span("createMvPartition")) {
+                        partition.lastApplied(partition.lastAppliedIndex(), partition.lastAppliedTerm());
+                    }
 
                     return null;
                 });
@@ -288,7 +294,9 @@ public class RocksDbTableStorage implements MvTableStorage {
                     sortedIndex.destroy(partitionId, writeBatch);
                 }
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("destroyPartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return awaitFlush(true);
             } catch (RocksDBException e) {
@@ -387,7 +395,9 @@ public class RocksDbTableStorage implements MvTableStorage {
                 getHashIndexStorages(partitionId).forEach(index -> index.startRebalance(writeBatch));
                 getSortedIndexStorages(partitionId).forEach(index -> index.startRebalance(writeBatch));
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("startRebalancePartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
@@ -409,7 +419,9 @@ public class RocksDbTableStorage implements MvTableStorage {
                 getHashIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
                 getSortedIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("abortRebalancePartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
@@ -435,7 +447,9 @@ public class RocksDbTableStorage implements MvTableStorage {
                 getHashIndexStorages(partitionId).forEach(RocksDbHashIndexStorage::finishRebalance);
                 getSortedIndexStorages(partitionId).forEach(RocksDbSortedIndexStorage::finishRebalance);
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("finishRebalancePartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
@@ -464,7 +478,9 @@ public class RocksDbTableStorage implements MvTableStorage {
                     sortedIndexStorage.startCleanup(writeBatch);
                 }
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                try (TraceSpan ignored = span("clearPartition")) {
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                }
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {

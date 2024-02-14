@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -206,10 +207,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return busy(() -> hashIndexes.computeIfAbsent(
-                indexDescriptor.id(),
-                id -> createOrRestoreHashIndex(createIndexMetaForNewIndex(id), indexDescriptor))
-        );
+        return spanWithResult("getOrCreateHashIndex", (span) -> {
+            return busy(() -> hashIndexes.computeIfAbsent(
+                    indexDescriptor.id(),
+                    id -> createOrRestoreHashIndex(createIndexMetaForNewIndex(id), indexDescriptor))
+            );
+        });
     }
 
     /**
@@ -218,10 +221,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return busy(() -> sortedIndexes.computeIfAbsent(
-                indexDescriptor.id(),
-                id -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(id), indexDescriptor))
-        );
+        return spanWithResult("getOrCreateSortedIndex", (span) -> {
+            return busy(() -> sortedIndexes.computeIfAbsent(
+                    indexDescriptor.id(),
+                    id -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(id), indexDescriptor))
+            );
+        });
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta, StorageHashIndexDescriptor indexDescriptor) {
@@ -321,24 +326,27 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
+        return spanWithResult("readPageMemory", (span) -> {
+            return busy(() -> {
+                throwExceptionIfStorageNotInRunnableState();
 
-            if (rowId.partitionId() != partitionId) {
-                throw new IllegalArgumentException(
-                        String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
-            }
-
-            return findVersionChain(rowId, versionChain -> {
-                if (versionChain == null) {
-                    return ReadResult.empty(rowId);
+                if (rowId.partitionId() != partitionId) {
+                    throw new IllegalArgumentException(
+                            String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(),
+                                    partitionId));
                 }
 
-                if (lookingForLatestVersion(timestamp)) {
-                    return findLatestRowVersion(versionChain);
-                } else {
-                    return findRowVersionByTimestamp(versionChain, timestamp);
-                }
+                return findVersionChain(rowId, versionChain -> {
+                    if (versionChain == null) {
+                        return ReadResult.empty(rowId);
+                    }
+
+                    if (lookingForLatestVersion(timestamp)) {
+                        return findLatestRowVersion(versionChain);
+                    } else {
+                        return findRowVersionByTimestamp(versionChain, timestamp);
+                    }
+                });
             });
         });
     }
