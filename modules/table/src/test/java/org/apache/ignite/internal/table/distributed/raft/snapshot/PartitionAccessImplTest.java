@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
+import static org.apache.ignite.internal.tx.TransactionIds.transactionId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -146,7 +148,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         RowId rowId = new RowId(TEST_PARTITION_ID);
         BinaryRow binaryRow = mock(BinaryRow.class);
-        UUID txId = UUID.randomUUID();
+        UUID txId = transactionId(hybridTimestamp(System.currentTimeMillis()), 1);
         int commitTableId = 999;
         int snapshotCatalogVersion = 666;
         HybridTimestamp beginTs = beginTimestamp(txId);

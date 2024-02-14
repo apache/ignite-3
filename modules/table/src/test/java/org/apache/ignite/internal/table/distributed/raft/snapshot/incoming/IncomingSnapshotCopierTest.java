@@ -93,6 +93,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -131,7 +132,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             new Column[]{new Column("value", NativeTypes.stringOf(256), false)}
     );
 
-    private static final HybridClock HYBRID_CLOCK = new HybridClockImpl();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
 
@@ -338,10 +339,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             for (int i = 0; i < rowIds.size(); i++) {
                 if (i % 2 == 0) {
                     // Writes committed version.
-                    storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), HYBRID_CLOCK.now());
+                    storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), CLOCK.now());
                 } else {
                     // Writes an intent to write (uncommitted version).
-                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), UUID.randomUUID(), 999, TEST_PARTITION);
+                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), generateTxId(), 999, TEST_PARTITION);
                 }
             }
 
@@ -364,7 +365,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState, HYBRID_CLOCK.now()));
+            storage.put(txIds.get(i), new TxMeta(txState, CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -660,10 +661,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private static List<UUID> generateTxIds() {
         return List.of(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID()
+                generateTxId(),
+                generateTxId(),
+                generateTxId(),
+                generateTxId()
         );
     }
 
@@ -732,5 +733,9 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         assertFalse(incomingMvPartitionStorage.scan(HybridTimestamp.MAX_VALUE).hasNext());
         assertFalse(incomingTxStatePartitionStorage.scan().hasNext());
+    }
+
+    private static UUID generateTxId() {
+        return TransactionIds.transactionId(CLOCK.now(), 1);
     }
 }

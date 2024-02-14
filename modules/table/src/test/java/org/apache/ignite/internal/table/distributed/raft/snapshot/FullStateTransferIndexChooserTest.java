@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** For {@link FullStateTransferIndexChooser} testing. */
-public class FullStateTransferIndexChooserTest {
+public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     private static final String REGISTERED_INDEX_NAME = INDEX_NAME + "_" + REGISTERED;
 
     private static final String BUILDING_INDEX_NAME = INDEX_NAME + "_" + BUILDING;
