@@ -43,6 +43,8 @@ github:
       allow_force_pushes: false
       required_linear_history: true
       required_signatures: false
+  autolink_jira:
+    - IGNITE
 
 notifications:
   commits:      commits@ignite.apache.org
