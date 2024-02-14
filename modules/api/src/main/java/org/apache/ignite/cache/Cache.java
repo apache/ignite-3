@@ -19,6 +19,7 @@ package org.apache.ignite.cache;
 
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 public interface Cache {
     String name();
 
-    //<K, V> KeyValueView<K, V> keyValueView(@Nullable CacheStore<K, V> store);
+    // <K, V> KeyValueView<K, V> keyValueView(@Nullable CacheStore store, Mapper<K> keyMapper, Mapper<V> valMapper);
 
-    KeyValueView<Tuple, Tuple> keyValueBinaryView(@Nullable CacheStore<Tuple, Tuple> store);
+    KeyValueView<Tuple, Tuple> keyValueBinaryView(@Nullable CacheStore store);
 }

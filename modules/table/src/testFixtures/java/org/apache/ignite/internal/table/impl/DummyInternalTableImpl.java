@@ -241,7 +241,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK,
                 tracker,
-                placementDriver
+                placementDriver,
+                false
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 

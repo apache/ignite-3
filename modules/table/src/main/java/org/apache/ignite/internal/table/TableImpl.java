@@ -27,7 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.apache.ignite.cache.Cache;
+import org.apache.ignite.cache.CacheStore;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -50,7 +50,6 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.cache.CacheStore;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -182,8 +181,8 @@ public class TableImpl implements TableViewInternal {
 //    }
 
     @Override
-    public KeyValueView<Tuple, Tuple> keyValueBinaryView(@Nullable CacheStore<Tuple, Tuple> store) {
-        return new CachingKeyValueBinaryView<>(tbl, keyValueView(), store);
+    public KeyValueView<Tuple, Tuple> keyValueBinaryView(@Nullable CacheStore store) {
+        return new CachingKeyValueBinaryView(tbl, keyValueView(), store == null ? new EmptyCacheStore() : store);
     }
 
     @Override

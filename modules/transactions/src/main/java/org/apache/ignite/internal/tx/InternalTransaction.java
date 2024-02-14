@@ -106,7 +106,7 @@ public interface InternalTransaction extends Transaction {
         return commit ? commitAsync() : rollbackAsync();
     }
 
-    default Map<Object, Optional<Object>> enlistStore(CacheStore<?, ?> store) {
+    default Map<Tuple, Optional<Tuple>> enlistStore(CacheStore store) {
         throw new IllegalStateException(); // Shouldn't be called for RO txns.
     }
 

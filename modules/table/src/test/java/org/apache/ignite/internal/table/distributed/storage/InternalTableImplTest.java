@@ -70,7 +70,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                false
         );
 
         // Let's check the empty table.
@@ -116,7 +117,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                false
         );
 
         List<BinaryRowEx> originalRows = List.of(

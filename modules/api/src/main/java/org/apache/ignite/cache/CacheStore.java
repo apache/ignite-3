@@ -21,23 +21,21 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
-public interface CacheStore<K, V> {
-    CacheSession beginSession();
+public interface CacheStore {
+    CacheStoreSession beginSession();
 
-    V load(K key) throws IgniteException;
+    CompletableFuture<Tuple> load(Tuple key);
 
-    CompletableFuture<V> loadAsync(K key) throws IgniteException;
+    CompletableFuture<Map<Tuple, Tuple>> loadAll(Iterable<? extends Tuple> keys);
 
-    Map<K, V> loadAll(Iterable<? extends K> keys) throws IgniteException;
+    void write(@Nullable CacheStoreSession session, Entry<? extends Tuple, ? extends Tuple> entry);
 
-    void write(@Nullable CacheSession session, Entry<? extends K, ? extends V> entry) throws IgniteException;
+    void writeAll(@Nullable CacheStoreSession session, Collection<Entry<? extends Tuple, ? extends Tuple>> entries);
 
-    void writeAll(@Nullable CacheSession session, Collection<Entry<? extends K, ? extends V>> entries) throws IgniteException;
+    void delete(@Nullable CacheStoreSession session, Object key);
 
-    void delete(@Nullable CacheSession session, Object key) throws IgniteException;
-
-    void deleteAll(@Nullable CacheSession session, Collection<?> keys) throws IgniteException; // TODO cache exception.
+    void deleteAll(@Nullable CacheStoreSession session, Collection<?> keys);
 }

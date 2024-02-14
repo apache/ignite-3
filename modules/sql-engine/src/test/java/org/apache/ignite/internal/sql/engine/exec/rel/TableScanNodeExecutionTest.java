@@ -215,7 +215,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     replicaSvc,
                     mock(HybridClock.class),
                     timestampTracker,
-                    mock(PlacementDriver.class)
+                    mock(PlacementDriver.class),
+                    false
             );
             this.dataAmount = dataAmount;
 

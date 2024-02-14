@@ -17,6 +17,6 @@
 
 package org.apache.ignite.cache;
 
-public interface CacheSession {
+public interface CacheStoreSession {
     void finish(boolean commit);
 }

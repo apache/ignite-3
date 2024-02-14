@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.cache.CacheStore;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.NullableValue;
@@ -34,39 +33,32 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
-public class CachingKeyValueBinaryView<K, V> implements KeyValueView<K, V> {
-    private final KeyValueView<K, V> view;
-    private final CacheStore<K, V> store;
+public class CachingKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
+    private final KeyValueView<Tuple, Tuple> view;
+    private final CacheStore store;
     private final InternalTable tbl;
 
-    public CachingKeyValueBinaryView(InternalTable tbl, KeyValueView<K, V> view, CacheStore<K, V> store) {
+    public CachingKeyValueBinaryView(InternalTable tbl, KeyValueView<Tuple, Tuple> view, CacheStore store) {
         this.tbl = tbl;
         this.view = view;
         this.store = store;
     }
-
     @Override
-    public @Nullable V get(@Nullable Transaction tx, K key) {
+    public @Nullable Tuple get(@Nullable Transaction tx, Tuple key) {
         return getAsync(tx, key).join();
     }
 
-    private InternalTransaction getOrEnlist(@Nullable Transaction tx) {
-        return tx != null ? (InternalTransaction) tx : tbl.enlistExternal();
-    }
-
     @Override
-    public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
+    public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple key) {
         InternalTransaction tx0 = (InternalTransaction) tx;
 
         boolean implicit = tx0 == null;
 
         if (implicit) {
-            tx0 = tbl.enlistExternal();
+            tx0 = tbl.beginExternal();
         }
 
-        assert tx0.external() : "Illegal tx mode";
-
-        Optional<V> val = (Optional<V>) tx0.enlistStore(store).get(key);
+        Optional<Tuple> val = tx0.enlistStore(store).get(key);
 
         if (val != null) {
             return val.isEmpty() ? CompletableFutures.nullCompletedFuture() : CompletableFuture.completedFuture(val.get());
@@ -76,7 +68,7 @@ public class CachingKeyValueBinaryView<K, V> implements KeyValueView<K, V> {
 
         return view.getAsync(tx0, key).thenCompose(valTup -> {
             if (valTup == null) {
-                return store.loadAsync(key).thenCompose(val0 -> {
+                return store.load(key).thenCompose(val0 -> {
                     if (val0 == null) {
                         return CompletableFutures.nullCompletedFuture();
                     }
@@ -98,71 +90,24 @@ public class CachingKeyValueBinaryView<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
-        return null;
-    }
-
-    @Override
-    public NullableValue<V> getNullable(@Nullable Transaction tx, K key) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
-        return null;
-    }
-
-    @Override
-    public @Nullable V getOrDefault(@Nullable Transaction tx, K key, @Nullable V defaultValue) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, @Nullable V defaultValue) {
-        return null;
-    }
-
-    @Override
-    public Map<K, V> getAll(@Nullable Transaction tx, Collection<K> keys) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, Collection<K> keys) {
-        return null;
-    }
-
-    @Override
-    public boolean contains(@Nullable Transaction tx, K key) {
-        return false;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key) {
-        return null;
-    }
-
-    @Override
-    public void put(@Nullable Transaction tx, K key, @Nullable V val) {
+    public void put(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
         putAsync(tx, key, val).join(); // Do not unwrap txn, it's done in a delegate.
     }
 
     @Override
-    public CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, @Nullable V val) {
+    public CompletableFuture<Void> putAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
         InternalTransaction tx0 = (InternalTransaction) tx;
 
         boolean implicit = tx0 == null;
 
         if (implicit) {
-            tx0 = tbl.enlistExternal();
+            tx0 = tbl.beginExternal();
         }
-
-        assert tx0.external() : "Illegal tx mode";
 
         InternalTransaction finalTx = tx0;
 
         return view.putAsync(tx0, key, val).thenApply(ignored -> {
-            finalTx.enlistStore(store).put(key, Optional.of(val));
+            finalTx.enlistStore(store).put(key, Optional.ofNullable(val));
 
             return null;
         }).thenApply(ret -> {
@@ -175,67 +120,16 @@ public class CachingKeyValueBinaryView<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public void putAll(@Nullable Transaction tx, Map<K, V> pairs) {
-    }
-
-    @Override
-    public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<K, V> pairs) {
-        return null;
-    }
-
-    @Override
-    public @Nullable V getAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return null;
-    }
-
-    @Override
-    public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return null;
-    }
-
-    @Override
-    public boolean putIfAbsent(@Nullable Transaction tx, K key, @Nullable V val) {
-        return false;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return null;
-    }
-
-    @Override
-    public boolean remove(@Nullable Transaction tx, K key) {
-        return removeAsync(tx, key).join();
-    }
-
-    @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return false;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key) {
+    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key) {
         InternalTransaction tx0 = (InternalTransaction) tx;
 
         boolean implicit = tx0 == null;
 
         if (implicit) {
-            tx0 = tbl.enlistExternal();
+            tx0 = tbl.beginExternal();
         }
 
-        assert tx0.external() : "Illegal tx mode";
-
-        Optional<V> val = (Optional<V>) tx0.enlistStore(store).get(key);
+        Optional<Tuple> val = tx0.enlistStore(store).get(key);
 
         if (val != null && val.isEmpty()) {
             return CompletableFutures.falseCompletedFuture(); // Already removed.
@@ -259,77 +153,172 @@ public class CachingKeyValueBinaryView<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
+    public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
         return null;
     }
 
     @Override
-    public Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys) {
+    public NullableValue<Tuple> getNullable(@Nullable Transaction tx, Tuple key) {
         return null;
     }
 
     @Override
-    public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
+    public CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, Tuple key) {
         return null;
     }
 
     @Override
-    public @Nullable V getAndRemove(@Nullable Transaction tx, K key) {
+    public @Nullable Tuple getOrDefault(@Nullable Transaction tx, Tuple key, @Nullable Tuple defaultValue) {
         return null;
     }
 
     @Override
-    public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
+    public CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple defaultValue) {
         return null;
     }
 
     @Override
-    public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key) {
+    public Map<Tuple, Tuple> getAll(@Nullable Transaction tx, Collection<Tuple> keys) {
         return null;
     }
 
     @Override
-    public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
+    public CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         return null;
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, @Nullable V val) {
+    public boolean contains(@Nullable Transaction tx, Tuple key) {
         return false;
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, V oldValue, @Nullable V newValue) {
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, Tuple key) {
+        return null;
+    }
+
+    @Override
+    public void putAll(@Nullable Transaction tx, Map<Tuple, Tuple> pairs) {
+
+    }
+
+    @Override
+    public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<Tuple, Tuple> pairs) {
+        return null;
+    }
+
+    @Override
+    public @Nullable Tuple getAndPut(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        return null;
+    }
+
+    @Override
+    public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        return null;
+    }
+
+    @Override
+    public boolean putIfAbsent(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
         return false;
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
+    public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
         return null;
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+    public boolean remove(@Nullable Transaction tx, Tuple key) {
+        return false;
+    }
+
+    @Override
+    public boolean remove(@Nullable Transaction tx, Tuple key, Tuple val) {
+        return false;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         return null;
     }
 
     @Override
-    public @Nullable V getAndReplace(@Nullable Transaction tx, @Nullable K key, @Nullable V val) {
+    public Collection<Tuple> removeAll(@Nullable Transaction tx, Collection<Tuple> keys) {
         return null;
     }
 
     @Override
-    public CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
+    public CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         return null;
     }
 
     @Override
-    public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
+    public @Nullable Tuple getAndRemove(@Nullable Transaction tx, Tuple key) {
         return null;
     }
 
     @Override
-    public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
+    public CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
+        return null;
+    }
+
+    @Override
+    public NullableValue<Tuple> getNullableAndRemove(@Nullable Transaction tx, Tuple key) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
+        return null;
+    }
+
+    @Override
+    public boolean replace(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        return false;
+    }
+
+    @Override
+    public boolean replace(@Nullable Transaction tx, Tuple key, Tuple oldValue, @Nullable Tuple newValue) {
+        return false;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple oldVal, @Nullable Tuple newVal) {
+        return null;
+    }
+
+    @Override
+    public @Nullable Tuple getAndReplace(@Nullable Transaction tx, @Nullable Tuple key, @Nullable Tuple val) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        return null;
+    }
+
+    @Override
+    public NullableValue<Tuple> getNullableAndReplace(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
         return null;
     }
 }

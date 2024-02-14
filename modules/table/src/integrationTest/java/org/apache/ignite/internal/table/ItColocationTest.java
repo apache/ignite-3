@@ -275,7 +275,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HybridClockImpl(),
                 observableTimestampTracker,
-                new TestPlacementDriver(clusterNode)
+                new TestPlacementDriver(clusterNode),
+                false
         );
     }
 

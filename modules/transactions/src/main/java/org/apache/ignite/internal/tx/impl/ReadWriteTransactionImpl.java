@@ -32,8 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
-import org.apache.ignite.cache.CacheSession;
 import org.apache.ignite.cache.CacheStore;
+import org.apache.ignite.cache.CacheStoreSession;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -41,6 +41,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 
 /**
@@ -67,7 +68,7 @@ public final class ReadWriteTransactionImpl extends IgniteAbstractTransactionImp
     private CompletableFuture<Void> finishFuture;
 
     /** Dirty cache. */
-    private final Map<CacheStore<Object, Object>, Map<Object, Optional<Object>>> enlistedStores = new ConcurrentHashMap<>();
+    private final Map<CacheStore, Map<Tuple, Optional<Tuple>>> enlistedStores = new ConcurrentHashMap<>();
 
     /** External commit flag. */
     private final boolean external;
@@ -199,17 +200,18 @@ public final class ReadWriteTransactionImpl extends IgniteAbstractTransactionImp
                     // TODO batching
                     // TODO move in finish after all ops completed.
 
-                    CacheSession ses = null;
+                    CacheStoreSession ses = null;
 
                     if (enlistedStores.size() > 1) {
                         ses = enlistedStores.keySet().iterator().next().beginSession();
                     }
 
-                    for (Entry<CacheStore<Object, Object>, Map<Object, Optional<Object>>> entry : enlistedStores.entrySet()) {
-                        CacheStore<Object, Object> store = entry.getKey();
+                    // TODO split in batches.
+                    for (Entry<CacheStore, Map<Tuple, Optional<Tuple>>> entry : enlistedStores.entrySet()) {
+                        CacheStore store = entry.getKey();
 
-                        for (Entry<Object, Optional<Object>> entry0 : entry.getValue().entrySet()) {
-                            Optional<Object> value = entry0.getValue();
+                        for (Entry<Tuple, Optional<Tuple>> entry0 : entry.getValue().entrySet()) {
+                            Optional<Tuple> value = entry0.getValue();
 
                             if (value.isEmpty()) {
                                 store.delete(ses, entry0.getKey());
@@ -252,13 +254,13 @@ public final class ReadWriteTransactionImpl extends IgniteAbstractTransactionImp
     }
 
     @Override
-    public synchronized Map<Object, Optional<Object>> enlistStore(CacheStore<?, ?> store) {
+    public synchronized Map<Tuple, Optional<Tuple>> enlistStore(CacheStore store) {
         // TODO FIXME perf ?
-        Map<Object, Optional<Object>> map = enlistedStores.get(store);
+        Map<Tuple, Optional<Tuple>> map = enlistedStores.get(store);
 
         if (map == null) {
             map = new ConcurrentHashMap<>();
-            enlistedStores.put((CacheStore<Object, Object>) store, map);
+            enlistedStores.put(store, map);
         }
 
         return map;

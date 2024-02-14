@@ -440,6 +440,31 @@ public class ItTxTestCluster {
      * @return Started instance.
      */
     public TableViewInternal startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
+        return doStartTable(tableName, tableId, schemaDescriptor, false);
+    }
+
+    /**
+     * Starts a cache.
+     *
+     * @param tableName Table name.
+     * @param tableId Table id.
+     * @param schemaDescriptor Schema descriptor.
+     * @return Started instance.
+     */
+    public TableViewInternal startCache(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
+        return doStartTable(tableName, tableId, schemaDescriptor, true);
+    }
+
+    /**
+     * Starts a table.
+     *
+     * @param tableName Table name.
+     * @param tableId Table id.
+     * @param schemaDescriptor Schema descriptor.
+     * @param cache Cache flag.
+     * @return Started instance.
+     */
+    private TableViewInternal doStartTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor, boolean cache) throws Exception {
         CatalogService catalogService = mock(CatalogService.class);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
@@ -650,7 +675,8 @@ public class ItTxTestCluster {
                         startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                         startClient ? clientClock : clocks.get(localNodeName),
                         timestampTracker,
-                        placementDriver
+                        placementDriver,
+                        cache
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
@@ -731,7 +757,8 @@ public class ItTxTestCluster {
                         clientReplicaSvc,
                         clientClock,
                         timestampTracker,
-                        placementDriver
+                        placementDriver,
+                        false
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),

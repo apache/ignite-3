@@ -21,10 +21,11 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.cache.CacheSession;
 import org.apache.ignite.cache.CacheStore;
+import org.apache.ignite.cache.CacheStoreSession;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,44 +34,37 @@ import org.jetbrains.annotations.Nullable;
  * @param <K>
  * @param <V>
  */
-public class EmptyCacheStore<K, V> implements CacheStore<K, V> {
+public class EmptyCacheStore implements CacheStore {
     @Override
-    public CacheSession beginSession() {
+    public CacheStoreSession beginSession() {
         return null;
     }
 
     @Override
-    public V load(K key) throws IgniteException {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<V> loadAsync(K key) throws IgniteException {
+    public CompletableFuture<Tuple> load(Tuple key) throws IgniteException {
         return CompletableFutures.nullCompletedFuture();
     }
 
     @Override
-    public Map<K, V> loadAll(Iterable<? extends K> keys) throws IgniteException {
+    public CompletableFuture<Map<Tuple, Tuple>> loadAll(Iterable<? extends Tuple> keys) throws IgniteException {
         return null;
     }
 
     @Override
-    public void write(@Nullable CacheSession session, Entry<? extends K, ? extends V> entry) throws IgniteException {
+    public void write(@Nullable CacheStoreSession session, Entry<? extends Tuple, ? extends Tuple> entry) {
+    }
+
+    @Override
+    public void writeAll(@Nullable CacheStoreSession session, Collection<Entry<? extends Tuple, ? extends Tuple>> entries) {
 
     }
 
     @Override
-    public void writeAll(@Nullable CacheSession session, Collection<Entry<? extends K, ? extends V>> entries) throws IgniteException {
-
+    public void delete(@Nullable CacheStoreSession session, Object key) {
     }
 
     @Override
-    public void delete(@Nullable CacheSession session, Object key) throws IgniteException {
-
-    }
-
-    @Override
-    public void deleteAll(@Nullable CacheSession session, Collection<?> keys) throws IgniteException {
+    public void deleteAll(@Nullable CacheStoreSession session, Collection<?> keys) {
 
     }
 }

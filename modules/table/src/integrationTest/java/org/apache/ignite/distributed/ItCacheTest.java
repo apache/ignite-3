@@ -20,30 +20,32 @@ package org.apache.ignite.distributed;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
-import javax.cache.Cache.Entry;
-import javax.cache.integration.CacheLoader;
-import javax.cache.integration.CacheLoaderException;
-import javax.cache.integration.CacheWriter;
-import javax.cache.integration.CacheWriterException;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import org.apache.ignite.cache.CacheStore;
+import org.apache.ignite.cache.CacheStoreSession;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.table.EmptyCacheStore;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -110,8 +112,8 @@ public class ItCacheTest extends IgniteAbstractTest {
         );
         txTestCluster.prepareCluster();
 
-        cache = txTestCluster.startTable(CACHE_NAME, 1, SCHEMA_DESC);
-        cache2 = txTestCluster.startTable(CACHE_NAME_2, 2, SCHEMA_DESC);
+        cache = txTestCluster.startCache(CACHE_NAME, 1, SCHEMA_DESC);
+        cache2 = txTestCluster.startCache(CACHE_NAME_2, 2, SCHEMA_DESC);
 
         log.info("Caches have been started");
     }
@@ -134,7 +136,7 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testBasic() {
-        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(new EmptyCacheStore<>());
+        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(null);
 
         cache.put(null, createKey(1), createValue(1));
 
@@ -158,9 +160,9 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testBasicTxn() {
-        Transaction txn = ((IgniteTransactionsImpl) txTestCluster.igniteTransactions()).beginExternal(null);
+        Transaction txn = txTestCluster.igniteTransactions().begin(new TransactionOptions().cacheOnly(true));
 
-        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(new EmptyCacheStore<>());
+        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(null);
 
         cache.put(txn, createKey(1), createValue(1));
 
@@ -188,10 +190,10 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testBasicTxnCrossCache() {
-        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(new EmptyCacheStore<>());
-        KeyValueView<Tuple, Tuple> cache2 = this.cache2.keyValueBinaryView(new EmptyCacheStore<>());
+        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(null);
+        KeyValueView<Tuple, Tuple> cache2 = this.cache2.keyValueBinaryView(null);
 
-        Transaction txn = ((IgniteTransactionsImpl) txTestCluster.igniteTransactions()).beginExternal(null);
+        Transaction txn = txTestCluster.igniteTransactions().begin(new TransactionOptions().cacheOnly(true));
 
         cache.put(txn, createKey(1), createValue(1));
         cache2.put(txn, createKey(2), createValue(2));
@@ -202,118 +204,77 @@ public class ItCacheTest extends IgniteAbstractTest {
         assertEquals(createValue(2), cache2.get(null, createKey(2)));
     }
 
-//    @Test
-//    public void testFaultyConverter() {
-//        try (Cache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null,
-//                new TypeConverter<>() {
-//                    @Override
-//                    public byte[] toColumnType(Integer obj) throws Exception {
-//                        throw new Exception("test");
-//                    }
-//
-//                    @Override
-//                    public Integer toObjectType(byte[] data) throws Exception {
-//                        return null;
-//                    }
-//                }, null)) {
-//
-//            try {
-//                cache.put(1, 1);
-//
-//                fail();
-//            } catch (IgniteException e) {
-//                assertEquals("test", e.getMessage());
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Test explicit cache transaction (without external store).
-//     */
-//    @Test
-//    public void testExplicitTxn() {
-//        try (Cache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null, null, null)) {
-//            cache.runAtomically(() -> {
-//                cache.put(1, 1);
-//
-//                assertEquals(1, cache.get(1));
-//
-//                assertTrue(cache.remove(1));
-//
-//                assertNull(cache.get(1));
-//
-//                cache.put(1, 2);
-//
-//                assertEquals(2, cache.get(1));
-//
-//                assertTrue(cache.remove(1));
-//
-//                assertNull(cache.get(1));
-//
-//                assertNull(cache.get(1));
-//            });
-//        }
-//    }
-//
-//    /**
-//     * Test explicit cache transaction rollback.
-//     */
-//    @Test
-//    public void testExplicitTxnRollback() {
-//        try (Cache<Integer, Integer> cache = testTable.cache(txTestCluster.clientTxManager, null, null, null, null, null)) {
-//            try {
-//                cache.runAtomically(() -> {
-//                    cache.put(1, 1);
-//
-//                    throw new RuntimeException();
-//                });
-//
-//                fail();
-//            } catch (Exception e) {
-//                // Expected.
-//            }
-//
-//            assertNull(cache.get(1));
-//        }
-//    }
-//
-//    /**
-//     * Test basic cache operations.
-//     */
-//    @Test
-//    public void testReadWriteThrough() {
-//        Map<Integer, Integer> testStore = new HashMap<>();
-//
-//        TestCacheLoader loader = new TestCacheLoader(testStore);
-//        TestCacheWriter writer = new TestCacheWriter(testStore);
-//        try (Cache<Integer, Integer> cache = testTable.cache(
-//                txTestCluster.clientTxManager,
-//                loader,
-//                writer,
-//                null,
-//                null,
-//                null)
-//        ) {
-//            assertNull(cache.get(1));
-//            validate(testStore, loader, writer, 0, 1, 0, 0);
-//
-//            assertNull(cache.get(1)); // Repeating get should fetch tombstone and avoid loading from store.
-//            validate(testStore, loader, writer, 0, 1, 0, 0);
-//
-//            cache.put(1, 1);
-//            validate(testStore, loader, writer, 1, 1, 1, 0);
-//
-//            assertEquals(1, cache.get(1));
-//            validate(testStore, loader, writer, 1, 1, 1, 0);
-//
-//            assertTrue(cache.remove(1));
-//            validate(testStore, loader, writer, 0, 1, 1, 1);
-//
-//            assertNull(cache.get(1));
-//            validate(testStore, loader, writer, 0, 2, 1, 1);
-//        }
-//    }
-//
+    /**
+     * Test basic cache operations.
+     */
+    @Test
+    public void testBasicTxnCrossCacheRollback() {
+        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(null);
+        KeyValueView<Tuple, Tuple> cache2 = this.cache2.keyValueBinaryView(null);
+
+        Transaction txn = txTestCluster.igniteTransactions().begin(new TransactionOptions().cacheOnly(true));
+
+        cache.put(txn, createKey(1), createValue(1));
+        cache2.put(txn, createKey(2), createValue(2));
+
+        txn.rollback();
+
+        assertNull(cache.get(null, createKey(1)));
+        assertNull(cache2.get(null, createKey(2)));
+    }
+
+    /**
+     * Test explicit cache transaction rollback.
+     */
+    @Test
+    public void testExplicitTxnRollback() {
+        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(null);
+
+        try {
+            txTestCluster.igniteTransactions().runInTransaction((Consumer<Transaction>) txn -> {
+                cache.put(txn, createKey(1), createValue(1));
+
+                throw new RuntimeException();
+            }, new TransactionOptions().cacheOnly(true));
+
+            fail();
+        } catch (Exception e) {
+            // Expected.
+        }
+
+        assertNull(cache.get(null, createKey(1)));
+    }
+
+    /**
+     * Test basic cache operations.
+     */
+    @Test
+    public void testReadWriteThrough() {
+        Map<Tuple, Tuple> testStore = new HashMap<>();
+
+        TestCacheStore store = new TestCacheStore(testStore);
+
+        KeyValueView<Tuple, Tuple> cache = this.cache.keyValueBinaryView(store);
+
+        assertNull(cache.get(null, createKey(1)));
+        validate(testStore, store, 0, 1, 0, 0);
+
+        assertNull(cache.get(null, createKey(1))); // Repeating get should fetch tombstone and avoid loading from store.
+        validate(testStore, store, 0, 1, 0, 0);
+
+        cache.put(null, createKey(1), createValue(1));
+        validate(testStore, store, 1, 1, 1, 0);
+
+        assertEquals(createValue(1), cache.get(null, createKey(1)));
+        validate(testStore, store, 1, 1, 1, 0);
+
+        assertTrue(cache.remove(null, createKey(1)));
+        validate(testStore, store, 0, 1, 1, 1);
+
+        assertNull(cache.get(null, createKey(1)));
+        validate(testStore, store, 0, 2, 1, 1);
+    }
+
 //    /**
 //     * Test basic cache operations.
 //     */
@@ -666,73 +627,69 @@ public class ItCacheTest extends IgniteAbstractTest {
 //    }
 
     private static void validate(
-            Map<Integer, Integer> testStore,
-            TestCacheLoader loader,
-            TestCacheWriter writer,
+            Map<?, ?> testStore,
+            TestCacheStore store,
             int expSize,
             int expRead,
             int expWrite,
             int expRemove
     ) {
         assertEquals(expSize, testStore.size());
-        assertEquals(expRead, loader.getCounter());
-        assertEquals(expWrite, writer.getWriteCounter());
-        assertEquals(expRemove, writer.getRemoveCounter());
+        assertEquals(expRead, store.getReadCounter());
+        assertEquals(expWrite, store.getWriteCounter());
+        assertEquals(expRemove, store.getRemoveCounter());
     }
 
-    private static class TestCacheLoader implements CacheLoader<Integer, Integer> {
-        private final Map<Integer, Integer> store;
-        private long counter;
-
-        public TestCacheLoader(Map<Integer, Integer> store) {
-            this.store = store;
-        }
-
-        @Override
-        public Integer load(Integer key) throws CacheLoaderException {
-            counter++;
-            return store.get(key);
-        }
-
-        @Override
-        public Map<Integer, Integer> loadAll(Iterable<? extends Integer> keys) throws CacheLoaderException {
-            return null;
-        }
-
-        public long getCounter() {
-            return counter;
-        }
-    }
-
-    private static class TestCacheWriter implements CacheWriter<Integer, Integer> {
-        private final Map<Integer, Integer> store;
+    private static class TestCacheStore implements CacheStore {
+        private final Map<Tuple, Tuple> store;
+        private long readCounter;
         private long writeCounter;
         private long removeCounter;
 
-        public TestCacheWriter(Map<Integer, Integer> store) {
+        public TestCacheStore(Map<Tuple, Tuple> store) {
             this.store = store;
         }
 
         @Override
-        public void write(Entry<? extends Integer, ? extends Integer> entry) throws CacheWriterException {
+        public CacheStoreSession beginSession() {
+            return null;
+        }
+
+        @Override
+        public CompletableFuture<Tuple> load(Tuple key) {
+            readCounter++;
+            return CompletableFuture.completedFuture(store.get(key));
+        }
+
+        @Override
+        public CompletableFuture<Map<Tuple, Tuple>> loadAll(Iterable<? extends Tuple> keys) throws IgniteException {
+            return null;
+        }
+
+        @Override
+        public void write(@Nullable CacheStoreSession session, Map.Entry<? extends Tuple, ? extends Tuple> entry) {
             writeCounter++;
             store.put(entry.getKey(), entry.getValue());
         }
 
         @Override
-        public void writeAll(Collection<Entry<? extends Integer, ? extends Integer>> entries) throws CacheWriterException {
-
+        public void writeAll(@Nullable CacheStoreSession session, Collection<Map.Entry<? extends Tuple, ? extends Tuple>> entries)
+                throws IgniteException {
         }
 
         @Override
-        public void delete(Object key) throws CacheWriterException {
+        public void delete(@Nullable CacheStoreSession session, Object key) throws IgniteException {
             removeCounter++;
             store.remove(key);
         }
 
         @Override
-        public void deleteAll(Collection<?> keys) throws CacheWriterException {
+        public void deleteAll(@Nullable CacheStoreSession session, Collection<?> keys) throws IgniteException {
 
+        }
+
+        public long getReadCounter() {
+            return readCounter;
         }
 
         public long getWriteCounter() {

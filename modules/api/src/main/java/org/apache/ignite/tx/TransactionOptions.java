@@ -27,6 +27,9 @@ public class TransactionOptions {
     /** Read-only transaction. */
     private boolean readOnly = false;
 
+    /** Cache-only transaction. */
+    private boolean cacheOnly = false;
+
     /**
      * Returns transaction timeout, in milliseconds.
      *
@@ -72,6 +75,22 @@ public class TransactionOptions {
      */
     public TransactionOptions readOnly(boolean readOnly) {
         this.readOnly = readOnly;
+
+        return this;
+    }
+
+    /**
+     * @return {@code True} if this is cache-only transaction.
+     */
+    public boolean cacheOnly() {
+        return cacheOnly;
+    }
+
+    /**
+     * @param cacheOnly {@code True} if this is cache-only transaction.
+     */
+    public TransactionOptions cacheOnly(boolean cacheOnly) {
+        this.cacheOnly = cacheOnly;
 
         return this;
     }

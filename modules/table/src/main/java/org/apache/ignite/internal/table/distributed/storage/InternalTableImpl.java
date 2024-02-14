@@ -177,6 +177,9 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
+    /** Cache flag. */
+    private final boolean cache;
+
     /**
      * Constructor.
      *
@@ -190,6 +193,7 @@ public class InternalTableImpl implements InternalTable {
      * @param replicaSvc Replica service.
      * @param clock A hybrid logical clock.
      * @param placementDriver Placement driver.
+     * @param cache Cache flag.
      */
     public InternalTableImpl(
             String tableName,
@@ -203,7 +207,8 @@ public class InternalTableImpl implements InternalTable {
             ReplicaService replicaSvc,
             HybridClock clock,
             HybridTimestampTracker observableTimestampTracker,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            boolean cache
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -218,6 +223,7 @@ public class InternalTableImpl implements InternalTable {
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+        this.cache = cache;
     }
 
     /** {@inheritDoc} */
@@ -269,13 +275,24 @@ public class InternalTableImpl implements InternalTable {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
         // won't be rolled back automatically - it's up to the user or outer engine.
-        if (tx != null && tx.isReadOnly()) {
-            return failedFuture(
-                    new TransactionException(
-                            TX_FAILED_READ_WRITE_OPERATION_ERR,
-                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
-                    )
-            );
+        if (tx != null) {
+            if (tx.isReadOnly()) {
+                return failedFuture(
+                        new TransactionException(
+                                TX_FAILED_READ_WRITE_OPERATION_ERR,
+                                "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                        )
+                );
+            }
+
+            if (tx.external() != cache()) {
+                return failedFuture(
+                        new TransactionException(
+                                TX_FAILED_READ_WRITE_OPERATION_ERR,
+                                "Failed to enlist cache operation into table transaction or vice versa txId={" + tx.id() + '}'
+                        )
+                );
+            }
         }
 
         boolean implicit = tx == null;
@@ -1910,7 +1927,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public InternalTransaction enlistExternal() {
+    public InternalTransaction beginExternal() {
         return txManager.beginExternal(observableTimestampTracker);
     }
 
@@ -1920,6 +1937,11 @@ public class InternalTableImpl implements InternalTable {
         for (RaftGroupService srv : raftGroupServiceByPartitionId.values()) {
             srv.shutdown();
         }
+    }
+
+    @Override
+    public boolean cache() {
+        return cache;
     }
 
     // TODO: IGNITE-17963 Use smarter logic for recipient node evaluation.
@@ -1984,6 +2006,7 @@ public class InternalTableImpl implements InternalTable {
     public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
         return storageIndexTrackerByPartitionId.get(partitionId);
     }
+
     /**
      * Updates the partition trackers, if there were previous ones, it closes them.
      *
