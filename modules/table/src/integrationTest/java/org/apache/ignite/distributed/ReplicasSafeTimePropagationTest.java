@@ -19,6 +19,7 @@ package org.apache.ignite.distributed;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -89,7 +91,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     .collect(Collectors.toList())
     );
 
-    private int port = BASE_PORT;
+    private AtomicInteger port = new AtomicInteger(BASE_PORT);
 
     private Map<String, PartialNode> cluster;
 
@@ -117,7 +119,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
     public void testSafeTimeReorderingOnLeaderReElection() throws Exception {
         // Start three nodes and a raft group with three peers.
         {
-            cluster = Set.of("node1", "node2", "node3").parallelStream().collect(Collectors.toMap(Function.identity(), PartialNode::new));
+            cluster = Set.of("node1", "node2", "node3").stream().collect(Collectors.toMap(Function.identity(), PartialNode::new));
 
             startCluster(cluster);
         }
@@ -225,7 +227,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         );
 
         if (expectSafeTimeReorderException) {
-            assertThat(safeTimeCommandFuture, CompletableFutureExceptionMatcher.willThrow(SafeTimeReorderException.class));
+            assertThat(safeTimeCommandFuture, willThrow(SafeTimeReorderException.class));
         } else {
             assertThat(safeTimeCommandFuture, willCompleteSuccessfully());
         }
@@ -252,7 +254,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         }
 
         CompletableFuture<Void> start() throws Exception {
-            clusterService = ClusterServiceTestUtils.clusterService(nodeName, port++, NODE_FINDER);
+            clusterService = ClusterServiceTestUtils.clusterService(nodeName, port.getAndIncrement(), NODE_FINDER);
 
             clusterService.start();
 
