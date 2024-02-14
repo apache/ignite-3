@@ -1842,7 +1842,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> startPartitionAndStartClient(
                             tbl,
                             replicaGrpId.partitionId(),
-                            pendingAssignments,
+                            stableAssignments,
                             isRecovery
                     )), ioExecutor);
         } else {
