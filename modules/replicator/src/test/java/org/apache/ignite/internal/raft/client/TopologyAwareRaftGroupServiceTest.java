@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.client;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -28,7 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 public class TopologyAwareRaftGroupServiceTest extends AbstractTopologyAwareGroupServiceTest {
     @Override
     protected void afterNodeStart(String nodeName, ClusterService clusterService, Path dataPath, PeersAndLearners peersAndLearners,
-            RaftGroupEventsClientListener eventsClientListener) {
+            RaftGroupEventsClientListener eventsClientListener, LogicalTopologyService logicalTopologyService) {
         // No-op.
     }
 

@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -106,13 +107,15 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
      * @param dataPath Data path for raft node.
      * @param peersAndLearners Peers and learners.
      * @param eventsClientListener Raft events listener for client.
+     * @param logicalTopologyService Logical topology service.
      */
     protected abstract void afterNodeStart(
             String nodeName,
             ClusterService clusterService,
             Path dataPath,
             PeersAndLearners peersAndLearners,
-            RaftGroupEventsClientListener eventsClientListener
+            RaftGroupEventsClientListener eventsClientListener,
+            LogicalTopologyService logicalTopologyService
     );
 
     /**
@@ -220,6 +223,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 isServerAddress,
                 nodes,
                 null,
+                new LogicalTopologyServiceTestImpl(clientClusterService),
                 false
         );
 
@@ -417,7 +421,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         PeersAndLearners peersAndLearners = peersAndLearners(clusterServices, isServerAddress, nodes);
 
         for (NetworkAddress addr : addresses) {
-            var cluster = clusterServices.get(addr);
+            ClusterService cluster = clusterServices.get(addr);
+
+            LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceTestImpl(cluster);
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
@@ -449,13 +455,14 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
                 raftServers.put(addr, raftServer);
 
-                afterNodeStart(localPeer.consistentId(), cluster, dataPath, peersAndLearners, eventsClientListener);
+                afterNodeStart(localPeer.consistentId(), cluster, dataPath, peersAndLearners, eventsClientListener, logicalTopologyService);
             }
 
             if (addr.port() == clientPort) {
                 assertTrue(isServerAddress.test(addr));
 
-                raftClient = startTopologyAwareClient(cluster, clusterServices, isServerAddress, nodes, eventsClientListener, true);
+                raftClient = startTopologyAwareClient(cluster, clusterServices, isServerAddress, nodes, eventsClientListener,
+                        logicalTopologyService, true);
             }
         }
 
@@ -468,6 +475,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
             Predicate<NetworkAddress> isServerAddress,
             int nodes,
             RaftGroupEventsClientListener eventsClientListener,
+            LogicalTopologyService logicalTopologyService,
             boolean notifyOnSubscription
     ) {
         if (eventsClientListener == null) {
@@ -494,7 +502,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 peersAndLearners(clusterServices, isServerAddress, nodes),
                 true,
                 executor,
-                new LogicalTopologyServiceTestImpl(localClusterService),
+                logicalTopologyService,
                 eventsClientListener,
                 notifyOnSubscription,
                 commandsMarshaller

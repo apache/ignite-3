@@ -45,7 +45,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.AbstractTopologyAwareGroupServiceTest;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,13 +90,12 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
             ClusterService clusterService,
             Path dataPath,
             PeersAndLearners peersAndLearners,
-            RaftGroupEventsClientListener eventsClientListener
+            RaftGroupEventsClientListener eventsClientListener,
+            LogicalTopologyService logicalTopologyService
     ) {
         Set<String> placementDriverNodesNames = peersAndLearners.peers().stream().map(Peer::consistentId).collect(toSet());
 
         var raftManager = new Loza(clusterService, raftConfiguration, dataPath, new HybridClockImpl(), eventsClientListener);
-
-        LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceTestImpl(clusterService);
 
         var raftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterService,
