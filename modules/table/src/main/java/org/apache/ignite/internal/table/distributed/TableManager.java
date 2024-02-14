@@ -884,7 +884,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     try {
                         //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
                         return raftMgr
-                                .startRaftGroupService(replicaGrpId, raftGroupConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
+                                .startRaftGroupService(
+                                        replicaGrpId,
+                                        raftGroupConfiguration,
+                                        raftGroupServiceFactory,
+                                        raftCommandsMarshaller
+                                );
                     } catch (NodeStoppingException ex) {
                         return failedFuture(ex);
                     }
