@@ -17,26 +17,36 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_STOPPING;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for full state transfer. */
+// TODO: IGNITE-21502 Deal with the case of drop a table
+// TODO: IGNITE-21502 Stop writing to a dropped index that was in status before AVAILABLE
+// TODO: IGNITE-21514 Stop writing to indexes that are destroyed during catalog compaction
 public class FullStateTransferIndexChooser implements ManuallyCloseable {
     private final CatalogService catalogService;
 
@@ -53,8 +63,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
 
     /** Recovers internal structures on node recovery. */
     public void start() {
-        inBusyLockSafe(busyLock, () -> {
-        });
+        inBusyLockSafe(busyLock, this::addListenersBusy);
     }
 
     @Override
@@ -172,7 +181,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
 
         List<Integer> result = new ArrayList<>(l0.size() + l1.size());
 
-        for (int i0 = 0, i1 = 0; i0 < l0.size() && i1 < l1.size(); ) {
+        for (int i0 = 0, i1 = 0; i0 < l0.size() || i1 < l1.size(); ) {
             if (i0 >= l0.size()) {
                 result.add(l1.get(i1++));
             } else if (i1 >= l1.size()) {
@@ -198,5 +207,37 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         }
 
         return result;
+    }
+
+    private void addListenersBusy() {
+        catalogService.listen(INDEX_STOPPING, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
+
+            return onIndexStopping((StoppingIndexEventParameters) parameters).thenApply(unused -> false);
+        });
+    }
+
+    private CompletableFuture<?> onIndexStopping(StoppingIndexEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            ReadOnlyIndexInfo readOnlyIndexInfo = new ReadOnlyIndexInfo(
+                    parameters.tableId(),
+                    catalogActivationTimestampBusy(parameters.catalogVersion()),
+                    parameters.indexId()
+            );
+
+            readOnlyIndexes.add(readOnlyIndexInfo);
+
+            return nullCompletedFuture();
+        });
+    }
+
+    private long catalogActivationTimestampBusy(int catalogVersion) {
+        Catalog catalog = catalogService.catalog(catalogVersion);
+
+        assert catalog != null : catalogVersion;
+
+        return catalog.time();
     }
 }

@@ -22,12 +22,12 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
-import static org.apache.ignite.internal.table.TableTestUtils.dropIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.makeIndexAvailable;
@@ -36,13 +36,16 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,6 +59,8 @@ public class FullStateTransferIndexChooserTest {
     private static final String AVAILABLE_INDEX_NAME = INDEX_NAME + "_" + AVAILABLE;
 
     private static final String STOPPING_INDEX_NAME = INDEX_NAME + "_" + STOPPING;
+
+    private static final String READ_ONLY_INDEX_NAME = INDEX_NAME + "_READ_ONLY";
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -117,7 +122,6 @@ public class FullStateTransferIndexChooserTest {
         int registeredIndexId = indexId(REGISTERED_INDEX_NAME);
 
         assertThat(chooseForAddWriteLatest(beginTsBeforeCreateRegisteredIndex), contains(pkIndexId));
-        assertThat(chooseForAddWriteLatest(clock.now()), contains(pkIndexId, registeredIndexId));
 
         int catalogVersionBeforeStartBuildingIndex = latestCatalogVersion();
 
@@ -127,8 +131,6 @@ public class FullStateTransferIndexChooserTest {
                 indexChooser.chooseForAddWrite(catalogVersionBeforeStartBuildingIndex, tableId(TABLE_NAME), clock.now()),
                 contains(pkIndexId)
         );
-
-        assertThat(chooseForAddWriteLatest(clock.now()), contains(pkIndexId, registeredIndexId));
     }
 
     @Test
@@ -152,8 +154,58 @@ public class FullStateTransferIndexChooserTest {
         assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId, buildingIndexId, availableIndexId, stoppingIndexId));
     }
 
+    @Test
+    void chooseForAddWriteCommittedWithSecondaryAndReadOnlyIndexes() {
+        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
+        createSimpleBuildingIndex(BUILDING_INDEX_NAME);
+
+        HybridTimestamp commitTsBeforeStoppingIndex = clock.now();
+
+        createSimpleStoppingIndex(READ_ONLY_INDEX_NAME);
+
+        HybridTimestamp commitTsOnStoppingIndex = latestCatalogVersionActivationTs();
+
+        int pkIndexId = indexId(PK_INDEX_NAME);
+        int readOnlyIndexId = indexId(READ_ONLY_INDEX_NAME);
+
+        dropIndex(REGISTERED_INDEX_NAME);
+        dropIndex(BUILDING_INDEX_NAME);
+        removeIndex(READ_ONLY_INDEX_NAME);
+
+        assertThat(chooseForAddWriteCommittedLatest(commitTsBeforeStoppingIndex), contains(pkIndexId, readOnlyIndexId));
+        assertThat(chooseForAddWriteCommittedLatest(commitTsOnStoppingIndex), contains(pkIndexId));
+        assertThat(chooseForAddWriteCommittedLatest(clock.now()), contains(pkIndexId));
+    }
+
+    @Test
+    void chooseForAddWriteWithSecondaryAndReadOnlyIndexes() {
+        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
+        createSimpleBuildingIndex(BUILDING_INDEX_NAME);
+
+        HybridTimestamp beginTsBeforeStoppingIndex = clock.now();
+
+        createSimpleStoppingIndex(READ_ONLY_INDEX_NAME);
+
+        HybridTimestamp beginTsOnStoppingIndex = latestCatalogVersionActivationTs();
+
+        int pkIndexId = indexId(PK_INDEX_NAME);
+        int readOnlyIndexId = indexId(READ_ONLY_INDEX_NAME);
+
+        dropIndex(REGISTERED_INDEX_NAME);
+        dropIndex(BUILDING_INDEX_NAME);
+        removeIndex(READ_ONLY_INDEX_NAME);
+
+        assertThat(chooseForAddWriteLatest(beginTsBeforeStoppingIndex), contains(pkIndexId, readOnlyIndexId));
+        assertThat(chooseForAddWriteLatest(beginTsOnStoppingIndex), contains(pkIndexId));
+        assertThat(chooseForAddWriteLatest(clock.now()), contains(pkIndexId));
+    }
+
+    private List<Integer> chooseForAddWriteCommittedLatest(HybridTimestamp commitTs) {
+        return indexChooser.chooseForAddWriteCommitted(latestCatalogVersion(), tableId(TABLE_NAME), commitTs);
+    }
+
     private List<Integer> chooseForAddWriteCommittedLatest() {
-        return indexChooser.chooseForAddWriteCommitted(latestCatalogVersion(), tableId(TABLE_NAME), HybridTimestamp.MAX_VALUE);
+        return chooseForAddWriteCommittedLatest(HybridTimestamp.MAX_VALUE);
     }
 
     private List<Integer> chooseForAddWriteLatest(HybridTimestamp beginTs) {
@@ -180,11 +232,29 @@ public class FullStateTransferIndexChooserTest {
 
     private void createSimpleStoppingIndex(String indexName) {
         createSimpleAvailableIndex(indexName);
-        dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        dropIndex(indexName);
+    }
+
+    private void removeIndex(String indexName) {
+        TableTestUtils.removeIndex(catalogManager, indexName);
+    }
+
+    private void dropIndex(String indexName) {
+        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private int latestCatalogVersion() {
         return catalogManager.latestCatalogVersion();
+    }
+
+    private HybridTimestamp latestCatalogVersionActivationTs() {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+
+        assertNotNull(catalog, "catalogVersion=" + catalogVersion);
+
+        return hybridTimestamp(catalog.time());
     }
 
     private int tableId(String tableName) {
