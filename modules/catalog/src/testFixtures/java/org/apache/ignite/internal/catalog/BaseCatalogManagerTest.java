@@ -38,6 +38,7 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
@@ -61,6 +62,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static final String TABLE_NAME = "test_table";
     protected static final String TABLE_NAME_2 = "test_table_2";
+    protected static final String TABLE_NAME_3 = "test_table_3";
 
     protected static final String INDEX_NAME = "myIndex";
     protected static final String INDEX_NAME_2 = "myIndex2";

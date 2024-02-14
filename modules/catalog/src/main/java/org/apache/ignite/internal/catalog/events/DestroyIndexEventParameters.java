@@ -17,21 +17,35 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
-
 /**
- * Event parameters for an 'index removed from the Catalog' event (don't confuse it with {@link StoppingIndexEventParameters}
- * that is about switching the index to the {@link CatalogIndexStatus#STOPPING} state).
+ * Destroy index event parameters contains an id of destroying index.
  */
-public class RemoveIndexEventParameters extends IndexEventParameters {
+public class DestroyIndexEventParameters extends IndexEventParameters  {
+    private final int tableId;
+    private final int partitions;
+
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
-     * @param indexId Index ID.
+     * @param indexId An Id of destroying index.
+     * @param tableId An Id of table the index belongs to.
+     * @param partitions Number of table partitions.
      */
-    public RemoveIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
+    public DestroyIndexEventParameters(long causalityToken, int catalogVersion, int indexId, int tableId, int partitions) {
         super(causalityToken, catalogVersion, indexId);
+        this.tableId = tableId;
+        this.partitions = partitions;
+    }
+
+    /** Returns an id of table the index belongs to. */
+    public int tableId() {
+        return tableId;
+    }
+
+    /** Returns number of table partitions. */
+    public int partitions() {
+        return partitions;
     }
 }
