@@ -29,7 +29,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
@@ -38,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -52,7 +52,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinSameTableSimpleAff() throws Exception {
-        TestTable tbl = simpleTable("TEST_TBL", DEFAULT_TBL_SIZE);
+        IgniteTable tbl = simpleTable("TEST_TBL", DEFAULT_TBL_SIZE);
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -77,7 +77,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinSameTableComplexAff() throws Exception {
-        TestTable tbl = complexTbl("TEST_TBL");
+        IgniteTable tbl = complexTbl("TEST_TBL");
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -104,10 +104,10 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinComplexToSimpleAff() throws Exception {
-        TestTable complexTbl = complexTbl("COMPLEX_TBL", 2 * DEFAULT_TBL_SIZE,
+        IgniteTable complexTbl = complexTbl("COMPLEX_TBL", 2 * DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
 
-        TestTable simpleTbl = simpleTable("SIMPLE_TBL", DEFAULT_TBL_SIZE);
+        IgniteTable simpleTbl = simpleTable("SIMPLE_TBL", DEFAULT_TBL_SIZE);
 
         IgniteSchema schema = createSchema(complexTbl, simpleTbl);
 
@@ -131,7 +131,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteSort.class));
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0), instanceOf(IgniteTableScan.class));
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0)
-                .getTable().unwrap(TestTable.class), equalTo(simpleTbl));
+                .getTable().unwrap(IgniteTable.class), equalTo(simpleTbl));
     }
 
     /**
@@ -141,12 +141,12 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinComplexToComplexAffWithDifferentOrder() throws Exception {
-        TestTable complexTblDirect = complexTbl(
+        IgniteTable complexTblDirect = complexTbl(
                 "COMPLEX_TBL_DIRECT",
                 2 * DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
 
-        TestTable complexTblIndirect = complexTbl(
+        IgniteTable complexTblIndirect = complexTbl(
                 "COMPLEX_TBL_INDIRECT",
                 DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(1, 0), nextTableId(), DEFAULT_ZONE_ID));
@@ -172,10 +172,10 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, exchanges, hasSize(1));
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteIndexScan.class));
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0)
-                .getTable().unwrap(TestTable.class), equalTo(complexTblIndirect));
+                .getTable().unwrap(IgniteTable.class), equalTo(complexTblIndirect));
     }
 
-    private static TestTable simpleTable(String tableName, int size) {
+    private static IgniteTable simpleTable(String tableName, int size) {
         return TestBuilders.table()
                 .name(tableName)
                 .size(size)
@@ -190,12 +190,12 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 .build();
     }
 
-    private static TestTable complexTbl(String tableName) {
+    private static IgniteTable complexTbl(String tableName) {
         return complexTbl(tableName, DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
     }
 
-    private static TestTable complexTbl(String tableName, int size, IgniteDistribution distribution) {
+    private static IgniteTable complexTbl(String tableName, int size, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
                 .size(size)

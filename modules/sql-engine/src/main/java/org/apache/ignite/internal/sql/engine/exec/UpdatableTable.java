@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.rel.ModifyNode;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -35,9 +36,6 @@ public interface UpdatableTable {
 
     /**
      * Inserts rows into the table.
-     *
-     * <p>The rows passed should match the insert row type defined by the table's {@link #descriptor() descriptor}
-     * (see {@link TableDescriptor#insertRowType(IgniteTypeFactory)}).
      *
      * @param ectx An execution context.
      * @param rows Rows to insert.
@@ -89,8 +87,7 @@ public interface UpdatableTable {
      * Removes rows from the table if they are exactly the same as any of the specified rows.
      *
      * <p>Though this method has delete-exact semantic, implementations are allowed to apply optimisations like delete by primary key.
-     * The columns contained in the row for deletion are defined by the table's {@link #descriptor() descriptor}
-     * (see {@link TableDescriptor#deleteRowType(IgniteTypeFactory)}).
+     * The columns contained in the row for deletion are defined by {@link IgniteTable#deleteRowType(IgniteTypeFactory)}}.
      *
      * @param ectx An execution context.
      * @param rows Rows to delete.

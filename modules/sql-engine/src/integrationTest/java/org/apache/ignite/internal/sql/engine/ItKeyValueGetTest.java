@@ -23,7 +23,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
@@ -73,7 +72,6 @@ public class ItKeyValueGetTest extends BaseSqlIntegrationTest {
     }
 
     @RepeatedTest(3)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21362")
     void lookupByComplexReversedKey() {
         int key = randomKey();
 

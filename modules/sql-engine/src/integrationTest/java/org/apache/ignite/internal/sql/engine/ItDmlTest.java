@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -705,6 +707,58 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             sql("DROP TABLE " + type);
             sql("DROP TABLE T_HELPER");
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "'id1,id2', id1",
+            "'id1,id2', id2",
+            "'id1,id2', 'id1,id2'",
+            "'id1,id2', 'id2,id1'",
+            "'id2,id1', id1",
+            "'id2,id1', id2",
+            "'id2,id1', 'id1,id2'",
+            "'id2,id1', 'id2,id1'",
+    })
+    void test(String pkDefinition, String colocateByDefinition) {
+        sql(format(
+                "CREATE TABLE test (id1 INT, id2 INT, val INT, PRIMARY KEY ({})) COLOCATE BY ({})",
+                pkDefinition, colocateByDefinition
+        ));
+
+        int tableSize = 10;
+
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("INSERT INTO test VALUES (?, ?, ?)")
+                    .withParams(i, i, i)
+                    .returns(1L)
+                    .check();
+        }
+
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("SELECT * FROM test WHERE id1=? AND id2=?")
+                    .withParams(i, i)
+                    .returns(i, i, i)
+                    .check();
+        }
+
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("SELECT * FROM test WHERE id1=?")
+                    .withParams(i)
+                    .returns(i, i, i)
+                    .check();
+        }
+
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("DELETE FROM test WHERE id1=? AND id2=?")
+                    .withParams(i, i)
+                    .returns(1L)
+                    .check();
+        }
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(0L)
+                .check();
     }
 
     private static Stream<Arguments> decimalLimits() {
