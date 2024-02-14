@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.thread;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -41,10 +42,10 @@ class IgniteThreadFactoryTest {
 
         Thread thread1 = threadFactory.newThread(() -> threadName1Ref.set(Thread.currentThread().getName()));
         thread1.start();
-        thread1.join();
+        thread1.join(SECONDS.toMillis(10));
         Thread thread2 = threadFactory.newThread(() -> threadName2Ref.set(Thread.currentThread().getName()));
         thread2.start();
-        thread2.join();
+        thread2.join(SECONDS.toMillis(10));
 
         assertThat(threadName1Ref.get(), is("%nodeName%poolName-0"));
         assertThat(threadName2Ref.get(), is("%nodeName%poolName-1"));
@@ -60,7 +61,7 @@ class IgniteThreadFactoryTest {
             allowedOperationsRef.set(((ThreadAttributes) Thread.currentThread()).allowedOperations());
         });
         thread.start();
-        thread.join();
+        thread.join(SECONDS.toMillis(10));
 
         assertThat(allowedOperationsRef.get(), contains(STORAGE_WRITE));
     }
