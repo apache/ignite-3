@@ -29,6 +29,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.table.DataStreamerItem;
 import org.junit.jupiter.api.Test;
 
 class StreamerSubscriberTest extends BaseIgniteAbstractTest {
@@ -89,7 +90,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
     /**
      * Publisher that generates a {@code limit} number of items and dispatches them in the same thread.
      */
-    private static class LimitedPublisher<T> implements Publisher<T> {
+    private static class LimitedPublisher<T> implements Publisher<DataStreamerItem<T>> {
         private final long limit;
 
         private final LongFunction<T> generator;
@@ -100,7 +101,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public void subscribe(Subscriber<? super T> subscriber) {
+        public void subscribe(Subscriber<? super DataStreamerItem<T>> subscriber) {
             subscriber.onSubscribe(new Subscription() {
                 private long produced = 0;
 
@@ -112,7 +113,8 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
                     } else if (produced < limit) {
                         for (int i = 0; i < Math.min(n, limit - produced); i++) {
                             produced++;
-                            subscriber.onNext(generator.apply(produced));
+                            T item = generator.apply(produced);
+                            subscriber.onNext(DataStreamerItem.of(item));
                         }
                     }
                 }

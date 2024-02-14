@@ -15,27 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table;
+package org.apache.ignite.internal.streamer;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
-import org.jetbrains.annotations.Nullable;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.SubmissionPublisher;
+import org.apache.ignite.table.DataStreamerItem;
 
 /**
- * Represents an entity that can be used as a target for streaming data.
+ * Simple publisher that wraps items into {@link DataStreamerItem}.
  *
- * @param <T> Entry type.
+ * @param <T> Type of the item.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface DataStreamerTarget<T> {
-    /**
-     * Streams data into the underlying table.
-     *
-     * @param publisher Producer.
-     * @param options Options (can be null).
-     * @return Future that will be completed when the stream is finished.
-     */
-    CompletableFuture<Void> streamData(
-            Flow.Publisher<DataStreamerItem<T>> publisher,
-            @Nullable DataStreamerOptions options);
+public class SimplePublisher<T> implements Flow.Publisher<DataStreamerItem<T>>, AutoCloseable {
+    private final SubmissionPublisher<DataStreamerItem<T>> publisher = new SubmissionPublisher<>();
+
+    @Override
+    public void subscribe(Subscriber<? super DataStreamerItem<T>> subscriber) {
+        publisher.subscribe(subscriber);
+    }
+
+    public void submit(T item) {
+        publisher.submit(DataStreamerItem.of((item)));
+    }
+
+    @Override
+    public void close() {
+        publisher.close();
+    }
 }

@@ -55,6 +55,7 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -521,7 +522,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Entry<K, V>>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new KeyValuePojoStreamerPartitionAwarenessProvider<K, V>(tbl, keySer.mapper());
@@ -538,8 +539,31 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     w.out().packInt(s.version());
                     w.out().packInt(items.size());
 
+                    int i = 0;
+
+                    Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
+                    Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
+                    var noValueSet = new BitSet();
+
                     for (Entry<K, V> e : items) {
-                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                        boolean del = deleted != null && deleted.get(i++);
+                        int colCount = del ? s.keyColumnCount() : s.columns().length;
+
+                        noValueSet.clear();
+                        var builder = new BinaryTupleBuilder(colCount);
+                        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+
+                        try {
+                            keyMarsh.writeObject(e.getKey(), writer);
+
+                            if (!del) {
+                                valMarsh.writeObject(e.getValue(), writer);
+                            }
+                        } catch (MarshallerException ex) {
+                            throw new IgniteException(INTERNAL_ERR, ex.getMessage(), ex);
+                        }
+
+                        w.out().packBinaryTuple(builder, noValueSet);
                     }
                 },
                 r -> null,
