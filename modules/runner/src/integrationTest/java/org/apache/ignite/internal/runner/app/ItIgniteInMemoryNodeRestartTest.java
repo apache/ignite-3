@@ -317,7 +317,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         assertNotNull(table);
 
-        for (int i = 1; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
 
             assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));

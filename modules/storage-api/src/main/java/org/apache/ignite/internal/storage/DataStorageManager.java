@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -34,15 +35,17 @@ public class DataStorageManager implements IgniteComponent {
     /** Mapping: {@link DataStorageModule#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
+    /** Mapping: {@link StorageProfileConfiguration#name()} -> {@link StorageEngine#name()}. */
     private Map<String, String> profilesToEngines;
 
+    /** Storage configuration. **/
     private StorageConfiguration storageConfiguration;
 
     /**
      * Constructor.
      *
      * @param engines Storage engines unique by {@link DataStorageModule#name name}.
-     * @param storageConfiguration Storage configuration.
+     * @param storageConfiguration Storage configuration. Needed to extract the storage profiles configurations after start.
      */
     public DataStorageManager(Map<String, StorageEngine> engines, StorageConfiguration storageConfiguration) {
         assert !engines.isEmpty();
