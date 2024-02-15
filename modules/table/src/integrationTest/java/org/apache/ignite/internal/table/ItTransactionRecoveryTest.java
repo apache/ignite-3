@@ -61,6 +61,7 @@ import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaRespon
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -86,12 +87,15 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Abandoned transactions integration tests.
  */
+@ExtendWith(SystemPropertiesExtension.class)
+@WithSystemProperty(key = "RESOURCE_CLEANUP_INTERVAL_MILLISECONDS", value = "500")
 public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -125,7 +129,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 + "}\n");
     }
 
-    //@Test
+    @Test
     public void testMultipleRecoveryRequestsIssued() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -180,7 +184,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         }, 10_000));
     }
 
-    //@Test
+    @Test
     public void testAbandonedTxIsAborted() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -223,7 +227,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
     }
 
-    //@Test
+    @Test
     public void testWriteIntentRecoverNoCoordinator() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -269,7 +273,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     /**
      * Coordinator is alive, no recovery expected.
      */
-    //@Test
+    @Test
     public void testWriteIntentNoRecovery() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -314,7 +318,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwId) == TxState.COMMITTED, 10_000));
     }
 
-    //@Test
+    @Test
     public void testWriteIntentRecoveryAndLockConflict() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -378,7 +382,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      * Coordinator sends a commit message and dies. The message eventually reaches the commit partition and gets executed.
      * The expected outcome of the transaction is COMMIT.
      */
-    //@Test
+    @Test
     public void testSendCommitAndDie() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -447,7 +451,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      * Coordinator sends a commit message and dies. Another tx initiates recovery and aborts this transaction.
      * The commit message eventually reaches the commit partition and gets executed but the outcome is ABORTED.
      */
-    //@Test
+    @Test
     public void testCommitAndDieRecoveryFirst() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -522,7 +526,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertEquals(TxState.ABORTED, txStoredState(commitPartNode, orphanTx.id()));
     }
 
-    //@Test
+    @Test
     public void testRecoveryIsTriggeredOnce() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -599,7 +603,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, ((InternalTransaction) rwTx3).id()) == TxState.COMMITTED, 10_000));
     }
 
-    //@Test
+    @Test
     public void testFinishAlreadyFinishedTx() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -636,7 +640,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(finish2, willThrow(MismatchingTransactionOutcomeException.class));
     }
 
-    //@Test
+    @Test
     public void testPrimaryFailureRightAfterCommitMsg() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -696,7 +700,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertEquals("val1", rec.value("val"));
     }
 
-    //@Test
+    @Test
     public void testPrimaryFailureWhileInflightInProgress() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -734,7 +738,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(commitFut, willCompleteSuccessfully());
     }
 
-    //@Test
+    @Test
     public void testPrimaryFailureWhileInflightInProgressAfterFirstResponse() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -790,7 +794,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testTsRecoveryForCursor() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        preloadData(tbl);
+        preloadData(tbl, 10);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -842,11 +846,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    @WithSystemProperty(key = "RESOURCE_CLEANUP_INTERVAL_MILLISECONDS", value = "500")
     public void testCursorCleanup(boolean readOnly) throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
-
-        preloadData(tbl);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -864,6 +865,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         log.info("Another tx coordinator is chosen [node={}].", thirdNode.name());
 
+        // Preload data from coordinator node to adjust the observable timestamp.
+        preloadData(txCrdNode.tables().table(TABLE_NAME), 10);
+
         // Creating a cursor that should remain because it is created from the node that will remain in the cluster.
         InternalTransaction rwTx = (InternalTransaction) thirdNode.transactions().begin();
         scanSingleEntryAndLeaveCursorOpen(targetNode, (TableViewInternal) thirdNode.tables().table(TABLE_NAME), rwTx);
@@ -876,10 +880,10 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> targetNode.cursorManager().cursors().size() == 1, 3000));
     }
 
-    private static void preloadData(Table table) {
+    private static void preloadData(Table table, int entries) {
         RecordView<Tuple> view = table.recordView();
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < entries; i++) {
             view.upsert(null, Tuple.create().set("key", i).set("val", "preload"));
         }
     }

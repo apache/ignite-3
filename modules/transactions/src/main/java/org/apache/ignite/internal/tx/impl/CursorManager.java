@@ -30,17 +30,33 @@ import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteException;
 
+/**
+ * This manager stores and maintains the cursors created for transactions.
+ */
 public class CursorManager {
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id
      * ({@link Long}).
      */
-    private final ConcurrentNavigableMap<IgniteUuid, CursorInfo> cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());;
+    private final ConcurrentNavigableMap<IgniteUuid, CursorInfo> cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
+    /**
+     * Get or create a cursor.
+     *
+     * @param cursorId Cursor id.
+     * @param txCoordinatorId Id of the coordinator of the transaction that had created the cursor.
+     * @param cursorSupplier Supplier to create a cursor.
+     * @return Cursor.
+     */
     public Cursor<?> getOrCreateCursor(IgniteUuid cursorId, String txCoordinatorId, Supplier<Cursor<?>> cursorSupplier) {
         return cursors.computeIfAbsent(cursorId, k -> new CursorInfo(cursorSupplier.get(), txCoordinatorId)).cursor;
     }
 
+    /**
+     * Close the given cursor.
+     *
+     * @param cursorId Cursor id.
+     */
     public void closeCursor(IgniteUuid cursorId) {
         CursorInfo cursorInfo = cursors.remove(cursorId);
 
@@ -53,6 +69,11 @@ public class CursorManager {
         }
     }
 
+    /**
+     * Close all cursors created by the given transaction.
+     *
+     * @param txId Transaction id.
+     */
     public void closeTransactionCursors(UUID txId) {
         var lowCursorId = new IgniteUuid(txId, Long.MIN_VALUE);
         var upperCursorId = new IgniteUuid(txId, Long.MAX_VALUE);
@@ -82,10 +103,18 @@ public class CursorManager {
         return cursors.subMap(lowCursorId, true, highCursorId, true);
     }
 
+    /**
+     * Returns all cursors.
+     *
+     * @return Cursors.
+     */
     public Map<IgniteUuid, CursorInfo> cursors() {
         return unmodifiableMap(cursors);
     }
 
+    /**
+     * Cursor information.
+     */
     public static class CursorInfo {
         final Cursor<?> cursor;
 
@@ -96,10 +125,20 @@ public class CursorManager {
             this.txCoordinatorId = txCoordinatorId;
         }
 
+        /**
+         * Cursor.
+         *
+         * @return Cursor.
+         */
         public Cursor<?> cursor() {
             return cursor;
         }
 
+        /**
+         * Id of the coordinator of the transaction that had created the cursor.
+         *
+         * @return Id of the coordinator of the transaction that had created the cursor.
+         */
         public String txCoordinatorId() {
             return txCoordinatorId;
         }
