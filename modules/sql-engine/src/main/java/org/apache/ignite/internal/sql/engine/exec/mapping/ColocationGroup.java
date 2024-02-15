@@ -25,8 +25,6 @@ import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-import org.apache.ignite.internal.tostring.S;
 
 /**
  * A group of a sources which shares common set of nodes and assignments to be executed.
@@ -38,16 +36,12 @@ import org.apache.ignite.internal.tostring.S;
 public class ColocationGroup implements Serializable {
     private static final long serialVersionUID = 1370403193139083025L;
 
-    @IgniteToStringInclude
     private final List<Long> sourceIds;
 
-    @IgniteToStringInclude
     private final List<String> nodeNames;
 
-    @IgniteToStringInclude
     private final List<NodeWithConsistencyToken> assignments;
 
-    @IgniteToStringInclude
     private final Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode;
 
     /** Constructor. */
@@ -117,11 +111,5 @@ public class ColocationGroup implements Serializable {
 
             return partitions;
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(this);
     }
 }
