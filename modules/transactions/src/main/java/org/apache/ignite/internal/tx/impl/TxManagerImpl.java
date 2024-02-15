@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
@@ -519,7 +520,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     commitTimestamp,
                                     txFinishFuture);
                         })
-                .thenCompose(Function.identity())
+                .thenCompose(identity())
                 // Verification future is added in order to share the proper verification exception with the client.
                 .thenCompose(r -> verificationFuture);
     }
@@ -575,7 +576,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         if (TransactionFailureHandler.isRecoverable(cause)) {
                             LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
 
-                            return durableFinish(
+                            return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,
                                     commitPartition,
                                     commit,
@@ -583,7 +584,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txId,
                                     commitTimestamp,
                                     txFinishFuture
-                            );
+                            ), cleanupExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx [txId={}].", ex, txId);
 
@@ -593,7 +594,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                     return CompletableFutures.<Void>nullCompletedFuture();
                 })
-                .thenCompose(Function.identity()));
+                .thenCompose(identity()));
     }
 
     private CompletableFuture<Void> makeFinishRequest(
