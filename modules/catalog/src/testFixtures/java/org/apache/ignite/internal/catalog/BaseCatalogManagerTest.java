@@ -38,6 +38,7 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -220,5 +221,19 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static CatalogCommand startBuildingIndexCommand(int indexId) {
         return StartBuildingIndexCommand.builder().indexId(indexId).build();
+    }
+
+    protected static CatalogCommand dropTableCommand(String tableName) {
+        return DropTableCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .build();
+    }
+
+    protected static CatalogCommand dropIndexCommand(String indexName) {
+        return DropIndexCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .indexName(indexName)
+                .build();
     }
 }
