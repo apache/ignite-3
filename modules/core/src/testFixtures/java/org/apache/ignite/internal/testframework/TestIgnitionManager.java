@@ -20,6 +20,7 @@ package org.apache.ignite.internal.testframework;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static org.apache.ignite.internal.util.Constants.MiB;
 
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.parser.ConfigDocument;
@@ -55,9 +56,11 @@ public class TestIgnitionManager {
     public static final int DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS = 100;
 
     /** Map with default node configuration values. */
-    // TODO: KKK add appropriate default sizes back
     private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
             "network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
+            "storage.profiles.default_aipersist.size", Integer.toString(256 * MiB),
+            "storage.profiles.default_aimem.initSize", Integer.toString(256 * MiB),
+            "storage.profiles.default_aimem.maxSize", Integer.toString(256 * MiB),
             "storage.profiles.default.engine", "aipersist"
     );
 
