@@ -22,6 +22,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -54,7 +55,7 @@ public class MappedFragment {
         this.fragment = fragment;
         this.groups = groups;
 
-        Set<String> nodes = new TreeSet<>();
+        Set<String> nodes = new HashSet<>();
 
         Long2ObjectMap<ColocationGroup> groupsBySourceId = new Long2ObjectOpenHashMap<>();
         for (ColocationGroup group : groups) {
