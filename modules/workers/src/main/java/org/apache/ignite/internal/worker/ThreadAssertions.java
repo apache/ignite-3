@@ -47,20 +47,23 @@ public class ThreadAssertions {
     }
 
     /**
-     * Assert that the current thread allows to perform {@link ThreadOperation#STORAGE_WRITE} operations.
+     * Asserts that the current thread allows to perform {@link ThreadOperation#STORAGE_WRITE} operations.
      */
     public static void assertThreadAllowsToWrite() {
         assertThreadAllowsTo(ThreadOperation.STORAGE_WRITE);
     }
 
     /**
-     * Assert that the current thread allows to perform {@link ThreadOperation#STORAGE_READ} operations.
+     * Asserts that the current thread allows to perform {@link ThreadOperation#STORAGE_READ} operations.
      */
     public static void assertThreadAllowsToRead() {
         assertThreadAllowsTo(ThreadOperation.STORAGE_READ);
     }
 
-    private static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
+    /**
+     * Asserts that the current thread allows to perform the requested operation.
+     */
+    public static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
         Thread currentThread = Thread.currentThread();
 
         if (BLACKLISTED_THREAD_NAMES.contains(currentThread.getName())) {

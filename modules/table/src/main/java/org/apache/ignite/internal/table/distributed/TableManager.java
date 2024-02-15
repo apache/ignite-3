@@ -180,6 +180,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -193,6 +194,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -1358,6 +1360,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 zoneDescriptor.partitions(),
                 sharedTxStateStorage
         );
+        if (ThreadAssertions.enabled()) {
+            txStateTableStorage = new ThreadAssertingTxStateTableStorage(txStateTableStorage);
+        }
 
         txStateTableStorage.start();
 
