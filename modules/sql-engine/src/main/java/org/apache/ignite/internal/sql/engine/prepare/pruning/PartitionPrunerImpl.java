@@ -22,8 +22,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -36,8 +34,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Applies partition pruning. */
 public class PartitionPrunerImpl implements PartitionPruner {
-
-    private static final IgniteLogger LOG = Loggers.forClass(PartitionPrunerImpl.class);
 
     /** Constructor. */
     public PartitionPrunerImpl() {
@@ -159,17 +155,7 @@ public class PartitionPrunerImpl implements PartitionPruner {
             return null;
         }
 
-        MappedFragment newFragment = mappedFragment.replaceColocationGroups(newColocationGroups);
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Applied partition pruning to fragment#{} current groups: {} new groups: {}",
-                    fragment.fragmentId(),
-                    mappedFragment.groups(),
-                    newFragment.groups()
-            );
-        }
-
-        return newFragment;
+        return mappedFragment.replaceColocationGroups(newColocationGroups);
     }
 
     @Nullable
