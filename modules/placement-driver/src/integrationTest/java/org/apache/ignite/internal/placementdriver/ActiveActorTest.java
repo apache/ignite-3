@@ -140,12 +140,12 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
 
     @Override
     protected void afterClusterInit(String leaderName) throws InterruptedException {
-        assertTrue(waitForCondition(() -> checkSingleActiveActor(leaderName), 10_000));
+        assertTrue(waitForCondition(() -> checkSingleActiveActor(leaderName), WAIT_TIMEOUT_MILLIS));
     }
 
     @Override
     protected void afterLeaderChange(String leaderName) throws InterruptedException {
-        assertTrue(waitForCondition(() -> checkSingleActiveActor(leaderName), 10_000));
+        assertTrue(waitForCondition(() -> checkSingleActiveActor(leaderName), WAIT_TIMEOUT_MILLIS));
     }
 
     private static Entry emptyMetastoreEntry() {

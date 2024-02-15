@@ -83,6 +83,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     /** Base node port. */
     private static final int PORT_BASE = 1234;
 
+    /** Wait timeout, in milliseconds. */
+    protected static final int WAIT_TIMEOUT_MILLIS = 10_000;
+
     protected static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
 
     @InjectConfiguration
@@ -160,7 +163,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         subscribeLeader(raftClient, (node, term) -> leaderFut.complete(node), "New leader: {}");
 
-        ClusterNode leader = leaderFut.get(10, TimeUnit.SECONDS);
+        ClusterNode leader = leaderFut.get(WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         assertNotNull(leader);
 
@@ -248,7 +251,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         // Checking invariants.
         assertTrue(callsCount.get() <= 1);
 
-        assertTrue(waitForCondition(() -> leaderRef.get() != null, 10_000));
+        assertTrue(waitForCondition(() -> leaderRef.get() != null, WAIT_TIMEOUT_MILLIS));
 
         ClusterNode leader = leaderRef.get();
 
@@ -294,8 +297,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         clusterServices.remove(new NetworkAddress("localhost", leader.address().port())).stop();
 
         // Waiting for the notifications to check.
-        assertTrue(waitForCondition(() -> !leader.equals(leaderRef.get()), 10_000));
-        assertTrue(waitForCondition(() -> !leader.equals(leaderRefNoInitialNotify.get()), 1000));
+        assertTrue(waitForCondition(() -> !leader.equals(leaderRef.get()), WAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> !leader.equals(leaderRefNoInitialNotify.get()), WAIT_TIMEOUT_MILLIS));
 
         log.info("New Leader: " + leaderRef.get());
 
@@ -341,10 +344,11 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         String leaderId = newLeaderPeer.consistentId();
 
         // Waiting for the notifications to check.
-        assertTrue(waitForCondition(() -> leaderId.equals(leaderRef.get().name()), 10_000));
+        assertTrue(waitForCondition(() -> leaderId.equals(leaderRef.get().name()), WAIT_TIMEOUT_MILLIS));
         assertTrue(waitForCondition(
-                () -> leaderRefNoInitialNotify.get() != null && leaderId.equals(leaderRefNoInitialNotify.get().name()), 1000)
-        );
+                () -> leaderRefNoInitialNotify.get() != null && leaderId.equals(leaderRefNoInitialNotify.get().name()),
+                WAIT_TIMEOUT_MILLIS
+        ));
 
         log.info("New Leader: " + leaderRef.get());
 
