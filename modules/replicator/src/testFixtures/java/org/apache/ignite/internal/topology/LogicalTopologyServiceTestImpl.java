@@ -58,6 +58,13 @@ public class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
     }
 
     @Override
+    public LogicalTopologySnapshot getLogicalTopology() {
+        return new LogicalTopologySnapshot(
+                1,
+                clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));
+    }
+
+    @Override
     public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
         return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
     }

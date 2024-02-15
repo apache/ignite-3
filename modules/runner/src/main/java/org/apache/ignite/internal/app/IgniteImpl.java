@@ -44,6 +44,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -66,7 +67,10 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
@@ -983,6 +987,37 @@ public class IgniteImpl implements Ignite {
                         LOG.info("Recovery complete, finishing join");
 
                         return cmgMgr.onJoinReady();
+                    }, startupExecutor)
+                    .thenComposeAsync(ignored -> {
+                        CompletableFuture<Void> awaitSelfInLogicalTopologyFuture = new CompletableFuture<>();
+
+                        LogicalTopologyEventListener awaitSelfListener = new LogicalTopologyEventListener() {
+                            @Override
+                            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+                                if (newTopology.nodes().stream().map(LogicalNode::id).collect(Collectors.toSet()).contains(id())) {
+                                    awaitSelfInLogicalTopologyFuture.complete(null);
+                                    logicalTopologyService.removeEventListener(this);
+                                }
+                            }
+
+                            @Override
+                            public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
+                                if (newTopology.nodes().stream().map(LogicalNode::id).collect(Collectors.toSet()).contains(id())) {
+                                    awaitSelfInLogicalTopologyFuture.complete(null);
+                                    logicalTopologyService.removeEventListener(this);
+                                }
+                            }
+                        };
+
+                        logicalTopologyService.addEventListener(awaitSelfListener);
+
+                        if (logicalTopologyService.getLogicalTopology().nodes().stream().map(LogicalNode::id).collect(Collectors.toSet())
+                                .contains(id())) {
+                            awaitSelfInLogicalTopologyFuture.complete(null);
+                            logicalTopologyService.removeEventListener(awaitSelfListener);
+                        }
+
+                        return awaitSelfInLogicalTopologyFuture;
                     }, startupExecutor)
                     .thenRunAsync(() -> {
                         try {

@@ -683,6 +683,13 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         }
 
         @Override
+        public LogicalTopologySnapshot getLogicalTopology() {
+            return new LogicalTopologySnapshot(
+                    ver,
+                    clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));
+        }
+
+        @Override
         public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
             return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
         }
