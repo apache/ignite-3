@@ -22,16 +22,10 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
-import io.opentelemetry.context.Context;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +47,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -133,7 +128,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
-        return spanWithResult("SchemaManager.onTableCreated", (span) -> {
+        return TracingManager.span("SchemaManager.onTableCreated", (span) -> {
             if (ex != null) {
                 return failedFuture(ex);
             }
@@ -145,7 +140,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
-        return spanWithResult("SchemaManager.onTableAltered", (span) -> {
+        return TracingManager.span("SchemaManager.onTableAltered", (span) -> {
             if (ex != null) {
                 return failedFuture(ex);
             }
@@ -163,7 +158,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
-        return spanWithResult("SchemaManager.onTableCreatedOrAltered", (span) -> {
+        return TracingManager.span("SchemaManager.onTableCreatedOrAltered", (span) -> {
             if (!busyLock.enterBusy()) {
                 return failedFuture(new NodeStoppingException());
             }
@@ -259,7 +254,7 @@ public class SchemaManager implements IgniteComponent {
             int tableId,
             SchemaDescriptor schema
     ) {
-        return spanWithResult("SchemaManager.registerSchema", (span) -> {
+        return TracingManager.span("SchemaManager.registerSchema", (span) -> {
             SchemaRegistryImpl reg = registries.get(tableId);
 
             if (reg == null) {

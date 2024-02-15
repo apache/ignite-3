@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -182,7 +181,7 @@ public class RocksDbFlusher {
      * @see #scheduleFlush()
      */
     public CompletableFuture<Void> awaitFlush(boolean schedule) {
-        return spanWithResult("awaitFlush", (span) -> {
+        return TracingManager.span("awaitFlush", (span) -> {
             CompletableFuture<Void> future;
 
             long dbSequenceNumber = db.getLatestSequenceNumber();

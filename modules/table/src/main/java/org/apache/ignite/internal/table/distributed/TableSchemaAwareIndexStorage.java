@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.nio.ByteBuffer;
+import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
@@ -82,7 +82,7 @@ public class TableSchemaAwareIndexStorage {
      * @param rowId An identifier of a row in a main storage.
      */
     public void put(BinaryRow binaryRow, RowId rowId) {
-        BinaryTuple tuple = spanWithResult("extractColumns", (span) -> indexRowResolver.extractColumns(binaryRow));
+        BinaryTuple tuple = span("extractColumns", (Function<TraceSpan, BinaryTuple>) (span) -> indexRowResolver.extractColumns(binaryRow));
 
         try (TraceSpan ignored = span("putIndex")) {
             storage.put(new IndexRowImpl(tuple, rowId));

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tracing.otel;
 
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.junit.jupiter.api.Test;
 
 /** For {@link Span} testing. */
@@ -79,7 +79,7 @@ public class SpanTest {
         AtomicReference<ReadableSpan> otelSpan = new AtomicReference<>();
 
         try (var ignored = rootSpan("root.request")) {
-            spanWithResult("process", (span) -> {
+            TracingManager.span("process", (span) -> {
                 otelSpan.set((ReadableSpan) Span.current());
 
                 return closure.apply(span);
@@ -97,7 +97,7 @@ public class SpanTest {
 
         try (var ignored = rootSpan("root.request")) {
             var span = asyncSpan("process");
-                    
+
             try (span) {
                 otelSpan.set((ReadableSpan) Span.current());
 

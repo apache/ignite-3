@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
@@ -76,7 +77,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public Tuple get(@Nullable Transaction tx, Tuple keyRec) {
-        return spanWithResult("RecordBinaryViewImpl.get", (span) -> {
+        return span("RecordBinaryViewImpl.get", (span) -> {
             return sync(getAsync(tx, keyRec));
         });
     }
@@ -86,7 +87,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return spanWithResult("PartitionListener.onWrite", (span) -> {
+        return span("PartitionListener.onWrite", (span) -> {
             return withSchemaSync(tx, (schemaVersion) -> {
                 Row keyRow = marshal(keyRec, schemaVersion, true); // Convert to portable format to pass TX/storage layer.
 
@@ -113,7 +114,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return spanWithResult("RecordBinaryViewImpl.getAllAsync", (span) -> {
+        return span("RecordBinaryViewImpl.getAllAsync", (span) -> {
             return withSchemaSync(tx, (schemaVersion) -> {
                 return tbl.getAll(mapToBinary(keyRecs, schemaVersion, true), (InternalTransaction) tx)
                         .thenApply(binaryRows -> wrap(binaryRows, schemaVersion, true));
@@ -132,7 +133,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        return spanWithResult("RecordBinaryViewImpl.upsertAsync", (span) -> {
+        return span("RecordBinaryViewImpl.upsertAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -156,7 +157,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return spanWithResult("RecordBinaryViewImpl.upsertAllAsync", (span) -> {
+        return span("RecordBinaryViewImpl.upsertAllAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -178,7 +179,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Tuple> getAndUpsertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        return spanWithResult("RecordBinaryViewImpl.getAndUpsertAsync", (span) -> {
+        return span("RecordBinaryViewImpl.getAndUpsertAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -202,7 +203,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        return spanWithResult("RecordBinaryViewImpl.insertAsync", (span) -> {
+        return span("RecordBinaryViewImpl.insertAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -226,7 +227,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<List<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return spanWithResult("RecordBinaryViewImpl.insertAllAsync", (span) -> {
+        return span("RecordBinaryViewImpl.insertAllAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -255,7 +256,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        return spanWithResult("RecordBinaryViewImpl.getAllAsync", (span) -> {
+        return span("RecordBinaryViewImpl.getAllAsync", (span) -> {
             return withSchemaSync(tx, (schemaVersion) -> {
                 Row row = marshal(rec, schemaVersion, false);
 
@@ -270,7 +271,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
-        return spanWithResult("RecordBinaryViewImpl.replaceAsync", (span) -> {
+        return span("RecordBinaryViewImpl.replaceAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -295,7 +296,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        return spanWithResult("RecordBinaryViewImpl.replaceAsync", (span) -> {
+        return span("RecordBinaryViewImpl.replaceAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -319,7 +320,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return spanWithResult("RecordBinaryViewImpl.deleteAsync", (span) -> {
+        return span("RecordBinaryViewImpl.deleteAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -343,7 +344,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        return spanWithResult("RecordBinaryViewImpl.deleteExactAsync", (span) -> {
+        return span("RecordBinaryViewImpl.deleteExactAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -367,7 +368,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Tuple> getAndDeleteAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return spanWithResult("RecordBinaryViewImpl.getAndDeleteAsync", (span) -> {
+        return span("RecordBinaryViewImpl.getAndDeleteAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -391,7 +392,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<List<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return spanWithResult("RecordBinaryViewImpl.deleteAllAsync", (span) -> {
+        return span("RecordBinaryViewImpl.deleteAllAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -414,7 +415,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<List<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return spanWithResult("RecordBinaryViewImpl.deleteAllExactAsync", (span) -> {
+        return span("RecordBinaryViewImpl.deleteAllExactAsync", (span) -> {
             if (tx != null) {
                 span.addAttribute("tx", tx::toString);
             }
@@ -436,7 +437,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @throws IgniteException If failed to marshal tuple.
      */
     private Row marshal(Tuple tuple, int schemaVersion, boolean keyOnly) throws IgniteException {
-        return spanWithResult("RecordBinaryViewImpl.marshal", (span) -> {
+        return span("RecordBinaryViewImpl.marshal", (span) -> {
             TupleMarshaller marshaller = marshaller(schemaVersion);
             try {
                 if (keyOnly) {

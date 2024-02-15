@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
@@ -166,7 +166,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
-        return spanWithResult("HeapLockManager.acquire", (span) -> {
+        return TracingManager.span("HeapLockManager.acquire", (span) -> {
             span.addAttribute("lockKey", lockKey::toString);
             span.addAttribute("mode", lockMode::toString);
 

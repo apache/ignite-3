@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
@@ -42,7 +42,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.network.ClusterNode;
 
 /** The service is intended to execute requests on replicas. */
@@ -194,11 +193,11 @@ public class ReplicaService {
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
-        try (TraceSpan span = asyncSpan("ReplicaService.invoke")) {
+        return span("ReplicaService.invoke", (span) -> {
             span.addAttribute("req", request::toString);
 
-            return span.endWhenComplete(this.sendToReplica(node.name(), request));
-        }
+            return this.sendToReplica(node.name(), request);
+        });
     }
 
     /**

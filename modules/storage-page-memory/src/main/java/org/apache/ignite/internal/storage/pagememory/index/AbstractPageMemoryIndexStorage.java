@@ -21,7 +21,6 @@ package org.apache.ignite.internal.storage.pagememory.index;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -247,7 +246,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public boolean hasNext() {
-            return spanWithResult("hasNextPageMemoryIndexStorage", (span) -> {
+            return TracingManager.span("hasNextPageMemoryIndexStorage", (span) -> {
                 return busy(() -> {
                     try {
                         return advanceIfNeededBusy();

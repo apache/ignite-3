@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -37,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -302,7 +302,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                     return busy(() -> {
                         throwExceptionIfStorageInProgressOfRebalance();
 
-                        return spanWithResult("nextRocksIteratorElements", (span) -> super.next());
+                        return span("nextRocksIteratorElements", (Function<TraceSpan, IgniteBiTuple<UUID, TxMeta>>) (span) -> super.next());
                     });
                 }
 
@@ -319,7 +319,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public CompletableFuture<Void> flush() {
-        return spanWithResult("txStateStorageFlush", (span) -> busy(() -> sharedStorage.awaitFlush(true)));
+        return span("txStateStorageFlush", (Function<TraceSpan, CompletableFuture<Void>>) (span) -> busy(() ->
+                sharedStorage.awaitFlush(true)));
     }
 
     @Override

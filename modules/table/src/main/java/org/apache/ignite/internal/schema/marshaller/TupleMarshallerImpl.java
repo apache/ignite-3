@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -106,7 +108,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(keyColumns(), keyTuple, valuesWithStatistics);
+            try (TraceSpan ignored = span("keyMarshaller")) {
+                gatherStatistics(keyColumns(), keyTuple, valuesWithStatistics);
+            }
 
             if (valuesWithStatistics.knownColumns != keyTuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -116,7 +120,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             boolean keyOnly = valTuple == null;
             if (!keyOnly) {
-                gatherStatistics(valueColumns(), valTuple, valuesWithStatistics);
+                try (TraceSpan ignored = span("valueMarshaller")) {
+                    gatherStatistics(valueColumns(), valTuple, valuesWithStatistics);
+                }
 
                 if ((valuesWithStatistics.knownColumns - keyTuple.columnCount()) != valTuple.columnCount()) {
                     throw new SchemaMismatchException(
@@ -125,7 +131,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 }
             }
 
-            return spanWithResult("buildRow", (span) -> buildRow(keyOnly, valuesWithStatistics));
+            return span("buildRow", (Function<TraceSpan, Row>) (span) -> buildRow(keyOnly, valuesWithStatistics));
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }

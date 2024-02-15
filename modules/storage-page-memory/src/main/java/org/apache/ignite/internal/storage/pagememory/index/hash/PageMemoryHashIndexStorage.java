@@ -20,9 +20,9 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.Objects;
+import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -39,6 +39,8 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -82,7 +84,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return spanWithResult("indexGet", (span) -> {
+        return TracingManager.span("indexGet", (span) -> {
             return busy(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
@@ -126,7 +128,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
     @Override
     public void remove(IndexRow row) throws StorageException {
-        span("removeIndex", (span) ->
+        span("removeIndex", (Function<TraceSpan, ? extends Object>) (span) ->
                 busy(() -> {
                     throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 

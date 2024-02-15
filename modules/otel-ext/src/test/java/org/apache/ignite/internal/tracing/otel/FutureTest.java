@@ -19,13 +19,13 @@ package org.apache.ignite.internal.tracing.otel;
 
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import io.opentelemetry.api.trace.Span;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.junit.jupiter.api.Test;
 
 /** Tests for CompletableFuture wrapper. */
@@ -35,7 +35,7 @@ public class FutureTest {
         var fut = new CompletableFuture<>();
 
         rootSpan("root", (parent) -> {
-            var allOf = spanWithResult("child", (span) -> {
+            var allOf = TracingManager.span("child", (span) -> {
                 var childSpanId = ((OtelTraceSpan) span).span.getSpanContext().getSpanId();
                 var wrappedFut = wrap(fut);
 

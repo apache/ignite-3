@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.util;
 
 import static org.apache.ignite.internal.network.direct.DirectMessageWriter.EMPTY_BYTE_BUFFER;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -32,6 +31,7 @@ import org.apache.ignite.internal.network.serialization.MessageReader;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -113,7 +113,7 @@ public class OptimizedMarshaller implements Marshaller {
 
     @Override
     public byte[] marshall(Object o) {
-        return spanWithResult("marshall", (span) -> {
+        return TracingManager.span("marshall", (span) -> {
             assert o instanceof NetworkMessage;
 
             ByteBuffer poolBuffer = pool.borrow();
@@ -168,7 +168,7 @@ public class OptimizedMarshaller implements Marshaller {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T unmarshall(ByteBuffer bytes) {
-        return spanWithResult("marshall", (span) -> {
+        return TracingManager.span("marshall", (span) -> {
             stream.setBuffer(bytes.duplicate().order(ORDER));
 
             return stream.readMessage(messageReader);

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -57,7 +57,7 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        return spanWithResult("JdbcQueryCursor.requestNextAsync", (span) -> {
+        return span("JdbcQueryCursor.requestNextAsync", (span) -> {
             long fetched0 = fetched.addAndGet(rows);
 
             assert cur != null : "non initialized cursor";

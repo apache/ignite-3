@@ -21,7 +21,6 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -229,7 +229,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public CompletableFuture<Void> refreshLeader() {
-        return spanWithResult("RaftGroupServiceImpl.refreshLeader", (span) -> {
+        return TracingManager.span("RaftGroupServiceImpl.refreshLeader", (span) -> {
             Function<Peer, GetLeaderRequest> requestFactory = targetPeer -> factory.getLeaderRequest()
                     .peerId(peerId(targetPeer))
                     .groupId(groupId)
@@ -460,7 +460,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
-        return spanWithResult("RaftGroupServiceImpl.run", (span) -> {
+        return TracingManager.span("RaftGroupServiceImpl.run", (span) -> {
             Peer leader = this.leader;
 
             if (leader == null) {

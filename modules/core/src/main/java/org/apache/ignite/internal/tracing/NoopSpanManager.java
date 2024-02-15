@@ -82,4 +82,9 @@ public class NoopSpanManager implements SpanManager {
     public TraceSpan restoreSpanContext(Map<String, String> headers) {
         return NoopSpan.INSTANCE;
     }
+
+    @Override
+    public TraceSpan current() {
+        return NoopSpan.INSTANCE;
+    }
 }

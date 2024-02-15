@@ -129,8 +129,19 @@ public class TracingManager {
      * @param closure Closure.
      * @return Closure result.
      */
-    public static <R> R spanWithResult(String spanName, Function<TraceSpan, R> closure) {
+    public static <R> R span(String spanName, Function<TraceSpan, R> closure) {
         return SPAN_MANAGER.createSpan(spanName, null, false, closure);
+    }
+
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
+     * @param closure Closure.
+     * @return Closure result.
+     */
+    public static <R> R span(String spanName, @Nullable TraceSpan parent, Function<TraceSpan, R> closure) {
+        return SPAN_MANAGER.createSpan(spanName, parent, false, closure);
     }
 
     /**
@@ -177,5 +188,9 @@ public class TracingManager {
 
     public static TraceSpan restoreSpanContext(Map<String, String> headers) {
         return SPAN_MANAGER.restoreSpanContext(headers);
+    }
+
+    public static TraceSpan current() {
+        return SPAN_MANAGER.current();
     }
 }

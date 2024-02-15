@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +73,7 @@ import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -207,7 +208,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return spanWithResult("getOrCreateHashIndex", (span) -> {
+        return span("getOrCreateHashIndex", (span) -> {
             return busy(() -> hashIndexes.computeIfAbsent(
                     indexDescriptor.id(),
                     id -> createOrRestoreHashIndex(createIndexMetaForNewIndex(id), indexDescriptor))
@@ -221,7 +222,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return spanWithResult("getOrCreateSortedIndex", (span) -> {
+        return span("getOrCreateSortedIndex", (span) -> {
             return busy(() -> sortedIndexes.computeIfAbsent(
                     indexDescriptor.id(),
                     id -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(id), indexDescriptor))
@@ -326,7 +327,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        return spanWithResult("readPageMemory", (span) -> {
+        return span("readPageMemory", (span) -> {
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableState();
 

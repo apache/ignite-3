@@ -21,7 +21,6 @@ import static java.lang.Math.max;
 import static java.time.Clock.systemUTC;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -30,6 +29,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tracing.TracingManager;
 
 /**
  * A Hybrid Logical Clock implementation.
@@ -110,7 +110,7 @@ public class HybridClockImpl implements HybridClock {
      */
     @Override
     public HybridTimestamp update(HybridTimestamp requestTime) {
-        return spanWithResult("HybridClock#update", (span) -> {
+        return TracingManager.span("HybridClock#update", (span) -> {
             while (true) {
                 long now = currentTime();
 

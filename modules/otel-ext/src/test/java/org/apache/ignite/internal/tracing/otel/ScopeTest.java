@@ -29,7 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.opentelemetry.context.Context;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.junit.jupiter.api.Test;
 
 /** For {@link io.opentelemetry.context.Scope} testing. */
@@ -63,14 +65,14 @@ public class ScopeTest {
         AtomicReference<TraceSpan> processSpan = new AtomicReference<>();
 
         try (var ignored = rootSpan("main")) {
-            var t1 = new Thread(() -> f.thenCompose((s) -> spanWithResult("process", (span) -> {
+            var t1 = new Thread(() -> f.thenCompose((s) -> TracingManager.span("process", (span) -> {
                 processSpan.set(span);
 
                 return completedFuture(2);
             })));
             t1.start();
 
-            new Thread(wrap(() -> span("complete", (span) -> f.complete(1)))).start();
+            new Thread(wrap(() -> span("complete", (Consumer<TraceSpan>) (span) -> f.complete(1)))).start();
         }
 
         assertEquals(1, f.get());

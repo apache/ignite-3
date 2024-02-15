@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNKNOWN
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.sql.engine.SqlQueryType.DML;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
@@ -68,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -125,7 +125,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcConnectResult> connect() {
-        return spanWithResult("JdbcQueryEventHandlerImpl.connect", (span) -> {
+        return span("JdbcQueryEventHandlerImpl.connect", (span) -> {
             try {
                 JdbcConnectionContext connectionContext = new JdbcConnectionContext(
 
@@ -152,7 +152,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             long connectionId,
             JdbcQueryExecuteRequest req
     ) {
-        return spanWithResult("JdbcQueryEventHandlerImpl.queryAsync", (span) -> {
+        return span("JdbcQueryEventHandlerImpl.queryAsync", (span) -> {
             span.addAttribute("connectionId", () -> Objects.toString(connectionId));
             span.addAttribute("req", req::toString);
 
@@ -228,7 +228,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
-        return spanWithResult("JdbcQueryEventHandlerImpl.batchAsync", (span) -> {
+        return span("JdbcQueryEventHandlerImpl.batchAsync", (span) -> {
             JdbcConnectionContext connectionContext;
             try {
                 connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
@@ -263,7 +263,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
-        return spanWithResult("JdbcQueryEventHandlerImpl.batchPrepStatementAsync", (span) -> {
+        return span("JdbcQueryEventHandlerImpl.batchPrepStatementAsync", (span) -> {
             JdbcConnectionContext connectionContext;
             try {
                 connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
@@ -360,7 +360,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
-        return spanWithResult("JdbcQueryEventHandlerImpl.finishTxAsync", (span) -> {
+        return span("JdbcQueryEventHandlerImpl.finishTxAsync", (span) -> {
             JdbcConnectionContext connectionContext;
 
             try {
@@ -398,7 +398,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
     private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<InternalSqlRow> cur, JdbcQueryExecuteRequest req) {
-        return spanWithResult("JdbcQueryEventHandlerImpl.createJdbcResult", (span) -> {
+        return span("JdbcQueryEventHandlerImpl.createJdbcResult", (span) -> {
             return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
                 boolean hasNext = batch.hasMore();
 
@@ -520,7 +520,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
          * @return Future that represents the pending completion of the operation.
          */
         CompletableFuture<Void> finishTransactionAsync(boolean commit) {
-            return spanWithResult("JdbcConnectionContext.finishTransactionAsync", (span) -> {
+            return span("JdbcConnectionContext.finishTransactionAsync", (span) -> {
                 InternalTransaction tx0 = tx;
 
                 tx = null;

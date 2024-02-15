@@ -42,6 +42,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -75,6 +76,8 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -330,7 +333,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
                 }
 
-                clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+                span("sendReplicaResponse", (Consumer<TraceSpan>) (span) -> clusterNetSvc.messagingService().respond(senderConsistentId,
+                        msg, correlationId));
 
                 if (request instanceof PrimaryReplicaRequest) {
                     ClusterNode localNode = clusterNetSvc.topologyService().localMember();
@@ -359,7 +363,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         }
 
                         // Using strong send here is important to avoid a reordering with a normal response.
-                        clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+                        span("sendDelayedReplicaResponse", (Consumer<TraceSpan>) (span) -> clusterNetSvc.messagingService().send(
+                                senderConsistentId, ChannelType.DEFAULT, msg0));
                     });
                 }
             });

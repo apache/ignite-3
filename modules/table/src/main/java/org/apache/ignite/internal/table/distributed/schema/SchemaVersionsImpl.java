@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.tracing.TracingManager;
+import org.apache.ignite.internal.tracing.TraceSpan;
 
 /**
  * Default implementation of {@link SchemaVersions}.
@@ -51,8 +52,10 @@ public class SchemaVersionsImpl implements SchemaVersions {
 
     @Override
     public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
-        return spanWithResult("schemaVersionAt", (span) -> tableDescriptor(tableId, timestamp)
-                .thenApply(CatalogTableDescriptor::tableVersion));
+        return span("schemaVersionAt", (Function<TraceSpan, ? extends CompletableFuture<Integer>>) (span) ->
+                tableDescriptor(tableId, timestamp)
+                        .thenApply(CatalogTableDescriptor::tableVersion)
+        );
     }
 
     private CompletableFuture<CatalogTableDescriptor> tableDescriptor(int tableId, HybridTimestamp timestamp) {

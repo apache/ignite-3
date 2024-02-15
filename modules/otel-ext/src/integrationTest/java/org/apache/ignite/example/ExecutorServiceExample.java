@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 
 /**
@@ -21,8 +22,7 @@ public class ExecutorServiceExample {
     public ExecutorServiceExample() {
         stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 2,
-                "example-execution-pool",
-                new LogUncaughtExceptionHandler(LOG),
+                NamedThreadFactory.create("test", "example-execution-pool", LOG),
                 false,
                 0
         );
@@ -49,7 +49,7 @@ public class ExecutorServiceExample {
      */
     public static void main(String[] args) {
         var example = new ExecutorServiceExample();
-        
+
         example.run().join();
         example.run().join();
     }

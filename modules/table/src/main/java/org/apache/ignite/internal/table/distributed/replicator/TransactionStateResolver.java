@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -135,7 +135,7 @@ public class TransactionStateResolver {
             TablePartitionId commitGrpId,
             @Nullable HybridTimestamp timestamp
     ) {
-        return spanWithResult("PartitionReplicaListener.resolveTxState", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.resolveTxState", (span) -> {
             TxStateMeta localMeta = txManager.stateMeta(txId);
 
             if (localMeta != null && isFinalState(localMeta.txState())) {

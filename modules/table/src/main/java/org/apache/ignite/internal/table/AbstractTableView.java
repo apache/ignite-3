@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.AsyncCursor;
@@ -142,17 +144,19 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         CompletableFuture<T> future = schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)
                         .handle((res, ex) -> {
-                            if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
-                                assert tx == null : "Only for implicit transactions a retry might be requested";
-                                assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
-                                        : "Same schema version (" + schemaVersion
-                                                + ") on a retry: something is wrong, is this caused by the test setup?";
+                            return span("withSchemaSync.handle", (span) -> {
+                                if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
+                                    assert tx == null : "Only for implicit transactions a retry might be requested";
+                                    assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
+                                            : "Same schema version (" + schemaVersion
+                                            + ") on a retry: something is wrong, is this caused by the test setup?";
 
-                                // Repeat.
-                                return withSchemaSync(tx, schemaVersion, action);
-                            } else {
-                                return ex == null ? completedFuture(res) : CompletableFuture.<T>failedFuture(ex);
-                            }
+                                    // Repeat.
+                                    return withSchemaSync(tx, schemaVersion, action);
+                                } else {
+                                    return ex == null ? completedFuture(res) : CompletableFuture.<T>failedFuture(ex);
+                                }
+                            });
                         }))
                 .thenCompose(identity());
 

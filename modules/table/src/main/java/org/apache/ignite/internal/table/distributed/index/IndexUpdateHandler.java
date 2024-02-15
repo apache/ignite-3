@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
-import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
-
 import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -34,7 +33,6 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 

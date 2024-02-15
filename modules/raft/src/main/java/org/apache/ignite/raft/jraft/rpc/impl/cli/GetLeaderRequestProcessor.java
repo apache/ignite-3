@@ -16,11 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.internal.tracing.TracingManager;import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -58,7 +57,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
 
     @Override
     public Message processRequest(final GetLeaderRequest request, final RpcRequestClosure done) {
-        return spanWithResult("GetLeaderRequestProcessor.processRequest", (span) -> {
+        return TracingManager.span("GetLeaderRequestProcessor.processRequest", (span) -> {
             List<Node> nodes = new ArrayList<>();
             final String groupId = getGroupId(request);
             if (request.peerId() != null) {

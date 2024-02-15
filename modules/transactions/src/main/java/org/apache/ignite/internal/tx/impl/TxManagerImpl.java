@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -90,6 +89,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
@@ -300,57 +300,57 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
-        try (var txSpan = asyncSpan("tx operation")) {
-            return spanWithResult("beginTransaction", (span) -> {
-                span.addAttribute("timestampTracker", timestampTracker::toString);
-                span.addAttribute("readOnly", () -> String.valueOf(readOnly));
+        TraceSpan opSpan = TracingManager.current();
 
-                HybridTimestamp beginTimestamp = readOnly ? clock.now() : createBeginTimestampWithIncrementRwTxCounter();
-                UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
-                startedTxs.incrementAndGet();
+        return span("beginTransaction", (span) -> {
+            span.addAttribute("timestampTracker", timestampTracker::toString);
+            span.addAttribute("readOnly", () -> String.valueOf(readOnly));
 
-        if (!readOnly) {
-            txStateVolatileStorage.initialize(txId, localNodeId);
+            HybridTimestamp beginTimestamp = readOnly ? clock.now() : createBeginTimestampWithIncrementRwTxCounter();
+            UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
+            startedTxs.incrementAndGet();
 
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, txSpan);
-        }
+            if (!readOnly) {
+                txStateVolatileStorage.initialize(txId, localNodeId);
 
-                HybridTimestamp observableTimestamp = timestampTracker.get();
+                return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, opSpan);
+            }
 
-                HybridTimestamp readTimestamp = observableTimestamp != null
-                        ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp(beginTimestamp))
-                        : currentReadTimestamp(beginTimestamp);
+            HybridTimestamp observableTimestamp = timestampTracker.get();
 
-                TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
+            HybridTimestamp readTimestamp = observableTimestamp != null
+                    ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp(beginTimestamp))
+                    : currentReadTimestamp(beginTimestamp);
 
-                CompletableFuture<Void> txFuture = new CompletableFuture<>();
+            TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
 
-                CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
-                assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
+            CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-                HybridTimestamp lowWatermark = this.lowWatermark.get();
+            CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
+            assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-                if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
-                    // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
-                    // transactions to wait. In order for that code to work safely, we have to make sure that no "too old" transactions will be
-                    // created here in "begin" method after "this.lowWatermark" is already updated. The simplest way to achieve that is to check
-                    // LW after we add transaction to the map (adding transaction to the map before reading LW value, of course).
-                    readOnlyTxFutureById.remove(txIdAndTimestamp);
+            HybridTimestamp lowWatermark = this.lowWatermark.get();
 
-                    // Completing the future is necessary, because "updateLowWatermark" method may already wait for it if race condition happened.
-                    txFuture.complete(null);
+            if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
+                // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
+                // transactions to wait. In order for that code to work safely, we have to make sure that no "too old" transactions will be
+                // created here in "begin" method after "this.lowWatermark" is already updated. The simplest way to achieve that is to check
+                // LW after we add transaction to the map (adding transaction to the map before reading LW value, of course).
+                readOnlyTxFutureById.remove(txIdAndTimestamp);
 
-                    throw new IgniteInternalException(
-                            TX_READ_ONLY_TOO_OLD_ERR,
-                            "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
-                            readTimestamp,
-                            lowWatermark
-                    );
-                }
+                // Completing the future is necessary, because "updateLowWatermark" method may already wait for it if race condition happened.
+                txFuture.complete(null);
 
-                return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, txSpan);
-            });
-        }
+                throw new IgniteInternalException(
+                        TX_READ_ONLY_TOO_OLD_ERR,
+                        "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                        readTimestamp,
+                        lowWatermark
+                );
+            }
+
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, opSpan);
+        });
     }
 
     /**

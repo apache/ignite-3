@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetwo
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -58,6 +57,7 @@ import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
@@ -273,8 +273,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         TraceSpan s = span("responseFuture");
 
-        CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<NetworkMessage>()
-                .orTimeout(timeout, TimeUnit.MILLISECONDS);
+        CompletableFuture<NetworkMessage> responseFuture = TracingManager.wrap(new CompletableFuture<NetworkMessage>()
+                .orTimeout(timeout, TimeUnit.MILLISECONDS));
 
         s.close();
 
@@ -322,7 +322,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
         }
 
-        return spanWithResult("DefaultMessagingService.sendMessage", (span) -> {
+        return span("DefaultMessagingService.sendMessage", (span) -> {
             if (consistentId != null) {
                 span.addAttribute("consistentId", consistentId::toString);
             }

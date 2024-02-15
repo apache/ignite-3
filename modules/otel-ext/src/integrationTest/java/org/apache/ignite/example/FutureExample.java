@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 
 /**
@@ -22,8 +23,7 @@ public class FutureExample {
     public FutureExample() {
         stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 2,
-                "example-execution-pool",
-                new LogUncaughtExceptionHandler(LOG),
+                NamedThreadFactory.create("test", "example-execution-pool", LOG),
                 false,
                 0
         );

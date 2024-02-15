@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
@@ -247,10 +248,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         @Override
         public void sendResponse(Object responseObj) {
-            TracingManager.spanWithResult(
-                    "IgniteRpcServer.sendResponse",
-                    (ignored) -> service.messagingService().respond(sender, (NetworkMessage) responseObj, correlationId)
-            );
+            span("IgniteRpcServer.sendResponse", (Consumer<TraceSpan>) (ignored) -> service.messagingService().respond(sender,
+                (NetworkMessage) responseObj, correlationId));
         }
 
         @Override

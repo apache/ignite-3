@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.table.distributed.replicator.Replicator
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -69,6 +68,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -155,6 +155,8 @@ import org.apache.ignite.internal.table.distributed.replication.request.ScanClos
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
@@ -574,7 +576,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Boolean isPrimary,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
-        return spanWithResult("PartitionReplicaListener.processOperationRequest", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.processOperationRequest", (span) -> {
             if (request instanceof ReadWriteSingleRowReplicaRequest) {
                 var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -912,7 +914,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = spanWithResult("safeReadFuture", (span) -> isPrimaryInTimestamp(isPrimary, readTimestamp)
+        CompletableFuture<Void> safeReadFuture = TracingManager.span("safeReadFuture", (span) -> isPrimaryInTimestamp(isPrimary, readTimestamp)
                 ? nullCompletedFuture() : safeTime.waitFor(request.readTimestamp()));
 
         return safeReadFuture.thenCompose(unused -> resolveRowByPkForReadOnly(primaryKey, readTimestamp));
@@ -1466,7 +1468,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return future result of the operation.
      */
     private CompletableFuture<TransactionResult> processTxFinishAction(TxFinishReplicaRequest request) {
-        return spanWithResult("PartitionReplicaListener.processTxFinishAction", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.processTxFinishAction", (span) -> {
             span.addAttribute("req", request::toString);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
@@ -1522,7 +1524,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return spanWithResult("PartitionReplicaListener.finishAndCleanup", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.finishAndCleanup", (span) -> {
             // Read TX state from the storage, we will need this state to check if the locks are released.
             // Since this state is written only on the transaction finish (see PartitionListener.handleFinishTxCommand),
             // the value of txMeta can be either null or COMMITTED/ABORTED. No other values is expected.
@@ -1592,7 +1594,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         assert !(commit && commitTimestamp == null) : "Cannot commit without the timestamp.";
 
-        return spanWithResult("PartitionReplicaListener.finishTransaction", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.finishTransaction", (span) -> {
             HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : hybridClock.now();
 
             return reliableCatalogVersionFor(tsForCatalogVersion)
@@ -1804,7 +1806,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         assert pkLocker != null;
 
-        return spanWithResult("PartitionReplicaListener.resolveRowByPk", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.resolveRowByPk", (span) -> {
             return pkLocker.locksForLookupByKey(txId, pk)
                     .thenCompose(ignored -> {
 
@@ -1860,7 +1862,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return A future object representing the result of the given operation.
      */
     private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
-        return spanWithResult("PartitionReplicaListener.appendTxCommand", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.appendTxCommand", (span) -> {
             if (full) {
                 return op.get().whenComplete((v, th) -> {
                     // Fast unlock.
@@ -1928,7 +1930,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result of the given action.
      */
     private CompletableFuture<@Nullable BinaryRow> resolveRowByPkForReadOnly(BinaryTuple pk, HybridTimestamp ts) {
-        return spanWithResult("PartitionReplicaListener.resolveRowByPkForReadOnly", (span) -> {
+        return span("PartitionReplicaListener.resolveRowByPkForReadOnly", (span) -> {
             // Indexes store values associated with different versions of one entry.
             // It's possible to have multiple entries for a particular search key
             // only if we insert, delete and again insert an entry with the same indexed fields.
@@ -2532,7 +2534,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             String txCoordinatorId,
             int catalogVersion
     ) {
-        return spanWithResult("PartitionReplicaListener.applyUpdateCommand", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.applyUpdateCommand", (span) -> {
             synchronized (commandProcessingLinearizationMutex) {
                 UpdateCommand cmd = updateCommand(
                         tablePartId,
@@ -2781,7 +2783,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             ReadOnlyDirectSingleRowReplicaRequest request,
             HybridTimestamp opStartTimestamp
     ) {
-        return spanWithResult("PartitionReplicaListener.processReadOnlyDirectSingleEntryAction", (span) -> {
+        return span("PartitionReplicaListener.processReadOnlyDirectSingleEntryAction", (span) -> {
             BinaryTuple primaryKey = resolvePk(request.primaryKey());
             HybridTimestamp readTimestamp = opStartTimestamp;
 
@@ -2807,7 +2809,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         assert commitPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
 
-        return spanWithResult("PartitionReplicaListener.processSingleEntryAction", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.processSingleEntryAction", (span) -> {
             switch (request.requestType()) {
                 case RW_DELETE_EXACT: {
                     return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
@@ -3008,7 +3010,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
                 "Commit partition is null [type=" + request.requestType() + ']';
 
-        return spanWithResult("PartitionReplicaListener.processSingleEntryAction", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.processSingleEntryAction", (span) -> {
             switch (request.requestType()) {
                 case RW_GET: {
                     return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
@@ -3086,8 +3088,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param <T> Type of the {@code result}.
      */
     private <T> CompletableFuture<T> awaitCleanup(@Nullable RowId rowId, T result) {
-        return spanWithResult("awaitCleanup", (span) -> (rowId == null ? nullCompletedFuture() : rowCleanupMap.getOrDefault(rowId, nullCompletedFuture()))
-                .thenApply(ignored -> result));
+        return span("awaitCleanup", (Function<TraceSpan, ? extends CompletableFuture<T>>) (span) -> (rowId == null
+                ? nullCompletedFuture() : rowCleanupMap.getOrDefault(rowId, nullCompletedFuture())).thenApply(ignored -> result));
     }
 
     /**
@@ -3132,7 +3134,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private BinaryTuple resolvePk(ByteBuffer bytes) {
-        return spanWithResult("resolvePk", (span) -> pkIndexStorage.get().resolve(bytes));
+        return span("resolvePk", (Function<TraceSpan, BinaryTuple>) (span) -> pkIndexStorage.get().resolve(bytes));
     }
 
     private List<BinaryTuple> resolvePks(List<ByteBuffer> bytesList) {
@@ -3156,7 +3158,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForUpdate(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return spanWithResult("PartitionReplicaListener.takeLocksForUpdate", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.takeLocksForUpdate", (span) -> {
             return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX)
                     .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.X))
                     .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
@@ -3172,7 +3174,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return spanWithResult("PartitionReplicaListener.takeLocksForUpdate", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.takeLocksForUpdate", (span) -> {
             return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
                     .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
                     .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
@@ -3357,7 +3359,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
         HybridTimestamp now = hybridClock.now();
 
-        return spanWithResult("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
+        return TracingManager.span("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
             if (request instanceof PrimaryReplicaRequest) {
                 Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
 
@@ -3538,7 +3540,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Boolean> resolveWriteIntentReadability(ReadResult writeIntent, @Nullable HybridTimestamp timestamp) {
         UUID txId = writeIntent.transactionId();
 
-        return spanWithResult("resolveWriteIntentReadability", (span) -> transactionStateResolver.resolveTxState(
+        return span("resolveWriteIntentReadability", (Function<TraceSpan, ? extends CompletableFuture<Boolean>>) (span) ->
+                transactionStateResolver.resolveTxState(
                         txId,
                         new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
                         timestamp)
@@ -3596,7 +3599,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Integer> validateWriteAgainstSchemaAfterTakingLocks(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
-        return spanWithResult("validateWriteAgainstSchemaAfterTakingLocks", (span) -> {
+        return TracingManager.span("validateWriteAgainstSchemaAfterTakingLocks", (span) -> {
             return reliableCatalogVersionFor(operationTimestamp)
                     .thenApply(catalogVersion -> {
                         failIfSchemaChangedSinceTxStart(txId, operationTimestamp);

@@ -93,4 +93,6 @@ public interface SpanManager {
     @Nullable Map<String, String> serializeSpan();
 
     TraceSpan restoreSpanContext(Map<String, String> headers);
+
+    TraceSpan current();
 }

@@ -42,11 +42,11 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -77,6 +77,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -177,6 +178,8 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -629,7 +632,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
-        return spanWithResult("TableManager.onTableCreate", (span) ->
+        return span("TableManager.onTableCreate", (Function<TraceSpan, ? extends CompletableFuture<?>>) (span) ->
                 createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false)
         );
     }
@@ -1154,7 +1157,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
             boolean onNodeRecovery
     ) {
-        return spanWithResult("TableManager.createTableLocally", (span) ->
+        return span("TableManager.createTableLocally", (Function<TraceSpan, ? extends CompletableFuture<?>>) (span) ->
                 inBusyLockAsync(busyLock, () -> {
                     int tableId = tableDescriptor.id();
                     int zoneId = tableDescriptor.zoneId();
@@ -1163,28 +1166,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
 
-            // Check if the table already has assignments in the meta storage locally.
-            // So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
-            // of the new ones.
-            if (partitionAssignmentsGetLocally(metaStorageMgr, tableId, 0, causalityToken) != null) {
-                assignmentsFuture = completedFuture(
-                        tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
-            } else {
-                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
-                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
-                                dataNodes,
-                                zoneDescriptor.partitions(),
-                                zoneDescriptor.replicas()
-                        ));
+                    // Check if the table already has assignments in the meta storage locally.
+                    // So, it means, that it is a recovery process and we should use the meta storage local assignments instead of
+                    // calculation of the new ones.
+                    if (partitionAssignmentsGetLocally(metaStorageMgr, tableId, 0, causalityToken) != null) {
+                        assignmentsFuture = completedFuture(
+                                tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
+                    } else {
+                        assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
+                                .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                                        dataNodes,
+                                        zoneDescriptor.partitions(),
+                                        zoneDescriptor.replicas()
+                                ));
 
-                assignmentsFuture.thenAccept(assignmentsList -> {
-                    LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
-                            + "revision={}]", tableDescriptor.name(), tableId, assignmentListToString(assignmentsList), causalityToken));
-                });
-            }
+                        assignmentsFuture.thenAccept(assignmentsList -> {
+                            LOG.info(IgniteStringFormatter.format(
+                                    "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
+                                            + "revision={}]", tableDescriptor.name(), tableId, assignmentListToString(assignmentsList),
+                                    causalityToken));
+                        });
+                    }
 
-            CompletableFuture<List<Set<Assignment>>> assignmentsFutureAfterInvoke =
-                    writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+                    CompletableFuture<List<Set<Assignment>>> assignmentsFutureAfterInvoke =
+                            writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
 
                     return createTableLocally(
                             causalityToken,
@@ -1192,8 +1197,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             zoneDescriptor,
                             assignmentsFutureAfterInvoke,
                             catalogVersion,
-                    onNodeRecovery
-                            );
+                            onNodeRecovery
+                    );
                 })
         );
     }
@@ -1223,7 +1228,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         LOG.trace("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
 
-        return spanWithResult("TableManager.createTableLocally", (span) -> {
+        return span("TableManager.createTableLocally", (span) -> {
             MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
             TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
 
@@ -1234,15 +1239,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     tableId,
                     new Int2ObjectOpenHashMap<>(partitions),
                     partitions,
-                clusterService.topologyService(),
-                txManager,
-                tableStorage,
+                    clusterService.topologyService(),
+                    txManager,
+                    tableStorage,
                     txStateStorage,
-                replicaSvc,
-                clock,
-                observableTimestampTracker,
-                placementDriver
-        );
+                    replicaSvc,
+                    clock,
+                    observableTimestampTracker,
+                    placementDriver
+            );
 
             var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get());
 
@@ -1267,42 +1272,42 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }));
 
             // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
-        CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
-                (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
-                    PartitionSet parts = new BitSetPartitionSet();
+            CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
+                    (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
+                        PartitionSet parts = new BitSetPartitionSet();
 
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
-                    // TODO assigned partitions.
-                    for (int i = 0; i < newAssignments.size(); i++) {
-                        parts.set(i);
-                    }
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
+                        // TODO assigned partitions.
+                        for (int i = 0; i < newAssignments.size(); i++) {
+                            parts.set(i);
+                        }
 
-                    return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
-                        var newValue = new HashMap<>(previous);
+                        return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
+                            var newValue = new HashMap<>(previous);
 
-                        newValue.put(tableId, parts);
+                            newValue.put(tableId, parts);
 
-                        return newValue;
-                    });
-                }, ioExecutor)));
+                            return newValue;
+                        });
+                    }, ioExecutor)));
 
-        // We bring the future outside to avoid OutdatedTokenException.
-        CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
+            // We bring the future outside to avoid OutdatedTokenException.
+            CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be started only on the assignments change
-        // TODO event triggered by zone create or alter.
-        CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be started only on the assignments change
+            // TODO event triggered by zone create or alter.
+            CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
-            return localPartsUpdateFuture.thenCompose(unused ->
-                    tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(
-                            busyLock,
-                            () -> startLocalPartitionsAndClients(assignmentsFuture, table)
-                    ), ioExecutor)
-            );
-        });
+                return localPartsUpdateFuture.thenCompose(unused ->
+                        tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(
+                                busyLock,
+                                () -> startLocalPartitionsAndClients(assignmentsFuture, table)
+                        ), ioExecutor)
+                );
+            });
 
             pendingTables.put(tableId, table);
             startedTables.put(tableId, table);
@@ -1310,8 +1315,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             tablesById(causalityToken).thenAccept(ignored -> inBusyLock(busyLock, () -> {
                 pendingTables.remove(tableId);
             }));
-
-
 
             // TODO should be reworked in IGNITE-16763
 
@@ -1343,7 +1346,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + dataStorage.engine();
 
-        return spanWithResult("TableManager.createTableStorage", (span) -> {
+        return span("TableManager.createTableStorage", (span) -> {
             MvTableStorage tableStorage = engine.createMvTable(
                     new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
                     new StorageIndexDescriptorSupplier(catalogService)
@@ -1627,7 +1630,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
     private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
-        return spanWithResult("tableAsync", (span) ->
+        return span("tableAsync", (Function<TraceSpan, ? extends CompletableFuture<TableViewInternal>>) (span) ->
                 inBusyLockAsync(busyLock, () -> {
                     HybridTimestamp now = clock.now();
 
@@ -2080,7 +2083,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
     private CompletableFuture<Void> getOrCreatePartitionStorages(TableImpl table, PartitionSet partitions) {
-        return spanWithResult("TableManager.getOrCreatePartitionStorages", (span) -> {
+        return span("TableManager.getOrCreatePartitionStorages", (span) -> {
             InternalTable internalTable = table.internalTable();
 
             CompletableFuture<?>[] storageFuts = partitions.stream().mapToObj(partitionId -> {

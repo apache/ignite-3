@@ -54,7 +54,7 @@ public class OtelSpanManager implements SpanManager {
     public TraceSpan createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired) {
         boolean isBeginOfTrace = !Span.current().getSpanContext().isValid();
 
-        if (isBeginOfTrace && !rootSpan && parent == null) {
+        if (isBeginOfTrace && !rootSpan && (parent == null || !parent.isValid())) {
             return NoopSpan.INSTANCE;
         }
 
@@ -81,8 +81,6 @@ public class OtelSpanManager implements SpanManager {
             span.recordException(ex);
 
             throw ex;
-        } finally {
-            span.end();
         }
     }
 
@@ -162,5 +160,18 @@ public class OtelSpanManager implements SpanManager {
         public String get(Map<String, String> carrier, String key) {
             return carrier.get(key);
         }
+    }
+
+    @Override
+    public TraceSpan current() {
+        var span = Span.current();
+
+        if (!Span.current().getSpanContext().isValid()) {
+            return NoopSpan.INSTANCE;
+        }
+
+        var scope = span.makeCurrent();
+
+        return new OtelTraceSpan(Context.current(), scope, span, false);
     }
 }
