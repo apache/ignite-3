@@ -20,7 +20,7 @@ Fragment#2
   partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
-      IgniteTableScan(name=PUBLIC.T2_N1, source=3, distribution=affinity[table: T2_N1, columns: [ID]])
+      IgniteTableScan(name=PUBLIC.T2_N1, source=3, partitions=1, distribution=affinity[table: T2_N1, columns: [ID]])
 
 Fragment#1
   targetNodes: [N1]
@@ -29,7 +29,7 @@ Fragment#1
   partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.T1_N1, source=4, distribution=affinity[table: T1_N1, columns: [ID]])
+      IgniteTableScan(name=PUBLIC.T1_N1, source=4, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
 ---
 
 N1
@@ -52,8 +52,8 @@ Fragment#1
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteColocatedHashAggregate
         IgniteUnionAll
-          IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
-          IgniteTableScan(name=PUBLIC.T2_N1, source=3, distribution=affinity[table: T2_N1, columns: [ID]])
+          IgniteTableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
+          IgniteTableScan(name=PUBLIC.T2_N1, source=3, partitions=1, distribution=affinity[table: T2_N1, columns: [ID]])
 ---
 
 N1
@@ -78,7 +78,7 @@ Fragment#2
   partitions: {N1=[0:1], N2=[1:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
-      IgniteTableScan(name=PUBLIC.T2_N1N2, source=3, distribution=affinity[table: T2_N1N2, columns: [ID]])
+      IgniteTableScan(name=PUBLIC.T2_N1N2, source=3, partitions=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
 
 Fragment#1
   targetNodes: [N1]
@@ -87,7 +87,7 @@ Fragment#1
   partitions: {N1=[0:1], N2=[1:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.T1_N1N2, source=4, distribution=affinity[table: T1_N1N2, columns: [ID]])
+      IgniteTableScan(name=PUBLIC.T1_N1N2, source=4, partitions=2, distribution=affinity[table: T1_N1N2, columns: [ID]])
 ---
 
 N1
@@ -110,6 +110,6 @@ Fragment#1
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteColocatedHashAggregate
         IgniteUnionAll
-          IgniteTableScan(name=PUBLIC.T1_N1N2, source=2, distribution=affinity[table: T1_N1N2, columns: [ID]])
-          IgniteTableScan(name=PUBLIC.T2_N1N2, source=3, distribution=affinity[table: T2_N1N2, columns: [ID]])
+          IgniteTableScan(name=PUBLIC.T1_N1N2, source=2, partitions=2, distribution=affinity[table: T1_N1N2, columns: [ID]])
+          IgniteTableScan(name=PUBLIC.T2_N1N2, source=3, partitions=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
 ---

@@ -250,8 +250,12 @@ final class FragmentPrinter extends IgniteRelShuttle {
     public IgniteRel visit(IgniteIndexScan rel) {
         long sourceId = rel.sourceId();
         String tableName = String.join(".", rel.getTable().getQualifiedName());
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null;
 
-        output.writeFormattedString("(name={}, source={}, distribution={})", tableName, sourceId, rel.distribution());
+        output.writeFormattedString("(name={}, source={}, partitions={}, distribution={})",
+                tableName, sourceId, table.partitions(), rel.distribution()
+        );
         return super.visit(rel);
     }
 
@@ -259,8 +263,12 @@ final class FragmentPrinter extends IgniteRelShuttle {
     public IgniteRel visit(IgniteTableScan rel) {
         long sourceId = rel.sourceId();
         String tableName = String.join(".", rel.getTable().getQualifiedName());
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null;
 
-        output.writeFormattedString("(name={}, source={}, distribution={})", tableName, sourceId, rel.distribution());
+        output.writeFormattedString("(name={}, source={}, partitions={}, distribution={})",
+                tableName, sourceId, table.partitions(), rel.distribution()
+        );
         return super.visit(rel);
     }
 

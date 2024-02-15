@@ -17,7 +17,7 @@ Fragment#2
   partitions: {N2=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
-      IgniteTableScan(name=PUBLIC.NT2_N2, source=3, distribution=identity[0])
+      IgniteTableScan(name=PUBLIC.NT2_N2, source=3, partitions=1, distribution=identity[0])
 
 Fragment#1
   targetNodes: [N0]
@@ -26,7 +26,7 @@ Fragment#1
   partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.NT1_N1, source=4, distribution=identity[0])
+      IgniteTableScan(name=PUBLIC.NT1_N1, source=4, partitions=1, distribution=identity[0])
 ---
 
 N1
@@ -48,7 +48,7 @@ Fragment#2
   partitions: {N2=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
-      IgniteTableScan(name=PUBLIC.NT2_N2, source=3, distribution=identity[0])
+      IgniteTableScan(name=PUBLIC.NT2_N2, source=3, partitions=1, distribution=identity[0])
 
 Fragment#1
   targetNodes: [N1]
@@ -57,7 +57,7 @@ Fragment#1
   partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.NT1_N1, source=4, distribution=identity[0])
+      IgniteTableScan(name=PUBLIC.NT1_N1, source=4, partitions=1, distribution=identity[0])
 ---
 
 N0
@@ -79,7 +79,7 @@ Fragment#2
   partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
-      IgniteTableScan(name=PUBLIC.NT2_N1, source=3, distribution=identity[0])
+      IgniteTableScan(name=PUBLIC.NT2_N1, source=3, partitions=1, distribution=identity[0])
 
 Fragment#1
   targetNodes: [N0]
@@ -88,7 +88,7 @@ Fragment#1
   partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.NT1_N1, source=4, distribution=identity[0])
+      IgniteTableScan(name=PUBLIC.NT1_N1, source=4, partitions=1, distribution=identity[0])
 ---
 
 N1
@@ -110,7 +110,7 @@ Fragment#2
   partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
-      IgniteTableScan(name=PUBLIC.NT2_N1, source=3, distribution=identity[0])
+      IgniteTableScan(name=PUBLIC.NT2_N1, source=3, partitions=1, distribution=identity[0])
 
 Fragment#1
   targetNodes: [N1]
@@ -119,5 +119,5 @@ Fragment#1
   partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.NT1_N1, source=4, distribution=identity[0])
+      IgniteTableScan(name=PUBLIC.NT1_N1, source=4, partitions=1, distribution=identity[0])
 ---

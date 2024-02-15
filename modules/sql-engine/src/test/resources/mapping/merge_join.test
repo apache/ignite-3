@@ -18,9 +18,9 @@ Fragment#1
       IgniteProject
         IgniteMergeJoin
           IgniteSort
-            IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+            IgniteTableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
           IgniteSort
-            IgniteTableScan(name=PUBLIC.T2_N1, source=3, distribution=affinity[table: T2_N1, columns: [ID]])
+            IgniteTableScan(name=PUBLIC.T2_N1, source=3, partitions=1, distribution=affinity[table: T2_N1, columns: [ID]])
 ---
 
 N1
@@ -43,9 +43,9 @@ Fragment#1
       IgniteProject
         IgniteMergeJoin
           IgniteSort
-            IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+            IgniteTableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
           IgniteSort
-            IgniteTableScan(name=PUBLIC.T2_N1, source=3, distribution=affinity[table: T2_N1, columns: [ID]])
+            IgniteTableScan(name=PUBLIC.T2_N1, source=3, partitions=1, distribution=affinity[table: T2_N1, columns: [ID]])
 ---
 
 N0
@@ -70,7 +70,7 @@ Fragment#4
       IgniteProject
         IgniteMergeJoin
           IgniteSort
-            IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+            IgniteTableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
           IgniteReceiver(sourceFragment=5, exchange=5, distribution=affinity[table: T2_N2, columns: [ID]])
 
 Fragment#5
@@ -81,5 +81,5 @@ Fragment#5
   tree:
     IgniteSender(targetFragment=4, exchange=5, distribution=affinity[table: T2_N2, columns: [ID]])
       IgniteSort
-        IgniteTableScan(name=PUBLIC.T2_N2, source=3, distribution=affinity[table: T2_N2, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T2_N2, source=3, partitions=1, distribution=affinity[table: T2_N2, columns: [ID]])
 ---

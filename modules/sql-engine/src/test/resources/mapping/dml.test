@@ -50,7 +50,7 @@ Fragment#1
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
-        IgniteTableScan(name=PUBLIC.T1_N1, source=3, distribution=affinity[table: T1_N1, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T1_N1, source=3, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
 ---
 
 N2
@@ -73,7 +73,7 @@ Fragment#1
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
-        IgniteTableScan(name=PUBLIC.T1_N1, source=3, distribution=affinity[table: T1_N1, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T1_N1, source=3, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
 ---
 
 N1
@@ -96,5 +96,5 @@ Fragment#1
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableModify(name=PUBLIC.T2_N2N3, source=2, distribution=affinity[table: T2_N2N3, columns: [ID]])
-        IgniteTableScan(name=PUBLIC.T2_N2N3, source=3, distribution=affinity[table: T2_N2N3, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T2_N2N3, source=3, partitions=2, distribution=affinity[table: T2_N2N3, columns: [ID]])
 ---

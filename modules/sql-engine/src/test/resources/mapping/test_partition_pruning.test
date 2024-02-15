@@ -16,7 +16,7 @@ Fragment#1
   partitions: {N2=[1:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.T1_N1N2N3, source=2, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+      IgniteTableScan(name=PUBLIC.T1_N1N2N3, source=2, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
 ---
 # Join partition pruning of joined tables (relies on predicate push down)
 N1
@@ -39,7 +39,7 @@ Fragment#2
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
       IgniteSort
-        IgniteTableScan(name=PUBLIC.T2_N4N5, source=3, distribution=affinity[table: T2_N4N5, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T2_N4N5, source=3, partitions=2, distribution=affinity[table: T2_N4N5, columns: [ID]])
 
 Fragment#1
   targetNodes: [N1]
@@ -49,5 +49,5 @@ Fragment#1
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteSort
-        IgniteTableScan(name=PUBLIC.T1_N1N2N3, source=4, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+        IgniteTableScan(name=PUBLIC.T1_N1N2N3, source=4, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
 ---
