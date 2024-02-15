@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cluster.management.topology;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
@@ -63,7 +63,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     private static final Map<String, String> NODE_ATTRIBUTES_MAP = Map.of("region", "US", "storage", "SSD");
 
-    private static final List<String> STORAGE_PROFILES_LIST = List.of("default", "lru_rocks", "segmented_aipersist");
+    private static final List<String> STORAGE_PROFILES_LIST = List.of("lru_rocks", "segmented_aipersist");
 
     @Language("JSON")
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "{\n"
@@ -172,7 +172,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.eventType, is(EventType.VALIDATED));
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(event.node.storageProfiles(), containsInAnyOrder(STORAGE_PROFILES_LIST.toArray()));
+        assertThat(event.node.storageProfiles(), hasItems(STORAGE_PROFILES_LIST.toArray(new String[] {})));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
@@ -181,7 +181,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(2L));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(event.node.storageProfiles(), containsInAnyOrder(STORAGE_PROFILES_LIST.toArray()));
+        assertThat(event.node.storageProfiles(), hasItems(STORAGE_PROFILES_LIST.toArray(new String[] {})));
 
         assertThat(events, is(empty()));
 
@@ -219,7 +219,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertTrue(secondNode.isPresent());
 
         assertThat(secondNode.get().userAttributes(), is(NODE_ATTRIBUTES_MAP));
-        assertThat(secondNode.get().storageProfiles(), containsInAnyOrder(STORAGE_PROFILES_LIST.toArray()));
+        assertThat(secondNode.get().storageProfiles(), hasItems(STORAGE_PROFILES_LIST.toArray(new String[]{})));
     }
 
     @Test
