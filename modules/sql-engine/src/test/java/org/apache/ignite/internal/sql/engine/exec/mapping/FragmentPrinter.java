@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.Map.Entry;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -162,6 +164,25 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
             output.appendPadding();
             output.writeKeyValue("systemViews", tables.toString());
+            output.writeNewline();
+        }
+
+        Map<String, List<PartitionWithConsistencyToken>> partitions = new HashMap<>();
+        for (ColocationGroup group : mappedFragment.groups()) {
+            Comparator<PartitionWithConsistencyToken> cmp = Comparator.comparing(PartitionWithConsistencyToken::partId)
+                    .thenComparing(PartitionWithConsistencyToken::enlistmentConsistencyToken);
+
+            for (String nodeName : mappedFragment.nodes()) {
+                List<PartitionWithConsistencyToken> nodePartitions = group.partitionsWithConsistencyTokens(nodeName);
+                if (!nodePartitions.isEmpty()) {
+                    nodePartitions.sort(cmp);
+                    partitions.put(nodeName, nodePartitions);
+                }
+            }
+        }
+        if (!partitions.isEmpty()) {
+            output.appendPadding();
+            output.writeKeyValue("partitions", partitions.toString());
             output.writeNewline();
         }
 

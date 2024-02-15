@@ -14,6 +14,7 @@ Fragment#2
   targetNodes: [N0]
   executionNodes: [N2]
   tables: [NT2_N2]
+  partitions: {N2=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
       IgniteTableScan(name=PUBLIC.NT2_N2, source=3, distribution=identity[0])
@@ -22,6 +23,7 @@ Fragment#1
   targetNodes: [N0]
   executionNodes: [N1]
   tables: [NT1_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.NT1_N1, source=4, distribution=identity[0])
@@ -43,6 +45,7 @@ Fragment#2
   targetNodes: [N1]
   executionNodes: [N2]
   tables: [NT2_N2]
+  partitions: {N2=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
       IgniteTableScan(name=PUBLIC.NT2_N2, source=3, distribution=identity[0])
@@ -51,6 +54,7 @@ Fragment#1
   targetNodes: [N1]
   executionNodes: [N1]
   tables: [NT1_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.NT1_N1, source=4, distribution=identity[0])
@@ -72,6 +76,7 @@ Fragment#2
   targetNodes: [N0]
   executionNodes: [N1]
   tables: [NT2_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
       IgniteTableScan(name=PUBLIC.NT2_N1, source=3, distribution=identity[0])
@@ -80,6 +85,7 @@ Fragment#1
   targetNodes: [N0]
   executionNodes: [N1]
   tables: [NT1_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.NT1_N1, source=4, distribution=identity[0])
@@ -101,6 +107,7 @@ Fragment#2
   targetNodes: [N1]
   executionNodes: [N1]
   tables: [NT2_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
       IgniteTableScan(name=PUBLIC.NT2_N1, source=3, distribution=identity[0])
@@ -109,6 +116,7 @@ Fragment#1
   targetNodes: [N1]
   executionNodes: [N1]
   tables: [NT1_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.NT1_N1, source=4, distribution=identity[0])

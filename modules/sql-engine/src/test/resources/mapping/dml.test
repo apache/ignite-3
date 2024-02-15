@@ -16,6 +16,7 @@ Fragment#1
   remoteFragments: [3]
   exchangeSourceNodes: {3=[N0]}
   tables: [T1_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
@@ -45,6 +46,7 @@ Fragment#1
   targetNodes: [N1]
   executionNodes: [N1]
   tables: [T1_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
@@ -67,6 +69,7 @@ Fragment#1
   targetNodes: [N2]
   executionNodes: [N1]
   tables: [T1_N1]
+  partitions: {N1=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
@@ -89,6 +92,7 @@ Fragment#1
   targetNodes: [N1]
   executionNodes: [N2, N3]
   tables: [T2_N2N3]
+  partitions: {N2=[0:1], N3=[1:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableModify(name=PUBLIC.T2_N2N3, source=2, distribution=affinity[table: T2_N2N3, columns: [ID]])

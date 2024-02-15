@@ -13,6 +13,7 @@ Fragment#1
   targetNodes: [N1]
   executionNodes: [N2]
   tables: [T1_N1N2N3]
+  partitions: {N2=[1:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T1_N1N2N3, source=2, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
@@ -34,6 +35,7 @@ Fragment#2
   targetNodes: [N1]
   executionNodes: [N4]
   tables: [T2_N4N5]
+  partitions: {N4=[0:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
       IgniteSort
@@ -43,6 +45,7 @@ Fragment#1
   targetNodes: [N1]
   executionNodes: [N2]
   tables: [T1_N1N2N3]
+  partitions: {N2=[1:1]}
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteSort
