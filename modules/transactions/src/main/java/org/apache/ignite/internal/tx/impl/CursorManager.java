@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_CLOSE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_CLOSING_ERR;
 
 import java.util.Map;
 import java.util.UUID;
@@ -64,7 +64,7 @@ public class CursorManager {
             try {
                 cursorInfo.cursor.close();
             } catch (Exception e) {
-                throw new IgniteException(CURSOR_CLOSE_ERR, format("Close cursor exception.", e));
+                throw new IgniteException(CURSOR_CLOSING_ERR, format("Close cursor exception.", e));
             }
         }
     }
@@ -87,7 +87,7 @@ public class CursorManager {
                 cursorInfo.cursor.close();
             } catch (Exception e) {
                 if (ex == null) {
-                    ex = new IgniteException(CURSOR_CLOSE_ERR, format("Close cursor exception.", e));
+                    ex = new IgniteException(CURSOR_CLOSING_ERR, format("Close cursor exception.", e));
                 } else {
                     ex.addSuppressed(e);
                 }
