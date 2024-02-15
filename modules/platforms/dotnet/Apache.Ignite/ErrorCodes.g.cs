@@ -79,8 +79,8 @@ namespace Apache.Ignite
             /// <summary> CursorAlreadyClosed error. </summary>
             public const int CursorAlreadyClosed = (GroupCode << 16) | (6 & 0xFFFF);
 
-            /// <summary> CursorClose error. </summary>
-            public const int CursorClose = (GroupCode << 16) | (7 & 0xFFFF);
+            /// <summary> CursorClosing error. </summary>
+            public const int CursorClosing = (GroupCode << 16) | (7 & 0xFFFF);
 
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
