@@ -29,6 +29,8 @@ public interface PartitionPruner {
      *
      * @param mappedFragments List of fragments.
      * @param dynamicParameters Dynamic parameter values.
+     *
+     * @return New list of mapped fragments, if partition pruning was applied. Otherwise returns `mappedFragments`.
      */
     List<MappedFragment> apply(List<MappedFragment> mappedFragments, Object[] dynamicParameters);
 }

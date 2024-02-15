@@ -151,16 +151,4 @@ public class MappedFragment {
         // The nodes should remain the same in order to preserve connectivity between fragments.
         return new MappedFragment(fragment, groups, nodes, groupsBySourceId, newSourcesByExchangeId, target);
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return "["
-                + "fragmentId=" + fragment.fragmentId()
-                + ", nodes=" + nodes
-                + ", groupsBySourceId=" + groupsBySourceId
-                + ", sourcesByExchangeId=" + sourcesByExchangeId
-                + ", target=" + target
-                + ']';
-    }
 }

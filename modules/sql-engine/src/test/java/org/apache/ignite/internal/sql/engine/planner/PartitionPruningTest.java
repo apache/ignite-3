@@ -74,6 +74,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 table
         );
 
+        // Should return null, since c2 is not a colocation key.
         PartitionPruningColumns cols = actual.get(1);
         assertNull(cols);
     }
@@ -117,6 +118,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 table
         );
 
+        // Should return null, since c2 is not a colocation key.
         PartitionPruningColumns cols = actual.get(1);
         assertNull(cols);
     }
