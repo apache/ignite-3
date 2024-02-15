@@ -170,8 +170,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         private @Nullable String filter;
 
-        private @Nullable DataStorageParams dataStorageParams;
-
         private List<StorageProfileParams> storageProfileParams;
 
         @Override
@@ -219,13 +217,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         @Override
         public CreateZoneCommandBuilder filter(String filter) {
             this.filter = filter;
-
-            return this;
-        }
-
-        @Override
-        public CreateZoneCommandBuilder dataStorageParams(DataStorageParams params) {
-            this.dataStorageParams = params;
 
             return this;
         }

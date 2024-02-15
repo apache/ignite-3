@@ -23,7 +23,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,7 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
     @InjectConfiguration("mock.flushDelayMillis = 0")
-    private RocksDbProfileStorageEngineConfiguration engineConfiguration;
+    private RocksDbStorageEngineConfiguration engineConfiguration;
 
     @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
     StorageConfiguration storageConfiguration;

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal;
 
+/**
+ * Test default profile names for different storages.
+ */
 public interface TestDefaultProfilesNames {
     String DEFAULT_AIMEM_PROFILE_NAME = "default_aimem";
 

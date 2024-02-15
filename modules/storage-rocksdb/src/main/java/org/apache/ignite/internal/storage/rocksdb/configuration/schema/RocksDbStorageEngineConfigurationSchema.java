@@ -26,7 +26,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
  * Root configuration for {@link RocksDbStorageEngine}.
  */
 @Config
-public class RocksDbProfileStorageEngineConfigurationSchema {
+public class RocksDbStorageEngineConfigurationSchema {
     /** Delay before executing a flush triggered by RAFT. */
     @Range(min = 0)
     @Value(hasDefault = true)

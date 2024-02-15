@@ -19,8 +19,12 @@ package org.apache.ignite.internal.storage.impl.schema;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 
-@PolymorphicConfigInstance("test")
+/**
+ * Configuration for test storage profile of {@link TestStorageEngine}.
+ */
+@PolymorphicConfigInstance(TestStorageEngine.ENGINE_NAME)
 public class TestProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     public static final String TEST_PROFILE_NAME = "test";
 }

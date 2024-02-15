@@ -27,7 +27,7 @@ import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -48,7 +48,7 @@ public class RocksDbMvPartitionStorageGcTest extends AbstractMvPartitionStorageG
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock {flushDelayMillis = 0}")
-            RocksDbProfileStorageEngineConfiguration engineConfig,
+            RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
             StorageConfiguration storageConfiguration
     ) {
@@ -57,7 +57,7 @@ public class RocksDbMvPartitionStorageGcTest extends AbstractMvPartitionStorageG
         engine.start();
 
         table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, "default" ),
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, "default"),
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 

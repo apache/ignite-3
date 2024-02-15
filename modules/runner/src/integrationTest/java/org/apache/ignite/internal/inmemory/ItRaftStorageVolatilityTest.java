@@ -165,7 +165,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
     private void createPersistentTable() {
         executeSql("CREATE ZONE ZONE_" + TABLE_NAME
-                + " WITH STORAGE_PROFILES = '" + DEFAULT_ROCKSDB_PROFILE_NAME +"'");
+                + " WITH STORAGE_PROFILES = '" + DEFAULT_ROCKSDB_PROFILE_NAME + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) "
@@ -249,7 +249,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
                             + "storage_profiles = '" + DEFAULT_AIMEM_PROFILE_NAME + "'"
             );
             session.execute(null, "create table " + tableName
-                    + " (id int primary key, name varchar) with storage_profile='" + DEFAULT_AIMEM_PROFILE_NAME + "', primary_zone='ZONE1'");
+                    + " (id int primary key, name varchar) with storage_profile='"
+                    + DEFAULT_AIMEM_PROFILE_NAME + "', primary_zone='ZONE1'");
         });
     }
 }

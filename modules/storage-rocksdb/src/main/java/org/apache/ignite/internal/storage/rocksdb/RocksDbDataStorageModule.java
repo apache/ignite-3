@@ -28,7 +28,7 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
@@ -50,7 +50,7 @@ public class RocksDbDataStorageModule implements DataStorageModule {
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor
     ) throws StorageException {
-        RocksDbProfileStorageEngineConfiguration engineConfig =
+        RocksDbStorageEngineConfiguration engineConfig =
                 ((RocksDbStorageEngineExtensionConfiguration) configRegistry
                         .getConfiguration(StorageConfiguration.KEY).engines()).rocksDb();
 

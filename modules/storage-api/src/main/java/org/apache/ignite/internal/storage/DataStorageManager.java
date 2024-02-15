@@ -42,6 +42,7 @@ public class DataStorageManager implements IgniteComponent {
      * Constructor.
      *
      * @param engines Storage engines unique by {@link DataStorageModule#name name}.
+     * @param storageConfiguration Storage configuration.
      */
     public DataStorageManager(Map<String, StorageEngine> engines, StorageConfiguration storageConfiguration) {
         assert !engines.isEmpty();
@@ -68,6 +69,12 @@ public class DataStorageManager implements IgniteComponent {
         IgniteUtils.closeAll(engines.values().stream().map(engine -> engine::stop));
     }
 
+    /**
+     * Get storage engine by storage profile name.
+     *
+     * @param storageProfile Name of storage profile.
+     * @return Storage engine of the input storage profile or {@code null} if storage profile is not exist on the current node.
+     */
     public @Nullable StorageEngine engineByStorageProfile(String storageProfile) {
         String engine = profilesToEngines.get(storageProfile);
 
