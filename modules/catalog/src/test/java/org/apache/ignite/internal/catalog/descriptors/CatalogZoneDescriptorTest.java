@@ -44,7 +44,6 @@ class CatalogZoneDescriptorTest {
 
         String toString = descriptor.toString();
 
-        // TODO: KKK add storage profiles check
         assertThat(toString, startsWith("CatalogZoneDescriptor ["));
         assertThat(toString, containsString("id=1"));
         assertThat(toString, containsString("name=zone1"));
@@ -54,5 +53,6 @@ class CatalogZoneDescriptorTest {
         assertThat(toString, containsString("dataNodesAutoAdjustScaleUp=5"));
         assertThat(toString, containsString("dataNodesAutoAdjustScaleDown=6"));
         assertThat(toString, containsString("filter=the-filter"));
+        assertThat(toString, containsString("storageProfiles=CatalogStorageProfilesDescriptor ["));
     }
 }
