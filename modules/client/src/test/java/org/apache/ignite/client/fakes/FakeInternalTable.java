@@ -397,6 +397,7 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
@@ -410,6 +411,7 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
@@ -433,6 +435,7 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             int indexId,

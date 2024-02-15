@@ -17,25 +17,13 @@
 
 package org.apache.ignite.table;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow;
-import org.jetbrains.annotations.Nullable;
-
 /**
- * Represents an entity that can be used as a target for streaming data.
- *
- * @param <T> Entry type.
+ * Data streamer operation type.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface DataStreamerTarget<T> {
-    /**
-     * Streams data into the underlying table.
-     *
-     * @param publisher Producer.
-     * @param options Options (can be null).
-     * @return Future that will be completed when the stream is finished.
-     */
-    CompletableFuture<Void> streamData(
-            Flow.Publisher<DataStreamerItem<T>> publisher,
-            @Nullable DataStreamerOptions options);
+public enum DataStreamerOperationType {
+    /** Put operation. */
+    PUT,
+
+    /** Remove operation. */
+    REMOVE
 }
