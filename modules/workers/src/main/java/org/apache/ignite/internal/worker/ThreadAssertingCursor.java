@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.worker;
 
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 

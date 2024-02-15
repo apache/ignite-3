@@ -304,10 +304,11 @@ public interface InternalTable extends ManuallyCloseable {
      */
     default Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return scan(partId, readTimestamp, recipientNode, null, null, null, 0, null);
+        return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null);
     }
 
     /**
@@ -326,6 +327,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
@@ -397,6 +399,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             int indexId,

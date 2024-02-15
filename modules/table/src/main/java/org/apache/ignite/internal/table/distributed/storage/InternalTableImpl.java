@@ -1327,13 +1327,14 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude);
+        return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude);
     }
 
     @Override
@@ -1347,7 +1348,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(
+        return readWriteScan(
                 partId,
                 txId,
                 commitPartition,
@@ -1365,6 +1366,7 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
@@ -1373,11 +1375,53 @@ public class InternalTableImpl implements InternalTable {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, readTimestamp, recipientNode, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+        return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
     }
 
-    private Publisher<BinaryRow> scan(
+    @Override
+    public Publisher<BinaryRow> scan(
             int partId,
+            @Nullable InternalTransaction tx,
+            @Nullable Integer indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return readWriteScan(partId, tx, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+    }
+
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
+            UUID txId,
+            TablePartitionId commitPartition,
+            String coordinatorId,
+            PrimaryReplica recipient,
+            @Nullable Integer indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return readWriteScan(
+                partId,
+                txId,
+                commitPartition,
+                coordinatorId,
+                recipient,
+                indexId,
+                null,
+                lowerBound,
+                upperBound,
+                flags,
+                columnsToInclude
+        );
+    }
+
+    private Publisher<BinaryRow> readOnlyScan(
+            int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
@@ -1388,8 +1432,6 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BitSet columnsToInclude
     ) {
         validatePartitionIndex(partId);
-
-        UUID txId = UUID.randomUUID();
 
         ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
 
@@ -1417,20 +1459,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
-    @Override
-    public Publisher<BinaryRow> scan(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return scan(partId, tx, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
-    }
-
-    private Publisher<BinaryRow> scan(
+    private Publisher<BinaryRow> readWriteScan(
             int partId,
             @Nullable InternalTransaction tx,
             @Nullable Integer indexId,
@@ -1491,36 +1520,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
-
-    @Override
-    public Publisher<BinaryRow> scan(
-            int partId,
-            UUID txId,
-            TablePartitionId commitPartition,
-            String coordinatorId,
-            PrimaryReplica recipient,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return scan(
-                partId,
-                txId,
-                commitPartition,
-                coordinatorId,
-                recipient,
-                indexId,
-                null,
-                lowerBound,
-                upperBound,
-                flags,
-                columnsToInclude
-        );
-    }
-
-    private Publisher<BinaryRow> scan(
+    private Publisher<BinaryRow> readWriteScan(
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
@@ -1892,9 +1892,7 @@ public class InternalTableImpl implements InternalTable {
                 subscriber.onError(new IllegalStateException("Scan publisher does not support multiple subscriptions."));
             }
 
-            PartitionScanSubscription subscription = new PartitionScanSubscription(subscriber);
-
-            subscriber.onSubscribe(subscription);
+            subscriber.onSubscribe(new PartitionScanSubscription(subscriber));
         }
 
         /**
