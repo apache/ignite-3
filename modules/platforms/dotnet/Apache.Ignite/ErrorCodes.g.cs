@@ -76,8 +76,11 @@ namespace Apache.Ignite
             /// <summary> NodeLeft error. </summary>
             public const int NodeLeft = (GroupCode << 16) | (5 & 0xFFFF);
 
-            /// <summary> CursorClosed error. </summary>
-            public const int CursorClosed = (GroupCode << 16) | (6 & 0xFFFF);
+            /// <summary> CursorAlreadyClosed error. </summary>
+            public const int CursorAlreadyClosed = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> CursorClose error. </summary>
+            public const int CursorClose = (GroupCode << 16) | (7 & 0xFFFF);
 
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);

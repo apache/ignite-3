@@ -61,6 +61,7 @@ import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaRespon
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -835,6 +836,40 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(txMsgCaptureFut, willCompleteSuccessfully());
     }
 
+    @Test
+    @WithSystemProperty(key = "RESOURCE_CLEANUP_INTERVAL_MILLISECONDS", value = "500")
+    public void testRwCursorCleanup() {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+    }
+
+    @Test
+    @WithSystemProperty(key = "RESOURCE_CLEANUP_INTERVAL_MILLISECONDS", value = "500")
+    public void testRoCursorCleanup() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        RecordView view1 = node(0).tables().table(TABLE_NAME).recordView();
+
+        for (int i = 0; i < 10; i++) {
+            view1.upsert(null, Tuple.create().set("key", i).set("val", "preload"));
+        }
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        startTransactionWithCursorAndStopNode(txCrdNode);
+
+        assertTrue(waitForCondition(() -> commitPartNode.cursorManager().cursors().isEmpty(), 3000));
+    }
+
     private UUID startTransactionWithCursorAndStopNode(IgniteImpl txCrdNode) throws Exception {
         InternalTransaction rwTx = (InternalTransaction) txCrdNode.transactions().begin();
 
@@ -857,7 +892,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      *
      * @param tbl Scanned table.
      * @param tx Transaction.
-     * @param idxId Index id.
      * @throws Exception If failed.
      */
     private void scanSingleEntryAndLeaveCursorOpen(TableViewInternal tbl, InternalTransaction tx)

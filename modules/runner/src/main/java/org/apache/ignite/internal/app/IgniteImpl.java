@@ -1368,4 +1368,10 @@ public class IgniteImpl implements Ignite {
     public ClusterService clusterService() {
         return clusterSvc;
     }
+
+    /** Returns cursor manager. */
+    @TestOnly
+    public CursorManager cursorManager() {
+        return cursorManager;
+    }
 }
