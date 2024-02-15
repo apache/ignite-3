@@ -73,6 +73,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -148,7 +149,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 idleSafeTimePropagationPeriodMsSupplier,
-                localRwTxCounter
+                localRwTxCounter,
+                new CursorManager()
         );
 
         txManager.start();

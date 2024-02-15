@@ -54,6 +54,9 @@ public class TxCleanupRequestHandler {
     /** Cleanup processor. */
     private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
 
+    /** Cursor manager. */
+    private final CursorManager cursorManager;
+
     /**
      * The constructor.
      *
@@ -61,17 +64,20 @@ public class TxCleanupRequestHandler {
      * @param lockManager Lock manager.
      * @param clock A hybrid logical clock.
      * @param writeIntentSwitchProcessor A cleanup processor.
+     * @param cursorManager Cursor manager.
      */
     public TxCleanupRequestHandler(
             MessagingService messagingService,
             LockManager lockManager,
             HybridClock clock,
-            WriteIntentSwitchProcessor writeIntentSwitchProcessor
+            WriteIntentSwitchProcessor writeIntentSwitchProcessor,
+            CursorManager cursorManager
     ) {
         this.messagingService = messagingService;
         this.lockManager = lockManager;
         this.hybridClock = clock;
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
+        this.cursorManager = cursorManager;
     }
 
     /**
@@ -112,6 +118,8 @@ public class TxCleanupRequestHandler {
         allOf(writeIntentSwitches.values().toArray(new CompletableFuture<?>[0]))
                 .whenComplete((unused, ex) -> {
                     releaseTxLocks(txCleanupMessage.txId());
+
+                    cursorManager.closeTransactionCursors(txCleanupMessage.txId());
 
                     NetworkMessage msg;
                     if (ex == null) {

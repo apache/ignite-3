@@ -1037,6 +1037,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock
             );
 
+            var cursorManager = new CursorManager();
+
             txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
@@ -1046,7 +1048,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TransactionIdGenerator(addr.port()),
                     placementDriver,
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
-                    new TestLocalRwTxCounter()
+                    new TestLocalRwTxCounter(),
+                    cursorManager
             );
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
@@ -1143,7 +1146,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     placementDriver,
                     () -> mock(IgniteSql.class),
                     failureProcessor,
-                    new CursorManager()
+                    cursorManager
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

@@ -112,7 +112,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     HybridClock clock,
                     TransactionIdGenerator generator,
                     ClusterNode node,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    CursorManager cursorManager
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
@@ -123,7 +124,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         generator,
                         placementDriver,
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                        new TestLocalRwTxCounter()
+                        new TestLocalRwTxCounter(),
+                        cursorManager
                 ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {

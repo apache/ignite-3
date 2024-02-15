@@ -389,20 +389,23 @@ public class ItTxTestCluster {
 
             replicaServices.put(node.name(), replicaSvc);
 
+            CursorManager cursorManager = new CursorManager();
+
+            cursorManagers.put(node.name(), cursorManager);
+
             TxManagerImpl txMgr = newTxManager(
                     cluster.get(i),
                     replicaSvc,
                     clock,
                     new TransactionIdGenerator(i),
                     node,
-                    placementDriver
+                    placementDriver,
+                    cursorManager
             );
 
             txMgr.start();
 
             txManagers.put(node.name(), txMgr);
-
-            cursorManagers.put(node.name(), new CursorManager());
 
             txStateStorages.put(node.name(), new TestTxStateStorage());
         }
@@ -431,7 +434,8 @@ public class ItTxTestCluster {
             HybridClock clock,
             TransactionIdGenerator generator,
             ClusterNode node,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            CursorManager cursorManager
     ) {
         return new TxManagerImpl(
                 txConfiguration,
@@ -442,7 +446,8 @@ public class ItTxTestCluster {
                 generator,
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                cursorManager
         );
     }
 
@@ -893,7 +898,8 @@ public class ItTxTestCluster {
                 new TransactionIdGenerator(-1),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                new CursorManager()
         );
 
         clientTxStateResolver = new TransactionStateResolver(

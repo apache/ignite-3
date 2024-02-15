@@ -635,6 +635,8 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        cursorManager = new CursorManager();
+
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 txConfig,
@@ -645,12 +647,11 @@ public class IgniteImpl implements Ignite {
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                indexNodeFinishedRwTransactionsChecker
+                indexNodeFinishedRwTransactionsChecker,
+                cursorManager
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
-
-        cursorManager = new CursorManager();
 
         distributedTblMgr = new TableManager(
                 name,

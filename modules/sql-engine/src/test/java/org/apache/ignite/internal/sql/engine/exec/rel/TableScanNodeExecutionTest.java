@@ -68,6 +68,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -149,7 +150,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TransactionIdGenerator(0xdeadbeef),
                     new TestPlacementDriver(leaseholder, leaseholder),
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                    new TestLocalRwTxCounter()
+                    new TestLocalRwTxCounter(),
+                    new CursorManager()
             );
 
             txManager.start();

@@ -95,6 +95,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -170,7 +171,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TransactionIdGenerator(0xdeadbeef),
                 new TestPlacementDriver(clusterNode),
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                new CursorManager()
         ) {
             @Override
             public CompletableFuture<Void> finish(

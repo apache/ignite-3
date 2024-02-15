@@ -41,6 +41,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
@@ -129,7 +130,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     HybridClock clock,
                     TransactionIdGenerator generator,
                     ClusterNode node,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    CursorManager cursorManager
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
@@ -144,7 +146,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         generator,
                         placementDriver,
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                        new TestLocalRwTxCounter()
+                        new TestLocalRwTxCounter(),
+                        cursorManager
                 );
             }
         };

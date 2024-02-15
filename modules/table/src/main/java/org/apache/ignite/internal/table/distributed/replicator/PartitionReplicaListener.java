@@ -63,8 +63,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1637,13 +1635,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenCompose(res -> {
-                    try {
-                        cursorManager.closeTransactionCursors(request.txId());
-                    } catch (Exception e) {
-                        // TODO: IGNITE-21293 Should we stop write intent switch handling if closing cursors failed?
-                        return failedFuture(e);
-                    }
-
                     if (res.hadUpdateFutures()) {
                         HybridTimestamp commandTimestamp = hybridClock.now();
 

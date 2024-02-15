@@ -431,6 +431,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        var cursorManager = new CursorManager();
+
         var txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterSvc,
@@ -440,7 +442,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                cursorManager
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -528,7 +531,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
                 failureProcessor,
-                new CursorManager()
+                cursorManager
         );
 
         var indexManager = new IndexManager(
