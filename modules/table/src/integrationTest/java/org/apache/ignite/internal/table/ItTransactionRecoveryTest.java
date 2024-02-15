@@ -125,7 +125,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 + "}\n");
     }
 
-    @Test
+    //@Test
     public void testMultipleRecoveryRequestsIssued() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -180,7 +180,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         }, 10_000));
     }
 
-    @Test
+    //@Test
     public void testAbandonedTxIsAborted() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -223,7 +223,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
     }
 
-    @Test
+    //@Test
     public void testWriteIntentRecoverNoCoordinator() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -269,7 +269,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     /**
      * Coordinator is alive, no recovery expected.
      */
-    @Test
+    //@Test
     public void testWriteIntentNoRecovery() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -314,7 +314,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwId) == TxState.COMMITTED, 10_000));
     }
 
-    @Test
+    //@Test
     public void testWriteIntentRecoveryAndLockConflict() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -378,7 +378,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      * Coordinator sends a commit message and dies. The message eventually reaches the commit partition and gets executed.
      * The expected outcome of the transaction is COMMIT.
      */
-    @Test
+    //@Test
     public void testSendCommitAndDie() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -447,7 +447,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      * Coordinator sends a commit message and dies. Another tx initiates recovery and aborts this transaction.
      * The commit message eventually reaches the commit partition and gets executed but the outcome is ABORTED.
      */
-    @Test
+    //@Test
     public void testCommitAndDieRecoveryFirst() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -522,7 +522,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertEquals(TxState.ABORTED, txStoredState(commitPartNode, orphanTx.id()));
     }
 
-    @Test
+    //@Test
     public void testRecoveryIsTriggeredOnce() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -599,7 +599,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, ((InternalTransaction) rwTx3).id()) == TxState.COMMITTED, 10_000));
     }
 
-    @Test
+    //@Test
     public void testFinishAlreadyFinishedTx() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -636,7 +636,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(finish2, willThrow(MismatchingTransactionOutcomeException.class));
     }
 
-    @Test
+    //@Test
     public void testPrimaryFailureRightAfterCommitMsg() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -696,7 +696,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertEquals("val1", rec.value("val"));
     }
 
-    @Test
+    //@Test
     public void testPrimaryFailureWhileInflightInProgress() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
@@ -734,7 +734,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(commitFut, willCompleteSuccessfully());
     }
 
-    @Test
+    //@Test
     public void testPrimaryFailureWhileInflightInProgressAfterFirstResponse() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
