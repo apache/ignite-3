@@ -620,7 +620,8 @@ public class TestBuilders {
                                 targetProvider,
                                 EmptyCacheFactory.INSTANCE,
                                 0,
-                                partitionPruner, Runnable::run
+                                partitionPruner,
+                                Runnable::run
                         );
 
                         systemViewManager.register(() -> systemViews);

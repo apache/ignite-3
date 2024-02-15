@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -80,7 +79,7 @@ public final class PartitionPruningPredicate {
      * @return New colocation group.
      */
     public ColocationGroup prunePartitions(ColocationGroup colocationGroup) {
-        assert tablePartitions == colocationGroup.assignments().size();
+        assert tablePartitions == colocationGroup.assignments().size() : "Number of partitions does not match";
 
         if (remainingPartitions == null) {
             return colocationGroup;

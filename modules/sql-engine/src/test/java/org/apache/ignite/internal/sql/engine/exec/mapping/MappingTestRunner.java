@@ -198,7 +198,8 @@ final class MappingTestRunner {
                 targetProvider,
                 EmptyCacheFactory.INSTANCE,
                 0,
-                partitionPruner, Runnable::run
+                partitionPruner,
+                Runnable::run
         );
         mappingService.onTopologyLeap(snapshot);
 

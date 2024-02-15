@@ -110,15 +110,14 @@ public class PartitionPrunerImpl implements PartitionPruner {
         }
 
         // Update source->exchange mapping for every fragment that receives data from fragments affected by PP.
-
         boolean updatedExchangers = false;
 
-        for (int j = 0; j < mappedFragments.size(); j++) {
-            MappedFragment mappedFragment = mappedFragments.get(j);
+        for (int i = 0; i < mappedFragments.size(); i++) {
+            MappedFragment mappedFragment = mappedFragments.get(i);
             MappedFragment newFragment = updateSourceExchanges(mappedFragment, newNodesByExchangeId);
 
             if (newFragment != null) {
-                updatedFragments.set(j, newFragment);
+                updatedFragments.set(i, newFragment);
                 updatedExchangers = true;
             }
         }
@@ -149,11 +148,6 @@ public class PartitionPrunerImpl implements PartitionPruner {
 
             ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(sourceId);
             assert colocationGroup != null : "No colocation group#" + sourceId;
-            // Ensure that partition pruning is applied only a fragment with colocated operators.
-            assert colocationGroup.nodeNames().containsAll(mappedFragment.nodes())
-                    && colocationGroup.nodeNames().size() == mappedFragment.nodes().size()
-                    : "ColocationGroup/Fragment nodes do not match: " + colocationGroup.nodeNames() + " " + mappedFragment.nodes();
-
 
             PartitionPruningPredicate pruningPredicate = new PartitionPruningPredicate(table, pruningColumns, dynamicParameters);
             ColocationGroup newColocationGroup = pruningPredicate.prunePartitions(colocationGroup);
@@ -168,7 +162,7 @@ public class PartitionPrunerImpl implements PartitionPruner {
         MappedFragment newFragment = mappedFragment.replaceColocationGroups(newColocationGroups);
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Applied partition pruning to fragment#{}\ncurrent groups: {}\nnew groups: {}",
+            LOG.debug("Applied partition pruning to fragment#{} current groups: {} new groups: {}",
                     fragment.fragmentId(),
                     mappedFragment.groups(),
                     newFragment.groups()
