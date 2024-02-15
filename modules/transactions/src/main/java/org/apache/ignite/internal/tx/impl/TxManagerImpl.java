@@ -183,7 +183,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Topology service. */
     private final TopologyService topologyService;
 
-    /** Cluster service. */
+    /** Messaging service. */
     private final MessagingService messagingService;
 
     /** Local node network identity. This id is available only after the network has started. */
@@ -204,6 +204,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final LocalRwTxCounter localRwTxCounter;
 
     private final Executor partitionOperationsExecutor;
+
+    private final ClosedTransactionTracker closedTransactionTracker;
+
+    private final CursorCleanupRequestHandler cursorCleanupRequestHandler;
 
     /**
      * Test-only constructor.
@@ -320,6 +324,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         );
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
+
+        closedTransactionTracker = new ClosedTransactionTracker(clusterService, messagingService);
+
+        this.cursorCleanupRequestHandler = new CursorCleanupRequestHandler(messagingService, resourcesRegistry);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters) {
@@ -402,7 +410,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             );
         }
 
-        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
+        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, closedTransactionTracker);
     }
 
     /**
@@ -744,6 +752,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
 
+        closedTransactionTracker.start();
+
+        cursorCleanupRequestHandler.start();
+
         return nullCompletedFuture();
     }
 
@@ -763,6 +775,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txStateVolatileStorage.stop();
 
         txCleanupRequestHandler.stop();
+
+        closedTransactionTracker.stop();
+
+        cursorCleanupRequestHandler.stop();
 
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
 

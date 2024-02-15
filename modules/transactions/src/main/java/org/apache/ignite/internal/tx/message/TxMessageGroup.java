@@ -73,4 +73,9 @@ public class TxMessageGroup {
      * Message type for {@link TxCleanupMessageErrorResponse}.
      */
     public static final short TX_CLEANUP_MSG_ERR_RESPONSE = 9;
+
+    /**
+     * Message type for {@link CloseCursorsBatchMessage}.
+     */
+    public static final short TX_CLOSE_CURSORS = 10;
 }

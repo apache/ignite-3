@@ -41,6 +41,8 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The tracker is used to track an observable timestamp. */
     private final HybridTimestampTracker observableTsTracker;
 
+    private final ClosedTransactionTracker closedTransactionTracker;
+
     /**
      * The constructor.
      *
@@ -55,12 +57,14 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             HybridTimestampTracker observableTsTracker,
             UUID id,
             String txCoordinatorId,
-            HybridTimestamp readTimestamp
+            HybridTimestamp readTimestamp,
+            ClosedTransactionTracker closedTransactionTracker
     ) {
         super(txManager, id, txCoordinatorId);
 
         this.readTimestamp = readTimestamp;
         this.observableTsTracker = observableTsTracker;
+        this.closedTransactionTracker = closedTransactionTracker;
     }
 
     @Override
@@ -113,6 +117,8 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         if (!finishGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
+
+        closedTransactionTracker.onTransactionFinished(id());
 
         observableTsTracker.update(executionTimestamp);
 
