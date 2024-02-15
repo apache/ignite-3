@@ -679,6 +679,7 @@ sql_result sql_statement::internal_free_resources(uint16_t option) {
 
         case SQL_RESET_PARAMS: {
             m_parameters.unbind_all();
+            m_parameters.set_param_set_size(0);
 
             break;
         }

@@ -70,7 +70,7 @@ public:
     explicit ignite_error(error::code code, std::string message, std::exception_ptr cause) noexcept
         : m_status_code(code)
         , m_message(std::move(message))
-        , m_cause(cause) {} // NOLINT(bugprone-throw-keyword-missing)
+        , m_cause(std::move(cause)) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Get error message.

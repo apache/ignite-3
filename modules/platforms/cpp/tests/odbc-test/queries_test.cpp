@@ -601,8 +601,7 @@ TEST_F(queries_test, insert_select) {
         if (ret == SQL_NO_DATA)
             break;
 
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         std::string expected_str = get_test_string(selected_records_num);
         int64_t expected_key = selected_records_num + 1;
@@ -1200,18 +1199,26 @@ TEST_F(queries_test, max_min_select) {
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 }
 
-TEST_F(queries_test, insert_select_batch) {
+TEST_F(queries_test, insert_select_batch_100) {
     odbc_connect(get_basic_connection_string());
 
     insert_batch_select(100);
 }
 
-// TODO: Support status array on server side in batch requests. Now we know only affected rows number.
-#ifdef MUTED
-TEST_F(queries_test, test_non_full_batch_select)
-{
+TEST_F(queries_test, insert_select_batch_2047) {
     odbc_connect(get_basic_connection_string());
 
-    insert_non_null_batch_select(900, 42);
+    insert_batch_select(500);
 }
-#endif
+
+TEST_F(queries_test, test_non_full_batch_select_100_60) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_non_full_batch_select(100, 60);
+}
+
+TEST_F(queries_test, test_non_full_batch_select_1000_239) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_non_full_batch_select(1000, 239);
+}

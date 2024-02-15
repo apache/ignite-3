@@ -20,9 +20,9 @@ package org.apache.ignite.client.handler.requests.sql;
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.readSession;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -30,10 +30,12 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.jetbrains.annotations.Nullable;
@@ -78,11 +80,41 @@ public class ClientSqlExecuteBatchRequest {
 
         return session
                 .executeBatchAsync(tx, statement.query(), arguments)
-                .thenCompose(affectedRows -> {
+                .handle((affectedRows, ex) -> {
                     out.meta(transactions.observableTimestamp());
+                    if (ex != null) {
+                        var cause = ExceptionUtils.unwrapCause(ex.getCause());
+
+                        if (cause instanceof SqlBatchException) {
+                            var exBatch = ((SqlBatchException) cause);
+                            return writeBatchResultAsync(out, resources, exBatch.updateCounters(),
+                                    exBatch.errorCode(), exBatch.getMessage(), session, metrics);
+                        }
+                        affectedRows = ArrayUtils.LONG_EMPTY_ARRAY;
+                    }
 
                     return writeBatchResultAsync(out, resources, affectedRows, session, metrics);
-                });
+                }).thenCompose(Function.identity());
+    }
+
+    private static CompletionStage<Void> writeBatchResultAsync(
+            ClientMessagePacker out,
+            ClientResourceRegistry resources,
+            long[] affectedRows,
+            Short errorCode,
+            String errorMessage,
+            Session session,
+            ClientHandlerMetricSource metrics) {
+        out.packNil(); // resourceId
+
+        out.packBoolean(false); // has row set
+        out.packBoolean(false); // has more pages
+        out.packBoolean(false); // was applied
+        out.packLongArray(affectedRows); // affected rows
+        out.packShort(errorCode); // error code
+        out.packString(errorMessage); // error message
+
+        return session.closeAsync();
     }
 
     private static CompletionStage<Void> writeBatchResultAsync(
@@ -95,8 +127,10 @@ public class ClientSqlExecuteBatchRequest {
 
         out.packBoolean(false); // has row set
         out.packBoolean(false); // has more pages
-        out.packBoolean(true); // was applied
+        out.packBoolean(false); // was applied
         out.packLongArray(affectedRows); // affected rows
+        out.packNil(); // error code
+        out.packNil(); // error message
 
         return session.closeAsync();
     }

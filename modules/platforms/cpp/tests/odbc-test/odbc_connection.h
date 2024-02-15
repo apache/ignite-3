@@ -175,9 +175,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-    [[nodiscard]] static std::int8_t get_test_i8(std::int64_t idx) {
-        return static_cast<std::int8_t>(idx * 3);
-    }
+    [[nodiscard]] static std::int8_t get_test_i8(std::int64_t idx) { return static_cast<std::int8_t>(idx * 3); }
 
     /**
      * Checks std::int8_t value against given.
@@ -185,9 +183,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_i8(int idx, std::int8_t value) {
-        EXPECT_EQ(value, get_test_i8(idx));
-    }
+    static void check_i8(int idx, std::int8_t value) { EXPECT_EQ(value, get_test_i8(idx)); }
 
     /**
      * Returns test std::int16_t value based on index.
@@ -195,9 +191,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-    [[nodiscard]] static std::int16_t get_test_i16(std::int64_t idx) {
-        return static_cast<std::int16_t>(idx * 4);
-    }
+    [[nodiscard]] static std::int16_t get_test_i16(std::int64_t idx) { return static_cast<std::int16_t>(idx * 4); }
 
     /**
      * Checks std::int16_t value against given.
@@ -205,9 +199,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_i16(int idx, std::int16_t value) {
-        EXPECT_EQ(value, get_test_i16(idx));
-    }
+    static void check_i16(int idx, std::int16_t value) { EXPECT_EQ(value, get_test_i16(idx)); }
 
     /**
      * Returns test std::int32_t value based on index.
@@ -215,9 +207,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-    [[nodiscard]] static std::int32_t get_test_i32(std::int64_t idx) {
-        return static_cast<std::int32_t>(idx * 5);
-    }
+    [[nodiscard]] static std::int32_t get_test_i32(std::int64_t idx) { return static_cast<std::int32_t>(idx * 5); }
 
     /**
      * Checks std::int32_t value against given.
@@ -225,9 +215,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_i32(int idx, std::int32_t value) {
-        EXPECT_EQ(value, get_test_i32(idx));
-    }
+    static void check_i32(int idx, std::int32_t value) { EXPECT_EQ(value, get_test_i32(idx)); }
 
     /**
      * Returns test std::int64_t value based on index.
@@ -235,9 +223,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-    [[nodiscard]] static std::int64_t get_test_i64(std::int64_t idx) {
-        return static_cast<std::int64_t>(idx * 6);
-    }
+    [[nodiscard]] static std::int64_t get_test_i64(std::int64_t idx) { return static_cast<std::int64_t>(idx * 6); }
 
     /**
      * Checks std::int64_t value against given.
@@ -245,9 +231,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_i64(int idx, std::int64_t value) {
-        EXPECT_EQ(value, get_test_i64(idx));
-    }
+    static void check_i64(int idx, std::int64_t value) { EXPECT_EQ(value, get_test_i64(idx)); }
 
     /**
      * Returns test SQLGUID value based on index.
@@ -272,7 +256,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_uuid(int idx, const SQLGUID& val) {
+    static void check_uuid(int idx, const SQLGUID &val) {
         SQLGUID expected = get_test_uuid(idx);
 
         EXPECT_EQ(val.Data1, expected.Data1);
@@ -286,9 +270,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-    [[nodiscard]] static std::string get_test_string(std::int64_t idx) {
-        return std::to_string(idx * 2);
-    }
+    [[nodiscard]] static std::string get_test_string(std::int64_t idx) { return std::to_string(idx * 2); }
 
     /**
      * Checks string value against given.
@@ -296,9 +278,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_string(int idx, const std::string &value) {
-        EXPECT_EQ(value, get_test_string(idx));
-    }
+    static void check_string(int idx, const std::string &value) { EXPECT_EQ(value, get_test_string(idx)); }
 
     /**
      * Returns test float value based on index.
@@ -306,9 +286,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-    [[nodiscard]] static float get_test_float(std::int64_t idx) {
-        return static_cast<float>(idx * 7.0);
-    }
+    [[nodiscard]] static float get_test_float(std::int64_t idx) { return static_cast<float>(idx * 7.0); }
 
     /**
      * Checks float value against given.
@@ -316,9 +294,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_float(int idx, float value) {
-        EXPECT_EQ(value, get_test_float(idx));
-    }
+    static void check_float(int idx, float value) { EXPECT_EQ(value, get_test_float(idx)); }
 
     /**
      * Returns test double value based on index.
@@ -326,9 +302,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-    [[nodiscard]] static double get_test_double(std::int64_t idx) {
-        return static_cast<double>(idx * 8.0);
-    }
+    [[nodiscard]] static double get_test_double(std::int64_t idx) { return static_cast<double>(idx * 8.0); }
 
     /**
      * Checks double value against given.
@@ -336,9 +310,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_double(int idx, double value) {
-        EXPECT_EQ(value, get_test_double(idx));
-    }
+    static void check_double(int idx, double value) { EXPECT_EQ(value, get_test_double(idx)); }
 
     /**
      * Returns test SQL_DATE_STRUCT value based on index.
@@ -363,7 +335,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_date(int idx, const SQL_DATE_STRUCT& val) {
+    static void check_date(int idx, const SQL_DATE_STRUCT &val) {
         SQL_DATE_STRUCT expected = get_test_date(idx);
 
         EXPECT_EQ(val.year, expected.year);
@@ -377,7 +349,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-     [[nodiscard]] static SQL_TIME_STRUCT get_test_time(std::int64_t idx) {
+    [[nodiscard]] static SQL_TIME_STRUCT get_test_time(std::int64_t idx) {
         SQL_TIME_STRUCT val;
         memset(&val, 0, sizeof(val));
 
@@ -394,7 +366,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_time(int idx, const SQL_TIME_STRUCT& val) {
+    static void check_time(int idx, const SQL_TIME_STRUCT &val) {
         SQL_TIME_STRUCT expected = get_test_time(idx);
 
         EXPECT_EQ(val.hour, expected.hour);
@@ -432,7 +404,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_timestamp(int idx, const SQL_TIMESTAMP_STRUCT& val) {
+    static void check_timestamp(int idx, const SQL_TIMESTAMP_STRUCT &val) {
         SQL_TIMESTAMP_STRUCT expected = get_test_timestamp(idx);
 
         EXPECT_EQ(val.year, expected.year);
@@ -450,7 +422,7 @@ public:
      * @param idx Index.
      * @return Test value.
      */
-     [[nodiscard]] static SQL_NUMERIC_STRUCT get_test_decimal(int idx) {
+    [[nodiscard]] static SQL_NUMERIC_STRUCT get_test_decimal(int idx) {
         SQL_NUMERIC_STRUCT val;
         memset(&val, 0, sizeof(val));
 
@@ -468,7 +440,7 @@ public:
      * @param idx Index.
      * @param val Value to test.
      */
-    static void check_decimal(int idx, const SQL_NUMERIC_STRUCT& val) {
+    static void check_decimal(int idx, const SQL_NUMERIC_STRUCT &val) {
         SQL_NUMERIC_STRUCT expected = get_test_decimal(idx);
 
         EXPECT_EQ(val.sign, expected.sign);
@@ -486,9 +458,7 @@ public:
         SQLCHAR insert_req[] = "INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
 
         SQLRETURN ret = SQLPrepare(m_statement, insert_req, SQL_NTS);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         std::int64_t key = 0;
         char str_field[1024] = {0};
@@ -496,15 +466,11 @@ public:
 
         // Binding parameters.
         ret = SQLBindParameter(m_statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key, 0, nullptr);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, sizeof(str_field),
             sizeof(str_field), &str_field, sizeof(str_field), &str_field_len);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         // Inserting values.
         for (SQLSMALLINT i = 0; i < records_num; ++i) {
@@ -515,15 +481,11 @@ public:
             str_field_len = SQL_NTS;
 
             ret = SQLExecute(m_statement);
-
-            if (!SQL_SUCCEEDED(ret))
-                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement)) << ", step " << i;
+            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
             SQLLEN affected = 0;
             ret = SQLRowCount(m_statement, &affected);
-
-            if (!SQL_SUCCEEDED(ret))
-                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
             EXPECT_EQ(affected, 1);
 
@@ -535,9 +497,7 @@ public:
 
         // Resetting parameters.
         ret = SQLFreeStmt(m_statement, SQL_RESET_PARAMS);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
     }
 
     /**
@@ -545,38 +505,23 @@ public:
      *
      * @param from Start index.
      * @param to End index.
-     * @param merge Merge query. true - merge, false - insert.
      */
-    void insert_test_batch_no_check(int from, int to, bool merge)
-    {
+    void insert_test_batch_no_check(int from, int to, SQLRETURN &ret) const {
         static const std::size_t STRING_FIELD_MAX_SIZE = 1024;
 
-        SQLCHAR insert_req[] = "insert into TBL_ALL_COLUMNS_SQL("
-                               "   "
-                               "key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
-                               "values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        SQLCHAR merge_req[] = "merge into TBL_ALL_COLUMNS_SQL("
-                              "   "
-                              "key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
-                              "values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        SQLRETURN ret;
+        SQLCHAR insert_req[] =
+            "insert into TBL_ALL_COLUMNS_SQL("
+            "   "
+            "key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
+            "values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         int32_t records_num = to - from;
 
         ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAMSET_SIZE, reinterpret_cast<SQLPOINTER>(records_num), 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
-        ret = SQLPrepare(m_statement, merge ? merge_req : insert_req, SQL_NTS);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         auto keys = std::make_unique<std::int64_t[]>(records_num);
         auto str_fields = std::make_unique<char[]>(records_num * 1024);
@@ -593,10 +538,7 @@ public:
         auto timestamp_fields = std::make_unique<SQL_TIMESTAMP_STRUCT[]>(records_num);
         auto decimal_fields = std::make_unique<SQL_NUMERIC_STRUCT[]>(records_num);
 
-        auto i8_array_fields_len = std::make_unique<SQLLEN[]>(records_num);
-
-        for (int i = 0; i < records_num; ++i)
-        {
+        for (int i = 0; i < records_num; ++i) {
             int seed = from + i;
 
             keys[i] = seed;
@@ -619,61 +561,57 @@ public:
         }
 
         ret = SQLBindParameter(m_statement, 1, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_BIGINT, 0, 0, keys.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, STRING_FIELD_MAX_SIZE, 0,
             str_fields.get(), STRING_FIELD_MAX_SIZE, str_fields_len.get());
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = SQLBindParameter(m_statement, 3, SQL_PARAM_INPUT, SQL_C_STINYINT, SQL_TINYINT, 0, 0, i8_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ret =
+            SQLBindParameter(m_statement, 3, SQL_PARAM_INPUT, SQL_C_STINYINT, SQL_TINYINT, 0, 0, i8_fields.get(), 0, 0);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = SQLBindParameter(m_statement, 4, SQL_PARAM_INPUT, SQL_C_SSHORT, SQL_SMALLINT, 0, 0, i16_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ret =
+            SQLBindParameter(m_statement, 4, SQL_PARAM_INPUT, SQL_C_SSHORT, SQL_SMALLINT, 0, 0, i16_fields.get(), 0, 0);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 5, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, i32_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = SQLBindParameter(m_statement, 6, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_BIGINT, 0, 0, i64_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ret =
+            SQLBindParameter(m_statement, 6, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_BIGINT, 0, 0, i64_fields.get(), 0, 0);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 7, SQL_PARAM_INPUT, SQL_C_FLOAT, SQL_FLOAT, 0, 0, float_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = SQLBindParameter(m_statement, 8, SQL_PARAM_INPUT, SQL_C_DOUBLE, SQL_DOUBLE, 0, 0, double_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ret = SQLBindParameter(
+            m_statement, 8, SQL_PARAM_INPUT, SQL_C_DOUBLE, SQL_DOUBLE, 0, 0, double_fields.get(), 0, 0);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 9, SQL_PARAM_INPUT, SQL_C_GUID, SQL_GUID, 0, 0, uuid_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = SQLBindParameter(m_statement, 10, SQL_PARAM_INPUT, SQL_C_TYPE_DATE, SQL_TYPE_DATE, 0, 0, date_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ret = SQLBindParameter(
+            m_statement, 10, SQL_PARAM_INPUT, SQL_C_TYPE_DATE, SQL_TYPE_DATE, 0, 0, date_fields.get(), 0, 0);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = SQLBindParameter(m_statement, 11, SQL_PARAM_INPUT, SQL_C_TYPE_TIME, SQL_TYPE_TIME, 0, 0, time_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ret = SQLBindParameter(
+            m_statement, 11, SQL_PARAM_INPUT, SQL_C_TYPE_TIME, SQL_TYPE_TIME, 0, 0, time_fields.get(), 0, 0);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = SQLBindParameter(m_statement, 12, SQL_PARAM_INPUT, SQL_C_TYPE_TIMESTAMP, SQL_TYPE_TIMESTAMP, 0, 0, timestamp_fields.get(), 0, 0);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ret = SQLBindParameter(m_statement, 12, SQL_PARAM_INPUT, SQL_C_TYPE_TIMESTAMP, SQL_TYPE_TIMESTAMP, 0, 0,
+            timestamp_fields.get(), 0, 0);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = SQLBindParameter(m_statement, 13, SQL_PARAM_INPUT, SQL_C_NUMERIC, SQL_DECIMAL, 0, 0, decimal_fields.get(), 0, nullptr);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ret = SQLBindParameter(
+            m_statement, 13, SQL_PARAM_INPUT, SQL_C_NUMERIC, SQL_DECIMAL, 0, 0, decimal_fields.get(), 0, nullptr);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+        ret = SQLPrepare(m_statement, insert_req, SQL_NTS);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLExecute(m_statement);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
     }
 
     /**
@@ -682,50 +620,37 @@ public:
      * @param from Start index.
      * @param to End index.
      * @param expected_to_affect Expected number of affected rows.
-     * @param merge Merge query, true - merge, false - insert.
      */
-    void insert_test_batch(int from, int to, int expected_to_affect, bool merge = false)
-    {
+    void insert_test_batch(int from, int to, int expected_to_affect) {
         SQLULEN sets_processed = 0;
 
         SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAMS_PROCESSED_PTR, &sets_processed, SQL_IS_POINTER);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        insert_test_batch_no_check(from, to, merge);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        insert_test_batch_no_check(from, to, ret);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         SQLLEN totally_affected = 0;
 
-        do
-        {
+        do {
             SQLLEN affected = 0;
             ret = SQLRowCount(m_statement, &affected);
-
-            if (!SQL_SUCCEEDED(ret))
-                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
             totally_affected += affected;
 
             ret = SQLMoreResults(m_statement);
 
-            if (!SQL_SUCCEEDED(ret) && ret != SQL_NO_DATA)
-                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-        }
-        while (ret != SQL_NO_DATA);
+            ODBC_FAIL_ON_ERROR_OR_NE(ret, SQL_NO_DATA, SQL_HANDLE_STMT, m_statement);
+        } while (ret != SQL_NO_DATA);
 
         EXPECT_EQ(totally_affected, expected_to_affect);
 
         ret = SQLFreeStmt(m_statement, SQL_RESET_PARAMS);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAMSET_SIZE, reinterpret_cast<SQLPOINTER>(1), 0);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         EXPECT_EQ(sets_processed, expected_to_affect);
     }
@@ -735,8 +660,7 @@ public:
      *
      * @param records_num Count of rows.
      */
-    void insert_batch_select(int records_num)
-    {
+    void insert_batch_select(int records_num) {
         // Inserting values.
         insert_test_batch(0, records_num, records_num);
 
@@ -746,37 +670,29 @@ public:
 
         // Binding columns.
         SQLRETURN ret = SQLBindCol(m_statement, 1, SQL_C_SLONG, &key, 0, 0);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         // Binding columns.
         ret = SQLBindCol(m_statement, 2, SQL_C_CHAR, &str_field, sizeof(str_field), &str_field_len);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         // Just selecting everything to make sure everything is OK
         SQLCHAR select_req[] = "SELECT key, str FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
         ret = SQLExecDirect(m_statement, select_req, sizeof(select_req));
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         int selected_records_num = 0;
 
         ret = SQL_SUCCESS;
 
-        while (ret == SQL_SUCCESS)
-        {
+        while (ret == SQL_SUCCESS) {
             ret = SQLFetch(m_statement);
 
             if (ret == SQL_NO_DATA)
                 break;
 
-            if (!SQL_SUCCEEDED(ret))
-                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
             check_string(selected_records_num, std::string(str_field, str_field_len));
             EXPECT_EQ(key, selected_records_num);
@@ -793,15 +709,12 @@ public:
      * @param records_num Count of rows.
      * @param split_at Index to split rows between queries.
      */
-    void insert_non_null_batch_select(int records_num, int split_at)
-    {
+    void insert_non_full_batch_select(int records_num, int split_at) {
         std::vector<SQLUSMALLINT> statuses(records_num, 42);
 
         // Binding statuses array.
         SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAM_STATUS_PTR, &statuses[0], 0);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         // Inserting values.
         insert_test_batch(split_at, records_num, records_num - split_at);
@@ -809,7 +722,7 @@ public:
         for (int i = 0; i < records_num - split_at; ++i)
             EXPECT_EQ(statuses[i], SQL_PARAM_SUCCESS);
 
-        insert_test_batch(0, records_num, split_at);
+        insert_test_batch_no_check(0, records_num, ret);
 
         for (int i = 0; i < split_at; ++i)
             EXPECT_EQ(statuses[i], SQL_PARAM_SUCCESS);
@@ -817,43 +730,38 @@ public:
         for (int i = split_at; i < records_num; ++i)
             EXPECT_EQ(statuses[i], SQL_PARAM_ERROR);
 
+        SQLFreeStmt(m_statement, SQL_RESET_PARAMS);
+        SQLFreeStmt(m_statement, SQL_UNBIND);
+
         std::int64_t key = 0;
         char str_field[1024] = {0};
         SQLLEN str_field_len = 0;
 
         // Binding columns.
         ret = SQLBindCol(m_statement, 1, SQL_C_SLONG, &key, 0, 0);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         // Binding columns.
         ret = SQLBindCol(m_statement, 2, SQL_C_CHAR, &str_field, sizeof(str_field), &str_field_len);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         // Just selecting everything to make sure everything is OK
         SQLCHAR select_req[] = "SELECT key, str FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
         ret = SQLExecDirect(m_statement, select_req, sizeof(select_req));
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         int selected_records_num = 0;
 
         ret = SQL_SUCCESS;
 
-        while (ret == SQL_SUCCESS)
-        {
+        while (ret == SQL_SUCCESS) {
             ret = SQLFetch(m_statement);
 
             if (ret == SQL_NO_DATA)
                 break;
 
-            if (!SQL_SUCCEEDED(ret))
-                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
             std::string expected_str = get_test_string(selected_records_num);
             int64_t expected_key = selected_records_num;
@@ -881,9 +789,7 @@ public:
             "values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         SQLRETURN ret = SQLPrepare(m_statement, insert_req, SQL_NTS);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         std::int64_t key_arg = idx;
         std::string str_arg_val = get_test_string(idx);
@@ -904,89 +810,63 @@ public:
 
         // Binding parameters.
         ret = SQLBindParameter(m_statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key_arg, 0, nullptr);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, str_field.size(), 0,
             str_field.data(), str_field_len, &str_field_len);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret =
             SQLBindParameter(m_statement, 3, SQL_PARAM_INPUT, SQL_C_STINYINT, SQL_TINYINT, 0, 0, &int8_arg, 0, nullptr);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret =
             SQLBindParameter(m_statement, 4, SQL_PARAM_INPUT, SQL_C_SSHORT, SQL_SMALLINT, 0, 0, &int16_arg, 0, nullptr);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 5, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &int32_arg, 0, nullptr);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret =
             SQLBindParameter(m_statement, 6, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_BIGINT, 0, 0, &int64_arg, 0, nullptr);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 7, SQL_PARAM_INPUT, SQL_C_FLOAT, SQL_FLOAT, 0, 0, &float_arg, 0, nullptr);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret =
             SQLBindParameter(m_statement, 8, SQL_PARAM_INPUT, SQL_C_DOUBLE, SQL_DOUBLE, 0, 0, &double_arg, 0, nullptr);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 9, SQL_PARAM_INPUT, SQL_C_GUID, SQL_GUID, 0, 0, &uuid_arg, 0, nullptr);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 10, SQL_PARAM_INPUT, SQL_C_DATE, SQL_DATE, 0, 0, &date_arg, 0, nullptr);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(m_statement, 11, SQL_PARAM_INPUT, SQL_C_TIME, SQL_TIME, 0, 0, &time_arg, 0, nullptr);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(
             m_statement, 12, SQL_PARAM_INPUT, SQL_C_TIMESTAMP, SQL_TIMESTAMP, 0, 0, &datetime_arg, 0, nullptr);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLBindParameter(
             m_statement, 13, SQL_PARAM_INPUT, SQL_C_NUMERIC, SQL_DECIMAL, 0, 0, &decimal_arg, 0, nullptr);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         ret = SQLExecute(m_statement);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         SQLLEN affected = 0;
         ret = SQLRowCount(m_statement, &affected);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         EXPECT_EQ(affected, 1);
 
         // Resetting parameters.
         ret = SQLFreeStmt(m_statement, SQL_RESET_PARAMS);
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
     }
 
     /** Environment handle. */
