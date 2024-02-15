@@ -50,7 +50,7 @@ start() {
   done
 
  if [ ! -f "$rest_address_file" ]; then
-     echo "Failure: Application did not start within the expected time frame. Check out ${STARTUP_LOG_FILE}." >&2
+     echo "Failure: Application did not start within the expected time frame. Check out ${STARTUP_LOG_FILE}" >&2
      exit 1
  else
      rest_address=$(cat "$rest_address_file")
