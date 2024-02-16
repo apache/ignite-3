@@ -52,7 +52,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -2359,18 +2358,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void startTables(long recoveryRevision) {
         sharedTxStateStorage.start();
 
-        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
+        int catalogVersion = catalogService.latestCatalogVersion();
 
-        var startedTables = new IntOpenHashSet();
         List<CompletableFuture<?>> startTableFutures = new ArrayList<>();
 
         // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from volt and metastore
-        for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
-            int ver0 = ver;
-            catalogService.tables(ver).stream()
-                    .filter(tbl -> startedTables.add(tbl.id()))
-                    .forEach(tableDescriptor -> startTableFutures.add(createTableLocally(recoveryRevision, ver0, tableDescriptor, true)));
+        for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
+            startTableFutures.add(createTableLocally(recoveryRevision, catalogVersion, tableDescriptor, true));
         }
 
         // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
