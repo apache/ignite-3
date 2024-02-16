@@ -80,8 +80,10 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     private static List<ColumnType> columnTypes() {
         return Arrays.stream(ColumnType.values())
                 .filter(t -> t != ColumnType.NULL
-                        && t != ColumnType.NUMBER
+                        // TODO BitSet is not supported IGNITE-18431
                         && t != ColumnType.BITMASK
+                        && t != ColumnType.NUMBER
+                        // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
                         && t != ColumnType.DURATION
                         && t != ColumnType.PERIOD
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
@@ -283,8 +285,9 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
             case PERIOD:
             case DURATION:
             case NUMBER:
-            default:
                 throw new IllegalArgumentException("Not supported: " + type);
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type);
         }
     }
 
