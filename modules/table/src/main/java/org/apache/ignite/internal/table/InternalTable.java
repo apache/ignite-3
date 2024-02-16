@@ -25,8 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -36,7 +34,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -440,29 +437,18 @@ public interface InternalTable extends ManuallyCloseable {
     int partitions();
 
     /**
-     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
-     * it cannot be found.
-     *
-     * @param partition partition number
-     * @return leader node of the partition group corresponding to the partition
-     */
-    ClusterNode leaderAssignment(int partition);
-
-    /**
-     * Returns raft group client for corresponding partition.
-     *
-     * @param partition partition number
-     * @return raft group client for corresponding partition
-     * @throws IgniteInternalException if partition can't be found.
-     */
-    RaftGroupService partitionRaftGroupService(int partition);
-
-    /**
      * Storage of transaction states for this table.
      *
      * @return Transaction states' storage.
      */
     TxStateTableStorage txStateStorage();
+
+    /**
+     * Raft service for this table.
+     *
+     * @return Table raft service.
+     */
+    TableRaftService tableRaftService();
 
     //TODO: IGNITE-14488. Add invoke() methods.
 
@@ -471,18 +457,4 @@ public interface InternalTable extends ManuallyCloseable {
      */
     @Override
     void close();
-
-    /**
-     * Returns the partition safe time tracker, {@code null} means not added.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId);
-
-    /**
-     * Returns the partition storage index tracker, {@code null} means not added.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
 }

@@ -61,7 +61,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                Int2ObjectMaps.emptyMap(),
                 1,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
@@ -70,21 +69,22 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                new TableRaftServiceImpl("test", 1, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class)))
         );
 
         // Let's check the empty table.
-        assertNull(internalTable.getPartitionSafeTimeTracker(0));
-        assertNull(internalTable.getPartitionStorageIndexTracker(0));
+        assertNull(internalTable.tableRaftService().getPartitionSafeTimeTracker(0));
+        assertNull(internalTable.tableRaftService().getPartitionStorageIndexTracker(0));
 
         // Let's check the first insert.
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime0 = mock(PendingComparableValuesTracker.class);
         PendingComparableValuesTracker<Long, Void> storageIndex0 = mock(PendingComparableValuesTracker.class);
 
-        internalTable.updatePartitionTrackers(0, safeTime0, storageIndex0);
+        internalTable.tableRaftService().updatePartitionTrackers(0, safeTime0, storageIndex0);
 
-        assertSame(safeTime0, internalTable.getPartitionSafeTimeTracker(0));
-        assertSame(storageIndex0, internalTable.getPartitionStorageIndexTracker(0));
+        assertSame(safeTime0, internalTable.tableRaftService().getPartitionSafeTimeTracker(0));
+        assertSame(storageIndex0, internalTable.tableRaftService().getPartitionStorageIndexTracker(0));
 
         verify(safeTime0, never()).close();
         verify(storageIndex0, never()).close();
@@ -93,10 +93,10 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime1 = mock(PendingComparableValuesTracker.class);
         PendingComparableValuesTracker<Long, Void> storageIndex1 = mock(PendingComparableValuesTracker.class);
 
-        internalTable.updatePartitionTrackers(0, safeTime1, storageIndex1);
+        internalTable.tableRaftService().updatePartitionTrackers(0, safeTime1, storageIndex1);
 
-        assertSame(safeTime1, internalTable.getPartitionSafeTimeTracker(0));
-        assertSame(storageIndex1, internalTable.getPartitionStorageIndexTracker(0));
+        assertSame(safeTime1, internalTable.tableRaftService().getPartitionSafeTimeTracker(0));
+        assertSame(storageIndex1, internalTable.tableRaftService().getPartitionStorageIndexTracker(0));
 
         verify(safeTime0).close();
         verify(storageIndex0).close();
@@ -107,7 +107,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                Int2ObjectMaps.emptyMap(),
                 3,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
@@ -116,7 +115,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                new TableRaftServiceImpl("test", 3, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class)))
         );
 
         List<BinaryRowEx> originalRows = List.of(

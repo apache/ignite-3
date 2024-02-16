@@ -162,6 +162,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -388,7 +389,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         Node newNode = nodes.stream().filter(n -> !partitionNodesConsistentIds.contains(n.name)).findFirst().orElseThrow();
 
-        Node leaderNode = findNodeByConsistentId(table.leaderAssignment(0).name());
+        Node leaderNode = findNodeByConsistentId(table.tableRaftService().leaderAssignment(0).name());
 
         String nonLeaderNodeConsistentId = partitionNodesConsistentIds.stream()
                 .filter(n -> !n.equals(leaderNode.name))
@@ -421,8 +422,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(countDownLatch.await(10, SECONDS));
 
+        TableRaftService tableRaftService = nonLeaderTable.internalTable().tableRaftService();
+
         assertThat(
-                nonLeaderTable.internalTable().partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeConsistentId)),
+                tableRaftService.partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeConsistentId)),
                 willCompleteSuccessfully()
         );
 
@@ -651,6 +654,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                 .latestTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
+                                .tableRaftService()
                                 .partitionRaftGroupService(0)
                                 .peers()
                                 .equals(List.of(new Peer(newNodeNameForAssignment)))),
@@ -706,6 +710,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                 .latestTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
+                                .tableRaftService()
                                 .partitionRaftGroupService(0)
                                 .peers()
                                 .stream()
@@ -786,6 +791,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                         .latestTables()
                                         .get(getTableId(n, TABLE_NAME))
                                         .internalTable()
+                                        .tableRaftService()
                                         .partitionRaftGroupService(partNum) != null
                         );
                     } catch (IgniteInternalException e) {
