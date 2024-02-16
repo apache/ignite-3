@@ -75,10 +75,7 @@ public class CursorManager {
      * @param txId Transaction id.
      */
     public void closeTransactionCursors(UUID txId) {
-        var lowCursorId = new IgniteUuid(txId, Long.MIN_VALUE);
-        var upperCursorId = new IgniteUuid(txId, Long.MAX_VALUE);
-
-        Map<IgniteUuid, CursorInfo> txCursors = cursors(lowCursorId, upperCursorId);
+        Map<IgniteUuid, CursorInfo> txCursors = cursors(txId);
 
         IgniteException ex = null;
 
@@ -99,8 +96,11 @@ public class CursorManager {
         }
     }
 
-    private Map<IgniteUuid, CursorInfo> cursors(IgniteUuid lowCursorId, IgniteUuid highCursorId) {
-        return cursors.subMap(lowCursorId, true, highCursorId, true);
+    private Map<IgniteUuid, CursorInfo> cursors(UUID txId) {
+        var lowCursorId = new IgniteUuid(txId, Long.MIN_VALUE);
+        var upperCursorId = new IgniteUuid(txId, Long.MAX_VALUE);
+
+        return cursors.subMap(lowCursorId, true, upperCursorId, true);
     }
 
     /**
