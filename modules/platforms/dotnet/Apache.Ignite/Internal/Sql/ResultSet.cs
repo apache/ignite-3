@@ -405,8 +405,7 @@ namespace Apache.Ignite.Internal.Sql
             {
                 throw new IgniteClientException(
                     ErrorGroups.Common.CursorAlreadyClosed,
-                    "Query result set can not be iterated more than once."
-                );
+                    "Query result set can not be iterated more than once.");
             }
 
             _iterated = true;

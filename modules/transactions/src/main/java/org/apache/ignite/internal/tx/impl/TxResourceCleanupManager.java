@@ -43,8 +43,11 @@ public class TxResourceCleanupManager implements IgniteComponent {
 
     private static final int RESOURCE_CLEANUP_EXECUTOR_SIZE = 1;
 
-    private static final int RESOURCE_CLEANUP_INTERVAL_MILLISECONDS = IgniteSystemProperties
-            .getInteger("RESOURCE_CLEANUP_INTERVAL_MILLISECONDS", 30_000);
+    /** System property name. */
+    public static final String RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY = "RESOURCE_CLEANUP_INTERVAL_MILLISECONDS";
+
+    private final int resourceCleanupIntervalMilliseconds = IgniteSystemProperties
+            .getInteger(RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY, 30_000);
 
     private final ScheduledExecutorService resourceCleanupExecutor;
 
@@ -77,7 +80,7 @@ public class TxResourceCleanupManager implements IgniteComponent {
         resourceCleanupExecutor.scheduleAtFixedRate(
                 this::cleanupOrphanTxResources,
                 0,
-                RESOURCE_CLEANUP_INTERVAL_MILLISECONDS,
+                resourceCleanupIntervalMilliseconds,
                 TimeUnit.MILLISECONDS
         );
 
