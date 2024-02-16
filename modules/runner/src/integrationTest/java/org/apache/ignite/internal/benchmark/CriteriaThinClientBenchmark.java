@@ -20,11 +20,11 @@ package org.apache.ignite.internal.benchmark;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
 
-import java.util.List;
+import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.ResultSet;
@@ -41,7 +41,6 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -65,14 +64,19 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
+    private static final int CLUSTER_SIZE = 2;
+
     private static final int TABLE_SIZE = 100_000;
 
     private static final String SELECT_FROM_USERTABLE = "select * from usertable where ycsb_key = ?";
 
     private static final String SELECT_ALL_FROM_USERTABLE = "select * from usertable";
 
-    @Param("2")
-    private int clusterSize;
+    /** Fills the table with data. */
+    @Setup
+    public void setUp() throws IOException {
+        populateTable(TABLE_NAME, TABLE_SIZE, 10_000);
+    }
 
     /**
      * Benchmark for KV get via thin client.
@@ -95,7 +99,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void sqlGet(ThinClientState state) {
-        try (var rs = state.sql(SELECT_FROM_USERTABLE, state.nextId())) {
+        try (ResultSet<SqlRow> rs = state.sql(SELECT_FROM_USERTABLE, state.nextId())) {
             rs.next();
         }
     }
@@ -105,7 +109,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void sqlGetNonNullTxDisablesPartitionAwareness(NoPartitionAwarenessState state) {
-        try (var rs = state.sql(SELECT_FROM_USERTABLE, state.nextId())) {
+        try (ResultSet<SqlRow> rs = state.sql(SELECT_FROM_USERTABLE, state.nextId())) {
             rs.next();
         }
     }
@@ -135,7 +139,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void sqlIterate(ThinClientState state) {
-        try (var rs = state.sql(SELECT_ALL_FROM_USERTABLE)) {
+        try (ResultSet<SqlRow> rs = state.sql(SELECT_ALL_FROM_USERTABLE)) {
             while (rs.hasNext()) {
                 rs.next();
             }
@@ -165,24 +169,12 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Gets client connector addresses for the specified nodes.
-     *
-     * @param nodes Nodes.
-     * @return Array of client addresses.
-     */
-    static String[] getClientAddresses(List<IgniteImpl> nodes) {
-        return nodes.stream()
-                .map(ignite -> ignite.clientAddress().port())
-                .map(port -> "127.0.0.1" + ":" + port)
-                .toArray(String[]::new);
-    }
-
-    /**
      * Benchmark's entry point.
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + CriteriaThinClientBenchmark.class.getSimpleName() + ".*")
+                .param("fsync", "false")
                 .build();
 
         new Runner(opt).run();
@@ -210,9 +202,20 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            client = IgniteClient.builder().addresses(getClientAddresses(CLUSTER_NODES)).build();
+            client = IgniteClient.builder().addresses(getClientAddresses()).build();
             session = client.sql().createSession();
             view = client.tables().table(TABLE_NAME).recordView();
+        }
+
+        /**
+         * Gets client connector addresses for the specified nodes.
+         *
+         * @return Array of client addresses.
+         */
+        String[] getClientAddresses() {
+            return IntStream.range(0, CLUSTER_SIZE)
+                    .mapToObj(i -> "127.0.0.1:" + (BASE_CLIENT_PORT + i))
+                    .toArray(String[]::new);
         }
 
         /**
@@ -275,12 +278,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     @Override
-    protected int initialNodes() {
-        return clusterSize;
-    }
-
-    @Override
-    protected int tableSize() {
-        return TABLE_SIZE;
+    protected int nodes() {
+        return CLUSTER_SIZE;
     }
 }

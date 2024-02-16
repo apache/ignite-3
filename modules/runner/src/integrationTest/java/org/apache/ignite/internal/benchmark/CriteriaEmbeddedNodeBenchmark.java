@@ -20,6 +20,7 @@ package org.apache.ignite.internal.benchmark;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
 
+import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -61,6 +62,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
+    private static final int TABLE_SIZE = 30_000;
+
     private static final String SELECT_ALL_FROM_USERTABLE = "select * from usertable where ycsb_key = ?";
 
     private final Random random = new Random();
@@ -68,12 +71,18 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
     @Param("1")
     private int clusterSize;
 
+    /** Fills the table with data. */
+    @Setup
+    public void setUp() throws IOException {
+        populateTable(TABLE_NAME, TABLE_SIZE, 10_000);
+    }
+
     /**
      * Benchmark for KV get via embedded node.
      */
     @Benchmark
     public void kvGet(IgniteState state) {
-        state.get(Tuple.create().set("ycsb_key", random.nextInt(DFLT_TABLE_SIZE)));
+        state.get(Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
     }
 
     /**
@@ -81,7 +90,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void sqlGet(IgniteState state) {
-        try (var rs = state.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(DFLT_TABLE_SIZE))) {
+        try (ResultSet<SqlRow> rs = state.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
             rs.next();
         }
     }
@@ -91,7 +100,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void criteriaGet(IgniteState state) {
-        try (Cursor<Tuple> cur = state.query(columnValue("ycsb_key", equalTo(random.nextInt(DFLT_TABLE_SIZE))))) {
+        try (Cursor<Tuple> cur = state.query(columnValue("ycsb_key", equalTo(random.nextInt(TABLE_SIZE))))) {
             cur.next();
         }
     }
@@ -102,6 +111,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + CriteriaEmbeddedNodeBenchmark.class.getSimpleName() + ".*")
+                .param("fsync", "false")
                 .build();
 
         new Runner(opt).run();
@@ -123,9 +133,9 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            view = CLUSTER_NODES.get(0).tables().table(TABLE_NAME).recordView();
+            view = clusterNode.tables().table(TABLE_NAME).recordView();
 
-            session = CLUSTER_NODES.get(0).sql().createSession();
+            session = clusterNode.sql().createSession();
         }
 
         /**
@@ -150,7 +160,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     @Override
-    protected int initialNodes() {
+    protected int nodes() {
         return clusterSize;
     }
 }
