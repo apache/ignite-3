@@ -243,7 +243,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,
-                @Nullable BitSet columnsToInclude
+                @Nullable BitSet columnsToInclude,
+                String txCoordinatorId
         ) {
             return s -> {
                 s.onSubscribe(new Subscription() {

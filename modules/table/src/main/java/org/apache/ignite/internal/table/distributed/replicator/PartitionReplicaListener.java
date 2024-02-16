@@ -396,7 +396,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return validateTableExistence(request, opTsIfDirectRo)
                 .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
-                .thenCompose(unused -> processOperationRequestWithTxRwCounter(request, senderId, isPrimary, opTsIfDirectRo));
+                .thenCompose(unused -> processOperationRequestWithTxRwCounter(request, isPrimary, opTsIfDirectRo));
     }
 
     /**
@@ -567,7 +567,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<?> processOperationRequest(
             ReplicaRequest request,
-            String txCoordinatorId,
             @Nullable Boolean isPrimary,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
@@ -641,7 +640,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
             return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, isPrimary);
         } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
-            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, txCoordinatorId, isPrimary);
+            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
         } else if (request instanceof BuildIndexReplicaRequest) {
@@ -760,13 +759,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes retrieve batch for read only transaction.
      *
      * @param request Read only retrieve batch request.
-     * @param txCoordinatorId Transaction coordinator id.
      * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
     private CompletableFuture<List<BinaryRow>> processReadOnlyScanRetrieveBatchAction(
             ReadOnlyScanRetrieveBatchReplicaRequest request,
-            String txCoordinatorId,
             Boolean isPrimary
     ) {
         requireNonNull(isPrimary);
@@ -790,16 +787,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
-                return safeReadFuture.thenCompose(unused -> lookupIndex(request, indexStorage, txCoordinatorId));
+                return safeReadFuture.thenCompose(unused -> lookupIndex(request, indexStorage));
             }
 
             assert indexStorage.storage() instanceof SortedIndexStorage;
 
-            return safeReadFuture.thenCompose(unused -> scanSortedIndex(request, indexStorage, txCoordinatorId));
+            return safeReadFuture.thenCompose(unused -> scanSortedIndex(request, indexStorage));
         }
 
         return safeReadFuture
-                .thenCompose(unused -> retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, readTimestamp, cursorId, batchCount));
+                .thenCompose(
+                        unused -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), readTimestamp, cursorId, batchCount)
+                );
     }
 
     /**
@@ -1056,7 +1055,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             assert indexStorage.storage() instanceof SortedIndexStorage;
 
-            return scanSortedIndex(request, indexStorage, request.coordinatorId());
+            return scanSortedIndex(request, indexStorage);
         }
 
         UUID txId = request.transactionId();
@@ -1077,8 +1076,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<List<BinaryRow>> lookupIndex(
             ReadOnlyScanRetrieveBatchReplicaRequest request,
-            TableSchemaAwareIndexStorage schemaAwareIndexStorage,
-            String txCoordinatorId
+            TableSchemaAwareIndexStorage schemaAwareIndexStorage
     ) {
         IndexStorage indexStorage = schemaAwareIndexStorage.storage();
 
@@ -1090,7 +1088,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         BinaryTuple key = request.exactKey().asBinaryTuple();
 
         Cursor<RowId> cursor = (Cursor<RowId>) cursorManager.getOrCreateCursor(cursorId,
-                txCoordinatorId, () -> indexStorage.get(key));
+                request.coordinatorId(), () -> indexStorage.get(key));
 
         var result = new ArrayList<BinaryRow>(batchCount);
 
@@ -1140,8 +1138,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<List<BinaryRow>> scanSortedIndex(
             ReadWriteScanRetrieveBatchReplicaRequest request,
-            TableSchemaAwareIndexStorage schemaAwareIndexStorage,
-            String txCoordinatorId
+            TableSchemaAwareIndexStorage schemaAwareIndexStorage
     ) {
         var indexStorage = (SortedIndexStorage) schemaAwareIndexStorage.storage();
 
@@ -1185,7 +1182,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
                         };
 
-                        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursorManager.getOrCreateCursor(cursorId, txCoordinatorId,
+                        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursorManager.getOrCreateCursor(cursorId, request.coordinatorId(),
                                 () -> indexStorage.scan(
                                         lowerBound,
                                         // We have to handle upperBound on a level of replication listener,
@@ -1214,8 +1211,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<List<BinaryRow>> scanSortedIndex(
             ReadOnlyScanRetrieveBatchReplicaRequest request,
-            TableSchemaAwareIndexStorage schemaAwareIndexStorage,
-            String txCoordinatorId
+            TableSchemaAwareIndexStorage schemaAwareIndexStorage
     ) {
         var indexStorage = (SortedIndexStorage) schemaAwareIndexStorage.storage();
 
@@ -1233,7 +1229,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursorManager.getOrCreateCursor(cursorId, txCoordinatorId,
+        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursorManager.getOrCreateCursor(cursorId, request.coordinatorId(),
                 () -> indexStorage.scan(
                         lowerBound,
                         upperBound,
@@ -3712,7 +3708,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<?> processOperationRequestWithTxRwCounter(
             ReplicaRequest request,
-            String txCoordinatorId,
             @Nullable Boolean isPrimary,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
@@ -3726,7 +3721,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        return processOperationRequest(request, txCoordinatorId, isPrimary, opStartTsIfDirectRo)
+        return processOperationRequest(request, isPrimary, opStartTsIfDirectRo)
                 .whenComplete((unused, throwable) -> {
                     if (request instanceof ReadWriteReplicaRequest) {
                         txRwOperationTracker.decrementOperationCount(
