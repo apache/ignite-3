@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.thread;
 
 import java.util.concurrent.Executor;
 
 /**
- * Chooses an executor that will handle a given network message.
+ * Chooses an executor based on a given argument.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface MessageExecutorChooser {
+public interface ExecutorChooser<T> {
     /**
-     * Chooses an executor that will handle a given network message.
+     * Chooses an executor based on a given argument.
      *
-     * @param message Message for which to choose an executor.
+     * @param argument Argument for which to choose an executor.
      */
-    Executor choose(NetworkMessage message);
+    Executor choose(T argument);
 }

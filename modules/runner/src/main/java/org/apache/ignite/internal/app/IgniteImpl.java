@@ -136,6 +136,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupStripes;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
@@ -174,6 +176,7 @@ import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOn
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
@@ -450,6 +453,11 @@ public class IgniteImpl implements Ignite {
         );
 
         LockManager lockMgr = new HeapLockManager();
+
+        ExecutorChooser<ReplicationGroupId> executorByReplicationGroupId = groupId -> ReplicationGroupStripes.stripeFor(
+                groupId,
+                threadPoolsManager.partitionOperationsExecutor()
+        );
 
         ReplicaService replicaSvc = new ReplicaService(
                 clusterSvc.messagingService(),

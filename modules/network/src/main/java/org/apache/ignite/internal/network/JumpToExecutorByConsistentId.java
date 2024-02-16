@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network;
 import static java.util.function.Function.identity;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 
@@ -33,13 +34,13 @@ public class JumpToExecutorByConsistentId implements MessagingService {
 
     private final String localConsistentId;
 
-    private final MessageExecutorChooser executorChooser;
+    private final ExecutorChooser<NetworkMessage> executorChooser;
 
     /** Constructor. */
     public JumpToExecutorByConsistentId(
             MessagingService messagingService,
             String localConsistentId,
-            MessageExecutorChooser executorChooser
+            ExecutorChooser<NetworkMessage> executorChooser
     ) {
         this.messagingService = messagingService;
         this.localConsistentId = localConsistentId;

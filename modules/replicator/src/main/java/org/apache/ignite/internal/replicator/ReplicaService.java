@@ -91,12 +91,22 @@ public class ReplicaService {
             StripedThreadPoolExecutor executor
     ) {
         this(
-                new JumpToExecutorByConsistentId(
-                        messagingService,
-                        localConsistentId,
-                        request -> ReplicationGroupStripes.stripeFor(((ReplicaRequest) request).groupId(), executor)
-                ),
+                wrapMessagingService(messagingService, localConsistentId, executor),
                 clock
+        );
+    }
+
+    private static JumpToExecutorByConsistentId wrapMessagingService(
+            MessagingService messagingService,
+            String localConsistentId,
+            StripedThreadPoolExecutor executor
+    ) {
+        ChooseExecutorForReplicationGroup chooserByGroupId = new ChooseExecutorForReplicationGroup(executor);
+
+        return new JumpToExecutorByConsistentId(
+                messagingService,
+                localConsistentId,
+                request -> chooserByGroupId.choose(((ReplicaRequest) request).groupId())
         );
     }
 
