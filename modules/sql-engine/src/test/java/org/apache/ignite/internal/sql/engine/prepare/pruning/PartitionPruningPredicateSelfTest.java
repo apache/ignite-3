@@ -218,9 +218,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         Random current = new Random();
         current.setSeed(seed);
 
-        int valueIndex = current.nextInt(100);
-
-        Object val = SqlTestUtils.generateValueByType(valueIndex, columnType);
+        Object val = SqlTestUtils.generateValueByType(current.nextInt(100), columnType);
         assert val != null;
 
         return val;
