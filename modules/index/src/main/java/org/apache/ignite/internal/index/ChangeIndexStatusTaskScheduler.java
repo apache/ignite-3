@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -105,7 +104,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
         inBusyLockSafe(busyLock, () -> {
             var taskId = new ChangeIndexStatusTaskId(indexDescriptor);
 
-            scheduleTask(taskId, startBuildingIndexTask(indexDescriptor));
+            scheduleTaskBusy(taskId, startBuildingIndexTask(indexDescriptor));
         });
     }
 
@@ -139,7 +138,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
         inBusyLockSafe(busyLock, () -> {
             var taskId = new ChangeIndexStatusTaskId(indexDescriptor);
 
-            scheduleTask(taskId, removeIndexTask(indexDescriptor));
+            scheduleTaskBusy(taskId, removeIndexTask(indexDescriptor));
         });
     }
 
@@ -162,7 +161,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
         };
     }
 
-    private void scheduleTask(ChangeIndexStatusTaskId taskId, ChangeIndexStatusTask task) {
+    private void scheduleTaskBusy(ChangeIndexStatusTaskId taskId, ChangeIndexStatusTask task) {
         // Check if the task has already been added before.
         if (taskById.putIfAbsent(taskId, task) == null) {
             task.start().whenComplete((unused, throwable) -> taskById.remove(taskId));
@@ -174,11 +173,11 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
     /**
      * Stops an ongoing {@link ChangeIndexStatusTask} for a given index if it is present.
      *
-     * @param indexDescriptor Index descriptor.
+     * @param indexId Index ID.
      */
-    void stopTask(CatalogIndexDescriptor indexDescriptor) {
+    void stopStartBuildingTask(int indexId) {
         inBusyLockSafe(busyLock, () -> {
-            ChangeIndexStatusTask removed = taskById.remove(new ChangeIndexStatusTaskId(indexDescriptor));
+            ChangeIndexStatusTask removed = taskById.remove(new ChangeIndexStatusTaskId(indexId, CatalogIndexStatus.REGISTERED));
 
             if (removed != null) {
                 removed.stop();
@@ -191,17 +190,17 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
      *
      * @param tableId Table ID.
      */
-    void stopTasks(int tableId) {
+    void stopTasksForTable(int tableId) {
         inBusyLockSafe(busyLock, () -> {
-            Iterator<Entry<ChangeIndexStatusTaskId, ChangeIndexStatusTask>> it = taskById.entrySet().iterator();
+            Iterator<ChangeIndexStatusTask> it = taskById.values().iterator();
 
             while (it.hasNext()) {
-                Entry<ChangeIndexStatusTaskId, ChangeIndexStatusTask> e = it.next();
+                ChangeIndexStatusTask task = it.next();
 
-                if (e.getKey().tableId() == tableId) {
+                if (task.targetIndex().tableId() == tableId) {
                     it.remove();
 
-                    e.getValue().stop();
+                    task.stop();
                 }
             }
         });

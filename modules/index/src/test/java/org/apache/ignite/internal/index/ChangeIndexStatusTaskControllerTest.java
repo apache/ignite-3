@@ -62,9 +62,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/** For {@link IndexTaskManager} testing. */
+/** For {@link ChangeIndexStatusTaskController} testing. */
 @ExtendWith(MockitoExtension.class)
-public class IndexTaskManagerTest extends BaseIgniteAbstractTest {
+public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
@@ -76,7 +76,7 @@ public class IndexTaskManagerTest extends BaseIgniteAbstractTest {
     @Mock
     private ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
 
-    private @Nullable IndexTaskManager taskManager;
+    private @Nullable ChangeIndexStatusTaskController taskManager;
 
     @BeforeEach
     void setUp() {
@@ -84,7 +84,7 @@ public class IndexTaskManagerTest extends BaseIgniteAbstractTest {
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
-        taskManager = new IndexTaskManager(catalogManager, placementDriver, clusterService, changeIndexStatusTaskScheduler);
+        taskManager = new ChangeIndexStatusTaskController(catalogManager, placementDriver, clusterService, changeIndexStatusTaskScheduler);
     }
 
     @AfterEach
@@ -142,7 +142,7 @@ public class IndexTaskManagerTest extends BaseIgniteAbstractTest {
 
         dropIndex();
 
-        verify(changeIndexStatusTaskScheduler).stopTask(eq(indexDescriptor));
+        verify(changeIndexStatusTaskScheduler).stopStartBuildingTask(eq(indexDescriptor.id()));
     }
 
     @Test
@@ -166,7 +166,7 @@ public class IndexTaskManagerTest extends BaseIgniteAbstractTest {
 
         setPrimaryReplicaAnotherNode();
 
-        verify(changeIndexStatusTaskScheduler).stopTasks(eq(tableId()));
+        verify(changeIndexStatusTaskScheduler).stopTasksForTable(eq(tableId()));
     }
 
     private void createIndex() {

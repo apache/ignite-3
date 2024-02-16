@@ -64,7 +64,7 @@ public class IndexBuildingManager implements IgniteComponent {
 
     private final IndexBuildController indexBuildController;
 
-    private final IndexTaskManager indexTaskManager;
+    private final ChangeIndexStatusTaskController changeIndexStatusTaskController;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -114,7 +114,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 executor
         );
 
-        indexTaskManager = new IndexTaskManager(
+        changeIndexStatusTaskController = new ChangeIndexStatusTaskController(
                 catalogManager,
                 placementDriver,
                 clusterService,
@@ -149,7 +149,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 indexBuilder,
                 indexAvailabilityController,
                 indexBuildController,
-                indexTaskManager
+                changeIndexStatusTaskController
         );
 
         shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);

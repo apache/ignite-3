@@ -44,7 +44,8 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param txWaitCatalogVersion Catalog version of the last index status change.
+     * @param txWaitCatalogVersion Catalog version used in special index status updates to wait for RW transactions, started before
+     *         this version, to finish.
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
@@ -67,7 +68,8 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param txWaitCatalogVersion Catalog version of the last index status change.
+     * @param txWaitCatalogVersion Catalog version used in special index status updates to wait for RW transactions, started before
+     *         this version, to finish.
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
@@ -91,7 +93,8 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param txWaitCatalogVersion Catalog version of the last index status change.
+     * @param txWaitCatalogVersion Catalog version used in special index status updates to wait for RW transactions, started before
+     *         this version, to finish.
      * @param columns A list of columns descriptors.
      * @param causalityToken Token of the update of the descriptor.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.

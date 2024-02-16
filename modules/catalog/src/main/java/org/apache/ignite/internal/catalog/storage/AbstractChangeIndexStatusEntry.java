@@ -45,9 +45,9 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
 
     @Override
     public final Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogIndexDescriptor newIndexDescriptor = updateIndexStatus(catalog, causalityToken, newStatus);
-
         CatalogSchemaDescriptor schema = schemaByIndexId(catalog, indexId);
+
+        CatalogIndexDescriptor newIndexDescriptor = updateIndexStatus(catalog, causalityToken, newStatus);
 
         return new Catalog(
                 catalog.version(),

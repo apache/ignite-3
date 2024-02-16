@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeResponse;
@@ -158,7 +159,7 @@ abstract class ChangeIndexStatusTask {
         }
 
         try {
-            LOG.info("Starting task to change index status. Index: {}", indexDescriptor);
+            LOG.debug("Starting task to change index status. Index: {}", indexDescriptor);
 
             return awaitCatalogVersionActivation()
                     .thenComposeAsync(unused -> ensureThatLocalNodeStillPrimaryReplica(), executor)
@@ -194,15 +195,29 @@ abstract class ChangeIndexStatusTask {
         taskBusyLock.block();
     }
 
+    CatalogIndexDescriptor targetIndex() {
+        return indexDescriptor;
+    }
+
     private CompletableFuture<Void> awaitCatalogVersionActivation() {
-        return inBusyLocks(() -> {
-            Catalog catalog = catalogManager.catalog(indexDescriptor.txWaitCatalogVersion());
+        CompletableFuture<HybridTimestamp> activationTimestampFuture = supplyAsync(() -> {
+            if (!enterBusy()) {
+                throw new IndexTaskStoppingException();
+            }
 
-            assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
-                    indexDescriptor.id(), indexDescriptor.txWaitCatalogVersion());
+            try {
+                Catalog catalog = catalogManager.catalog(indexDescriptor.txWaitCatalogVersion());
 
-            return clockWaiter.waitFor(clusterWideEnsuredActivationTimestamp(catalog));
-        });
+                assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
+                        indexDescriptor.id(), indexDescriptor.txWaitCatalogVersion());
+
+                return clusterWideEnsuredActivationTimestamp(catalog);
+            } finally {
+                leaveBusy();
+            }
+        }, executor);
+
+        return activationTimestampFuture.thenCompose(clockWaiter::waitFor);
     }
 
     private CompletableFuture<Void> ensureThatLocalNodeStillPrimaryReplica() {
@@ -316,14 +331,14 @@ abstract class ChangeIndexStatusTask {
     }
 
     private <T> CompletableFuture<T> inBusyLocks(Supplier<CompletableFuture<T>> supplier) {
-        if (!IndexManagementUtils.enterBusy(busyLock, taskBusyLock)) {
+        if (!enterBusy()) {
             return failedFuture(new IndexTaskStoppingException());
         }
 
         try {
             return supplier.get();
         } finally {
-            IndexManagementUtils.leaveBusy(busyLock, taskBusyLock);
+            leaveBusy();
         }
     }
 }

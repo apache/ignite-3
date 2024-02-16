@@ -23,24 +23,18 @@ import org.apache.ignite.internal.tostring.S;
 
 /** {@link ChangeIndexStatusTask} ID. */
 class ChangeIndexStatusTaskId {
-    private final int tableId;
-
     private final int indexId;
 
     private final CatalogIndexStatus status;
 
+    ChangeIndexStatusTaskId(int indexId, CatalogIndexStatus status) {
+        this.indexId = indexId;
+        this.status = status;
+    }
+
     ChangeIndexStatusTaskId(CatalogIndexDescriptor indexDescriptor) {
-        this.tableId = indexDescriptor.tableId();
         this.indexId = indexDescriptor.id();
         this.status = indexDescriptor.status();
-    }
-
-    public int tableId() {
-        return tableId;
-    }
-
-    public int indexId() {
-        return indexId;
     }
 
     @Override
@@ -54,13 +48,12 @@ class ChangeIndexStatusTaskId {
 
         ChangeIndexStatusTaskId that = (ChangeIndexStatusTaskId) o;
 
-        return tableId == that.tableId && indexId == that.indexId && status == that.status;
+        return indexId == that.indexId && status == that.status;
     }
 
     @Override
     public int hashCode() {
-        int result = tableId;
-        result = 31 * result + indexId;
+        int result = indexId;
         result = 31 * result + status.hashCode();
         return result;
     }

@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -36,7 +33,6 @@ import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -68,7 +64,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  * <p>On node recovery, tasks will be started on {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}, which will fire due to a change in
  * the {@link ReplicaMeta#getLeaseholderId()} on node restart but after {@link ReplicaMeta#getExpirationTime()}.
  */
-class IndexTaskManager implements ManuallyCloseable {
+class ChangeIndexStatusTaskController implements ManuallyCloseable {
     private final CatalogService catalogService;
 
     private final PlacementDriver placementDriver;
@@ -84,7 +80,7 @@ class IndexTaskManager implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    IndexTaskManager(
+    ChangeIndexStatusTaskController(
             CatalogManager catalogManager,
             PlacementDriver placementDriver,
             ClusterService clusterService,
@@ -110,77 +106,66 @@ class IndexTaskManager implements ManuallyCloseable {
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_CREATE, adaptToEventListener(this::onIndexCreated));
+        catalogService.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(this::onIndexCreated));
 
-        catalogService.listen(CatalogEvent.INDEX_STOPPING, adaptToEventListener(this::onIndexDropped));
+        catalogService.listen(CatalogEvent.INDEX_STOPPING, EventListener.fromConsumer(this::onIndexDropped));
 
-        catalogService.listen(CatalogEvent.INDEX_REMOVED, adaptToEventListener(this::onIndexRemoved));
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, adaptToEventListener(this::onPrimaryReplicaElected));
-    }
-
-    /** Wraps a given callback into an EventListener. */
-    private <T extends EventParameters> EventListener<T> adaptToEventListener(Consumer<T> action) {
-        return (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            inBusyLock(busyLock, () -> action.accept(parameters));
-
-            return falseCompletedFuture();
-        };
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, EventListener.fromConsumer(this::onPrimaryReplicaElected));
     }
 
     private void onIndexCreated(CreateIndexEventParameters parameters) {
-        CatalogIndexDescriptor indexDescriptor = parameters.indexDescriptor();
+        inBusyLock(busyLock, () -> {
+            CatalogIndexDescriptor indexDescriptor = parameters.indexDescriptor();
 
-        if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
-            // Schedule building the index only if the local node is the primary replica for the 0 partition of the table for which the
-            // index was created.
-            changeIndexStatusTaskScheduler.scheduleStartBuildingTask(parameters.indexDescriptor());
-        }
+            if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
+                // Schedule building the index only if the local node is the primary replica for the 0 partition of the table for which the
+                // index was created.
+                changeIndexStatusTaskScheduler.scheduleStartBuildingTask(parameters.indexDescriptor());
+            }
+        });
     }
 
     private void onIndexDropped(StoppingIndexEventParameters parameters) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion());
+        inBusyLock(busyLock, () -> {
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion());
 
-        assert indexDescriptor != null : parameters.indexId();
+            assert indexDescriptor != null : parameters.indexId();
 
-        if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
-            // Schedule index removal only if the local node is the primary replica for the 0 partition of the table for which the
-            // index was dropped.
-            changeIndexStatusTaskScheduler.scheduleRemoveIndexTask(indexDescriptor);
-        }
+            if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
+                // Schedule index removal only if the local node is the primary replica for the 0 partition of the table for which the
+                // index was dropped.
+                changeIndexStatusTaskScheduler.scheduleRemoveIndexTask(indexDescriptor);
+            }
+        });
     }
 
     private void onIndexRemoved(RemoveIndexEventParameters parameters) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion() - 1);
-
-        assert indexDescriptor != null : parameters.indexId();
-
-        changeIndexStatusTaskScheduler.stopTask(indexDescriptor);
+        inBusyLock(busyLock, () -> changeIndexStatusTaskScheduler.stopStartBuildingTask(parameters.indexId()));
     }
 
     private void onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
-        TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
+        inBusyLock(busyLock, () -> {
+            TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
 
-        if (primaryReplicaId.partitionId() != 0) {
-            // We are only interested in the 0 partition.
-            return;
-        }
-
-        int tableId = primaryReplicaId.tableId();
-
-        if (isLocalNode(clusterService, parameters.leaseholderId())) {
-            if (localNodeIsPrimaryReplicaForTableIds.add(tableId)) {
-                scheduleTasksOnPrimaryReplicaElectedBusy(tableId);
+            if (primaryReplicaId.partitionId() != 0) {
+                // We are only interested in the 0 partition.
+                return;
             }
-        } else {
-            if (localNodeIsPrimaryReplicaForTableIds.remove(tableId)) {
-                changeIndexStatusTaskScheduler.stopTasks(tableId);
+
+            int tableId = primaryReplicaId.tableId();
+
+            if (isLocalNode(clusterService, parameters.leaseholderId())) {
+                if (localNodeIsPrimaryReplicaForTableIds.add(tableId)) {
+                    scheduleTasksOnPrimaryReplicaElectedBusy(tableId);
+                }
+            } else {
+                if (localNodeIsPrimaryReplicaForTableIds.remove(tableId)) {
+                    changeIndexStatusTaskScheduler.stopTasksForTable(tableId);
+                }
             }
-        }
+        });
     }
 
     private void scheduleTasksOnPrimaryReplicaElectedBusy(int tableId) {
