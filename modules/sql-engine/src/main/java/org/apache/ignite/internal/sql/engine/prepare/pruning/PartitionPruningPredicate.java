@@ -56,6 +56,8 @@ public final class PartitionPruningPredicate {
 
     private final int tablePartitions;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
+    //  remaining partitions should always be not null.
     @Nullable
     private final IntSet remainingPartitions;
 
@@ -134,7 +136,8 @@ public final class PartitionPruningPredicate {
                 RexNode node = columns.get(key);
                 NativeType physicalType = table.descriptor().columnDescriptor(key).physicalType();
 
-                // TODO: Custom data types in partition pruning.
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-21543
+                //  Remove after this issue makes it possible to have CAST('uuid_str', UUID) as value.
                 if (physicalType.spec() == NativeTypeSpec.UUID) {
                     return null;
                 }

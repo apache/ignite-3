@@ -84,7 +84,8 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                         && t != ColumnType.BITMASK
                         && t != ColumnType.DURATION
                         && t != ColumnType.PERIOD
-                        // TODO: Support partition pruning for custom data types.
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
+                        //  because it allows to support CAST('uuid-str', UUID) expressions.
                         && t != ColumnType.UUID
                 )
                 .collect(Collectors.toList());
