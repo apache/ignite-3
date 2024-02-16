@@ -127,7 +127,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             HybridTimestamp timestamp = tx.readTimestamp();
             ClusterNode clusterNode = tx.clusterNode();
 
-            verify(internalTable).scan(partitionId, timestamp, clusterNode);
+            verify(internalTable).scan(partitionId, tx.id(), timestamp, clusterNode);
         } else {
             ClusterNode clusterNode = tx.clusterNode();
 
@@ -207,6 +207,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             verify(internalTable).scan(
                     eq(partitionId),
+                    eq(tx.id()),
                     eq(timestamp),
                     eq(clusterNode),
                     eq(indexId),
@@ -281,6 +282,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             verify(internalTable).scan(
                     eq(partitionId),
+                    eq(tx.id()),
                     eq(timestamp),
                     eq(clusterNode),
                     eq(indexId),
@@ -401,6 +403,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             verify(internalTable).scan(
                     eq(partitionId),
+                    eq(tx.id()),
                     eq(timestamp),
                     eq(clusterNode),
                     eq(indexId),
@@ -456,6 +459,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         if (tx.isReadOnly()) {
             verify(internalTable).lookup(
                     eq(partitionId),
+                    eq(tx.id()),
                     eq(tx.readTimestamp()),
                     eq(tx.clusterNode()),
                     eq(indexId),
@@ -507,6 +511,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         if (tx.isReadOnly()) {
             verify(internalTable).lookup(
                     eq(partitionId),
+                    eq(tx.id()),
                     eq(tx.readTimestamp()),
                     eq(tx.clusterNode()),
                     eq(indexId),
@@ -591,7 +596,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             if (tx.isReadOnly()) {
                 doAnswer(invocation -> input.publisher).when(internalTable)
-                        .scan(anyInt(), any(HybridTimestamp.class), any(ClusterNode.class));
+                        .scan(anyInt(), any(UUID.class), any(HybridTimestamp.class), any(ClusterNode.class));
             } else {
                 doAnswer(invocation -> input.publisher).when(internalTable).scan(
                         anyInt(),
@@ -632,6 +637,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             if (tx.isReadOnly()) {
                 doAnswer(i -> input.publisher).when(internalTable).scan(
                         anyInt(),
+                        any(UUID.class),
                         any(HybridTimestamp.class),
                         any(ClusterNode.class),
                         any(Integer.class),
@@ -680,6 +686,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             if (tx.isReadOnly()) {
                 doAnswer(i -> input.publisher).when(internalTable).lookup(
                         anyInt(),
+                        any(UUID.class),
                         any(HybridTimestamp.class),
                         any(ClusterNode.class),
                         any(Integer.class),
