@@ -15,11 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.network.wrapper;
 
 import static java.util.function.Function.identity;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
