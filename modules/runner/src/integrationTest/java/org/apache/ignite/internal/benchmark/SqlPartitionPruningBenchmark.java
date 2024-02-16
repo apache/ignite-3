@@ -20,7 +20,6 @@ package org.apache.ignite.internal.benchmark;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
@@ -36,7 +35,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
@@ -51,8 +49,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @Fork(1)
 @Threads(1)
-@Warmup(iterations = 5, time = 2)
-@Measurement(iterations = 5, time = 2)
+@Warmup(iterations = 10, time = 2)
+@Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"unused"})
@@ -62,6 +60,8 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
 
     @Param({"1", "2", "3"})
     private int clusterSize;
+
+    private Session session;
 
     /** Creates tables. */
     @Setup
@@ -108,37 +108,39 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
 
             keyValueView.put(null, key, t);
         }
+
+        session = clusterNode.sql().createSession();
     }
 
     /** Select by key - should use key value plan. */
     @Benchmark
-    public void selectByKey(SqlState sqlState, Blackhole bh) {
+    public void selectByKey(Blackhole bh) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int key = random.nextInt(TABLE_SIZE);
 
-        try (var rs = sqlState.sql("SELECT * FROM usertable2 WHERE key1=? and key2=?", key, key)) {
+        try (var rs = session.execute(null, "SELECT * FROM usertable2 WHERE key1=? and key2=?", key, key)) {
             expectSingleRecord(rs, bh);
         }
     }
 
     /** Select by a single colocation key - should use a scan with partition pruning. */
     @Benchmark
-    public void selectWithPruning(SqlState sqlState, Blackhole bh) {
+    public void selectWithPruning(Blackhole bh) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int key = random.nextInt(TABLE_SIZE);
 
-        try (var rs = sqlState.sql("SELECT * FROM usertable2 WHERE key1=?", key)) {
+        try (var rs = session.execute(null, "SELECT * FROM usertable2 WHERE key1=?", key)) {
             expectSingleRecord(rs, bh);
         }
     }
 
     /** Select by a single colocation key - should use a scan w/o partition pruning because such predicate is too complex. */
     @Benchmark
-    public void selectWithNoPrunining(SqlState sqlState, Blackhole bh) {
+    public void selectWithNoPrunining(Blackhole bh) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int key = random.nextInt(TABLE_SIZE);
 
-        try (var rs = sqlState.sql("SELECT * FROM usertable2 WHERE key1 >= ? and key1 < ?", key, key + 1)) {
+        try (var rs = session.execute(null, "SELECT * FROM usertable2 WHERE key1 >= ? and key1 < ?", key, key + 1)) {
             expectSingleRecord(rs, bh);
         }
     }
@@ -152,30 +154,6 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
                 .build();
 
         new Runner(opt).run();
-    }
-
-    /** Stores state for the benchmark. */
-    @State(Scope.Benchmark)
-    public static class SqlState {
-
-        protected Session session;
-
-        @Setup
-        public void setUp() {
-            session = clusterNode.sql().createSession();
-        }
-
-        /**
-         * Closes resources.
-         */
-        @TearDown
-        public void tearDown() throws Exception {
-            IgniteUtils.closeAll(session);
-        }
-
-        private ResultSet<SqlRow> sql(String sql, Object... args) {
-            return session.execute(null, sql, args);
-        }
     }
 
     @Override
