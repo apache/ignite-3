@@ -164,9 +164,6 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
                 .build();
 
-        IgniteSchema schema1 = createSchema(table1);
-        IgniteRel rel1 = physicalPlan("SELECT * FROM t1 WHERE c1=42", schema1);
-
         IgniteTable table2 = TestBuilders.table()
                 .name("T2")
                 .addKeyColumn("C1", NativeTypes.STRING)
@@ -174,12 +171,10 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
                 .build();
 
-        IgniteSchema schema2 = createSchema(table2);
-        IgniteRel rel2 = physicalPlan("SELECT * FROM t2 WHERE c1='abc'", schema2);
-
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
-        PartitionPruningMetadata result1 = extractor.go(rel1.accept(new AssignSourceIds()));
-        PartitionPruningMetadata result2 = extractor.go(rel2.accept(new AssignSourceIds()));
+
+        PartitionPruningMetadata result1 = extractMetadata(extractor, "SELECT * FROM t1 WHERE c1=42", table1);
+        PartitionPruningMetadata result2 = extractMetadata(extractor, "SELECT * FROM t2 WHERE c1='abc'", table2);
 
         PartitionPruningColumns col1 = result1.get(1);
         PartitionPruningColumns col2 = result2.get(1);
@@ -192,11 +187,19 @@ public class PartitionPruningTest extends AbstractPlannerTest {
     }
 
     private PartitionPruningMetadata extractMetadata(String query, IgniteTable... table) throws Exception {
-        IgniteSchema schema = createSchema(table);
+        PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
 
+        return extractMetadata(extractor, query, table);
+    }
+
+    private PartitionPruningMetadata extractMetadata(
+            PartitionPruningMetadataExtractor extractor,
+            String query,
+            IgniteTable... table) throws Exception {
+
+        IgniteSchema schema = createSchema(table);
         IgniteRel rel = physicalPlan(query, schema);
 
-        PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
         return extractor.go(rel.accept(new AssignSourceIds()));
     }
 
