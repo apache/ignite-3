@@ -96,6 +96,8 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
      * @return Partition pruning metadata.
      */
     public PartitionPruningMetadata go(IgniteRel rel) {
+        result.clear();
+
         rel.accept(this);
 
         if (result.isEmpty()) {

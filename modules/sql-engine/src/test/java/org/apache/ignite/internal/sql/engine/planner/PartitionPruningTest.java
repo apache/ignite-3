@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.math.BigDecimal;
 import java.util.List;
+import org.apache.calcite.rex.RexLiteral;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
@@ -151,6 +155,42 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         PartitionPruningColumns cols2 = actual.get(2);
         assertNotNull(cols2, "No metadata for source=2");
         assertEquals("[[0=99]]", PartitionPruningColumns.canonicalForm(cols2).toString());
+    }
+
+    @Test
+    public void testExtractorIsReusable() throws Exception {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .build();
+
+        IgniteSchema schema1 = createSchema(table1);
+        IgniteRel rel1 = physicalPlan("SELECT * FROM t1 WHERE c1=42", schema1);
+
+        IgniteTable table2 = TestBuilders.table()
+                .name("T2")
+                .addKeyColumn("C1", NativeTypes.STRING)
+                .addColumn("C2", NativeTypes.INT32)
+                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .build();
+
+        IgniteSchema schema2 = createSchema(table2);
+        IgniteRel rel2 = physicalPlan("SELECT * FROM t2 WHERE c1='abc'", schema2);
+
+        PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
+        PartitionPruningMetadata result1 = extractor.go(rel1.accept(new AssignSourceIds()));
+        PartitionPruningMetadata result2 = extractor.go(rel2.accept(new AssignSourceIds()));
+
+        PartitionPruningColumns col1 = result1.get(1);
+        PartitionPruningColumns col2 = result2.get(1);
+
+        RexLiteral lit1 = (RexLiteral) col1.columns().get(0).get(0);
+        assertEquals(SqlTypeName.INTEGER, lit1.getType().getSqlTypeName());
+
+        RexLiteral lit2 = (RexLiteral) col2.columns().get(0).get(0);
+        assertEquals(SqlTypeName.VARCHAR, lit2.getType().getSqlTypeName());
     }
 
     private PartitionPruningMetadata extractMetadata(String query, IgniteTable... table) throws Exception {

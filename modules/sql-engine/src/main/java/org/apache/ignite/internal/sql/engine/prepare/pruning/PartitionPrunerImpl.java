@@ -61,6 +61,8 @@ public class PartitionPrunerImpl implements PartitionPruner {
         // This is accomplished by updating `sourcesByExchangeId`.
         //
 
+        PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
+
         for (MappedFragment mappedFragment : mappedFragments) {
             // Fragment that contains colocated operators has exactly one colocation group.
             // Do not attempt to apply PP to other fragments.
@@ -75,7 +77,6 @@ public class PartitionPrunerImpl implements PartitionPruner {
                 continue;
             }
 
-            PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
             PartitionPruningMetadata pruningMetadata = extractor.go(fragment.root());
 
             if (pruningMetadata.data().isEmpty()) {
