@@ -236,7 +236,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     Thread.currentThread().interrupt();
 
                     throw new RuntimeException(e);
-                };
+                }
             });
         });
 
