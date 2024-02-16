@@ -67,7 +67,6 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -99,7 +98,6 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
@@ -132,14 +130,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final int PART_ID = 0;
 
-    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("key", NativeTypes.INT64, false)},
-            new Column[]{new Column("value", NativeTypes.INT64, false)}
-    );
-
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
-    private final StorageUpdateConfiguration storageUpdateConfiguration;
 
     private PartitionListener partitionListener;
 
@@ -153,8 +144,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final Object raftServiceMutex = new Object();
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
-
-    private final CursorManager cursorManager = new CursorManager();
 
     /**
      * Creates a new local table.
@@ -253,7 +242,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tracker,
                 placementDriver
         );
-        this.storageUpdateConfiguration = storageUpdateConfiguration;
         RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;

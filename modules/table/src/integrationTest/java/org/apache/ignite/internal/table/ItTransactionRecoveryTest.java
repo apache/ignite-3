@@ -61,8 +61,6 @@ import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaRespon
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -78,7 +76,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -87,15 +84,10 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Abandoned transactions integration tests.
  */
-@ExtendWith(SystemPropertiesExtension.class)
-@WithSystemProperty(key = "RESOURCE_CLEANUP_INTERVAL_MILLISECONDS", value = "500")
 public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -137,7 +129,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -192,7 +184,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -235,7 +227,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -281,7 +273,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -326,7 +318,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -390,7 +382,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -459,7 +451,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -534,7 +526,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -611,7 +603,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -648,7 +640,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -708,7 +700,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -746,7 +738,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -794,13 +786,17 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testTsRecoveryForCursor() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        preloadData(tbl, 10);
+        RecordView view1 = node(0).tables().table(TABLE_NAME).recordView();
+
+        for (int i = 0; i < 10; i++) {
+            view1.upsert(null, Tuple.create().set("key", i).set("val", "preload"));
+        }
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
-        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
@@ -808,7 +804,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
-        startTransactionWithCursorAndStopNode(txCrdNode, commitPartNode);
+        startTransactionWithCursorAndStopNode(txCrdNode);
 
         IgniteImpl newCoordNode = node(0);
 
@@ -839,73 +835,10 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(txMsgCaptureFut, willCompleteSuccessfully());
     }
 
-    /**
-     * Starts read-write/read only transaction, creates a cursor and checks that the cursor is canceled after tx coordinator leaves.
-     *
-     * @param readOnly Whether the tx is read only.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testCursorCleanup(boolean readOnly) throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
-
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
-
-        IgniteImpl targetNode = findNodeByName(leaseholder);
-
-        log.info("Transaction target node is determined [node={}].", targetNode.name());
-
-        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
-
-        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
-
-        IgniteImpl thirdNode = findNode(0, initialNodes(), node -> node != txCrdNode && node != targetNode);
-
-        log.info("Another tx coordinator is chosen [node={}].", thirdNode.name());
-
-        // Preload data from coordinator node to adjust the observable timestamp.
-        preloadData(txCrdNode.tables().table(TABLE_NAME), 10);
-
-        // Creating a cursor that should remain because it is created from the node that will remain in the cluster.
-        InternalTransaction rwTx = (InternalTransaction) thirdNode.transactions().begin();
-        scanSingleEntryAndLeaveCursorOpen(targetNode, (TableViewInternal) thirdNode.tables().table(TABLE_NAME), rwTx);
-
-        // Creating a cursor that should be closed because tx coordinator leaves topology.
-        InternalTransaction tx = (InternalTransaction) txCrdNode.transactions().begin(new TransactionOptions().readOnly(readOnly));
-        startTransactionWithCursorAndStopNode(txCrdNode, targetNode, tx);
-
-        // Checking that just one cursor is remaining.
-        assertTrue(waitForCondition(() -> targetNode.cursorManager().cursors().size() == 1, 3000));
-    }
-
-    private static void preloadData(Table table, int entries) {
-        RecordView<Tuple> view = table.recordView();
-
-        for (int i = 0; i < entries; i++) {
-            view.upsert(null, Tuple.create().set("key", i).set("val", "preload"));
-        }
-    }
-
-    private UUID startTransactionWithCursorAndStopNode(IgniteImpl txCrdNode, IgniteImpl targetNode) throws Exception {
+    private UUID startTransactionWithCursorAndStopNode(IgniteImpl txCrdNode) throws Exception {
         InternalTransaction rwTx = (InternalTransaction) txCrdNode.transactions().begin();
 
-        startTransactionWithCursorAndStopNode(txCrdNode, targetNode, rwTx);
-
-        return rwTx.id();
-    }
-
-    /**
-     * Starts a scan procedure and leaves it incomplete, then stops the coordinator node.
-     *
-     * @param txCrdNode Tx coordinator node.
-     * @param targetNode Node where the cursor should be created.
-     * @param tx Transaction.
-     */
-    private void startTransactionWithCursorAndStopNode(IgniteImpl txCrdNode, IgniteImpl targetNode, InternalTransaction tx)
-            throws Exception {
-        scanSingleEntryAndLeaveCursorOpen(targetNode, (TableViewInternal) txCrdNode.tables().table(TABLE_NAME), tx);
+        scanSingleEntryAndLeaveCursorOpen((TableViewInternal) txCrdNode.tables().table(TABLE_NAME), rwTx);
 
         String txCrdNodeId = txCrdNode.id();
 
@@ -915,25 +848,25 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
                 10_000)
         );
+
+        return rwTx.id();
     }
 
     /**
      * Starts a scan procedure for a specific transaction and reads only the first line from the cursor.
      *
-     * @param targetNode Node where the cursor should be created.
      * @param tbl Scanned table.
      * @param tx Transaction.
+     * @param idxId Index id.
      * @throws Exception If failed.
      */
-    private void scanSingleEntryAndLeaveCursorOpen(IgniteImpl targetNode, TableViewInternal tbl, InternalTransaction tx)
+    private void scanSingleEntryAndLeaveCursorOpen(TableViewInternal tbl, InternalTransaction tx)
             throws Exception {
-        int initialCursorsCount = targetNode.cursorManager().cursors().size();
-
         Publisher<BinaryRow> publisher;
         if (tx.isReadOnly()) {
-            String primary = waitAndGetLeaseholder(node(0), new TablePartitionId(tbl.tableId(), PART_ID));
+            String primaryId = waitAndGetLeaseholder(node(0), new TablePartitionId(tbl.tableId(), PART_ID));
 
-            ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.name().equals(primary)).findAny().get();
+            ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode);
         } else {
@@ -950,8 +883,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> scannedRows.size() == 1, 10_000));
 
         assertFalse(scanned.isDone());
-
-        assertEquals(initialCursorsCount + 1, targetNode.cursorManager().cursors().size());
     }
 
     private DefaultMessagingService messaging(IgniteImpl node) {
@@ -1074,7 +1005,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 .get();
     }
 
-    private IgniteImpl findNodeByName(String leaseholder) {
+    private IgniteImpl commitPartitionPrimaryNode(String leaseholder) {
         return findNode(0, initialNodes(), n -> leaseholder.equals(n.name()));
     }
 
