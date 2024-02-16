@@ -60,7 +60,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
 
     private static final int TABLE_SIZE = 30_000;
 
-    @Param({"3"})
+    @Param({"1", "2", "3"})
     private int clusterSize;
 
     /** Creates tables. */
