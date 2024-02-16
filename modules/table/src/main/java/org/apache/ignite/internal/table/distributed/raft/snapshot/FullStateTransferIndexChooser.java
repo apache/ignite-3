@@ -73,7 +73,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         inBusyLockSafe(busyLock, () -> {
             addListenersBusy();
 
-            recoveryReadOnlyIndexesBusy();
+            recoverReadOnlyIndexesBusy();
         });
     }
 
@@ -91,14 +91,14 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     /**
      * Collect indexes for {@link PartitionAccess#addWrite(RowId, BinaryRow, UUID, int, int, int)}.
      *
-     * <p>Approximate index selection algorithm:</p>
+     * <p>Index selection algorithm:</p>
      * <ul>
      *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
      *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING}.</li>
      *     <li>If the index in status {@link CatalogIndexStatus#REGISTERED} and it is in this status on the active version of the catalog
      *     for {@code beginTs}.</li>
-     *     <li>For read-only indexes, if their {@link CatalogIndexStatus#STOPPING} status activation time is strictly less than
-     *     {@code beginTs}.</li>
+     *     <li>For a read-only index, if {@code beginTs} is strictly less than the activation time of status
+     *     {@link CatalogIndexStatus#STOPPING}.</li>
      * </ul>
      *
      * @param catalogVersion Catalog version of the incoming partition snapshot.
@@ -111,9 +111,13 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
             int activeCatalogVersionAtBeginTxTs = catalogService.activeCatalogVersion(beginTs.longValue());
 
             List<Integer> fromCatalog = chooseFromCatalogBusy(catalogVersion, tableId, index -> {
-                CatalogIndexDescriptor index0 = catalogService.index(index.id(), activeCatalogVersionAtBeginTxTs);
+                if (index.status() == REGISTERED) {
+                    CatalogIndexDescriptor indexAtBeginTs = catalogService.index(index.id(), activeCatalogVersionAtBeginTxTs);
 
-                return index0 != null && index0.status() == REGISTERED;
+                    return indexAtBeginTs != null && indexAtBeginTs.status() == REGISTERED;
+                }
+
+                return true;
             });
 
             List<Integer> fromReadOnlyIndexes = chooseFromReadOnlyIndexesBusy(tableId, beginTs);
@@ -129,8 +133,8 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
      * <ul>
      *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
      *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING}.</li>
-     *     <li>For read-only indexes, if their {@link CatalogIndexStatus#STOPPING} status activation time is strictly less than
-     *     {@code beginTs}.</li>
+     *     <li>For a read-only index, if {@code commitTs} is strictly less than the activation time of status
+     *     {@link CatalogIndexStatus#STOPPING}.</li>
      * </ul>
      *
      * @param catalogVersion Catalog version of the incoming partition snapshot.
@@ -140,7 +144,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
      */
     public List<Integer> chooseForAddWriteCommitted(int catalogVersion, int tableId, HybridTimestamp commitTs) {
         return inBusyLock(busyLock, () -> {
-            List<Integer> fromCatalog = chooseFromCatalogBusy(catalogVersion, tableId, index -> false);
+            List<Integer> fromCatalog = chooseFromCatalogBusy(catalogVersion, tableId, index -> index.status() != REGISTERED);
 
             List<Integer> fromReadOnlyIndexes = chooseFromReadOnlyIndexesBusy(tableId, commitTs);
 
@@ -148,48 +152,29 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         });
     }
 
-    private List<Integer> chooseFromCatalogBusy(
-            int catalogVersion,
-            int tableId,
-            Predicate<CatalogIndexDescriptor> addRegisteredIndexPredicate
-    ) {
+    private List<Integer> chooseFromCatalogBusy(int catalogVersion, int tableId, Predicate<CatalogIndexDescriptor> filter) {
         List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersion, tableId);
 
         assert !indexes.isEmpty() : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
 
-        // Lazy set.
-        List<CatalogIndexDescriptor> result = null;
+        var result = new ArrayList<CatalogIndexDescriptor>(indexes.size());
 
-        for (int i = 0; i < indexes.size(); i++) {
-            CatalogIndexDescriptor index = indexes.get(i);
-
+        for (CatalogIndexDescriptor index : indexes) {
             switch (index.status()) {
                 case REGISTERED:
-                    if (!addRegisteredIndexPredicate.test(index)) {
-                        if (result == null) {
-                            List<CatalogIndexDescriptor> subList = indexes.subList(0, i);
-
-                            result = i == indexes.size() - 1 ? subList : new ArrayList<>(subList);
-                        }
-
-                        continue;
-                    }
-
-                    break;
                 case BUILDING:
                 case AVAILABLE:
                 case STOPPING:
+                    if (filter.test(index)) {
+                        result.add(index);
+                    }
                     break;
                 default:
                     throw new IllegalStateException("Unknown index status: " + index.status());
             }
-
-            if (result != null) {
-                result.add(index);
-            }
         }
 
-        return view(result == null ? indexes : result, CatalogObjectDescriptor::id);
+        return view(result, CatalogObjectDescriptor::id);
     }
 
     private List<Integer> chooseFromReadOnlyIndexesBusy(int tableId, HybridTimestamp fromTsExcluded) {
@@ -212,7 +197,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
             return l0;
         }
 
-        List<Integer> result = new ArrayList<>(l0.size() + l1.size());
+        var result = new ArrayList<Integer>(l0.size() + l1.size());
 
         for (int i0 = 0, i1 = 0; i0 < l0.size() || i1 < l1.size(); ) {
             if (i0 >= l0.size()) {
@@ -223,14 +208,12 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
                 Integer indexId0 = l0.get(i0);
                 Integer indexId1 = l1.get(i1);
 
-                int cmp = indexId0.compareTo(indexId1);
-
-                if (cmp > 0) {
-                    result.add(indexId1);
-                    i1++;
-                } else if (cmp < 0) {
+                if (indexId0 < indexId1) {
                     result.add(indexId0);
                     i0++;
+                } else if (indexId0 > indexId1) {
+                    result.add(indexId1);
+                    i1++;
                 } else {
                     result.add(indexId0);
                     i0++;
@@ -274,7 +257,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         return catalog.time();
     }
 
-    private void recoveryReadOnlyIndexesBusy() {
+    private void recoverReadOnlyIndexesBusy() {
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
