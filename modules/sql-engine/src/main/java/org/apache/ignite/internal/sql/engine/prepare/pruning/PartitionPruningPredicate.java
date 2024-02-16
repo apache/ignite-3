@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -45,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -87,7 +90,7 @@ public final class PartitionPruningPredicate {
             return colocationGroup;
         }
 
-        Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode = new HashMap<>(colocationGroup.nodeNames().size());
+        Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode = newHashMap(colocationGroup.nodeNames().size());
         Set<String> newNodes = new HashSet<>();
 
         for (String nodeName : colocationGroup.nodeNames()) {

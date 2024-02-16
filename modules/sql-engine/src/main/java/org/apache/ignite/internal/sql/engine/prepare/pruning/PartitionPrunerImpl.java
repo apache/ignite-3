@@ -51,7 +51,7 @@ public class PartitionPrunerImpl implements PartitionPruner {
 
         // Partition pruning (PP). For each fragment:
         //
-        // 1. Extract PP metadata from eac in the form of [colo_col1=<val>, ..] (see PartitionPruningMetadataExtractor)
+        // 1. Extract PP metadata from each fragment's root in the form of [colo_col1=<val>, ..] (see PartitionPruningMetadataExtractor)
         //
         // 2. If PP metadata exists then update fragment's colocation group
         // to retain partition that are necessary to perform an operator (e.g. for a scan operator such

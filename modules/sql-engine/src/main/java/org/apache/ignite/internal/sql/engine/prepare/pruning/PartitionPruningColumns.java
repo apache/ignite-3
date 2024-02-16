@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -39,7 +38,6 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class PartitionPruningColumns {
 
-    @IgniteToStringInclude
     private final List<Int2ObjectMap<RexNode>> columns;
 
     /** Constructor. */
