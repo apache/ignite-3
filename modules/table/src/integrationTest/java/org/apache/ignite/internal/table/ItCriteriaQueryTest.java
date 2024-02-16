@@ -409,7 +409,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testOptions() {
         RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
 
-        AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, builder().pageSize(2).build()));
+        AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());
@@ -431,13 +431,13 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("allViews")
     void testFetchCursorIsClosed(CriteriaQuerySource<TestObject> view) {
-        AsyncCursor<TestObject> ars1 = await(view.queryAsync(null, null, builder().pageSize(2).build()));
+        AsyncCursor<TestObject> ars1 = await(view.queryAsync(null, null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars1);
         await(ars1.closeAsync());
         assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_CLOSED_ERR, () -> await(ars1.fetchNextPage()), "Cursor is closed");
 
-        AsyncCursor<TestObject> ars2 = await(view.queryAsync(null, null, builder().pageSize(3).build()));
+        AsyncCursor<TestObject> ars2 = await(view.queryAsync(null, null, null, builder().pageSize(3).build()));
 
         assertNotNull(ars2);
         assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_CLOSED_ERR, () -> await(ars2.fetchNextPage()), "Cursor is closed");

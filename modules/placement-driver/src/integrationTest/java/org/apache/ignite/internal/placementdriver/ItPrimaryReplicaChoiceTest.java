@@ -39,6 +39,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
@@ -190,6 +192,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
     public void testClearingTransactionResourcesWhenPrimaryChange() throws Exception {
         TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
@@ -283,11 +286,11 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             if (idxId == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode);
+                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode);
             } else if (exactKey == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode, idxId, null, null, 0, null);
+                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, null, null, 0, null);
             } else {
-                publisher = tbl.internalTable().lookup(PART_ID, tx.readTimestamp(), primaryNode, idxId, exactKey, null);
+                publisher = tbl.internalTable().lookup(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, exactKey, null);
             }
         } else if (idxId == null) {
             publisher = tbl.internalTable().scan(PART_ID, tx);

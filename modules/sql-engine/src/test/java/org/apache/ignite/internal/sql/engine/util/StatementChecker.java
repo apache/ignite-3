@@ -124,6 +124,8 @@ public class StatementChecker {
 
     private boolean dumpPlan;
 
+    private String[] rulesToDisable = new String[0];
+
     private Consumer<StatementChecker> setup = (checker) -> {};
 
     private List<RelDataType> expectedParameterTypes;
@@ -148,13 +150,23 @@ public class StatementChecker {
          * @param schema A schema.
          * @param sql An SQL statement.
          * @param params A list of dynamic parameters.
+         * @param rulesToDisable A list of rules to exclude from optimisation.
          */
-        Pair<IgniteRel, IgnitePlanner> prepare(IgniteSchema schema, String sql, List<Object> params) throws Exception;
+        Pair<IgniteRel, IgnitePlanner> prepare(
+                IgniteSchema schema, String sql, List<Object> params, String... rulesToDisable
+        ) throws Exception;
     }
 
     /** Sets a function that is going to be called prior to test run. */
     public StatementChecker setup(Consumer<StatementChecker> setup) {
         this.setup = setup;
+        return this;
+    }
+
+    /** Sets rules to exclude from optimisation. */
+    public StatementChecker disableRules(String... rulesToDisable) {
+        this.rulesToDisable = rulesToDisable;
+
         return this;
     }
 
@@ -419,7 +431,7 @@ public class StatementChecker {
             IgnitePlanner planner;
 
             try {
-                Pair<IgniteRel, IgnitePlanner> result = sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
+                Pair<IgniteRel, IgnitePlanner> result = sqlPrepare.prepare(schema, sqlStatement, dynamicParams, rulesToDisable);
                 root = result.getFirst();
                 planner = result.getSecond();
 
@@ -478,7 +490,7 @@ public class StatementChecker {
             Throwable err = null;
             IgniteRel unexpectedPlan = null;
             try {
-                Pair<IgniteRel, ?> unexpected = sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
+                Pair<IgniteRel, ?> unexpected = sqlPrepare.prepare(schema, sqlStatement, dynamicParams, rulesToDisable);
                 unexpectedPlan = unexpected.getFirst();
             } catch (Throwable t) {
                 err = t;

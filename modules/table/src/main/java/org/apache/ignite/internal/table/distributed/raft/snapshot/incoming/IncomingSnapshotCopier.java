@@ -76,12 +76,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private static final int MAX_TX_DATA_BATCH_SIZE = 1000;
 
-    /** Number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
-    private static final int WAIT_FOR_METADATA_CATCHUP_MS = 3000;
-
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
     private final SnapshotUri snapshotUri;
+
+    private final long waitForMetadataCatchupMs;
 
     /** Used to make sure that we execute cancellation at most once. */
     private final AtomicBoolean cancellationGuard = new AtomicBoolean();
@@ -114,10 +113,17 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      *
      * @param partitionSnapshotStorage Snapshot storage.
      * @param snapshotUri Snapshot URI.
+     * @param waitForMetadataCatchupMs How much time to allow for metadata on this node to reach the catalog version required by
+     *     an incoming snapshot.
      */
-    public IncomingSnapshotCopier(PartitionSnapshotStorage partitionSnapshotStorage, SnapshotUri snapshotUri) {
+    public IncomingSnapshotCopier(
+            PartitionSnapshotStorage partitionSnapshotStorage,
+            SnapshotUri snapshotUri,
+            long waitForMetadataCatchupMs
+    ) {
         this.partitionSnapshotStorage = partitionSnapshotStorage;
         this.snapshotUri = snapshotUri;
+        this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
     }
 
     @Override
@@ -133,10 +139,18 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 : loadSnapshotMeta(snapshotSender)
                         // Give metadata some time to catch up as it's very probable that the leader is ahead metadata-wise.
                         .thenCompose(unused -> waitForMetadataWithTimeout())
-                        .thenApply(unused -> metadataIsSufficientlyComplete())
+                        .thenApply(unused -> {
+                            boolean metadataIsSufficientlyComplete = metadataIsSufficientlyComplete();
+
+                            if (!metadataIsSufficientlyComplete) {
+                                logMetadataInsufficiencyAndSetError();
+                            }
+
+                            return metadataIsSufficientlyComplete;
+                        })
                 ;
 
-        rebalanceFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
+        rebalanceFuture = metadataSufficiencyFuture.thenComposeAsync(metadataSufficient -> {
             if (metadataSufficient) {
                 return partitionSnapshotStorage.partition().startRebalance()
                         .thenCompose(unused -> {
@@ -146,15 +160,14 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                                     .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
                         });
             } else {
-                logMetadataInsufficiencyAndSetError();
-
                 return nullCompletedFuture();
             }
-        });
+        }, executor);
 
         joinFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
             if (metadataSufficient) {
-                return rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
+                return rebalanceFuture.handleAsync((unused, throwable) -> completeRebalance(throwable), executor)
+                        .thenCompose(Function.identity());
             } else {
                 return nullCompletedFuture();
             }
@@ -169,9 +182,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return anyOf(metadataReadyFuture, readinessTimeoutFuture);
     }
 
-    private static CompletableFuture<?> completeOnMetadataReadinessTimeout() {
+    private CompletableFuture<?> completeOnMetadataReadinessTimeout() {
         return new CompletableFuture<>()
-                .orTimeout(WAIT_FOR_METADATA_CATCHUP_MS, TimeUnit.MILLISECONDS)
+                .orTimeout(waitForMetadataCatchupMs, TimeUnit.MILLISECONDS)
                 .exceptionally(ex -> {
                     assert (ex instanceof TimeoutException);
 
@@ -186,7 +199,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         if (fut != null) {
             try {
                 fut.get();
-            } catch (CancellationException e) {
+            } catch (CancellationException ignored) {
                 // Ignored.
             } catch (ExecutionException e) {
                 Throwable cause = e.getCause();
@@ -272,7 +285,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private boolean metadataIsSufficientlyComplete() {
-        return isMetadataAvailableFor(snapshotMeta.requiredCatalogVersion(), partitionSnapshotStorage.catalogService());
+        SnapshotMeta meta = snapshotMeta;
+        assert meta != null;
+
+        return isMetadataAvailableFor(meta.requiredCatalogVersion(), partitionSnapshotStorage.catalogService());
     }
 
     private void logMetadataInsufficiencyAndSetError() {

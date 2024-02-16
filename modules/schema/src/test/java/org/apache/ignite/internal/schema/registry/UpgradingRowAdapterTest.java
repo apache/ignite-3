@@ -204,7 +204,7 @@ public class UpgradingRowAdapterTest {
     private static BinaryRow serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
         assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.size());
 
-        RowAssembler asm = new RowAssembler(schema);
+        RowAssembler asm = new RowAssembler(schema, -1);
 
         for (Object val : vals) {
             asm.appendValue(val);

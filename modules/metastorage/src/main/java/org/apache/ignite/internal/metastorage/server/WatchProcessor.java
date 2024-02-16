@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -44,7 +45,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -105,7 +106,10 @@ public class WatchProcessor implements ManuallyCloseable {
     public WatchProcessor(String nodeName, EntryReader entryReader) {
         this.entryReader = entryReader;
 
-        this.watchExecutor = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "metastorage-watch-executor", LOG));
+        this.watchExecutor = Executors.newFixedThreadPool(
+                4,
+                IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED)
+        );
     }
 
     /** Adds a watch. */

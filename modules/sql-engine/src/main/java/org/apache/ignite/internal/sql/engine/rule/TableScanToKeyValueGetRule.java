@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.rel;
+package org.apache.ignite.internal.sql.engine.rule;
 
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.builder;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -25,118 +25,58 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelInput;
-import org.apache.calcite.rel.RelWriter;
-import org.apache.calcite.rel.hint.RelHint;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
-import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
+import org.immutables.value.Value;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Relational operator that represents lookup by a primary key.
+ * Tries to convert given scan node to physical node representing primary key lookup.
  *
- * <p>Note: at the moment, KV api requires an actual transaction which is object
- * of type {@link InternalTransaction} while distributed execution has access to
- * only certain {@link TxAttributes attributes} of a transaction. Given that node is
- * not supposed to be a part of distributed query plan, the following parts were
- * deliberately omitted:<ul>
- *     <li>this class doesn't implement {@link SourceAwareIgniteRel}, making it impossible
- *     to map properly by {@link MappingService}</li>
- *     <li>{@link IgniteRelVisitor} was not extended with this class</li>
- *     <li>de-serialisation constructor is omitted (see {@link ProjectableFilterableTableScan#ProjectableFilterableTableScan(RelInput)}
- *     as example)</li>
- * </ul>
+ * <p>Conversion will be successful if: <ol>
+ *     <li>there is condition</li>
+ *     <li>table has primary key index</li>
+ *     <li>condition covers all columns of primary key index</li>
+ *     <li>only single search key is derived from condition</li>
+ * </ol>
  */
-public class IgnitePkLookup extends ProjectableFilterableTableScan implements IgniteRel {
-    private final List<RexNode> keyExpressions;
+@Value.Enclosing
+public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRule.Config> {
+    public static final RelOptRule INSTANCE = Config.INSTANCE.toRule();
 
-    private IgnitePkLookup(
-            RelOptCluster cluster,
-            RelTraitSet traits,
-            RelOptTable tbl,
-            List<RelHint> hints,
-            List<RexNode> keyExpressions,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
-    ) {
-        super(cluster, traits, hints, tbl, proj, cond, requiredColumns);
-
-        this.keyExpressions = keyExpressions;
+    private TableScanToKeyValueGetRule(Config cfg) {
+        super(cfg);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> T accept(IgniteRelVisitor<T> visitor) {
-        return visitor.visit(this);
-    }
+    public void onMatch(RelOptRuleCall call) {
+        IgniteLogicalTableScan scan = cast(call.rel(0));
 
-    /** {@inheritDoc} */
-    @Override
-    public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgnitePkLookup(cluster, getTraitSet(), getTable(), getHints(), keyExpressions, projects, condition, requiredColumns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgnitePkLookup withHints(List<RelHint> hintList) {
-        return new IgnitePkLookup(getCluster(), getTraitSet(), getTable(), hintList, keyExpressions, projects, condition, requiredColumns);
-    }
-
-    @Override
-    protected RelWriter explainTerms0(RelWriter pw) {
-        return super.explainTerms0(pw)
-                .item("key", keyExpressions);
-    }
-
-    /**
-     * Returns a list of expressions in the order of a primary key columns of related table
-     * to use as lookup key.
-     *
-     * @return List of expressions representing lookup key.
-     */
-    public List<RexNode> keyExpressions() {
-        return keyExpressions;
-    }
-
-    /**
-     * Tries to convert given scan node to physical node representing primary key lookup.
-     *
-     * <p>Conversion will be successful if: <ol>
-     *     <li>there is condition</li>
-     *     <li>table has primary key index</li>
-     *     <li>condition covers all columns of primary key index</li>
-     *     <li>only single search key is derived from condition</li>
-     * </ol>
-     *
-     * @param scan A scan node to analyze.
-     * @return A physical node representing optimized look up by primary key or {@code null}
-     *      if we were unable to derive all necessary information.
-     */
-    public static @Nullable IgnitePkLookup convert(IgniteLogicalTableScan scan) {
         List<SearchBounds> bounds = deriveSearchBounds(scan);
 
         if (nullOrEmpty(bounds)) {
-            return null;
+            return;
         }
 
         List<RexNode> expressions = new ArrayList<>(bounds.size());
@@ -150,7 +90,7 @@ public class IgnitePkLookup extends ProjectableFilterableTableScan implements Ig
             // iteration over a number of search keys are not supported yet,
             // thus we need to make sure only single key was derived
             if (!(bound instanceof ExactBounds)) {
-                return null;
+                return;
             }
 
             condition.remove(bound.condition());
@@ -158,7 +98,7 @@ public class IgnitePkLookup extends ProjectableFilterableTableScan implements Ig
         }
 
         if (nullOrEmpty(expressions)) {
-            return null;
+            return;
         }
 
         RexNode resultingCondition = RexUtil.composeConjunction(rexBuilder, condition);
@@ -166,17 +106,19 @@ public class IgnitePkLookup extends ProjectableFilterableTableScan implements Ig
             resultingCondition = null;
         }
 
-        return new IgnitePkLookup(
-                cluster,
-                scan.getTraitSet()
-                        .replace(IgniteConvention.INSTANCE)
-                        .replace(IgniteDistributions.single()),
-                scan.getTable(),
-                scan.getHints(),
-                expressions,
-                scan.projects(),
-                resultingCondition,
-                scan.requiredColumns()
+        call.transformTo(
+                new IgniteKeyValueGet(
+                        cluster,
+                        scan.getTraitSet()
+                                .replace(IgniteConvention.INSTANCE)
+                                .replace(IgniteDistributions.single()),
+                        scan.getTable(),
+                        scan.getHints(),
+                        expressions,
+                        scan.projects(),
+                        resultingCondition,
+                        scan.requiredColumns()
+                )
         );
     }
 
@@ -219,5 +161,28 @@ public class IgnitePkLookup extends ProjectableFilterableTableScan implements Ig
                 rowType,
                 requiredColumns
         );
+    }
+
+    private static <T extends RelNode> T cast(RelNode node) {
+        return (T) node;
+    }
+
+    /** Configuration. */
+    @SuppressWarnings({"ClassNameSameAsAncestorName", "InnerClassFieldHidesOuterClassField"})
+    @Value.Immutable
+    public interface Config extends RelRule.Config {
+        Config INSTANCE = ImmutableTableScanToKeyValueGetRule.Config.of()
+                .withDescription("TableScanToKeyValueGetRule")
+                .withOperandSupplier(o0 ->
+                        o0.operand(IgniteLogicalTableScan.class)
+                                .predicate(scan -> scan.condition() != null)
+                                .noInputs())
+                .as(Config.class);
+
+        /** {@inheritDoc} */
+        @Override
+        default TableScanToKeyValueGetRule toRule() {
+            return new TableScanToKeyValueGetRule(this);
+        }
     }
 }
