@@ -184,7 +184,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.impl.TxResourceCleanupManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
@@ -355,9 +354,6 @@ public class IgniteImpl implements Ignite {
 
     /** Cleanup manager for tx resources. */
     private final CursorManager cursorManager;
-
-    /** Cleanup manager for tx resources. */
-    private final TxResourceCleanupManager txResourceCleanupManager;
 
     /**
      * The Constructor.
@@ -782,8 +778,6 @@ public class IgniteImpl implements Ignite {
         );
 
         restComponent = createRestComponent(name);
-
-        txResourceCleanupManager = new TxResourceCleanupManager(name, cursorManager, clusterSvc.topologyService());
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
@@ -976,8 +970,7 @@ public class IgniteImpl implements Ignite {
                                     qryEngine,
                                     clientHandlerModule,
                                     deploymentManager,
-                                    sql,
-                                    txResourceCleanupManager
+                                    sql
                             );
 
                             // The system view manager comes last because other components
