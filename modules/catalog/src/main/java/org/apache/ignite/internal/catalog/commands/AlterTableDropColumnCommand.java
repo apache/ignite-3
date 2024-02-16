@@ -28,12 +28,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -78,16 +80,12 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
 
         CatalogTableDescriptor table = tableOrThrow(schema, tableName);
 
-        Set<String> indexedColumns = Arrays.stream(schema.indexes())
-                .filter(index -> index.tableId() == table.id())
-                .flatMap(index -> index instanceof CatalogHashIndexDescriptor
-                        ? ((CatalogHashIndexDescriptor) index).columns().stream()
-                        : ((CatalogSortedIndexDescriptor) index).columns().stream().map(CatalogIndexColumnDescriptor::name))
+        Set<String> indexedColumns = indexesForTable(schema, table)
+                .flatMap(AlterTableDropColumnCommand::indexColumnNames)
                 .collect(Collectors.toSet());
 
         //To validate always in the same order let's sort given columns
-        List<String> sortedColumns = columns.stream().sorted().collect(Collectors.toUnmodifiableList());
-        for (String columnName : sortedColumns) {
+        columns.stream().sorted().forEach(columnName -> {
             if (table.column(columnName) == null) {
                 throw new CatalogValidationException(format(
                         "Column with name '{}' not found in table '{}.{}'", columnName, schemaName, tableName));
@@ -98,22 +96,37 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             }
 
             if (indexedColumns.contains(columnName)) {
-                List<String> indexesNames = Arrays.stream(schema.indexes())
-                        .filter(index -> index.tableId() == table.id())
-                        .filter(index -> index instanceof CatalogHashIndexDescriptor
-                                ? ((CatalogHashIndexDescriptor) index).columns().contains(columnName)
-                                : ((CatalogSortedIndexDescriptor) index).columns().stream().map(CatalogIndexColumnDescriptor::name)
-                                        .anyMatch(column -> column.equals(columnName))
-                ).map(CatalogIndexDescriptor::name).collect(Collectors.toList());
+                List<String> indexesNames = indexesForTable(schema, table)
+                        .filter(index -> indexColumnNames(index).anyMatch(columnName::equals))
+                        .map(CatalogIndexDescriptor::name)
+                        .collect(Collectors.toList());
 
                 throw new CatalogValidationException(format(
                         "Deleting column '{}' used by index(es) {}, it is not allowed", columnName, indexesNames));
             }
-        }
+        });
 
         return List.of(
                 new DropColumnsEntry(table.id(), columns, schemaName)
         );
+    }
+
+    private static Stream<CatalogIndexDescriptor> indexesForTable(CatalogSchemaDescriptor schema, CatalogTableDescriptor table) {
+        return Arrays.stream(schema.indexes())
+                .filter(index -> index.tableId() == table.id() && index.status() != CatalogIndexStatus.STOPPING);
+    }
+
+    private static Stream<String> indexColumnNames(CatalogIndexDescriptor index) {
+        switch (index.indexType()) {
+            case HASH:
+                return ((CatalogHashIndexDescriptor) index).columns().stream();
+
+            case SORTED:
+                return ((CatalogSortedIndexDescriptor) index).columns().stream().map(CatalogIndexColumnDescriptor::name);
+
+            default:
+                throw new AssertionError(index.indexType().toString());
+        }
     }
 
     private static void validate(Set<String> columns) {

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -60,7 +61,11 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     Collection<CatalogTableDescriptor> tables(int catalogVersion);
 
-    @Nullable CatalogIndexDescriptor index(String indexName, long timestamp);
+    /**
+     * Returns an <em>alive</em> index with the given name, that is an index which exists and is not in the
+     * {@link CatalogIndexStatus#STOPPING} state in the Catalog at a given point in time.
+     */
+    @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp);
 
     @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
 

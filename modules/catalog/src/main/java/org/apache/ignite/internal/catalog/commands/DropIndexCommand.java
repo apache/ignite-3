@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
@@ -25,6 +24,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -65,7 +65,18 @@ public class DropIndexCommand extends AbstractIndexCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        CatalogIndexDescriptor index = indexOrThrow(schema, indexName);
+        List<CatalogIndexDescriptor> indexes = schema.indexes(indexName);
+
+        if (indexes.isEmpty()) {
+            throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), indexName));
+        }
+
+        CatalogIndexDescriptor index = indexes.stream()
+                .filter(indexDescriptor -> indexDescriptor.status() != CatalogIndexStatus.STOPPING)
+                .findAny()
+                .orElseThrow(() -> new CatalogValidationException(format(
+                        "Index with name '{}.{}' has already been dropped", schema.name(), indexName
+                )));
 
         CatalogTableDescriptor table = catalog.table(index.tableId());
 
@@ -82,8 +93,6 @@ public class DropIndexCommand extends AbstractIndexCommand {
                 return List.of(new RemoveIndexEntry(index.id()));
             case AVAILABLE:
                 return List.of(new DropIndexEntry(index.id(), index.tableId()));
-            case STOPPING:
-                throw new CatalogValidationException("Dropping an already dropped index is not allowed");
             default:
                 throw new IllegalStateException("Unknown index status: " + index.status());
         }

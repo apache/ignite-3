@@ -183,7 +183,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         int expCreationCatalogVersion = catalogManager.latestCatalogVersion();
 
-        int indexId = catalogManager.index(INDEX_NAME, clock.nowLong()).id();
+        int indexId = catalogManager.aliveIndex(INDEX_NAME, clock.nowLong()).id();
 
         assertThat(catalogManager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME + 1)), willCompleteSuccessfully());
@@ -192,7 +192,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         createAndStartComponents();
 
-        assertEquals(expCreationCatalogVersion, catalogManager.index(INDEX_NAME, clock.nowLong()).txWaitCatalogVersion());
+        assertEquals(expCreationCatalogVersion, catalogManager.aliveIndex(INDEX_NAME, clock.nowLong()).txWaitCatalogVersion());
     }
 
     private void createAndStartComponents() {

@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -45,7 +47,7 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     @IgniteToStringExclude
     private Map<String, CatalogTableDescriptor> tablesMap;
     @IgniteToStringExclude
-    private Map<String, CatalogIndexDescriptor> indexesMap;
+    private Map<String, List<CatalogIndexDescriptor>> indexesMap;
     @IgniteToStringExclude
     private Map<String, CatalogSystemViewDescriptor> systemViewsMap;
 
@@ -78,6 +80,18 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         return indexes;
     }
 
+    /**
+     * Returns a list of indexes that have the given name.
+     *
+     * <p>There can be multiple indexes with the same name in a {@link CatalogIndexStatus#STOPPING} state, but at most one <em>alive</em>
+     * index.
+     *
+     * @see #aliveIndex
+     */
+    public List<CatalogIndexDescriptor> indexes(String name) {
+        return indexesMap.getOrDefault(name, List.of());
+    }
+
     public CatalogSystemViewDescriptor[] systemViews() {
         return systemViews;
     }
@@ -86,8 +100,16 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         return tablesMap.get(name);
     }
 
-    public @Nullable CatalogIndexDescriptor index(String name) {
-        return indexesMap.get(name);
+    /**
+     * Returns an <em>alive</em> index with the given name, that is an index which exists and is not in the
+     * {@link CatalogIndexStatus#STOPPING} state.
+     */
+    public @Nullable CatalogIndexDescriptor aliveIndex(String name) {
+        return indexes(name)
+                .stream()
+                .filter(indexDescriptor -> indexDescriptor.status() != CatalogIndexStatus.STOPPING)
+                .findAny()
+                .orElse(null);
     }
 
     public @Nullable CatalogSystemViewDescriptor systemView(String name) {
@@ -95,10 +117,34 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     }
 
     private void rebuildMaps() {
-        tablesMap = Arrays.stream(tables).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
-        indexesMap = Arrays.stream(indexes).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
-        systemViewsMap = Arrays.stream(systemViews)
-                .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
+        tablesMap = Arrays.stream(tables).collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
+        indexesMap = Arrays.stream(indexes).collect(groupingBy(CatalogIndexDescriptor::name));
+
+        assert atMostOneAliveIndexPerNameExists() : indexesMap;
+
+        systemViewsMap = Arrays.stream(systemViews).collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
+    }
+
+    /**
+     * Checks that a schema can contain multiple indexes with the same name, but <b>at most</b> one of them not in the
+     * {@link CatalogIndexStatus#STOPPING} state.
+     */
+    private boolean atMostOneAliveIndexPerNameExists() {
+        for (List<CatalogIndexDescriptor> indexDescriptors : indexesMap.values()) {
+            boolean hasAliveIndex = false;
+
+            for (CatalogIndexDescriptor indexDescriptor : indexDescriptors) {
+                if (indexDescriptor.status() != CatalogIndexStatus.STOPPING) {
+                    if (hasAliveIndex) {
+                        return false;
+                    }
+
+                    hasAliveIndex = true;
+                }
+            }
+        }
+
+        return true;
     }
 
     @Override

@@ -353,7 +353,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(schema, is(notNullValue()));
 
-        var fooIndex = (CatalogHashIndexDescriptor) catalogManager.index("foo", clock.nowLong());
+        var fooIndex = (CatalogHashIndexDescriptor) catalogManager.aliveIndex("foo", clock.nowLong());
 
         assertThat(fooIndex, is(notNullValue()));
 
@@ -455,7 +455,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
     }
 
     private void removeIndex(String indexName) {
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, HybridTimestamp.MAX_VALUE.longValue());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, HybridTimestamp.MAX_VALUE.longValue());
 
         assertThat(indexDescriptor, is(notNullValue()));
 
