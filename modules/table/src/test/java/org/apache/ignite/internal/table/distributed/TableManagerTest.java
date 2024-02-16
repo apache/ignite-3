@@ -118,6 +118,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
@@ -732,7 +733,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
-                mock(FailureProcessor.class)
+                mock(FailureProcessor.class),
+                new CursorManager()
         ) {
 
             @Override

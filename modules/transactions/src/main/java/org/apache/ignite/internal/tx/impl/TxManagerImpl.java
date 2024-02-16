@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
@@ -57,7 +56,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -212,6 +210,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     * @param cursorManager Cursor manager.
      */
     public TxManagerImpl(
             TransactionConfiguration txConfig,
@@ -222,7 +221,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            LocalRwTxCounter localRwTxCounter
+            LocalRwTxCounter localRwTxCounter,
+            CursorManager cursorManager
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -254,7 +254,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
-        txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
+        txCleanupRequestHandler = new TxCleanupRequestHandler(
+                messagingService,
+                lockManager,
+                clock,
+                writeIntentSwitchProcessor,
+                cursorManager
+        );
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
     }
@@ -729,11 +735,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
         return runAsync(runnable, cleanupExecutor);
-    }
-
-    @Override
-    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
-        return supplyAsync(action, cleanupExecutor).thenCompose(f -> f);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {

@@ -179,6 +179,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -350,6 +351,9 @@ public class IgniteImpl implements Ignite {
 
     /** Local node RW transaction completion checker for indexes. */
     private final IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker;
+
+    /** Cleanup manager for tx resources. */
+    private final CursorManager cursorManager;
 
     /**
      * The Constructor.
@@ -627,6 +631,8 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        cursorManager = new CursorManager();
+
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 txConfig,
@@ -637,7 +643,8 @@ public class IgniteImpl implements Ignite {
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                indexNodeFinishedRwTransactionsChecker
+                indexNodeFinishedRwTransactionsChecker,
+                cursorManager
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
@@ -670,7 +677,8 @@ public class IgniteImpl implements Ignite {
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
                 this::sql,
-                failureProcessor
+                failureProcessor,
+                cursorManager
         );
 
         indexManager = new IndexManager(

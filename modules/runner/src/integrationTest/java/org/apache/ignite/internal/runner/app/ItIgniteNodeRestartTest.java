@@ -164,6 +164,7 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -430,6 +431,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        var cursorManager = new CursorManager();
+
         var txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterSvc,
@@ -439,7 +442,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                cursorManager
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -526,7 +530,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new HybridTimestampTracker(),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
-                failureProcessor
+                failureProcessor,
+                cursorManager
         );
 
         var indexManager = new IndexManager(
