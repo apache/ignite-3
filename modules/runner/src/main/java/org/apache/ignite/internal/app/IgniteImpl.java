@@ -453,7 +453,8 @@ public class IgniteImpl implements Ignite {
 
         ReplicaService replicaSvc = new ReplicaService(
                 clusterSvc.messagingService(),
-                clock, name,
+                clock,
+                name,
                 threadPoolsManager.partitionOperationsExecutor()
         );
 

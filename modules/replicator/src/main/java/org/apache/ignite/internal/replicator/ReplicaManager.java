@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -239,7 +240,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaRequest request = (ReplicaRequest) message;
 
-        ExecutorService stripeExecutor = ReplicationGroupStripes.stripeFor(request.groupId(), requestsExecutor);
+        Executor stripeExecutor = ReplicationGroupStripes.stripeFor(request.groupId(), requestsExecutor);
         stripeExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
     }
 
