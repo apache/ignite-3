@@ -119,7 +119,7 @@ public class MappedFragment {
      * @return New mapped fragment.
      */
     public MappedFragment replaceColocationGroups(Long2ObjectMap<ColocationGroup> replacedGroups) {
-        List<ColocationGroup> newGroups = new ArrayList<>();
+        List<ColocationGroup> newGroups = new ArrayList<>(groupsBySourceId.size());
 
         for (Entry<ColocationGroup> e : groupsBySourceId.long2ObjectEntrySet()) {
             ColocationGroup newGroup = replacedGroups.get(e.getLongKey());

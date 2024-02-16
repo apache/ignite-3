@@ -96,10 +96,11 @@ public class PartitionPrunerImpl implements PartitionPruner {
             Collect new nodes for each exchange that was affected by PP.
 
             Say we have fragment#0 that receives data from fragment#1, these fragments are connected via exchange.
-            Both fragment store node names separately (see exchangeSourceNodes below), to preserve connectivity
-            after partition pruning, we need to update both fragments:
+            Both fragments store node names separately (see exchangeSourceNodes for fragment#0 and executionNodes for fragment#1),
+            to preserve connectivity after partition pruning, we need to update both fragments.
+            The example below demonstrates mapping prior to pruning:
 
-            SELECT * FROM t2_n1n2
+            SELECT * FROM t2_n1n2 WHERE id = 42
             ---
             Fragment#0 root
               executionNodes: [N1]
@@ -116,6 +117,10 @@ public class PartitionPrunerImpl implements PartitionPruner {
               tree:
                 IgniteSender(targetFragment=0, exchange=1, distribution=single)
                   IgniteTableScan(name=PUBLIC.T2_N1N2, source=2, partitions=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
+
+            After pruning is applied, and say it removes partition#0 (N1=[0:1]). Then fragment#0 should have exchangeSourceNodes={1=[N2]}.
+            and fragment#1 should have executionNodes=[N1] and partitions={N2=[1:1]}.
+
              */
 
             if (fragment.root() instanceof IgniteSender) {
