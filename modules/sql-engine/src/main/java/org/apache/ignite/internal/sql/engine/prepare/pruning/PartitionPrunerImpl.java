@@ -120,7 +120,6 @@ public class PartitionPrunerImpl implements PartitionPruner {
 
             After pruning is applied, and say it removes partition#0 (N1=[0:1]). Then fragment#0 should have exchangeSourceNodes={1=[N2]}.
             and fragment#1 should have executionNodes=[N1] and partitions={N2=[1:1]}.
-
              */
 
             if (fragment.root() instanceof IgniteSender) {
