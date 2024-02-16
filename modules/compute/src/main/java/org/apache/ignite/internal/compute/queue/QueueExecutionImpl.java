@@ -23,6 +23,8 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
@@ -45,6 +47,8 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private final ComputeStateMachine stateMachine;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
+
+    private final Lock executionLock = new ReentrantLock();
 
     @Nullable
     private volatile QueueEntry<R> queueEntry;
@@ -91,11 +95,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
             QueueEntry<R> queueEntry = this.queueEntry;
             if (queueEntry != null) {
-                if (executor.remove(queueEntry)) {
-                    result.cancel(true);
-                } else {
-                    queueEntry.interrupt();
-                }
+                cancel(queueEntry);
                 return true;
             }
         } catch (IllegalJobStateTransition e) {
@@ -104,21 +104,38 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         return false;
     }
 
+    private void cancel(QueueEntry<R> queueEntry) {
+        executionLock.lock();
+        try {
+            if (executor.remove(queueEntry)) {
+                result.cancel(true);
+            } else {
+                queueEntry.interrupt();
+            }
+        } finally {
+            executionLock.unlock();
+        }
+    }
+
     @Override
     public boolean changePriority(int newPriority) {
         if (newPriority == priority) {
             return false;
         }
+        executionLock.lock();
+        try {
+            QueueEntry<R> queueEntry = this.queueEntry;
 
-        QueueEntry<R> queueEntry = this.queueEntry;
-
-        if (executor.removeFromQueue(queueEntry)) {
-            this.priority = newPriority;
-            this.queueEntry = null;
-            run();
-            return true;
+            if (executor.removeFromQueue(queueEntry)) {
+                this.priority = newPriority;
+                this.queueEntry = null;
+                run();
+                return true;
+            }
+            LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
+        } finally {
+            executionLock.unlock();
         }
-        LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
         return false;
     }
 
@@ -142,11 +159,14 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         // either after the construction or after the failure.
         this.queueEntry = queueEntry;
 
+        executionLock.lock();
         try {
             executor.execute(queueEntry);
         } catch (QueueOverflowException e) {
             result.completeExceptionally(new ComputeException(QUEUE_OVERFLOW_ERR, e));
             return;
+        } finally {
+            executionLock.unlock();
         }
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
@@ -172,5 +192,4 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             }
         });
     }
-
 }
