@@ -137,7 +137,7 @@ public final class PartitionPruningPredicate {
                 NativeType physicalType = table.descriptor().columnDescriptor(key).physicalType();
 
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21543
-                //  Remove after this issue makes it possible to have CAST('uuid_str', UUID) as value.
+                //  Remove after this issue makes it possible to have CAST('uuid_str' AS UUID) as value.
                 if (physicalType.spec() == NativeTypeSpec.UUID) {
                     return null;
                 }

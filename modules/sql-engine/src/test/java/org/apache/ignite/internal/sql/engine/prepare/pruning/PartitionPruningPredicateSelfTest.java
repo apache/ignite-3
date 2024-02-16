@@ -87,7 +87,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                         && t != ColumnType.DURATION
                         && t != ColumnType.PERIOD
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
-                        //  because it allows to support CAST('uuid-str', UUID) expressions.
+                        //  because it allows to support CAST('uuid-str' AS UUID) expressions.
                         && t != ColumnType.UUID
                 )
                 .collect(Collectors.toList());
