@@ -31,7 +31,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentId;
+import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -96,14 +96,14 @@ public class ReplicaService {
         );
     }
 
-    private static JumpToExecutorByConsistentId wrapMessagingService(
+    private static JumpToExecutorByConsistentIdAfterSend wrapMessagingService(
             MessagingService messagingService,
             String localConsistentId,
             StripedThreadPoolExecutor executor
     ) {
         ChooseExecutorForReplicationGroup chooserByGroupId = new ChooseExecutorForReplicationGroup(executor);
 
-        return new JumpToExecutorByConsistentId(
+        return new JumpToExecutorByConsistentIdAfterSend(
                 messagingService,
                 localConsistentId,
                 request -> chooserByGroupId.choose(((ReplicaRequest) request).groupId())

@@ -33,7 +33,7 @@ import org.apache.ignite.network.ClusterNode;
  * the provided executor chooser if the message is actually sent via network (i.e. it is sent not to this
  * same node). Otherwise, proceeds with execution in the same thread which completes the future.
  */
-public class JumpToExecutorByConsistentId implements MessagingService {
+public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
     private final MessagingService messagingService;
 
     private final String localConsistentId;
@@ -41,7 +41,7 @@ public class JumpToExecutorByConsistentId implements MessagingService {
     private final ExecutorChooser<NetworkMessage> executorChooser;
 
     /** Constructor. */
-    public JumpToExecutorByConsistentId(
+    public JumpToExecutorByConsistentIdAfterSend(
             MessagingService messagingService,
             String localConsistentId,
             ExecutorChooser<NetworkMessage> executorChooser
