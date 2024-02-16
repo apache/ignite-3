@@ -18,23 +18,29 @@
 package org.apache.ignite.internal.streamer;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
+import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 
 class StreamerBuffer<T> {
     private final int capacity;
 
-    private final Consumer<List<T>> flusher;
+    private final BiConsumer<List<T>, BitSet> flusher;
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
+    private BitSet deleted;
+
     private boolean closed;
 
-    StreamerBuffer(int capacity, Consumer<List<T>> flusher) {
+    StreamerBuffer(int capacity, BiConsumer<List<T>, BitSet> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
         buf = new ArrayList<>(capacity);
+        deleted = new BitSet(capacity);
     }
 
     /**
@@ -42,16 +48,21 @@ class StreamerBuffer<T> {
      *
      * @param item Item.
      */
-    synchronized void add(T item) {
+    synchronized void add(DataStreamerItem<T> item) {
         if (closed) {
             throw new IllegalStateException("Streamer is closed, can't add items.");
         }
 
-        buf.add(item);
+        buf.add(item.get());
+
+        if (item.operationType() == DataStreamerOperationType.REMOVE) {
+            deleted.set(buf.size() - 1);
+        }
 
         if (buf.size() >= capacity) {
-            flusher.accept(buf);
+            flusher.accept(buf, deleted);
             buf = new ArrayList<>(capacity);
+            deleted = new BitSet(capacity);
         }
     }
 
@@ -63,7 +74,7 @@ class StreamerBuffer<T> {
         closed = true;
 
         if (!buf.isEmpty()) {
-            flusher.accept(buf);
+            flusher.accept(buf, deleted);
         }
     }
 
@@ -72,7 +83,8 @@ class StreamerBuffer<T> {
             return;
         }
 
-        flusher.accept(buf);
+        flusher.accept(buf, deleted);
         buf = new ArrayList<>(capacity);
+        deleted = new BitSet(capacity);
     }
 }

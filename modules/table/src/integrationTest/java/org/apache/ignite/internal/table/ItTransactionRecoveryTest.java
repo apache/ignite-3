@@ -868,7 +868,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
-            publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode);
+            publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode);
         } else {
             publisher = tbl.internalTable().scan(PART_ID, tx);
         }

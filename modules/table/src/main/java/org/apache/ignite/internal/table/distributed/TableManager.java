@@ -181,6 +181,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -194,6 +195,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -1364,6 +1366,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 zoneDescriptor.partitions(),
                 sharedTxStateStorage
         );
+        if (ThreadAssertions.enabled()) {
+            txStateTableStorage = new ThreadAssertingTxStateTableStorage(txStateTableStorage);
+        }
 
         txStateTableStorage.start();
 
@@ -1416,20 +1421,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             // TODO: IGNITE-18703 Destroy raft log and meta
-            CompletableFuture<Void> destroyTableStoragesFuture = allOf(stopReplicaFutures)
+            return allOf(stopReplicaFutures)
                     .thenComposeAsync(
                             unused -> allOf(
                                     internalTable.storage().destroy(),
                                     runAsync(() -> internalTable.txStateStorage().destroy(), ioExecutor)
                             ),
                             ioExecutor
-                    );
-
-            CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId());
-
-            return allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture)
-                    .thenApply(v -> map);
+                    ).thenApply(v -> map);
         }));
+
+        schemaManager.dropRegistry(causalityToken, tableId);
 
         startedTables.remove(tableId);
 

@@ -15,64 +15,76 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.utils;
+package org.apache.ignite.internal;
 
+import static org.apache.ignite.lang.ErrorGroups.extractGroupCode;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.hamcrest.Matchers;
+import org.apache.ignite.lang.TraceableException;
 
 /**
- * Test utils for Compute.
+ * Test utils for checking public exceptions.
  */
-public class ComputeTestUtils {
+public class IgniteExceptionTestUtils {
     /**
      * <em>Assert</em> that passed throwable is a public exception with expected error group, code and message.
      *
      * @param throwable exception to check.
-     * @param expectedErrorGroup - expected {@link ErrorGroup}.
      * @param expectedErrorCode - expected error code.
      * @param containMessage - message that exception should contain.
      */
     public static void assertPublicException(
             Throwable throwable,
-            ErrorGroup expectedErrorGroup,
             int expectedErrorCode,
             String containMessage
     ) {
-        assertPublicException(throwable, IgniteException.class, expectedErrorGroup, expectedErrorCode, containMessage);
+        assertTraceableException(throwable, IgniteException.class, expectedErrorCode, containMessage);
     }
 
     /**
-     * <em>Assert</em> that passed throwable is a public exception with expected type, error group, code and message.
+     * <em>Assert</em> that passed throwable is a public checked exception with expected error group, code and message.
      *
-     * @param throwable - exception to check.
-     * @param expectedType - expected public exception type.
-     * @param expectedErrorGroup - expected {@link ErrorGroup}.
+     * @param throwable exception to check.
      * @param expectedErrorCode - expected error code.
      * @param containMessage - message that exception should contain.
      */
-    public static void assertPublicException(
+    public static void assertPublicCheckedException(
             Throwable throwable,
-            Class<? extends IgniteException> expectedType,
-            ErrorGroup expectedErrorGroup,
+            int expectedErrorCode,
+            String containMessage
+    ) {
+        assertTraceableException(throwable, IgniteCheckedException.class, expectedErrorCode, containMessage);
+    }
+
+    /**
+     * <em>Assert</em> that passed throwable is a traceable exception with expected type, error group, code and message.
+     *
+     * @param throwable - exception to check.
+     * @param expectedType - expected public exception type.
+     * @param expectedErrorCode - expected error code.
+     * @param containMessage - message that exception should contain.
+     */
+    public static void assertTraceableException(
+            Throwable throwable,
+            Class<? extends TraceableException> expectedType,
             int expectedErrorCode,
             String containMessage
     ) {
         Throwable cause = ExceptionUtils.unwrapCause(throwable);
 
         assertThat(cause, instanceOf(expectedType));
-        IgniteException ex = expectedType.cast(cause);
+        TraceableException ex = expectedType.cast(cause);
 
-        assertThat(ex.groupCode(), is(expectedErrorGroup.groupCode()));
-        assertThat(ex.groupName(), is(expectedErrorGroup.name()));
+        assertThat(ex.groupCode(), is(extractGroupCode(expectedErrorCode)));
         assertThat(ex.code(), is(expectedErrorCode));
         assertThat(ex.traceId(), is(notNullValue()));
-        assertThat(ex.getMessage(), Matchers.containsString(containMessage));
+        assertThat(cause.getMessage(), containsString(containMessage));
     }
 }

@@ -92,7 +92,11 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private void registerExistingTables() {
-        long causalityToken = metastorageMgr.appliedRevision();
+        CompletableFuture<Long> recoveryFinishFuture = metastorageMgr.recoveryFinishedFuture();
+
+        assert recoveryFinishFuture.isDone();
+
+        long causalityToken = recoveryFinishFuture.join();
 
         for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
             Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
@@ -122,8 +126,6 @@ public class SchemaManager implements IgniteComponent {
                 return completedFuture(registries);
             });
         }
-
-        registriesVv.complete(causalityToken);
     }
 
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
@@ -332,19 +334,27 @@ public class SchemaManager implements IgniteComponent {
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistry(long causalityToken, int tableId) {
-        return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
-            if (e != null) {
-                return failedFuture(new IgniteInternalException(
-                        format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
-            }
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
 
-            Map<Integer, SchemaRegistryImpl> regs = new HashMap<>(registries);
+        try {
+            return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    return failedFuture(new IgniteInternalException(
+                            format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
+                }
 
-            SchemaRegistryImpl removedRegistry = regs.remove(tableId);
-            removedRegistry.close();
+                Map<Integer, SchemaRegistryImpl> regs = new HashMap<>(registries);
 
-            return completedFuture(regs);
-        }));
+                SchemaRegistryImpl removedRegistry = regs.remove(tableId);
+                removedRegistry.close();
+
+                return completedFuture(regs);
+            }));
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override

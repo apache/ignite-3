@@ -29,6 +29,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
@@ -235,6 +236,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         @Override
         public Publisher<BinaryRow> scan(
                 int partId,
+                UUID txId,
                 HybridTimestamp readTime,
                 ClusterNode recipient,
                 @Nullable Integer indexId,

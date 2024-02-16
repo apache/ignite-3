@@ -28,9 +28,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -61,6 +60,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -72,7 +72,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 3;
     private static final String TABLE_NAME = "t";
 
-    private static final long CAUSALITY_TOKEN_1 = 42;
+    private static final long CAUSALITY_TOKEN_1 = 0;
     private static final long CAUSALITY_TOKEN_2 = 45;
 
     private static final int CATALOG_VERSION_1 = 10;
@@ -91,8 +91,9 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     private SchemaManager schemaManager;
 
-    private EventListener<CatalogEventParameters> tableCreatedListener;
-    private EventListener<CatalogEventParameters> tableAlteredListener;
+    private ArgumentCaptor<EventListener<CatalogEventParameters>> tableCreatedListener;
+    private ArgumentCaptor<EventListener<CatalogEventParameters>> tableAlteredListener;
+    private ArgumentCaptor<EventListener<CatalogEventParameters>> tableDestroyedListener;
 
     private final Exception cause = new Exception("Oops");
 
@@ -101,15 +102,13 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
         metaStorageManager.start();
 
-        doAnswer(invocation -> {
-            tableCreatedListener = invocation.getArgument(1);
-            return null;
-        }).when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), any());
+        tableCreatedListener = ArgumentCaptor.forClass(EventListener.class);
+        tableAlteredListener = ArgumentCaptor.forClass(EventListener.class);
+        tableDestroyedListener = ArgumentCaptor.forClass(EventListener.class);
 
-        doAnswer(invocation -> {
-            tableAlteredListener = invocation.getArgument(1);
-            return null;
-        }).when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), any());
+        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), tableCreatedListener.capture());
+        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
+        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_DROP), tableDestroyedListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService, metaStorageManager);
         schemaManager.start();
@@ -142,11 +141,15 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     private EventListener<CatalogEventParameters> tableCreatedListener() {
-        return Objects.requireNonNull(tableCreatedListener, "tableCreatedListener is not registered with CatalogService");
+        return Objects.requireNonNull(tableCreatedListener.getValue(), "tableCreatedListener is not registered with CatalogService");
     }
 
     private EventListener<CatalogEventParameters> tableAlteredListener() {
-        return Objects.requireNonNull(tableAlteredListener, "tableAlteredListener is not registered with CatalogService");
+        return Objects.requireNonNull(tableAlteredListener.getValue(), "tableAlteredListener is not registered with CatalogService");
+    }
+
+    private EventListener<CatalogEventParameters> tableDestroyedListener() {
+        return Objects.requireNonNull(tableDestroyedListener.getValue(), "tableDestroyedListener is not registered with CatalogService");
     }
 
     private static CatalogTableDescriptor tableDescriptorAfterColumnAddition() {
@@ -282,7 +285,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void dropRegistryMakesItUnavailable() {
+    void destroyTableMakesRegistryUnavailable() {
         createSomeTable();
 
         assertThat(schemaManager.dropRegistry(CAUSALITY_TOKEN_2, TABLE_ID), willCompleteSuccessfully());
@@ -305,10 +308,12 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
-        doReturn(45L).when(metaStorageManager).appliedRevision();
+        doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService, metaStorageManager);
         schemaManager.start();
+
+        completeCausalityToken(CAUSALITY_TOKEN_2);
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
