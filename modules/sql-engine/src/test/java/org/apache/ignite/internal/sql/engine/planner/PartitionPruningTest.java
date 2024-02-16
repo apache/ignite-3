@@ -176,12 +176,16 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         PartitionPruningMetadata result1 = extractMetadata(extractor, "SELECT * FROM t1 WHERE c1=42", table1);
         PartitionPruningMetadata result2 = extractMetadata(extractor, "SELECT * FROM t2 WHERE c1='abc'", table2);
 
+        // check results won't mix
+        assertEquals(1, result1.data().size(), "result1 size");
+        assertEquals(1, result2.data().size(), "result2 size");
+
         PartitionPruningColumns col1 = result1.get(1);
-        PartitionPruningColumns col2 = result2.get(1);
 
         RexLiteral lit1 = (RexLiteral) col1.columns().get(0).get(0);
         assertEquals(SqlTypeName.INTEGER, lit1.getType().getSqlTypeName());
 
+        PartitionPruningColumns col2 = result2.get(1);
         RexLiteral lit2 = (RexLiteral) col2.columns().get(0).get(0);
         assertEquals(SqlTypeName.VARCHAR, lit2.getType().getSqlTypeName());
     }
