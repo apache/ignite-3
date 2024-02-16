@@ -110,7 +110,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         }
     }
 
-    /** Select by key. Should uses key value. */
+    /** Select by key - should use key value plan. */
     @Benchmark
     public void selectByKey(SqlState sqlState, Blackhole bh) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -121,7 +121,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         }
     }
 
-    /** Select by a single colocation key. Should use partition pruning. */
+    /** Select by a single colocation key - should use a scan with partition pruning. */
     @Benchmark
     public void selectWithPruning(SqlState sqlState, Blackhole bh) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -132,7 +132,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         }
     }
 
-    /** Select by a single colocation key w/o partition pruning because such predicate is too complex. */
+    /** Select by a single colocation key - should use a scan w/o partition pruning because such predicate is too complex. */
     @Benchmark
     public void selectWithNoPrunining(SqlState sqlState, Blackhole bh) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
