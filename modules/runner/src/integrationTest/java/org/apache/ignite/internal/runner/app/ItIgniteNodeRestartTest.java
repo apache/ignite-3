@@ -442,7 +442,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                threadPools.partitionOperationsExecutor()
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
