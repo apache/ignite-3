@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /** Internal class for use in {@link FullStateTransferIndexChooser} for read-only indexes. */
@@ -26,6 +27,10 @@ final class ReadOnlyIndexInfo implements Comparable<ReadOnlyIndexInfo> {
     private final long activationTs;
 
     private final int indexId;
+
+    public ReadOnlyIndexInfo(CatalogIndexDescriptor index, long activationTs) {
+        this(index.tableId(), activationTs, index.id());
+    }
 
     ReadOnlyIndexInfo(int tableId, long activationTs, int indexId) {
         this.tableId = tableId;

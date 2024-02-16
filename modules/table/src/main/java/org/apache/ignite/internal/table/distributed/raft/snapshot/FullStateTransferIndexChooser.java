@@ -19,9 +19,13 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_STOPPING;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -31,8 +35,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -43,7 +47,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -155,7 +159,9 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     private List<Integer> chooseFromCatalogBusy(int catalogVersion, int tableId, Predicate<CatalogIndexDescriptor> filter) {
         List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersion, tableId);
 
-        assert !indexes.isEmpty() : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
+        if (indexes.isEmpty()) {
+            return List.of();
+        }
 
         var result = new ArrayList<CatalogIndexDescriptor>(indexes.size());
 
@@ -187,7 +193,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
             return List.of();
         }
 
-        return subSet.stream().map(ReadOnlyIndexInfo::indexId).collect(toList());
+        return subSet.stream().map(ReadOnlyIndexInfo::indexId).sorted().collect(toList());
     }
 
     private static List<Integer> mergeWithoutDuplicates(List<Integer> l0, List<Integer> l1) {
@@ -226,24 +232,28 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     private void addListenersBusy() {
-        catalogService.listen(INDEX_STOPPING, (parameters, exception) -> {
+        catalogService.listen(INDEX_REMOVED, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
 
-            return onIndexStopping((StoppingIndexEventParameters) parameters).thenApply(unused -> false);
+            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
         });
     }
 
-    private CompletableFuture<?> onIndexStopping(StoppingIndexEventParameters parameters) {
+    private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            ReadOnlyIndexInfo readOnlyIndexInfo = new ReadOnlyIndexInfo(
-                    parameters.tableId(),
-                    catalogActivationTimestampBusy(parameters.catalogVersion()),
-                    parameters.indexId()
-            );
+            int indexId = parameters.indexId();
+            int catalogVersion = parameters.catalogVersion();
 
-            readOnlyIndexes.add(readOnlyIndexInfo);
+            CatalogIndexDescriptor index = indexBusy(indexId, catalogVersion - 1);
+
+            if (index.status() == AVAILABLE) {
+                // On drop table event.
+                readOnlyIndexes.add(new ReadOnlyIndexInfo(index, catalogActivationTimestampBusy(catalogVersion)));
+            } else if (index.status() == STOPPING) {
+                readOnlyIndexes.add(new ReadOnlyIndexInfo(index, findStoppingActivationTsBusy(indexId, catalogVersion - 1)));
+            }
 
             return nullCompletedFuture();
         });
@@ -261,26 +271,54 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
-        // At the moment, we will only use tables from the latest version (not dropped), since so far only replicas for them are started
-        // on the node.
-        int[] tableIds = catalogService.tables(latestCatalogVersion).stream().mapToInt(CatalogObjectDescriptor::id).toArray();
-
-        Map<Integer, ReadOnlyIndexInfo> readOnlyIndexes = new HashMap<>();
+        var readOnlyIndexById = new HashMap<Integer, ReadOnlyIndexInfo>();
+        var previousCatalogVersionTableIds = Set.<Integer>of();
 
         for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
-            Catalog catalog = catalogService.catalog(catalogVersion);
+            long activationTs = catalogActivationTimestampBusy(catalogVersion);
 
-            assert catalog != null : catalogVersion;
+            catalogService.indexes(catalogVersion).stream()
+                    .filter(index -> index.status() == STOPPING)
+                    .forEach(index -> readOnlyIndexById.computeIfAbsent(index.id(), i -> new ReadOnlyIndexInfo(index, activationTs)));
 
-            for (int tableId : tableIds) {
-                for (CatalogIndexDescriptor index : catalog.indexes(tableId)) {
-                    if (index.status() == STOPPING) {
-                        readOnlyIndexes.computeIfAbsent(index.id(), indexId -> new ReadOnlyIndexInfo(tableId, catalog.time(), indexId));
-                    }
-                }
+            Set<Integer> currentCatalogVersionTableIds = tableIds(catalogVersion);
+
+            int finalCatalogVersion = catalogVersion;
+            difference(previousCatalogVersionTableIds, currentCatalogVersionTableIds).stream()
+                    .flatMap(droppedTableId -> catalogService.indexes(finalCatalogVersion - 1, droppedTableId).stream())
+                    .filter(index -> index.status() == AVAILABLE)
+                    .forEach(index -> readOnlyIndexById.computeIfAbsent(index.id(), i -> new ReadOnlyIndexInfo(index, activationTs)));
+
+            previousCatalogVersionTableIds = currentCatalogVersionTableIds;
+        }
+
+        readOnlyIndexes.addAll(readOnlyIndexById.values());
+    }
+
+    private CatalogIndexDescriptor indexBusy(int indexId, int catalogVersion) {
+        CatalogIndexDescriptor index = catalogService.index(indexId, catalogVersion);
+
+        assert index != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
+
+        return index;
+    }
+
+    private long findStoppingActivationTsBusy(int indexId, int toCatalogVersionIncluded) {
+        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+
+        for (int catalogVersion = toCatalogVersionIncluded; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
+            if (indexBusy(indexId, catalogVersion).status() == AVAILABLE) {
+                return catalogActivationTimestampBusy(catalogVersion + 1);
             }
         }
 
-        this.readOnlyIndexes.addAll(readOnlyIndexes.values());
+        throw new AssertionError(format(
+                "{} status activation timestamp was not found for index: [indexId={}, toCatalogVersionIncluded={}]",
+                STOPPING, indexId, toCatalogVersionIncluded
+        ));
+    }
+
+    private Set<Integer> tableIds(int catalogVersion) {
+        return catalogService.tables(catalogVersion).stream().map(CatalogObjectDescriptor::id).collect(toSet());
     }
 }

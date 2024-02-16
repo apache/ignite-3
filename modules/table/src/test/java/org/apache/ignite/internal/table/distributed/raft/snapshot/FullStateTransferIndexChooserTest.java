@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
@@ -177,9 +178,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         removeIndex(READ_ONLY_INDEX_NAME);
 
         if (recovery) {
-            indexChooser.close();
-            indexChooser = new FullStateTransferIndexChooser(catalogManager);
-            indexChooser.start();
+            recoverIndexChooser();
         }
 
         assertThat(chooseForAddWriteCommittedLatest(commitTsBeforeStoppingIndex), contains(pkIndexId, readOnlyIndexId));
@@ -207,9 +206,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         removeIndex(READ_ONLY_INDEX_NAME);
 
         if (recovery) {
-            indexChooser.close();
-            indexChooser = new FullStateTransferIndexChooser(catalogManager);
-            indexChooser.start();
+            recoverIndexChooser();
         }
 
         assertThat(chooseForAddWriteLatest(beginTsBeforeStoppingIndex), contains(pkIndexId, readOnlyIndexId));
@@ -217,16 +214,98 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         assertThat(chooseForAddWriteLatest(clock.now()), contains(pkIndexId));
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void chooseForAddWriteCommittedForDroppedTable(boolean recovery) {
+        HybridTimestamp commitTsBeforeCreateIndexes = clock.now();
+
+        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
+        createSimpleBuildingIndex(BUILDING_INDEX_NAME);
+        createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
+        createSimpleStoppingIndex(STOPPING_INDEX_NAME);
+
+        int pkIndexId = indexId(PK_INDEX_NAME);
+        int availableIndexId = indexId(AVAILABLE_INDEX_NAME);
+        int stoppingIndexId = indexId(STOPPING_INDEX_NAME);
+
+        int tableId = tableId(TABLE_NAME);
+
+        HybridTimestamp commitTsBeforeDropTable = clock.now();
+
+        dropTable();
+
+        if (recovery) {
+            recoverIndexChooser();
+        }
+
+        assertThat(
+                chooseForAddWriteCommittedLatest(tableId, commitTsBeforeCreateIndexes),
+                contains(pkIndexId, availableIndexId, stoppingIndexId)
+        );
+
+        assertThat(
+                chooseForAddWriteCommittedLatest(tableId, commitTsBeforeDropTable),
+                contains(pkIndexId, availableIndexId)
+        );
+
+        assertThat(chooseForAddWriteCommittedLatest(tableId, clock.now()), empty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void chooseForAddWriteForDroppedTable(boolean recovery) {
+        HybridTimestamp beginTsBeforeCreateIndexes = clock.now();
+
+        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
+        createSimpleBuildingIndex(BUILDING_INDEX_NAME);
+        createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
+        createSimpleStoppingIndex(STOPPING_INDEX_NAME);
+
+        int pkIndexId = indexId(PK_INDEX_NAME);
+        int availableIndexId = indexId(AVAILABLE_INDEX_NAME);
+        int stoppingIndexId = indexId(STOPPING_INDEX_NAME);
+
+        int tableId = tableId(TABLE_NAME);
+
+        HybridTimestamp beginTsBeforeDropTable = clock.now();
+
+        dropTable();
+
+        if (recovery) {
+            recoverIndexChooser();
+        }
+
+        assertThat(
+                chooseForAddWriteLatest(tableId, beginTsBeforeCreateIndexes),
+                contains(pkIndexId, availableIndexId, stoppingIndexId)
+        );
+
+        assertThat(
+                chooseForAddWriteLatest(tableId, beginTsBeforeDropTable),
+                contains(pkIndexId, availableIndexId)
+        );
+
+        assertThat(chooseForAddWriteLatest(tableId, clock.now()), empty());
+    }
+
+    private List<Integer> chooseForAddWriteCommittedLatest(int tableId, HybridTimestamp commitTs) {
+        return indexChooser.chooseForAddWriteCommitted(latestCatalogVersion(), tableId, commitTs);
+    }
+
     private List<Integer> chooseForAddWriteCommittedLatest(HybridTimestamp commitTs) {
-        return indexChooser.chooseForAddWriteCommitted(latestCatalogVersion(), tableId(TABLE_NAME), commitTs);
+        return chooseForAddWriteCommittedLatest(tableId(TABLE_NAME), commitTs);
     }
 
     private List<Integer> chooseForAddWriteCommittedLatest() {
         return chooseForAddWriteCommittedLatest(HybridTimestamp.MAX_VALUE);
     }
 
+    private List<Integer> chooseForAddWriteLatest(int tableId, HybridTimestamp beginTs) {
+        return indexChooser.chooseForAddWrite(latestCatalogVersion(), tableId, beginTs);
+    }
+
     private List<Integer> chooseForAddWriteLatest(HybridTimestamp beginTs) {
-        return indexChooser.chooseForAddWrite(latestCatalogVersion(), tableId(TABLE_NAME), beginTs);
+        return chooseForAddWriteLatest(tableId(TABLE_NAME), beginTs);
     }
 
     private List<Integer> chooseForAddWriteLatest() {
@@ -280,5 +359,15 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     private int indexId(String indexName) {
         return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
+    }
+
+    private void recoverIndexChooser() {
+        indexChooser.close();
+        indexChooser = new FullStateTransferIndexChooser(catalogManager);
+        indexChooser.start();
+    }
+
+    private void dropTable() {
+        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME);
     }
 }

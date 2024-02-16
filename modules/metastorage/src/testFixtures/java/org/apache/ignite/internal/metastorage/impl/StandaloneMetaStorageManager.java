@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -78,6 +79,17 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
      * @param keyValueStorage Key-value storage.
      */
     public static StandaloneMetaStorageManager create(KeyValueStorage keyValueStorage) {
+        return create(keyValueStorage, new HybridClockImpl());
+    }
+
+    /**
+     * Creates standalone MetaStorage manager for provided key-value storage. The manager is responsible for starting/stopping provided
+     * key-value storage.
+     *
+     * @param keyValueStorage Key-value storage.
+     * @param clock Clock.
+     */
+    public static StandaloneMetaStorageManager create(KeyValueStorage keyValueStorage, HybridClock clock) {
         return new StandaloneMetaStorageManager(
                 mockClusterService(),
                 mockClusterGroupManager(),
@@ -85,7 +97,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mockRaftManager(),
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                mockConfiguration()
+                mockConfiguration(),
+                clock
         );
     }
 
@@ -105,7 +118,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             RaftManager raftMgr,
             KeyValueStorage storage,
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
-            MetaStorageConfiguration configuration
+            MetaStorageConfiguration configuration,
+            HybridClock clock
     ) {
         super(
                 clusterService,
@@ -113,7 +127,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 logicalTopologyService,
                 raftMgr,
                 storage,
-                new HybridClockImpl(),
+                clock,
                 raftServiceFactory,
                 configuration
         );
