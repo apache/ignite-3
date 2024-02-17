@@ -93,7 +93,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     /**
-     * Collect indexes for {@link PartitionAccess#addWrite(RowId, BinaryRow, UUID, int, int, int)}.
+     * Collect indexes for {@link PartitionAccess#addWrite(RowId, BinaryRow, UUID, int, int, int)} (write intent).
      *
      * <p>Index selection algorithm:</p>
      * <ul>
@@ -101,8 +101,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
      *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING}.</li>
      *     <li>If the index in status {@link CatalogIndexStatus#REGISTERED} and it is in this status on the active version of the catalog
      *     for {@code beginTs}.</li>
-     *     <li>For a read-only index, if {@code beginTs} is strictly less than the activation time of status
-     *     {@link CatalogIndexStatus#STOPPING}.</li>
+     *     <li>For a read-only index, if {@code beginTs} is strictly less than the activation time of dropping the index.</li>
      * </ul>
      *
      * @param catalogVersion Catalog version of the incoming partition snapshot.
@@ -131,14 +130,13 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     /**
-     * Collect indexes for {@link PartitionAccess#addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)}.
+     * Collect indexes for {@link PartitionAccess#addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)} (write committed only).
      *
-     * <p>Approximate index selection algorithm:</p>
+     * <p>Index selection algorithm:</p>
      * <ul>
      *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
      *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING}.</li>
-     *     <li>For a read-only index, if {@code commitTs} is strictly less than the activation time of status
-     *     {@link CatalogIndexStatus#STOPPING}.</li>
+     *     <li>For a read-only index, if {@code commitTs} is strictly less than the activation time of dropping the index.</li>
      * </ul>
      *
      * @param catalogVersion Catalog version of the incoming partition snapshot.
@@ -274,6 +272,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         var readOnlyIndexById = new HashMap<Integer, ReadOnlyIndexInfo>();
         var previousCatalogVersionTableIds = Set.<Integer>of();
 
+        // TODO: IGNITE-21514 Deal with catalog compaction
         for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
             long activationTs = catalogActivationTimestampBusy(catalogVersion);
 
@@ -283,6 +282,8 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
 
             Set<Integer> currentCatalogVersionTableIds = tableIds(catalogVersion);
 
+            // Here we look for indices that transitioned directly from AVAILABLE to [deleted] (corresponding to the logical READ_ONLY
+            // state) as such transitions only happen when a table is dropped.
             int finalCatalogVersion = catalogVersion;
             difference(previousCatalogVersionTableIds, currentCatalogVersionTableIds).stream()
                     .flatMap(droppedTableId -> catalogService.indexes(finalCatalogVersion - 1, droppedTableId).stream())

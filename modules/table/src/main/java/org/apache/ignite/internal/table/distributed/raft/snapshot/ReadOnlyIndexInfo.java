@@ -18,12 +18,17 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.tostring.S;
 
 /** Internal class for use in {@link FullStateTransferIndexChooser} for read-only indexes. */
 final class ReadOnlyIndexInfo implements Comparable<ReadOnlyIndexInfo> {
     private final int tableId;
 
+    /**
+     * Timestamp of activation of the catalog version in which the index got the status {@link CatalogIndexStatus#STOPPING} or the table was
+     * dropped and the index had the status {@link CatalogIndexStatus#AVAILABLE}.
+     */
     private final long activationTs;
 
     private final int indexId;
