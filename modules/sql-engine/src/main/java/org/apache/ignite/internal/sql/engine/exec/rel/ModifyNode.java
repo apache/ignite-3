@@ -52,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
  * </ol>
  * , where <ul>
  *     <li>[insert row type] is the same as [full row type]</li>
- *     <li>[delete row type] is the type of the row defined by {@link IgniteTable#deleteRowType(IgniteTypeFactory)}</li>
+ *     <li>[delete row type] is the type of the row defined by {@link IgniteTable#rowTypeForDelete(IgniteTypeFactory)}</li>
  *     <li>[columns to update] is the projection of [full row type] having only columns enumerated in
  *         {@link #updateColumns} (with respect to the order of the enumeration)</li>
  * </ul>

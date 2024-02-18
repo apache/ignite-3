@@ -87,7 +87,7 @@ public interface UpdatableTable {
      * Removes rows from the table if they are exactly the same as any of the specified rows.
      *
      * <p>Though this method has delete-exact semantic, implementations are allowed to apply optimisations like delete by primary key.
-     * The columns contained in the row for deletion are defined by {@link IgniteTable#deleteRowType(IgniteTypeFactory)}}.
+     * The columns contained in the row for deletion are defined by {@link IgniteTable#rowTypeForDelete(IgniteTypeFactory)}}.
      *
      * @param ectx An execution context.
      * @param rows Rows to delete.

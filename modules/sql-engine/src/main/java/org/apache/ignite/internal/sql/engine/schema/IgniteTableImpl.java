@@ -87,6 +87,21 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     }
 
     private static @Nullable ImmutableBitSet deriveColumnsToInsert(TableDescriptor desc) {
+        /*
+        Columns to insert are columns which will be expanded in case user omit
+        columns list in insert statement as in example below:
+
+            INSERT INTO table VALUES (1, 1); -- mind omitted columns list after table identifier
+
+        Although hidden columns are currently not supported by Ignite, we have special mode
+        where we allow to omit primary key declaration during table creation. In that case, we
+        inject the column that will serve as primary key, but this column must be hidden during
+        star expansion (SELECT * FROM ... clause), as well as must be ignored during columns
+        list inference for INSERT INTO statement.
+
+        See org.apache.ignite.internal.sql.engine.util.Commons.implicitPkEnabled, and
+        org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl.injectDefault for details.
+         */
         ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
 
         boolean hiddenColumnFound = false;
@@ -159,13 +174,13 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType insertRowType(IgniteTypeFactory factory) {
+    public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
         return descriptor().rowType(factory, columnsToInsert);
     }
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType deleteRowType(IgniteTypeFactory factory) {
+    public RelDataType rowTypeForDelete(IgniteTypeFactory factory) {
         return deriveDeleteRowType(factory, descriptor(), keyColumns);
     }
 }

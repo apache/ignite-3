@@ -41,7 +41,7 @@ public interface IgniteTable extends IgniteDataSource {
      * @param factory Type factory.
      * @return Row type for INSERT operation.
      */
-    RelDataType insertRowType(IgniteTypeFactory factory);
+    RelDataType rowTypeForInsert(IgniteTypeFactory factory);
 
     /**
      * Returns row type containing only key fields.
@@ -49,7 +49,7 @@ public interface IgniteTable extends IgniteDataSource {
      * @param factory Type factory.
      * @return Row type for DELETE operation.
      */
-    RelDataType deleteRowType(IgniteTypeFactory factory);
+    RelDataType rowTypeForDelete(IgniteTypeFactory factory);
 
     /** Return indexes of column representing primary key in the order they are specified in the index. */
     ImmutableIntList keyColumns();

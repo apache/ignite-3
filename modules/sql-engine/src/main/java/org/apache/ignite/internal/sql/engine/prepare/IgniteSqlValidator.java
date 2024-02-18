@@ -442,7 +442,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         IgniteTable igniteTable = getTableForModification(targetTable);
 
-        igniteTable.deleteRowType((IgniteTypeFactory) typeFactory)
+        igniteTable.rowTypeForDelete((IgniteTypeFactory) typeFactory)
                 .getFieldNames().stream()
                 .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
@@ -828,7 +828,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private SqlNodeList inferColumnList(IgniteTable igniteTable) {
         SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
 
-        for (RelDataTypeField field : igniteTable.insertRowType(typeFactory()).getFieldList()) {
+        for (RelDataTypeField field : igniteTable.rowTypeForInsert(typeFactory()).getFieldList()) {
             columnList.add(new SqlIdentifier(field.getName(), SqlParserPos.ZERO));
         }
 

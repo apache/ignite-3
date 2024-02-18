@@ -688,12 +688,12 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         }
 
         @Override
-        public RelDataType insertRowType(IgniteTypeFactory factory) {
+        public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
             throw new AssertionError();
         }
 
         @Override
-        public RelDataType deleteRowType(IgniteTypeFactory factory) {
+        public RelDataType rowTypeForDelete(IgniteTypeFactory factory) {
             throw new AssertionError();
         }
     }
