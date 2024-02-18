@@ -92,6 +92,9 @@ public class RebalanceUtil {
      */
     private static final int OUTDATED_UPDATE_RECEIVED = 5;
 
+    /** Rebalance scheduler pool size. */
+    public static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Runtime.getRuntime().availableProcessors() * 3, 20);
+
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
@@ -298,6 +301,10 @@ public class RebalanceUtil {
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
 
+    public static final String PARTITIONS_COUNTER_PREFIX = "partitions.counter.";
+
+    public static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
+
     /**
      * Key that is needed for the rebalance algorithm.
      *
@@ -364,14 +371,16 @@ public class RebalanceUtil {
         return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
     }
 
-    /**
-     * Extract table id from a metastorage key of partition.
-     *
-     * @param key Key.
-     * @return Table id.
-     */
-    public static int extractTableId(byte[] key) {
-        return extractTableId(key, "");
+    public static ByteArray partitionsCounterKey(int zoneId) {
+        return new ByteArray(PARTITIONS_COUNTER_PREFIX + zoneId);
+    }
+
+    public static ByteArray partitionsCounterPrefixKey() {
+        return new ByteArray(PARTITIONS_COUNTER_PREFIX);
+    }
+
+    public static ByteArray raftConfigurationAppliedKey(TablePartitionId partId) {
+        return new ByteArray(RAFT_CONF_APPLIED_PREFIX + partId);
     }
 
     /**
@@ -385,6 +394,19 @@ public class RebalanceUtil {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
         return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+    }
+
+    /**
+     * Extract table id from a metastorage key of partition.
+     *
+     * @param key Key.
+     * @param prefix Key prefix.
+     * @return Table id.
+     */
+    public static int extractZoneId(byte[] key, String prefix) {
+        String strKey = new String(key, StandardCharsets.UTF_8);
+
+        return Integer.parseInt(strKey.substring(prefix.length()));
     }
 
     /**

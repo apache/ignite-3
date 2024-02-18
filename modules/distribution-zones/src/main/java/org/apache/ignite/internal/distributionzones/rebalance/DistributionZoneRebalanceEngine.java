@@ -19,21 +19,34 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doOnNewPeersConfigurationApplied;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PARTITIONS_COUNTER_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionsCounterPrefixKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -42,11 +55,14 @@ import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -73,8 +89,13 @@ public class DistributionZoneRebalanceEngine {
     /** Meta storage listener for data nodes changes. */
     private final WatchListener dataNodesListener;
 
+    /** Meta storage listener for data nodes changes. */
+    private final WatchListener partitionsCounterListener;
+
     /** Catalog service. */
     private final CatalogService catalogService;
+
+    private final ScheduledExecutorService rebalanceScheduler;
 
     /**
      * Constructor.
@@ -88,7 +109,8 @@ public class DistributionZoneRebalanceEngine {
             IgniteSpinBusyLock busyLock,
             MetaStorageManager metaStorageManager,
             DistributionZoneManager distributionZoneManager,
-            CatalogManager catalogService
+            CatalogManager catalogService,
+            ScheduledExecutorService rebalanceScheduler
     ) {
         this.busyLock = busyLock;
         this.metaStorageManager = metaStorageManager;
@@ -96,6 +118,8 @@ public class DistributionZoneRebalanceEngine {
         this.catalogService = catalogService;
 
         this.dataNodesListener = createDistributionZonesDataNodesListener();
+        this.partitionsCounterListener = createPartitionsCounterListener();
+        this.rebalanceScheduler = rebalanceScheduler;
     }
 
     /**
@@ -112,6 +136,8 @@ public class DistributionZoneRebalanceEngine {
 
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
             metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
+
+            metaStorageManager.registerPrefixWatch(partitionsCounterPrefixKey(), partitionsCounterListener);
 
             CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -174,7 +200,7 @@ public class DistributionZoneRebalanceEngine {
                         return nullCompletedFuture();
                     }
 
-                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
+                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
                     int catalogVersion = catalogService.latestCatalogVersion();
@@ -196,7 +222,7 @@ public class DistributionZoneRebalanceEngine {
                         return nullCompletedFuture();
                     }
 
-                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, catalogVersion);
+                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, catalogVersion, catalogService);
 
                     return triggerPartitionsRebalanceForAllTables(
                             evt.entryEvent().newEntry().revision(),
@@ -214,11 +240,102 @@ public class DistributionZoneRebalanceEngine {
         };
     }
 
+    private WatchListener createPartitionsCounterListener() {
+        return new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                return IgniteUtils.inBusyLockAsync(busyLock, () -> {
+
+                    int counter = bytesToInt(event.entryEvent().newEntry().value());
+
+                    if (counter > 0) {
+                        LOG.info(">>>> Skipped");
+                        return nullCompletedFuture();
+                    }
+
+                    int zoneId = extractZoneId(event.entryEvent().newEntry().key(), PARTITIONS_COUNTER_PREFIX);
+
+                    List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogService.latestCatalogVersion(), catalogService);
+
+                    rebalanceScheduler.schedule(() -> {
+                        if (!busyLock.enterBusy()) {
+                            return;
+                        }
+
+                        LOG.info("");
+
+                        try {
+                            Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
+
+                            int partitions = catalogService.zone(zoneId, catalogService.latestCatalogVersion()).partitions();
+
+                            for (CatalogTableDescriptor table : tables) {
+                                for (int i = 0; i < partitions; i++) {
+                                    TablePartitionId partId = new TablePartitionId(table.id(), i);
+                                    partitionTablesKeys.put(raftConfigurationAppliedKey(partId), partId);
+                                }
+                            }
+
+                            Map<ByteArray, Entry> entriesMap = metaStorageManager.getAll(partitionTablesKeys.keySet()).get();
+
+                            entriesMap.forEach((key, stable) -> {
+                                doOnNewPeersConfigurationApplied(
+                                        fromBytes(stable.value()),
+                                        partitionTablesKeys.get(key),
+                                        metaStorageManager,
+                                        catalogService,
+                                        distributionZoneManager
+                                );
+                            });
+
+                        } catch (Exception e) {
+                            LOG.info("");
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
+                    }, 0, TimeUnit.MILLISECONDS);
+
+
+                    return nullCompletedFuture();
+                });
+            }
+
+            @Override
+            public void onError(Throwable e) {
+
+            }
+        };
+    }
+
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
         return recalculateAssignmentsAndScheduleRebalance(
                 parameters.zoneDescriptor(),
                 parameters.causalityToken(),
                 parameters.catalogVersion()
+        );
+    }
+
+    static CompletableFuture<Set<Assignment>> calculateAssignments(
+            TablePartitionId tablePartitionId,
+            CatalogService catalogService,
+            DistributionZoneManager distributionZoneManager
+    ) {
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        CatalogTableDescriptor tableDescriptor = catalogService.table(tablePartitionId.tableId(), catalogVersion);
+
+        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+
+        return distributionZoneManager.dataNodes(
+                zoneDescriptor.updateToken(),
+                catalogVersion,
+                tableDescriptor.zoneId()
+        ).thenApply(dataNodes ->
+                AffinityUtils.calculateAssignmentForPartition(
+                        dataNodes,
+                        tablePartitionId.partitionId(),
+                        zoneDescriptor.replicas()
+                )
         );
     }
 
@@ -233,7 +350,8 @@ public class DistributionZoneRebalanceEngine {
     private CompletableFuture<Void> recalculateAssignmentsAndScheduleRebalance(
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
-            int catalogVersion) {
+            int catalogVersion
+    ) {
 
         return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> {
@@ -241,7 +359,7 @@ public class DistributionZoneRebalanceEngine {
                         return nullCompletedFuture();
                     }
 
-                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneDescriptor.id(), catalogVersion);
+                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneDescriptor.id(), catalogVersion, catalogService);
 
                     return triggerPartitionsRebalanceForAllTables(
                             causalityToken,
@@ -304,12 +422,6 @@ public class DistributionZoneRebalanceEngine {
         }
 
         return allOf(tableFutures.toArray(CompletableFuture[]::new));
-    }
-
-    private List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, int catalogVersion) {
-        return catalogService.tables(catalogVersion).stream()
-                .filter(table -> table.zoneId() == zoneId)
-                .collect(toList());
     }
 
     private static String tableInfo(CatalogTableDescriptor tableDescriptor) {

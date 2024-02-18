@@ -29,19 +29,27 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionsCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -69,7 +77,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -97,6 +104,8 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -155,7 +164,6 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
@@ -332,9 +340,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
 
-    /** Rebalance scheduler pool size. */
-    private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Runtime.getRuntime().availableProcessors() * 3, 20);
-
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
 
@@ -431,7 +436,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            ScheduledExecutorService rebalanceScheduler
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -455,6 +461,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.placementDriver = placementDriver;
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
+        this.rebalanceScheduler = rebalanceScheduler;
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -485,9 +492,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
-
-        rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -801,6 +805,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int tableId = table.tableId();
 
+        int zoneId = getTableDescriptor(tableId, catalogService.latestCatalogVersion()).zoneId();
+
         InternalTable internalTbl = table.internalTable();
 
         Assignment localMemberAssignment = newPartAssignment.stream()
@@ -875,7 +881,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             internalTbl,
                             partitionStorages.getTxStateStorage(),
                             partitionDataStorage,
-                            partitionUpdateHandlers
+                            partitionUpdateHandlers,
+                            zoneId
                     );
 
                     return true;
@@ -1446,26 +1453,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         metaStorageMgr.removeAll(assignmentKeys);
     }
 
-    private CompletableFuture<Set<Assignment>> calculateAssignments(TablePartitionId tablePartitionId) {
-        int catalogVersion = catalogService.latestCatalogVersion();
-
-        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
-
-        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
-
-        return distributionZoneManager.dataNodes(
-                zoneDescriptor.updateToken(),
-                catalogVersion,
-                tableDescriptor.zoneId()
-        ).thenApply(dataNodes ->
-                AffinityUtils.calculateAssignmentForPartition(
-                        dataNodes,
-                        tablePartitionId.partitionId(),
-                        zoneDescriptor.replicas()
-                )
-        );
-    }
-
     @Override
     public List<Table> tables() {
         return join(tablesAsync());
@@ -1778,9 +1765,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         // Table can be null only recovery, because we use a revision from the future. See comment inside
                         // performRebalanceOnRecovery.
                         if (table == null) {
-                            if (LOG.isInfoEnabled()) {
-                                LOG.info("Skipping Pending Assignments update, because table {} does not exist", tblId);
-                            }
+                            assert false : "Table cannot be null.";
 
                             return CompletableFutures.<Void>nullCompletedFuture();
                         }
@@ -1797,13 +1782,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 ? emptySet()
                                 : ByteUtils.fromBytes(stableAssignmentsEntry.value());
 
-                        return handleChangePendingAssignmentEvent(
-                                    replicaGrpId,
-                                    table,
-                                    pendingAssignments,
-                                    stableAssignments,
-                                    revision,
-                                    isRecovery
+                        return setTablesPartitionCountersForRebalance(tblId)
+                                .thenCompose(r ->
+                                        handleChangePendingAssignmentEvent(
+                                                replicaGrpId,
+                                                table,
+                                                pendingAssignments,
+                                                stableAssignments,
+                                                revision,
+                                                isRecovery
+                                        )
                                 )
                                 .thenCompose(v -> changePeersOnRebalance(table, replicaGrpId, pendingAssignments, revision));
                     } finally {
@@ -1869,6 +1857,43 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
+    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(int tblId) {
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(getTableDescriptor(tblId, catalogVersion), catalogVersion);
+
+        int zoneId = zoneDescriptor.id();
+
+        int partitionsCount = zoneDescriptor.partitions();
+
+        Condition condition = or(
+                notExists(partitionsCounterKey(zoneId)),
+                value(partitionsCounterKey(zoneId)).eq(intToBytes(0))
+        );
+
+        byte[] countersValue = intToBytes(findTablesByZoneId(zoneId, catalogVersion, catalogService).size() * partitionsCount);
+
+        return metaStorageMgr.invoke(iif(
+                condition,
+                ops(put(partitionsCounterKey(zoneId), countersValue)).yield(true),
+                ops().yield(false)
+        )).whenComplete((res, e) -> {
+            if (e != null) {
+                LOG.error(
+                        "Failed"
+                );
+            } else if (res.getAsBoolean()) {
+                LOG.info(
+                        "Updated"
+                );
+            } else {
+                LOG.info(
+                        "Not updated"
+                );
+            }
+        }).thenCompose((ignored) -> nullCompletedFuture());
+    }
+
     private CompletableFuture<Void> changePeersOnRebalance(
             TableImpl table,
             TablePartitionId replicaGrpId,
@@ -1929,7 +1954,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             InternalTable internalTable,
             TxStateStorage txStatePartitionStorage,
             PartitionDataStorage partitionDataStorage,
-            PartitionUpdateHandlers partitionUpdateHandlers
+            PartitionUpdateHandlers partitionUpdateHandlers,
+            int zoneId
     ) throws NodeStoppingException {
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 internalTable.storage(),
@@ -1953,8 +1979,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 replicaGrpId,
                 busyLock,
                 createPartitionMover(internalTable, replicaGrpId.partitionId()),
-                this::calculateAssignments,
-                rebalanceScheduler
+                rebalanceScheduler,
+                zoneId
         );
 
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273

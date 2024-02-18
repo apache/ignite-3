@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.recoverable;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -46,7 +46,7 @@ public class PartitionMover {
     /**
      * Constructor.
      */
-    PartitionMover(IgniteSpinBusyLock busyLock, Supplier<RaftGroupService> raftGroupServiceSupplier) {
+    public PartitionMover(IgniteSpinBusyLock busyLock, Supplier<RaftGroupService> raftGroupServiceSupplier) {
         this.busyLock = busyLock;
         this.raftGroupServiceSupplier = raftGroupServiceSupplier;
     }

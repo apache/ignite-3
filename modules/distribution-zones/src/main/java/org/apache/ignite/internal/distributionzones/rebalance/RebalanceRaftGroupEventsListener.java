@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft;
+package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine.calculateAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionsCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
@@ -26,25 +29,28 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -58,7 +64,6 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.PartitionMover;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -88,6 +93,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Success code for the MetaStorage stable assignments change. */
     private static final int FINISH_REBALANCE_SUCCESS = 4;
 
+    private static final int PART_COUNTER_DECREMENT_SUCCESS = 5;
+
     /** Failure code for the MetaStorage switch append assignments change. */
     private static final int SWITCH_APPEND_FAIL = -SWITCH_APPEND_SUCCESS;
 
@@ -99,6 +106,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** Failure code for the MetaStorage stable assignments change. */
     private static final int FINISH_REBALANCE_FAIL = -FINISH_REBALANCE_SUCCESS;
+
+    private static final int PART_COUNTER_DECREMENT_FAIL = -PART_COUNTER_DECREMENT_SUCCESS;
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
@@ -112,14 +121,13 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Executor for scheduling rebalance retries. */
     private final ScheduledExecutorService rebalanceScheduler;
 
+    private final int zoneId;
+
     /** Performs reconfiguration of a Raft group of a partition. */
     private final PartitionMover partitionMover;
 
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
-
-    /** Function that calculates assignments for table's partition. */
-    private final Function<TablePartitionId, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
 
     /**
      * Constructs new listener.
@@ -128,7 +136,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param tablePartitionId Partition id.
      * @param busyLock Busy lock.
      * @param partitionMover Class that moves partition between nodes.
-     * @param calculateAssignmentsFn Function that calculates assignments for table's partition.
      * @param rebalanceScheduler Executor for scheduling rebalance retries.
      */
     public RebalanceRaftGroupEventsListener(
@@ -136,15 +143,15 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             TablePartitionId tablePartitionId,
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
-            Function<TablePartitionId, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
-            ScheduledExecutorService rebalanceScheduler
+            ScheduledExecutorService rebalanceScheduler,
+            int zoneId
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.tablePartitionId = tablePartitionId;
         this.busyLock = busyLock;
         this.partitionMover = partitionMover;
-        this.calculateAssignmentsFn = calculateAssignmentsFn;
         this.rebalanceScheduler = rebalanceScheduler;
+        this.zoneId = zoneId;
     }
 
     /** {@inheritDoc} */
@@ -214,13 +221,64 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 }
 
                 try {
-                    doOnNewPeersConfigurationApplied(configuration);
+                    Set<Assignment> stable = createAssignments(configuration);
+
+                    countDownPartitionsFromZone(stable);
                 } finally {
                     busyLock.leaveBusy();
                 }
             }, 0, TimeUnit.MILLISECONDS);
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * This method count downs the counter for partitions from tables from the corresponding zone when raft configuration
+     * of the partitions raft group gas been successfully changed.
+     *
+     * @param stable Stable assignments to save to metastore for further stable switch.
+     */
+    private void countDownPartitionsFromZone(Set<Assignment> stable) {
+        try {
+            Entry counterEntry = metaStorageMgr.get(partitionsCounterKey(zoneId)).get();
+
+            assert counterEntry.value() != null;
+
+            int counter = bytesToInt(counterEntry.value());
+
+            assert counter > 0;
+
+            Condition condition = value(partitionsCounterKey(zoneId)).eq(counterEntry.value());
+
+            byte[] stableArray = ByteUtils.toBytes(stable);
+
+            Update successCase = ops(
+                    put(partitionsCounterKey(zoneId), intToBytes(counter - 1)),
+                    put(raftConfigurationAppliedKey(tablePartitionId), stableArray)
+            ).yield(PART_COUNTER_DECREMENT_SUCCESS);
+
+            Update failCase = ops().yield(PART_COUNTER_DECREMENT_FAIL);
+
+            int res = metaStorageMgr.invoke(iif(condition, successCase, failCase)).get().getAsInt();
+
+            if (res < 0) {
+                LOG.info("Count down of zone's partitions is failed. "
+                                + "Going to retry [zoneId={}, appliedPeers={}]",
+                        zoneId, stable
+                );
+
+                countDownPartitionsFromZone(stable);
+
+                return;
+            } else {
+                LOG.info("Count down of zone's partitions is succeeded [zoneId={}, appliedPeers={}]", zoneId, stable);
+            }
+
+            rebalanceAttempts.set(0);
+        } catch (InterruptedException | ExecutionException e) {
+            // TODO: IGNITE-14693
+            LOG.warn("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
         }
     }
 
@@ -288,7 +346,13 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /**
      * Implementation of {@link RebalanceRaftGroupEventsListener#onNewPeersConfigurationApplied}.
      */
-    private void doOnNewPeersConfigurationApplied(PeersAndLearners configuration) {
+    public static void doOnNewPeersConfigurationApplied(
+            Set<Assignment> stable,
+            TablePartitionId tablePartitionId,
+            MetaStorageManager metaStorageMgr,
+            CatalogService catalogService,
+            DistributionZoneManager distributionZoneManager
+    ) {
         try {
             ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(tablePartitionId);
             ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(tablePartitionId);
@@ -307,7 +371,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     )
             ).get();
 
-            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId).get();
+            Set<Assignment> calculatedAssignments = calculateAssignments(tablePartitionId, catalogService, distributionZoneManager).get();
 
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);
@@ -318,9 +382,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedStable = readAssignments(stableEntry);
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry);
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry);
-
-
-            Set<Assignment> stable = createAssignments(configuration);
 
             // Were reduced
             Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stable);
@@ -442,7 +503,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                         break;
                 }
 
-                doOnNewPeersConfigurationApplied(configuration);
+                doOnNewPeersConfigurationApplied(
+                        stable,
+                        tablePartitionId,
+                        metaStorageMgr,
+                        catalogService,
+                        distributionZoneManager
+                );
+
                 return;
             }
 
@@ -473,7 +541,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     break;
             }
 
-            rebalanceAttempts.set(0);
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
             LOG.warn("Unable to commit partition configuration to metastore: " + tablePartitionId, e);

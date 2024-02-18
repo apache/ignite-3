@@ -62,6 +62,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -732,7 +733,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
-                mock(FailureProcessor.class)
+                mock(FailureProcessor.class),
+                mock(ScheduledExecutorService.class)
         ) {
 
             @Override
