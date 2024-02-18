@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 
-import org.apache.ignite.internal.storage.ThreadAssertingCursor;
+import org.apache.ignite.internal.worker.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
 

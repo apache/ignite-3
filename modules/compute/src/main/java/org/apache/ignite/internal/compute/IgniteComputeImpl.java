@@ -20,7 +20,9 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -147,7 +149,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         try {
             return this.<R>executeAsync(nodes, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
     }
 
@@ -268,7 +270,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         try {
             return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
     }
 
@@ -287,7 +289,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync()
                     .join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
     }
 

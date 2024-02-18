@@ -752,8 +752,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
             ClusterNode recipientNode = ignite.clusterNodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
                     .findFirst().get();
+            tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
 
-            publisher = internalTable.scan(PART_ID, ignite.clock().now(), recipientNode);
+            publisher = internalTable.scan(PART_ID, tx.id(), ignite.clock().now(), recipientNode);
         } else {
             if (!implicit) {
                 tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin();
@@ -812,7 +813,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                         .orElseThrow();
 
                 //noinspection DataFlowIssue
-                publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
+                publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
             } else {
                 PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 

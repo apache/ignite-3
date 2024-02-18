@@ -156,6 +156,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
@@ -180,6 +181,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -193,6 +195,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -371,6 +374,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
+    /** Index chooser for full state transfer. */
+    private final FullStateTransferIndexChooser fullStateTransferIndexChooser;
+
     /**
      * Creates a new table manager.
      *
@@ -521,16 +527,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txStateStoragePool,
                 TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
+
+        fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService);
     }
 
     @Override
     public CompletableFuture<Void> start() {
-        inBusyLock(busyLock, () -> {
+        return inBusyLockAsync(busyLock, () -> {
             mvGc.start();
 
             lowWatermark.start();
 
             transactionStateResolver.start();
+
+            fullStateTransferIndexChooser.start();
 
             CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
@@ -569,9 +579,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             });
 
             partitionReplicatorNodeRecovery.start();
-        });
 
-        return nullCompletedFuture();
+            return nullCompletedFuture();
+        });
     }
 
     private void processAssignmentsOnRecovery(long recoveryRevision) {
@@ -1035,7 +1045,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         txStateTableStorage,
                         mvGc,
                         partitionUpdateHandlers.indexUpdateHandler,
-                        partitionUpdateHandlers.gcUpdateHandler
+                        partitionUpdateHandlers.gcUpdateHandler,
+                        fullStateTransferIndexChooser
                 ),
                 catalogService,
                 incomingSnapshotsExecutor
@@ -1079,6 +1090,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         IgniteUtils.closeAllManually(
                 lowWatermark,
                 mvGc,
+                fullStateTransferIndexChooser,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
@@ -1148,7 +1160,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long causalityToken,
             int catalogVersion,
             CatalogTableDescriptor tableDescriptor,
-            // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
+            // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
             boolean onNodeRecovery
     ) {
         return inBusyLockAsync(busyLock, () -> {
@@ -1210,7 +1222,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogZoneDescriptor zoneDescriptor,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
             int catalogVersion,
-            // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
+            // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
             boolean onNodeRecovery
     ) {
         String tableName = tableDescriptor.name();
@@ -1240,7 +1252,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get());
 
-        // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
+        // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
@@ -1358,6 +1370,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 zoneDescriptor.partitions(),
                 sharedTxStateStorage
         );
+        if (ThreadAssertions.enabled()) {
+            txStateTableStorage = new ThreadAssertingTxStateTableStorage(txStateTableStorage);
+        }
 
         txStateTableStorage.start();
 
@@ -1410,20 +1425,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             // TODO: IGNITE-18703 Destroy raft log and meta
-            CompletableFuture<Void> destroyTableStoragesFuture = allOf(stopReplicaFutures)
+            return allOf(stopReplicaFutures)
                     .thenComposeAsync(
                             unused -> allOf(
                                     internalTable.storage().destroy(),
                                     runAsync(() -> internalTable.txStateStorage().destroy(), ioExecutor)
                             ),
                             ioExecutor
-                    );
-
-            CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId());
-
-            return allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture)
-                    .thenApply(v -> map);
+                    ).thenApply(v -> map);
         }));
+
+        schemaManager.dropRegistry(causalityToken, tableId);
 
         startedTables.remove(tableId);
 

@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -356,6 +357,19 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     private Row marshal(Tuple tuple, int schemaVersion, boolean keyOnly) throws IgniteException {
         TupleMarshaller marshaller = marshaller(schemaVersion);
 
+        return marshal(tuple, marshaller, keyOnly);
+    }
+
+    /**
+     * Marshal a tuple to a row.
+     *
+     * @param tuple The tuple.
+     * @param marshaller Marshaller.
+     * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
+     * @return Row.
+     * @throws IgniteException If failed to marshal tuple.
+     */
+    private static Row marshal(Tuple tuple, TupleMarshaller marshaller, boolean keyOnly) {
         try {
             if (keyOnly) {
                 return marshaller.marshalKey(tuple);
@@ -434,9 +448,21 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         return mapped;
     }
 
+    private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, int schemaVersion, @Nullable BitSet deleted) {
+        Collection<BinaryRowEx> mapped = new ArrayList<>(rows.size());
+        TupleMarshaller marshaller = marshaller(schemaVersion);
+
+        for (Tuple row : rows) {
+            boolean key = deleted != null && deleted.get(mapped.size());
+            mapped.add(marshal(row, marshaller, key));
+        }
+
+        return mapped;
+    }
+
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
@@ -455,6 +481,6 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      */
     public CompletableFuture<Void> updateAll(int partitionId, Collection<Tuple> rows, @Nullable BitSet deleted) {
         return withSchemaSync(null,
-                schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, false), deleted, partitionId));
+                schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId));
     }
 }

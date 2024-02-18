@@ -50,8 +50,6 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-placement-driver-api:'))
 
     testImplementation testFixtures(project(':ignite-core'))
-    testImplementation testFixtures(project(':ignite-network'))
-    testImplementation testFixtures(project(':ignite-configuration:'))
     testImplementation testFixtures(project(':ignite-placement-driver-api:'))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
@@ -63,6 +61,10 @@ dependencies {
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-cluster-management')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation testFixtures(project(':ignite-configuration:'))
+    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.jetbrains.annotations
 }
 
