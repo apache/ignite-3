@@ -773,11 +773,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 int partId = i;
 
                 CompletableFuture<?> future = startPartitionAndStartClient(
-                                table,
-                                partId,
-                                assignments.get(partId),
-                                false
-                        )
+                        table,
+                        partId,
+                        assignments.get(partId),
+                        assignments.get(partId),
+                        false
+                )
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
                                 LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
@@ -794,6 +795,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> startPartitionAndStartClient(
             TableImpl table,
             int partId,
+            Set<Assignment> oldPartAssignment,
             Set<Assignment> newPartAssignment,
             boolean isRecovery
     ) {
@@ -808,7 +810,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .findAny()
                 .orElse(null);
 
-        PeersAndLearners newConfiguration = configurationFromAssignments(newPartAssignment);
+        PeersAndLearners raftGroupConfiguration = configurationFromAssignments(oldPartAssignment);
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
@@ -832,7 +834,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 storageUpdateConfig
         );
 
-        Peer serverPeer = newConfiguration.peer(localNode().name());
+        Peer serverPeer = raftGroupConfiguration.peer(localNode().name());
 
         var raftNodeId = localMemberAssignment == null ? null : new RaftNodeId(replicaGrpId, serverPeer);
 
@@ -851,7 +853,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ? partitionReplicatorNodeRecovery.shouldStartGroup(
                             replicaGrpId,
                             internalTbl,
-                            newConfiguration,
+                            raftGroupConfiguration,
                             localMemberAssignment
                     )
                     : trueCompletedFuture();
@@ -869,7 +871,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     startPartitionRaftGroupNode(
                             replicaGrpId,
                             raftNodeId,
-                            newConfiguration,
+                            raftGroupConfiguration,
                             safeTimeTracker,
                             storageIndexTracker,
                             internalTbl,
@@ -892,7 +894,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     try {
                         //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
                         return raftMgr
-                                .startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
+                                .startRaftGroupService(
+                                        replicaGrpId,
+                                        raftGroupConfiguration,
+                                        raftGroupServiceFactory,
+                                        raftCommandsMarshaller
+                                );
                     } catch (NodeStoppingException ex) {
                         return failedFuture(ex);
                     }
@@ -1854,6 +1861,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> startPartitionAndStartClient(
                             tbl,
                             replicaGrpId.partitionId(),
+                            stableAssignments,
                             pendingAssignments,
                             isRecovery
                     )), ioExecutor);
