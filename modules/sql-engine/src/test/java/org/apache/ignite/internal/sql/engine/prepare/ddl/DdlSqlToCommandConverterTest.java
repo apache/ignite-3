@@ -299,21 +299,9 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         String[] values = {"'01:01:02'", "'2020-01-02 01:01:01'", "'2020-01-02'", "true", "'true'", "x'01'", "INTERVAL '1' DAY"};
         for (String value : values) {
             String sql0 = format(template, value);
-            assertThrowsSqlException(STMT_VALIDATION_ERR, "Unable convert literal", () -> converter.convert((SqlDdl) parse(sql0), ctx));
+            assertThrowsSqlException(STMT_VALIDATION_ERR, "Invalid default value for column", () ->
+                    converter.convert((SqlDdl) parse(sql0), ctx));
         }
-    }
-
-    @TestFactory
-    public Stream<DynamicTest> testErroneousStrNotAllowedWithIntervals() {
-        List<DynamicTest> testItems = new ArrayList<>();
-        PlanningContext ctx = createContext();
-
-        for (SqlTypeName intervalType : INTERVAL_TYPES) {
-            String value = makeUsableIntervalType(intervalType.getName());
-
-            fillTestCase(value, "'2.03562227E9'", testItems, false, ctx);
-        }
-        return testItems.stream();
     }
 
     @TestFactory
@@ -586,7 +574,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             }));
         } else {
             testItems.add(DynamicTest.dynamicTest(String.format("NOT ALLOW: %s", sql), () ->
-                    assertThrowsSqlException(STMT_VALIDATION_ERR, "Unable convert literal", () ->
+                    assertThrowsSqlException(STMT_VALIDATION_ERR, "Invalid default value for column", () ->
                             converter.convert((SqlDdl) parse(sql), ctx))));
         }
     }

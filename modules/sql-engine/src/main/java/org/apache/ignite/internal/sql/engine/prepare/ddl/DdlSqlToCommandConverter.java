@@ -366,7 +366,7 @@ public class DdlSqlToCommandConverter {
 
             dedupSetPk.remove(name);
 
-            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
+            DefaultValueDefinition dflt = convertDefault(col.expression, relType, name);
             if (dflt.type() == DefaultValueDefinition.Type.FUNCTION_CALL && !pkCols.contains(name)) {
                 throw new SqlException(STMT_VALIDATION_ERR,
                         "Functional defaults are not supported for non-primary key columns [col=" + name + "]");
@@ -408,9 +408,8 @@ public class DdlSqlToCommandConverter {
 
             Boolean nullable = col.dataType.getNullable();
             RelDataType relType = ctx.planner().convert(col.dataType, nullable != null ? nullable : true);
-            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
-
             String name = col.name.getSimple();
+            DefaultValueDefinition dflt = convertDefault(col.expression, relType, name);
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
@@ -420,7 +419,7 @@ public class DdlSqlToCommandConverter {
         return alterTblCmd;
     }
 
-    private static DefaultValueDefinition convertDefault(@Nullable SqlNode expression, RelDataType relType) {
+    private static DefaultValueDefinition convertDefault(@Nullable SqlNode expression, RelDataType relType, String name) {
         if (expression == null) {
             return DefaultValueDefinition.constant(null);
         } else if (expression instanceof SqlIdentifier) {
@@ -429,7 +428,7 @@ public class DdlSqlToCommandConverter {
             ColumnType columnType = TypeUtils.columnType(relType);
             assert columnType != null : "RelType to columnType conversion should not return null";
 
-            Object val = fromLiteral(columnType, (SqlLiteral) expression, relType.getPrecision(), relType.getScale());
+            Object val = fromLiteral(columnType, name, (SqlLiteral) expression, relType.getPrecision(), relType.getScale());
             return DefaultValueDefinition.constant(val);
         } else {
             throw new IllegalArgumentException("Unsupported default expression: " + expression.getKind());
@@ -461,9 +460,10 @@ public class DdlSqlToCommandConverter {
 
             int precision = relType == null ? PRECISION_NOT_SPECIFIED : relType.getPrecision();
             int scale = relType == null ? SCALE_NOT_SPECIFIED : relType.getScale();
+            String name = alterColumnNode.columnName().getSimple();
 
             if (expr instanceof SqlLiteral) {
-                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, (SqlLiteral) expr, precision, scale));
+                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, name, (SqlLiteral) expr, precision, scale));
             } else {
                 throw new IllegalStateException("Invalid expression type " + expr.getKind());
             }
@@ -845,7 +845,7 @@ public class DdlSqlToCommandConverter {
     /**
      * Creates a value of required type from the literal.
      */
-    private static @Nullable Object fromLiteral(ColumnType columnType, SqlLiteral literal, int precision, int scale) {
+    private static @Nullable Object fromLiteral(ColumnType columnType, String name, SqlLiteral literal, int precision, int scale) {
         if (literal.getValue() == null) {
             return null;
         }
@@ -855,7 +855,7 @@ public class DdlSqlToCommandConverter {
                 case PERIOD: {
                     if (!(literal instanceof SqlIntervalLiteral)) {
                         throw new SqlException(STMT_VALIDATION_ERR,
-                                "Default expression can`t be applied to interval type");
+                                "Default expression is not belongs to interval type");
                     }
 
                     String strValue = Objects.requireNonNull(literal.toValue());
@@ -871,7 +871,7 @@ public class DdlSqlToCommandConverter {
                 case DURATION: {
                     if (!(literal instanceof SqlIntervalLiteral)) {
                         throw new SqlException(STMT_VALIDATION_ERR,
-                                "Default expression can`t be applied to interval type");
+                                "Default expression is not belongs to interval type");
                     }
                     String strValue = Objects.requireNonNull(literal.toValue());
                     SqlNumericLiteral numLiteral = SqlLiteral.createExactNumeric(strValue, literal.getParserPosition());
@@ -976,7 +976,7 @@ public class DdlSqlToCommandConverter {
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(STMT_VALIDATION_ERR, "Unable convert literal: " + literal.toValue(), th);
+            throw new SqlException(STMT_VALIDATION_ERR, format("Invalid default value for column '{}'", name), th);
         }
     }
 
