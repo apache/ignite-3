@@ -184,7 +184,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -688,7 +687,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-        byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
+        byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
 
         AtomicBoolean stopDropping = new AtomicBoolean(true);
 
