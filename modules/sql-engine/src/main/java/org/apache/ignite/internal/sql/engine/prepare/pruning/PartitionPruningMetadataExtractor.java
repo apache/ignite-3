@@ -196,8 +196,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
     /** Extracts values of colocated columns from the given condition. */
     @VisibleForTesting
-    @Nullable
-    public static PartitionPruningColumns extractMetadata(IntList keys, RexNode condition, RexBuilder rexBuilder) {
+    public static @Nullable PartitionPruningColumns extractMetadata(IntList keys, RexNode condition, RexBuilder rexBuilder) {
         Result res = extractMetadata(condition, keys, rexBuilder, false);
 
         // Both unknown condition and additional condition can not be used to extract metadata.

@@ -18,15 +18,19 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Tuple representing the number of the partition with node enlistment consistency token.
  */
 public class PartitionWithConsistencyToken {
     /** Partition number. */
+    @IgniteToStringInclude
     private final int partId;
 
     /** Enlistment consistency token. */
+    @IgniteToStringInclude
     private final long enlistmentConsistencyToken;
 
     /**
@@ -80,6 +84,6 @@ public class PartitionWithConsistencyToken {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return partId + ":" + enlistmentConsistencyToken;
+        return S.toString(this);
     }
 }

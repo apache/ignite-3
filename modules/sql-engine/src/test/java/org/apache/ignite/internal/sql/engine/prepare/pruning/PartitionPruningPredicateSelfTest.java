@@ -61,6 +61,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -86,9 +87,6 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                         // TODO https://issues.apache.org/jira/browse/IGNITE-15200 Include interval types after this issue is resolved
                         && t != ColumnType.DURATION
                         && t != ColumnType.PERIOD
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
-                        //  because it allows to support CAST('uuid-str' AS UUID) expressions.
-                        && t != ColumnType.UUID
                 )
                 .collect(Collectors.toList());
     }
@@ -96,6 +94,10 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("columnTypes")
     public void testLiteralValue(ColumnType columnType) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
+        //  because it allows to support CAST('uuid-str' AS UUID) expressions.
+        Assumptions.assumeFalse(columnType == ColumnType.UUID);
+
         IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
 
         NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 2, 2, 2);

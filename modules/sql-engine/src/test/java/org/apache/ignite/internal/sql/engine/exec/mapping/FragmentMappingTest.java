@@ -234,6 +234,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
         addTable("T1", "N1", "N2", "N3");
         addTable("T2", "N4", "N5");
+        addTable("T3", "N1", "N2", "N3");
 
         testRunner.runTest(this::initSchema, "test_partition_pruning.test");
     }

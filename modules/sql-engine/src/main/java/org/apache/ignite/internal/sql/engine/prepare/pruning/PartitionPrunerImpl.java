@@ -34,12 +34,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Applies partition pruning. */
 public class PartitionPrunerImpl implements PartitionPruner {
-
-    /** Constructor. */
-    public PartitionPrunerImpl() {
-
-    }
-
     /** {@inheritDoc} */
     @Override
     public List<MappedFragment> apply(
@@ -64,13 +58,6 @@ public class PartitionPrunerImpl implements PartitionPruner {
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
 
         for (MappedFragment mappedFragment : mappedFragments) {
-            // Fragment that contains colocated operators has exactly one colocation group.
-            // Do not attempt to apply PP to other fragments.
-            if (mappedFragment.groups().size() != 1) {
-                updatedFragments.add(mappedFragment);
-                continue;
-            }
-
             Fragment fragment = mappedFragment.fragment();
             if (fragment.tables().isEmpty()) {
                 updatedFragments.add(mappedFragment);
@@ -153,8 +140,7 @@ public class PartitionPrunerImpl implements PartitionPruner {
         return updatedFragments;
     }
 
-    @Nullable
-    private static MappedFragment updateColocationGroups(
+    private static @Nullable MappedFragment updateColocationGroups(
             MappedFragment mappedFragment,
             PartitionPruningMetadata pruningMetadata,
             Object[] dynamicParameters
@@ -188,8 +174,10 @@ public class PartitionPrunerImpl implements PartitionPruner {
         return mappedFragment.replaceColocationGroups(newColocationGroups);
     }
 
-    @Nullable
-    private static MappedFragment updateSourceExchanges(MappedFragment mappedFragment, Long2ObjectMap<List<String>> newNodesByExchangeId) {
+    private static @Nullable MappedFragment updateSourceExchanges(
+            MappedFragment mappedFragment,
+            Long2ObjectMap<List<String>> newNodesByExchangeId
+    ) {
         Fragment fragment = mappedFragment.fragment();
         MappedFragment[] result = {mappedFragment};
 

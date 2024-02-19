@@ -59,8 +59,7 @@ public final class PartitionPruningPredicate {
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
     //  remaining partitions should always be not null.
-    @Nullable
-    private final IntSet remainingPartitions;
+    private final @Nullable IntSet remainingPartitions;
 
     /**
      * Constructor.
@@ -122,8 +121,8 @@ public final class PartitionPruningPredicate {
         );
     }
 
-    @Nullable
-    private static IntSet computeRemainingPartitions(
+
+    private static @Nullable IntSet computeRemainingPartitions(
             IgniteTable table,
             PartitionPruningColumns pruningColumns,
             Object[] dynamicParameters
@@ -139,7 +138,7 @@ public final class PartitionPruningPredicate {
 
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21543
                 //  Remove after this issue makes it possible to have CAST('uuid_str' AS UUID) as value.
-                if (physicalType.spec() == NativeTypeSpec.UUID) {
+                if (physicalType.spec() == NativeTypeSpec.UUID && !(node instanceof RexDynamicParam)) {
                     return null;
                 }
 
@@ -155,8 +154,7 @@ public final class PartitionPruningPredicate {
         return remainingPartitions;
     }
 
-    @Nullable
-    private static Object getNodeValue(NativeType physicalType, RexNode node, Object[] dynamicParameters) {
+    private static @Nullable Object getNodeValue(NativeType physicalType, RexNode node, Object[] dynamicParameters) {
         Object val;
 
         if (node instanceof RexLiteral) {
@@ -171,8 +169,7 @@ public final class PartitionPruningPredicate {
         return val;
     }
 
-    @Nullable
-    private static Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
+    private static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
         if (physicalType.spec() == NativeTypeSpec.DATE) {
             Calendar calendar = lit.getValueAs(Calendar.class);
             Instant instant = calendar.toInstant();
