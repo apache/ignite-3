@@ -26,7 +26,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -98,17 +97,9 @@ public class IgniteSqlFunctions {
      * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
      */
     public static long timestampStringToNumeric(String dtStr) {
-        // TODO remove try/catch?
-        try {
-            return timestampStringToNumeric0(dtStr);
-        } catch (DateTimeException e) {
-            throw new SqlException(RUNTIME_ERR, e.getMessage());
-        }
-    }
-
-    private static long timestampStringToNumeric0(String dtStr) {
         dtStr = dtStr.trim();
-        //"YYYY-MM-dd HH:mm:ss.ninenanos"
+
+        // YYYY-MM-dd HH:mm:ss.ninenanos
         if (dtStr.length() > 29) {
             dtStr = dtStr.substring(0, 29);
         }
@@ -566,8 +557,8 @@ public class IgniteSqlFunctions {
         return args1;
     }
 
-    /** TODO Returns adjusted time value. */
-    public static Long adjustTimeZone(Long timestamp, TimeZone timeZone) {
+    /** Returns the timestamp value minus specified timezone offset. */
+    public static Long timestampAtTimeZone(Long timestamp, TimeZone timeZone) {
         // A second offset calculation is required to handle DST transition period correctly.
         int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
 

@@ -855,7 +855,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 Object val = literal.getValueAs(Long.class);
 
-                return Expressions.call(IgniteMethod.ADJUST_CLIENT_TIME_ZONE.method(), Expressions.constant(val, long.class),
+                return Expressions.call(IgniteMethod.TIMESTAMP_AT_TIME_ZONE.method(), Expressions.constant(val, long.class),
                         Expressions.call(BuiltInMethod.TIME_ZONE.method, DataContext.ROOT));
             case TIMESTAMP:
             case INTERVAL_DAY:
