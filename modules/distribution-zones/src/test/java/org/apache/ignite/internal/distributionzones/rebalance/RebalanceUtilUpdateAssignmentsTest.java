@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.affinity.Assignments.toBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -470,17 +471,17 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
         if (currentStableAssignments != null) {
-            keyValueStorage.put(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(), Assignments.toBytes(currentStableAssignments),
+            keyValueStorage.put(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPendingAssignments != null) {
-            keyValueStorage.put(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(), Assignments.toBytes(currentPendingAssignments),
+            keyValueStorage.put(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPendingAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPlannedAssignments != null) {
-            keyValueStorage.put(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes(), Assignments.toBytes(currentPlannedAssignments),
+            keyValueStorage.put(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPlannedAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 

@@ -2155,7 +2155,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
         return supplyAsync(() -> {
-            Set<Assignment> stableAssignments = Assignments.fromBytes(stableAssignmentsWatchEvent.value()).peers();
+            Set<Assignment> stableAssignments = stableAssignmentsWatchEvent.value() == null
+                    ? emptySet()
+                    : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).peers();
 
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsKey(tablePartitionId), revision);
 
