@@ -22,13 +22,12 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * Producer of the rows to use with {@link TestTable} in execution-related scenarios.
+ * Producer of the rows to use in execution-related scenarios.
  *
  * <p>A data provider is supposed to be created for table on per-node basis. It's up
  * to developer to keep data provider in sync with the schema of the table this data provider relates to.
  *
  * @param <T> A type of the produced elements.
- * @see TestTable
  */
 @FunctionalInterface
 public interface DataProvider<T> extends Iterable<T> {
