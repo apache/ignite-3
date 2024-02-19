@@ -26,6 +26,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.sql.Statement;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -207,6 +208,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         return SqlPropertiesHelper.newBuilder()
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19274 Use client time zone.
+                .set(QueryProperty.LOCAL_TIME_ZONE_ID, ZoneId.systemDefault())
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)
                 .build();
     }

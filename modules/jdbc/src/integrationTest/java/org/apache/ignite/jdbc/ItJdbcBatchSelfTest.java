@@ -403,12 +403,11 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 + "tt_date date, "
                 + "tt_time time, "
                 + "tt_timestamp timestamp, "
-                + "tt_timestamp_tz timestamp with local time zone, "
                 + "PRIMARY KEY (tt_id));");
 
         PreparedStatement prepStmt = conn.prepareStatement(
-                "INSERT INTO timetypes(tt_id, tt_date, tt_time, tt_timestamp, tt_timestamp_tz)"
-                        + " VALUES (?, ?, ?, ?, ?)");
+                "INSERT INTO timetypes(tt_id, tt_date, tt_time, tt_timestamp)"
+                        + " VALUES (?, ?, ?, ?)");
 
         Date date = Date.valueOf(LocalDate.now());
         Time time = Time.valueOf(LocalTime.now());
@@ -418,7 +417,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         prepStmt.setLong(idx++, 1);
         prepStmt.setDate(idx++, date);
         prepStmt.setTime(idx++, time);
-        prepStmt.setTimestamp(idx++, ts);
         prepStmt.setTimestamp(idx, ts);
         prepStmt.addBatch();
 
@@ -430,7 +428,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertEquals(date, res.getDate(2));
         assertEquals(time, res.getTime(3));
         assertEquals(ts, res.getTimestamp(4));
-        assertEquals(ts, res.getTimestamp(5));
 
         stmt0.execute("DROP TABLE timetypes");
         stmt0.close();

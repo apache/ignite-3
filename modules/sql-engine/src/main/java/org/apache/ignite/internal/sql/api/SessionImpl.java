@@ -299,9 +299,10 @@ public class SessionImpl implements AbstractSession {
         }
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
-                    .build();
+            SqlProperties properties = SqlPropertiesHelper.merge(
+                    SqlPropertiesHelper.newBuilder()
+                            .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
+                            .build(), props);
 
             var counters = new LongArrayList(batch.size());
             CompletableFuture<?> tail = nullCompletedFuture();
@@ -408,10 +409,8 @@ public class SessionImpl implements AbstractSession {
 
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         try {
-            SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                    qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
+                    qryProc.queryScriptAsync(props, transactions, null, query, arguments);
 
             ScriptHandler handler = new ScriptHandler(resFut);
             f.whenComplete(handler::processCursor);

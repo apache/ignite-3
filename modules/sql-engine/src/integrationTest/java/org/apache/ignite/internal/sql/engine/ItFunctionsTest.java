@@ -34,6 +34,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
 import java.util.List;
 import java.util.function.Function;
@@ -586,7 +587,7 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         /**
          * A clock reporting a local time.
          */
-        Clock<LocalTime> TIME_CLOCK = LocalTime::now;
+        Clock<LocalTime> TIME_CLOCK = zoneId -> LocalTime.now(zoneId).truncatedTo(ChronoUnit.MILLIS);
 
         /**
          * A clock reporting a local date.
@@ -596,7 +597,7 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         /**
          * A clock reporting a local datetime.
          */
-        Clock<LocalDateTime> DATE_TIME_CLOCK = LocalDateTime::now;
+        Clock<LocalDateTime> DATE_TIME_CLOCK = zoneId -> LocalDateTime.now(zoneId).truncatedTo(ChronoUnit.MILLIS);
 
         /**
          * Returns a temporal value representing the current moment.

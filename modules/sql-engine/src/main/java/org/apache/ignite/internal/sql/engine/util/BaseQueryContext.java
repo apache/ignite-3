@@ -255,7 +255,6 @@ public final class BaseQueryContext implements Context {
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-        // TODO think
         private ZoneId timeZoneId;
 
         private QueryPrefetchCallback prefetchCallback;
@@ -298,7 +297,7 @@ public final class BaseQueryContext implements Context {
                     cancel,
                     parameters,
                     prefetchCallback,
-                    timeZoneId
+                    Objects.requireNonNullElseGet(timeZoneId, ZoneId::systemDefault)
             );
         }
     }

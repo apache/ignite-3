@@ -582,7 +582,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, txCtx, parsedResults, params, properties);
+                            schemaName, txCtx, parsedResults, params, properties0);
 
                     return handler.processNext();
                 });

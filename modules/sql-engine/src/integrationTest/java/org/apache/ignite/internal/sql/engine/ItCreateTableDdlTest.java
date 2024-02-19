@@ -254,7 +254,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 dropColumnsList.app(',');
             }
 
-            addColumnsList.app("c").app(i).app(' ').app(relDataType.getSqlTypeName());
+            addColumnsList.app("c").app(i).app(' ').app(relDataType.getSqlTypeName().getSpaceName());
             dropColumnsList.app("c").app(i);
         }
 
