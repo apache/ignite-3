@@ -69,16 +69,16 @@ public class DistributionZonesTestUtil {
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @param dataStorage Data storage, {@code null} if not set.
+     * @param storageProfile Data storage, {@code null} if not set.
      */
-    public static void createZoneWithDataStorage(
+    public static void createZoneWithStorageProfile(
             CatalogManager catalogManager,
             String zoneName,
             int partitions,
             int replicas,
-            @Nullable String dataStorage
+            @Nullable String storageProfile
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, DEFAULT_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, storageProfile);
     }
 
     /**
