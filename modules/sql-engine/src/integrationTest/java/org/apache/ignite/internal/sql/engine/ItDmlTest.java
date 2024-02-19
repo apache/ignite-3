@@ -502,7 +502,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         checkWrongDefault("DATE", "10");
         checkWrongDefault("DATE", "TIME '01:01:01'");
         checkWrongDefault("TIME", "TIMESTAMP '2021-01-01 01:01:01'");
-        checkWrongDefault("BOOLEAN", "2");
+        checkWrongDefault("BOOLEAN", "1");
 
         // TODO: IGNITE-17373
         // checkWrongDefault("INTERVAL DAYS", "INTERVAL '10' MONTHS");

@@ -443,13 +443,15 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("BOOLEAN", "'true'", testItems, true, ctx, true);
-        fillTestCase("BOOLEAN", "'1'", testItems, true, ctx, true);
-        fillTestCase("BOOLEAN", "'yes'", testItems, true, ctx, true);
+        fillTestCase("BOOLEAN", "true", testItems, true, ctx, true);
+        fillTestCase("BOOLEAN", "'true'", testItems, false, ctx);
+        fillTestCase("BOOLEAN", "'1'", testItems, false, ctx);
+        fillTestCase("BOOLEAN", "'yes'", testItems, false, ctx);
 
-        fillTestCase("BOOLEAN", "'false'", testItems, true, ctx, false);
-        fillTestCase("BOOLEAN", "'0'", testItems, true, ctx, false);
-        fillTestCase("BOOLEAN", "'no'", testItems, true, ctx, false);
+        fillTestCase("BOOLEAN", "false", testItems, true, ctx);
+        fillTestCase("BOOLEAN", "'false'", testItems, false, ctx);
+        fillTestCase("BOOLEAN", "'0'", testItems, false, ctx);
+        fillTestCase("BOOLEAN", "'no'", testItems, false, ctx);
 
         fillTestCase("BOOLEAN", "'2'", testItems, false, ctx);
 

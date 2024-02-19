@@ -852,7 +852,7 @@ public class DdlSqlToCommandConverter {
                 case PERIOD: {
                     if (!(literal instanceof SqlCharStringLiteral) && !(literal instanceof SqlIntervalLiteral)) {
                         throw new SqlException(STMT_VALIDATION_ERR,
-                                "Default expression is of numeric type and can`t be applied to interval type");
+                                "Default expression can`t be applied to interval type");
                     }
                     String strValue = Objects.requireNonNull(literal.toValue());
                     // reject possible exponent
@@ -867,7 +867,7 @@ public class DdlSqlToCommandConverter {
                 case DURATION: {
                     if (!(literal instanceof SqlCharStringLiteral) && !(literal instanceof SqlIntervalLiteral)) {
                         throw new SqlException(STMT_VALIDATION_ERR,
-                                "Default expression is of numeric type and can`t be applied to interval type");
+                                "Default expression can`t be applied to interval type");
                     }
                     String strValue = Objects.requireNonNull(literal.toValue());
                     // reject possible exponent
@@ -954,18 +954,7 @@ public class DdlSqlToCommandConverter {
                     }
                     return arr;
                 case BOOLEAN:
-                    String val = Objects.requireNonNull(literal.toValue());
-                    val = val.trim().toLowerCase();
-
-                    if ("true".equals(val) || "yes".equals(val) || "1".equals(val)) {
-                        return true;
-                    }
-
-                    if ("false".equals(val) || "no".equals(val) || "0".equals(val)) {
-                        return false;
-                    }
-                    throw new SqlException(STMT_VALIDATION_ERR,
-                            format("Illegal expression for type boolean({})", literal.toValue()));
+                    return literal.getValueAs(Boolean.class);
                 default:
                     throw new IllegalStateException("Unknown type [type=" + columnType + ']');
             }
