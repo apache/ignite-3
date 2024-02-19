@@ -208,7 +208,7 @@ public class RebalanceUtil {
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            Assignments.fromBytes(partAssignmentsBytes)
+                            partAssignments
                     );
 
                     break;
