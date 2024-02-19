@@ -19,19 +19,16 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDataStorageNames;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.calcite.sql.SqlDdl;
@@ -51,33 +48,6 @@ import org.junit.jupiter.api.Test;
  * For {@link DdlSqlToCommandConverter} testing.
  */
 public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
-    @Test
-    void testCollectDataStorageNames() {
-        assertThat(collectDataStorageNames(Set.of()), equalTo(Map.of()));
-
-        assertThat(
-                collectDataStorageNames(Set.of("rocksdb")),
-                equalTo(Map.of("ROCKSDB", "rocksdb"))
-        );
-
-        assertThat(
-                collectDataStorageNames(Set.of("ROCKSDB")),
-                equalTo(Map.of("ROCKSDB", "ROCKSDB"))
-        );
-
-        assertThat(
-                collectDataStorageNames(Set.of("rocksDb", "pageMemory")),
-                equalTo(Map.of("ROCKSDB", "rocksDb", "PAGEMEMORY", "pageMemory"))
-        );
-
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> collectDataStorageNames(Set.of("rocksdb", "rocksDb"))
-        );
-
-        assertThat(exception.getMessage(), startsWith("Duplicate key"));
-    }
-
     @Test
     void testCheckDuplicates() {
         IllegalStateException exception = assertThrows(

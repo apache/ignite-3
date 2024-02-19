@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.PRIMARY_ZONE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.AFFINITY_FUNCTION;
@@ -672,18 +670,6 @@ public class DdlSqlToCommandConverter {
         if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
             throw new SchemaNotFoundException(schemaName);
         }
-    }
-
-    /**
-     * Collects a mapping of the ID of the data storage to a name.
-     *
-     * <p>Example: {@code collectDataStorageNames(Set.of("rocksdb"))} -> {@code Map.of("ROCKSDB", "rocksdb")}.
-     *
-     * @param dataStorages Names of the data storages.
-     * @throws IllegalStateException If there is a duplicate ID.
-     */
-    static Map<String, String> collectDataStorageNames(Set<String> dataStorages) {
-        return dataStorages.stream().collect(toUnmodifiableMap(String::toUpperCase, identity()));
     }
 
     /**
