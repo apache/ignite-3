@@ -18,12 +18,8 @@
 package org.apache.ignite.internal.benchmark;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -64,30 +60,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Fills the table with data. */
     @Setup
     public void setUp() throws IOException {
-        KeyValueView<Tuple, Tuple> keyValueView = clusterNode.tables().table(TABLE_NAME).keyValueView();
-
-        Tuple payload = Tuple.create();
-        for (int j = 1; j <= 10; j++) {
-            payload.set("field" + j, FIELD_VAL);
-        }
-
-        int batchSize = 1_000;
-        Map<Tuple, Tuple> batch = new HashMap<>();
-        for (int i = 0; i < TABLE_SIZE; i++) {
-            batch.put(Tuple.create().set("ycsb_key", i), payload);
-
-            if (batch.size() == batchSize) {
-                keyValueView.putAll(null, batch);
-
-                batch.clear();
-            }
-        }
-
-        if (!batch.isEmpty()) {
-            keyValueView.putAll(null, batch);
-
-            batch.clear();
-        }
+        populateTable(TABLE_NAME, TABLE_SIZE, 1_000);
 
         session = clusterNode.sql().createSession();
     }
