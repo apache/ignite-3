@@ -24,8 +24,8 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -85,7 +85,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  */
 public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
-    private final Long2ObjectMap<PartitionPruningColumns> result = new Long2ObjectArrayMap<>();
+    private final Long2ObjectMap<PartitionPruningColumns> result = new Long2ObjectOpenHashMap<>();
 
     /**
      * Extracts partition pruning metadata from the given physical plan.
@@ -103,7 +103,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         if (result.isEmpty()) {
             return PartitionPruningMetadata.EMPTY;
         } else {
-            return new PartitionPruningMetadata(new Long2ObjectArrayMap<>(result));
+            return new PartitionPruningMetadata(new Long2ObjectOpenHashMap<>(result));
         }
     }
 
