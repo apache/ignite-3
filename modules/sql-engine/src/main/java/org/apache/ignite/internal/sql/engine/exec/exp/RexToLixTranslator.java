@@ -400,9 +400,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case CHAR:
                     case VARCHAR:
                         convert =
-                                Expressions.call(
-                                        BuiltInMethod.STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                                        operand);
+                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
                         break;
                     case DATE:
                         convert =
@@ -854,8 +852,12 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 value2 = literal.getValueAs(Integer.class);
                 javaClass = int.class;
                 break;
-            case TIMESTAMP:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                Object val = literal.getValueAs(Long.class);
+
+                return Expressions.call(IgniteMethod.ADJUST_CLIENT_TIME_ZONE.method(), Expressions.constant(val, long.class),
+                        Expressions.call(BuiltInMethod.TIME_ZONE.method, DataContext.ROOT));
+            case TIMESTAMP:
             case INTERVAL_DAY:
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:

@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
@@ -120,7 +121,8 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                         null,
                         ArrayRowHandler.INSTANCE,
                         Map.of(),
-                        null
+                        null,
+                        ZoneId.systemDefault()
                 ),
                 RelCollations.of(ImmutableIntList.copyOf(idxCols)),
                 (o1, o2) -> {

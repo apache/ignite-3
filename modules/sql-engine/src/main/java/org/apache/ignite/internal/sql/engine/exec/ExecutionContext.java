@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Type;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,8 +53,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ExecutionContext<RowT> implements DataContext {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
-
-    private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
 
     /**
      * TODO: https://issues.apache.org/jira/browse/IGNITE-15276 Support other locales.
@@ -85,6 +85,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final TxAttributes txAttributes;
 
+    private final ZoneId timeZoneId;
+
     private SharedState sharedState = new SharedState();
 
     /**
@@ -105,7 +107,8 @@ public class ExecutionContext<RowT> implements DataContext {
             FragmentDescription description,
             RowHandler<RowT> handler,
             Map<String, Object> params,
-            TxAttributes txAttributes
+            TxAttributes txAttributes,
+            ZoneId timeZoneId
     ) {
         this.executor = executor;
         this.qryId = qryId;
@@ -115,14 +118,15 @@ public class ExecutionContext<RowT> implements DataContext {
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
+        this.timeZoneId = timeZoneId;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
                 FRAMEWORK_CONFIG.getParserConfig().conformance()
         );
 
-        long ts = System.currentTimeMillis();
-        startTs = ts + TIME_ZONE.getOffset(ts);
+        Instant nowUtc = Instant.now();
+        startTs = nowUtc.plusSeconds(timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
 
         if (LOG.isTraceEnabled()) {
             LOG.trace("Context created [qryId={}, fragmentId={}]", qryId, fragmentId());
@@ -236,6 +240,10 @@ public class ExecutionContext<RowT> implements DataContext {
 
         if (Variable.LOCALE.camelName.equals(name)) {
             return LOCALE;
+        }
+
+        if (Variable.TIME_ZONE.camelName.equals(name)) {
+            return TimeZone.getTimeZone(timeZoneId);
         }
 
         if (name.startsWith("?")) {

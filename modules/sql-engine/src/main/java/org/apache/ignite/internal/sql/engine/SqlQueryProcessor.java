@@ -32,6 +32,7 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -151,6 +152,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
             .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+            .set(QueryProperty.LOCAL_TIME_ZONE_ID, ZoneId.systemDefault())
             .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
@@ -550,7 +552,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
 
-            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, params, null);
+            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, properties0, params, null);
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
@@ -580,7 +582,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, txCtx, parsedResults, params);
+                            schemaName, txCtx, parsedResults, params, properties);
 
                     return handler.processNext();
                 });
@@ -614,6 +616,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             ParsedResult parsedResult,
             QueryTransactionWrapper txWrapper,
             QueryCancel queryCancel,
+            SqlProperties properties,
             Object[] params,
             @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement
     ) {
@@ -627,6 +630,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .prefetchCallback(callback)
                             .parameters(params)
+                            .timeZoneId(properties.get(QueryProperty.LOCAL_TIME_ZONE_ID))
                             .build();
 
                     return prepareSvc.prepareAsync(parsedResult, ctx)
@@ -765,6 +769,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         private final String schemaName;
         private final Queue<ScriptStatement> statements;
         private final ScriptTransactionContext txCtx;
+        private final SqlProperties properties;
 
         /**
          * Collection is used to track SELECT statements to postpone following DML operation.
@@ -781,11 +786,13 @@ public class SqlQueryProcessor implements QueryProcessor {
                 String schemaName,
                 QueryTransactionContext txCtx,
                 List<ParsedResult> parsedResults,
-                Object[] params
+                Object[] params,
+                SqlProperties properties
         ) {
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
             this.txCtx = new ScriptTransactionContext(txCtx);
+            this.properties = properties;
         }
 
         /**
@@ -863,7 +870,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     txCtx.registerCursorFuture(parsedResult.queryType(), cursorFuture);
 
-                    fut = executeParsedStatement(schemaName, parsedResult, txWrapper, new QueryCancel(), params, nextCurFut);
+                    fut = executeParsedStatement(schemaName, parsedResult, txWrapper, new QueryCancel(), properties, params, nextCurFut);
                 }
 
                 fut.whenComplete((cursor, ex) -> {

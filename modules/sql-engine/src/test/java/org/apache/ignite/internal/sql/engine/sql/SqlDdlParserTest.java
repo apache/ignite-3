@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
@@ -631,18 +630,14 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     /**
      * Ensures that the user cannot use the TIME_WITH_LOCAL_TIME_ZONE and TIMESTAMP_WITH_LOCAL_TIME_ZONE types for table columns.
      */
-    // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-19274 is implemented.
+    // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-21555 is implemented.
     @Test
     public void timestampWithLocalTimeZoneIsNotSupported() {
-        Consumer<String> checker = (query) -> {
-            assertThrowsSqlException(
-                    Sql.STMT_PARSE_ERR,
-                    "Encountered \"WITH\"",
-                    () -> parse(query));
-        };
-
-        checker.accept("CREATE TABLE test (ts TIMESTAMP WITH LOCAL TIME ZONE)");
-        checker.accept("CREATE TABLE test (ts TIME WITH LOCAL TIME ZONE)");
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Encountered \"WITH\"",
+                () -> parse("CREATE TABLE test (ts TIME WITH LOCAL TIME ZONE)")
+        );
     }
 
     private IgniteSqlCreateTable parseCreateTable(String stmt) {

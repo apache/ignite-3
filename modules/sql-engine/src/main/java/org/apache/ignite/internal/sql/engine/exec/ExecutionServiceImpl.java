@@ -342,7 +342,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 DUMMY_DESCRIPTION,
                 handler,
                 Commons.parametersMap(ctx.parameters()),
-                TxAttributes.fromTx(tx)
+                TxAttributes.fromTx(tx),
+                ctx.timeZoneId()
         );
 
         return plan.execute(ectx, tx, tableRegistry, callback);
@@ -797,7 +798,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
-                    txAttributes
+                    txAttributes,
+                    ctx.timeZoneId()
             );
         }
 

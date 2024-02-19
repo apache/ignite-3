@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -485,7 +486,7 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
         ExecutionContext<Object[]> ectx =
                 new ExecutionContext<>(null, null, null,
-                        null, null, ArrayRowHandler.INSTANCE, null, null);
+                        null, null, ArrayRowHandler.INSTANCE, null, null, ZoneId.systemDefault());
 
         ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, SqlConformanceEnum.DEFAULT);
 

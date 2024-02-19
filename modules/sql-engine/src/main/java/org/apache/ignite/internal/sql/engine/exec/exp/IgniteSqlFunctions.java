@@ -32,6 +32,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.ResolverStyle;
+import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
@@ -97,6 +98,7 @@ public class IgniteSqlFunctions {
      * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
      */
     public static long timestampStringToNumeric(String dtStr) {
+        // TODO remove try/catch?
         try {
             return timestampStringToNumeric0(dtStr);
         } catch (DateTimeException e) {
@@ -562,6 +564,14 @@ public class IgniteSqlFunctions {
     /** Returns the second argument and ignores the first. */
     public static Object consumeFirstArgument(Object args0, Object args1) {
         return args1;
+    }
+
+    /** TODO Returns adjusted time value. */
+    public static Long adjustTimeZone(Long timestamp, TimeZone timeZone) {
+        // A second offset calculation is required to handle DST transition period correctly.
+        int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
+
+        return timestamp - offset;
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {

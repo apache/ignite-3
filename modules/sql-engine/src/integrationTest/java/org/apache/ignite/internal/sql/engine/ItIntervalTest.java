@@ -28,12 +28,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.time.ZoneId;
+import java.util.function.Function;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /** Interval coverage tests. */
 public class ItIntervalTest extends BaseSqlIntegrationTest {
@@ -227,6 +232,43 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    private void checkInterval(String timestamp, String query, Function<String, Object> parser) {
+        assertEquals(parser.apply(timestamp), eval(query));
+    }
+
+    /** Timestamp [with local time zone] +/- interval. */
+    @ParameterizedTest
+    @EnumSource(value = SqlTypeName.class, names = {"TIMESTAMP", "TIMESTAMP_WITH_LOCAL_TIME_ZONE"})
+    public void testTimestampArithmetic(SqlTypeName typeName) {
+        boolean withLocalTimeZone = typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
+
+        Function<String, Object> parser = withLocalTimeZone
+                        ? ts -> LocalDateTime.parse(ts).atZone(ZoneId.systemDefault()).toInstant()
+                        : LocalDateTime::parse;
+
+        String type = typeName.getSpaceName();
+
+        checkInterval("2021-01-01T00:00:01",  type + " '2021-01-01 00:00:00' + INTERVAL 1 SECOND", parser);
+        checkInterval("2021-01-01T00:00:01.123", type + " '2021-01-01 00:00:00.123' + INTERVAL 1 SECOND", parser);
+        checkInterval("2021-01-01T00:00:01.123", type + " '2021-01-01 00:00:00' + INTERVAL '1.123' SECOND", parser);
+        checkInterval("2021-01-01T00:00:01.246", type + " '2021-01-01 00:00:00.123' + INTERVAL '1.123' SECOND", parser);
+        checkInterval("2020-12-31T23:59:59", type + " '2021-01-01 00:00:00' - INTERVAL 1 SECOND", parser);
+        checkInterval("2020-12-31T23:59:59", type + " '2021-01-01 00:00:00' + INTERVAL -1 SECOND", parser);
+        checkInterval("2021-01-01T00:01:00", type + " '2021-01-01 00:00:00' + INTERVAL 1 MINUTE", parser);
+        checkInterval("2021-01-01T01:00:00", type + " '2021-01-01 00:00:00' + INTERVAL 1 HOUR", parser);
+        checkInterval("2021-01-02T00:00:00", type + " '2021-01-01 00:00:00' + INTERVAL 1 DAY", parser);
+        checkInterval("2021-01-02T01:01:01.123", type + " '2021-01-01 00:00:00' + INTERVAL '1 1:1:1.123' DAY TO SECOND", parser);
+
+        if (withLocalTimeZone) {
+            // TODO Enable tests after https://issues.apache.org/jira/browse/IGNITE-21557
+            return;
+        }
+
+        checkInterval("2021-02-01T00:00:00", type + " '2021-01-01 00:00:00' + INTERVAL 1 MONTH", parser);
+        checkInterval("2022-01-01T00:00:00", type + " '2021-01-01 00:00:00' + INTERVAL 1 YEAR", parser);
+        checkInterval("2022-02-01T01:01:01.123", type + " '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH", parser);
+    }
+
     /**
      * Test interval arithmetic.
      */
@@ -239,34 +281,6 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         assertEquals(LocalDate.parse("2021-02-01"), eval("DATE '2021-01-01' + INTERVAL 1 MONTH"));
         assertEquals(LocalDate.parse("2022-01-01"), eval("DATE '2021-01-01' + INTERVAL 1 YEAR"));
         assertEquals(LocalDate.parse("2022-02-01"), eval("DATE '2021-01-01' + INTERVAL '1-1' YEAR TO MONTH"));
-
-        // Timestamp +/- interval.
-        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 SECOND"));
-        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.123"),
-                eval("TIMESTAMP '2021-01-01 00:00:00.123' + INTERVAL 1 SECOND"));
-        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.123"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL '1.123' SECOND"));
-        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.246"),
-                eval("TIMESTAMP '2021-01-01 00:00:00.123' + INTERVAL '1.123' SECOND"));
-        assertEquals(LocalDateTime.parse("2020-12-31T23:59:59"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' - INTERVAL 1 SECOND"));
-        assertEquals(LocalDateTime.parse("2020-12-31T23:59:59"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL -1 SECOND"));
-        assertEquals(LocalDateTime.parse("2021-01-01T00:01:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 MINUTE"));
-        assertEquals(LocalDateTime.parse("2021-01-01T01:00:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 HOUR"));
-        assertEquals(LocalDateTime.parse("2021-01-02T00:00:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 DAY"));
-        assertEquals(LocalDateTime.parse("2021-02-01T00:00:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 MONTH"));
-        assertEquals(LocalDateTime.parse("2022-01-01T00:00:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 YEAR"));
-        assertEquals(LocalDateTime.parse("2021-01-02T01:01:01.123"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL '1 1:1:1.123' DAY TO SECOND"));
-        assertEquals(LocalDateTime.parse("2022-02-01T01:01:01.123"),
-                eval("TIMESTAMP '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH"));
 
         // Time +/- interval.
         assertEquals(LocalTime.parse("00:00:01"), eval("TIME '00:00:00' + INTERVAL 1 SECOND"));

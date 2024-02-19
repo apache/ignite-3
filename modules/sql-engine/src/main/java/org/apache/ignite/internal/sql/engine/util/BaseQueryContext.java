@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 
 import com.google.common.collect.Multimap;
 import java.lang.reflect.Method;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
@@ -142,6 +143,8 @@ public final class BaseQueryContext implements Context {
 
     private final QueryPrefetchCallback prefetchCallback;
 
+    private final ZoneId timeZoneId;
+
     private CalciteCatalogReader catalogReader;
 
     /**
@@ -152,7 +155,8 @@ public final class BaseQueryContext implements Context {
             FrameworkConfig cfg,
             QueryCancel cancel,
             Object[] parameters,
-            QueryPrefetchCallback prefetchCallback
+            QueryPrefetchCallback prefetchCallback,
+            ZoneId timeZoneId
     ) {
         this.parentCtx = Contexts.chain(cfg.getContext());
 
@@ -163,6 +167,7 @@ public final class BaseQueryContext implements Context {
         this.cancel = cancel;
         this.parameters = parameters;
         this.prefetchCallback = prefetchCallback;
+        this.timeZoneId = timeZoneId;
     }
 
     public static Builder builder() {
@@ -227,6 +232,10 @@ public final class BaseQueryContext implements Context {
         return cancel;
     }
 
+    public ZoneId timeZoneId() {
+        return timeZoneId;
+    }
+
     /**
      * Query context builder.
      */
@@ -245,6 +254,9 @@ public final class BaseQueryContext implements Context {
         private UUID queryId;
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
+
+        // TODO think
+        private ZoneId timeZoneId;
 
         private QueryPrefetchCallback prefetchCallback;
 
@@ -273,8 +285,21 @@ public final class BaseQueryContext implements Context {
             return this;
         }
 
+        public Builder timeZoneId(ZoneId timeZoneId) {
+            this.timeZoneId = timeZoneId;
+            return this;
+        }
+
+        /** Creates new context. */
         public BaseQueryContext build() {
-            return new BaseQueryContext(Objects.requireNonNull(queryId, "queryId"), frameworkCfg, cancel, parameters, prefetchCallback);
+            return new BaseQueryContext(
+                    Objects.requireNonNull(queryId, "queryId"),
+                    frameworkCfg,
+                    cancel,
+                    parameters,
+                    prefetchCallback,
+                    timeZoneId
+            );
         }
     }
 }

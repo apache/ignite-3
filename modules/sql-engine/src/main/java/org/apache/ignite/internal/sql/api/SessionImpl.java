@@ -213,9 +213,10 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+            SqlProperties properties = SqlPropertiesHelper.merge(
+                    SqlPropertiesHelper.newBuilder()
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .build();
+                    .build(), props);
 
             result = qryProc.querySingleAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
                     .thenCompose(cur -> {

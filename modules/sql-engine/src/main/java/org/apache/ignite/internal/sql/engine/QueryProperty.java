@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper.createPropsByNameMap;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.sql.engine.property.Property;
@@ -32,6 +33,7 @@ public final class QueryProperty {
     public static final Property<Set<SqlQueryType>> ALLOWED_QUERY_TYPES =
             new Property<>("allowed_query_types", cast(Set.class));
     public static final Property<String> DEFAULT_SCHEMA = new Property<>("default_schema", String.class);
+    public static final Property<ZoneId> LOCAL_TIME_ZONE_ID = new Property<>("local_time_zone_id", ZoneId.class);
 
     private static final Map<String, Property<?>> propsByName = createPropsByNameMap(QueryProperty.class);
 
