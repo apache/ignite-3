@@ -37,13 +37,13 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.Test
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ExecutionTargetProviderBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -334,7 +334,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
                 distributionToUse = distribution;
             }
 
-            TestTable testTable = tableBuilder
+            IgniteTable testTable = tableBuilder
                     .addColumn("C1", NativeTypes.INT32)
                     .addColumn("C2", NativeTypes.INT32)
                     .size(tableSize)

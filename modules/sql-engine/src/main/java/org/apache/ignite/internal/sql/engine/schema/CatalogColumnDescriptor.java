@@ -102,6 +102,12 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
 
     /** {@inheritDoc} */
     @Override
+    public boolean hidden() {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean nullable() {
         return nullable;
     }

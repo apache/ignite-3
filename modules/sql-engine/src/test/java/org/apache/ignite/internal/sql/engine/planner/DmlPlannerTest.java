@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -231,7 +230,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("updatePrimaryKey")
     public void testDoNotAllowToModifyPrimaryKeyColumns(String query) {
-        TestTable test = TestBuilders.table()
+        IgniteTable test = TestBuilders.table()
                 .name("TEST")
                 .addKeyColumn("ID", NativeTypes.INT32)
                 .addColumn("VAL", NativeTypes.INT32)
@@ -256,7 +255,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     // Class name is fully-qualified because AbstractPlannerTest defines a class with the same name.
-    private static TestTable newTestTable(String tableName, IgniteDistribution distribution) {
+    private static IgniteTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
                 .addColumn("C1", NativeTypes.INT32)
