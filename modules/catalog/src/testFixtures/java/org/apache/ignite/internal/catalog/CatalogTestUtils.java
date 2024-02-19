@@ -62,7 +62,7 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName), clock);
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 

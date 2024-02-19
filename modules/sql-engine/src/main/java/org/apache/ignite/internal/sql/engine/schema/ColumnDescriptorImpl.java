@@ -31,6 +31,7 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
     private final boolean nullable;
 
     private final boolean key;
+    private final boolean hidden;
 
     private final String name;
 
@@ -47,6 +48,7 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
      *
      * @param name The name of the column.
      * @param key If {@code true}, this column will be considered as a part of PK.
+     * @param hidden If {@code true}, this column will not be expanded until explicitly mentioned.
      * @param nullable If {@code true}, this column will be considered as a nullable.
      * @param logicalIndex A 0-based index in a schema defined by a user.
      * @param type Type of the value in the underlying storage.
@@ -58,6 +60,7 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
     public ColumnDescriptorImpl(
             String name,
             boolean key,
+            boolean hidden,
             boolean nullable,
             int logicalIndex,
             NativeType type,
@@ -65,6 +68,7 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
             @Nullable Supplier<Object> dfltVal
     ) {
         this.key = key;
+        this.hidden = hidden;
         this.nullable = nullable;
         this.name = name;
         this.defaultStrategy = defaultStrategy;
@@ -74,6 +78,12 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
         this.dfltVal = defaultStrategy != DefaultValueStrategy.DEFAULT_NULL
                 ? Objects.requireNonNull(dfltVal, "dfltVal")
                 : NULL_SUPPLIER;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hidden() {
+        return hidden;
     }
 
     /** {@inheritDoc} */
