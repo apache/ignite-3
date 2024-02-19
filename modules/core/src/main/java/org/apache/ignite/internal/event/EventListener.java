@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.event;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -45,7 +46,11 @@ public interface EventListener<P extends EventParameters> {
     static <P extends EventParameters> EventListener<P> fromConsumer(Consumer<P> callback) {
         return (parameters, exception) -> {
             if (exception == null) {
-                callback.accept(parameters);
+                try {
+                    callback.accept(parameters);
+                } catch (Throwable e) {
+                    return failedFuture(e);
+                }
             }
 
             return falseCompletedFuture();

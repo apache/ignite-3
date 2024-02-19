@@ -76,7 +76,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     @Mock
     private ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
 
-    private @Nullable ChangeIndexStatusTaskController taskManager;
+    private @Nullable ChangeIndexStatusTaskController taskController;
 
     @BeforeEach
     void setUp() {
@@ -84,7 +84,9 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
-        taskManager = new ChangeIndexStatusTaskController(catalogManager, placementDriver, clusterService, changeIndexStatusTaskScheduler);
+        taskController = new ChangeIndexStatusTaskController(
+                catalogManager, placementDriver, clusterService, changeIndexStatusTaskScheduler
+        );
     }
 
     @AfterEach
@@ -92,7 +94,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
         IgniteUtils.closeAllManually(
                 catalogManager::beforeNodeStop,
                 catalogManager::stop,
-                taskManager
+                taskController
         );
     }
 

@@ -145,7 +145,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         node.transactions().runInTransaction(tx -> {
             dropIndex(INDEX_NAME);
 
-            CatalogIndexDescriptor indexDescriptor = node.catalogManager().index(INDEX_NAME, node.clock().nowLong());
+            CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, INDEX_NAME);
 
             assertThat(indexDescriptor, is(notNullValue()));
             assertThat(indexDescriptor.status(), is(CatalogIndexStatus.STOPPING));
