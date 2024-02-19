@@ -49,6 +49,7 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -108,7 +109,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), tableCreatedListener.capture());
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
-        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_DROP), tableDestroyedListener.capture());
+        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_DESTROY), tableDestroyedListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService, metaStorageManager);
         schemaManager.start();
@@ -210,6 +211,13 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void propagatesExceptionFromCatalogOnTableDestroying() {
+        CompletableFuture<Boolean> future = tableDestroyedListener().notify(mock(DestroyTableEventParameters.class), cause);
+
+        assertThat(future, willThrow(equalTo(cause)));
+    }
+
+    @Test
     void latestSchemaRegistryIsUnavailableUntilSomeSchemaVersionIsProcessed() {
         assertThat(schemaManager.schemaRegistry(TABLE_ID), is(nullValue()));
     }
@@ -288,16 +296,20 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void destroyTableMakesRegistryUnavailable() {
         createSomeTable();
 
-        assertThat(schemaManager.dropRegistry(CAUSALITY_TOKEN_2, TABLE_ID), willCompleteSuccessfully());
+        DestroyTableEventParameters event = new DestroyTableEventParameters(
+                CAUSALITY_TOKEN_2,
+                CATALOG_VERSION_2,
+                TABLE_ID,
+                1
+        );
+
+        assertThat(tableDestroyedListener().notify(event, null), willBe(false));
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 
         CompletableFuture<SchemaRegistry> future = schemaManager.schemaRegistry(CAUSALITY_TOKEN_2, TABLE_ID);
         assertThat(future, is(completedFuture()));
-
-        SchemaRegistry schemaRegistry = future.join();
-
-        assertThat(schemaRegistry, is(nullValue()));
+        assertThat(future, willBe(nullValue()));
     }
 
     @Test

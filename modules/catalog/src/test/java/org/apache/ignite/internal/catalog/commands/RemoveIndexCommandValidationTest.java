@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /** Tests to verify validation of {@link RemoveIndexCommand}. */
 public class RemoveIndexCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
@@ -43,5 +45,12 @@ public class RemoveIndexCommandValidationTest extends AbstractChangeIndexStatusC
     @Override
     String expectedExceptionMessageSubstringForWrongStatus() {
         return "Cannot remove index";
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20121")
+    @Test
+    @Override
+    void exceptionIsThrownIfIndexWithGivenIdNotFound() {
+        super.exceptionIsThrownIfIndexWithGivenIdNotFound();
     }
 }
