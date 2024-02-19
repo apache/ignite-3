@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.EXACT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.FLOAT;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_TYPES;
@@ -44,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -56,6 +58,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDdl;
@@ -201,31 +204,9 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 ColumnType colType = columnType(initialNumType);
                 Object value = generateValueByType(1000, Objects.requireNonNull(colType));
                 String intervalTypeStr = makeUsableIntervalType(intervalType.getName());
-                String sql = format("CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})", intervalTypeStr, value);
-                testItems.add(DynamicTest.dynamicTest(String.format("NOT ALLOW: %s", sql),
-                        () -> assertThrowsSqlException(STMT_VALIDATION_ERR, "Unable convert literal",
-                                () -> converter.convert((SqlDdl) parse(sql), ctx))));
 
-                String sqlQuoted = format("CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT '{}')", intervalTypeStr, value);
-                testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sqlQuoted),
-                        () -> {
-                            CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sqlQuoted), ctx);
-                            ColumnDefinition def = cmd.columns().get(1);
-                            DefaultValueDefinition.ConstantValue defVal = def.defaultValueDefinition();
-                            Object defaultValue = defVal.value();
-                            Number num = (Number) value;
-
-                            Object expectedDefault;
-                            if (intervalTypeStr.contains("YEAR") || intervalTypeStr.contains("MONTH")) {
-                                int interm = num.intValue();
-                                expectedDefault = fromInternal(interm, Period.class);
-                            } else {
-                                long interm = num.longValue();
-                                expectedDefault = fromInternal(interm, Duration.class);
-                            }
-
-                            assertEquals(expectedDefault, defaultValue);
-                        }));
+                fillTestCase(intervalTypeStr, "" + value, testItems, false, ctx);
+                fillTestCase(intervalTypeStr, "'" + value + "'", testItems, false, ctx);
             }
         }
 
@@ -260,6 +241,38 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 fillTestCase(makeUsableIntervalType(intervalType.getName()), value, testItems, false, ctx);
             }
         }
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> intervalDefaultsWithIntervalTypes() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        assertEquals(Period.of(1, 1, 0), fromInternal(13, Period.class));
+        assertEquals(Period.of(1, 0, 0), fromInternal(12, Period.class));
+
+        fillTestCase("INTERVAL YEARS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, Period.class));
+        fillTestCase("INTERVAL YEARS", "INTERVAL '12' MONTH", testItems, true, ctx, fromInternal(12, Period.class));
+        fillTestCase("INTERVAL YEARS TO MONTHS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, Period.class));
+        fillTestCase("INTERVAL YEARS TO MONTHS", "INTERVAL '13' MONTH", testItems, true, ctx, fromInternal(13, Period.class));
+        fillTestCase("INTERVAL MONTHS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, Period.class));
+        fillTestCase("INTERVAL MONTHS", "INTERVAL '13' MONTHS", testItems, true, ctx, fromInternal(13, Period.class));
+
+        long oneDayMillis = Duration.ofDays(1).toMillis();
+        long oneHourMillis = Duration.ofHours(1).toMillis();
+        long oneMinuteMillis = Duration.ofMinutes(1).toMillis();
+        long oneSecondMillis = Duration.ofSeconds(1).toMillis();
+
+        fillTestCase("INTERVAL DAYS", "INTERVAL '1' DAY", testItems, true, ctx, fromInternal(oneDayMillis, Duration.class));
+        fillTestCase("INTERVAL DAYS TO HOURS", "INTERVAL '1' HOURS", testItems, true, ctx, fromInternal(oneHourMillis, Duration.class));
+        fillTestCase("INTERVAL HOURS TO SECONDS", "INTERVAL '1' MINUTE", testItems, true, ctx,
+                fromInternal(oneMinuteMillis, Duration.class));
+        fillTestCase("INTERVAL MINUTES TO SECONDS", "INTERVAL '1' MINUTE", testItems, true, ctx,
+                fromInternal(oneMinuteMillis, Duration.class));
+        fillTestCase("INTERVAL MINUTES TO SECONDS", "INTERVAL '1' SECOND", testItems, true, ctx,
+                fromInternal(oneSecondMillis, Duration.class));
 
         return testItems.stream();
     }
@@ -305,35 +318,56 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @TestFactory
     public Stream<DynamicTest> numericTypesWithNumericDefaults() {
+        Pattern exactNumeric = Pattern.compile("^\\d+$");
+        Pattern numeric = Pattern.compile("^\\d+(\\.{1}\\d*)?$");
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
-        String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})";
 
-        String[] numbers = {"100.4", "100.6", "100"};
+        String[] numbers = {"100.4", "100.6", "100", "'100'", "'100.1'"};
+
+        List<SqlTypeName> typesWithoutDecimal = new ArrayList<>(NUMERIC_TYPES);
+        typesWithoutDecimal.remove(DECIMAL);
 
         for (String value : numbers) {
-            for (SqlTypeName numericType : NUMERIC_TYPES) {
-                String sql = format(template, numericType, value);
+            for (SqlTypeName numericType : typesWithoutDecimal) {
+                Object toCompare = null;
+                boolean acceptable = true;
 
-                testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () -> {
-                    CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
-                    ColumnDefinition def = cmd.columns().get(1);
-                    DefaultValueDefinition.ConstantValue defVal = def.defaultValueDefinition();
-                    Object defaultValue = defVal.value();
+                if (!numeric.matcher(value).matches()) {
+                    fillTestCase(numericType.getName(), value, testItems, false, ctx);
+                    continue;
+                }
 
-                    Number num = (Number) defaultValue;
-                    if (EXACT_TYPES.contains(numericType)) {
-                        assertEquals(Math.round(Math.floor(Double.parseDouble(value))), num.intValue());
-                    } else {
-                        if (numericType == FLOAT || numericType == REAL) {
-                            assertEquals(Float.parseFloat(value), num.floatValue());
-                        } else {
-                            assertEquals(Double.parseDouble(value), num.doubleValue());
-                        }
+                if (EXACT_TYPES.contains(numericType)) {
+                    if (!exactNumeric.matcher(value).matches()) {
+                        acceptable = false;
                     }
-                }));
+                } else if (numericType == FLOAT || numericType == REAL) {
+                    toCompare = Float.parseFloat(value);
+                } else {
+                    toCompare = Double.parseDouble(value);
+                }
+
+                fillTestCase(numericType.getName(), value, testItems, acceptable, ctx, toCompare);
             }
         }
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> decimalDefaults() {
+        List<DynamicTest> testItems = new ArrayList<>();
+        PlanningContext ctx = createContext();
+
+        fillTestCase("DECIMAL", "100", testItems, true, ctx, new BigDecimal(100));
+        fillTestCase("DECIMAL", "100.5", testItems, true, ctx, new BigDecimal(101));
+
+        fillTestCase("DECIMAL(4, 1)", "100", testItems, true, ctx, new BigDecimal("100.0"));
+        fillTestCase("DECIMAL(4, 1)", "100.4", testItems, true, ctx, new BigDecimal("100.4"));
+        fillTestCase("DECIMAL(4, 1)", "100.6", testItems, true, ctx, new BigDecimal("100.6"));
+        fillTestCase("DECIMAL(4, 1)", "100.12", testItems, true, ctx, new BigDecimal("100.1"));
+        fillTestCase("DECIMAL(4, 1)", "1000.12", testItems, false, ctx);
 
         return testItems.stream();
     }
