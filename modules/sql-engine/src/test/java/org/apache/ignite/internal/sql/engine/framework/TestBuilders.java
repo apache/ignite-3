@@ -361,9 +361,6 @@ public class TestBuilders {
         /** Sets id for the table. The caller must guarantee that provided id is unique. */
         TableBuilder tableId(int id);
 
-        /** Sets the number of partitions for this table. Default value is 1. */
-        TableBuilder partitions(int num);
-
         /**
          * Builds a table.
          *
@@ -614,7 +611,11 @@ public class TestBuilders {
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
-                        var targetProvider = new TestNodeExecutionTargetProvider(systemViewManager::owningNodes, owningNodesByTableName);
+                        var targetProvider = new TestNodeExecutionTargetProvider(
+                                systemViewManager::owningNodes,
+                                owningNodesByTableName,
+                                false
+                        );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
                                 name,
@@ -1379,6 +1380,8 @@ public class TestBuilders {
 
         private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
 
+        private boolean useTablePartitions;
+
         private ExecutionTargetProviderBuilder() {
 
         }
@@ -1398,9 +1401,19 @@ public class TestBuilders {
             return this;
         }
 
+        /** Use table partitions to build mapping targets. Default is {@code false}. */
+        public ExecutionTargetProviderBuilder useTablePartitions(boolean value) {
+            useTablePartitions = value;
+            return this;
+        }
+
         /** Creates an instance of {@link ExecutionTargetProvider}. */
         public ExecutionTargetProvider build() {
-            return new TestNodeExecutionTargetProvider(owningNodesBySystemViewName, Map.copyOf(owningNodesByTableName));
+            return new TestNodeExecutionTargetProvider(
+                    owningNodesBySystemViewName,
+                    Map.copyOf(owningNodesByTableName),
+                    useTablePartitions
+            );
         }
     }
 
@@ -1410,12 +1423,16 @@ public class TestBuilders {
 
         final Map<String, List<String>> owningNodesByTableName;
 
+        final boolean useTablePartitions;
+
         private TestNodeExecutionTargetProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
-                Map<String, List<String>> owningNodesByTableName) {
-
+                Map<String, List<String>> owningNodesByTableName,
+                boolean useTablePartitions
+        ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
             this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
+            this.useTablePartitions = useTablePartitions;
         }
 
         @Override
@@ -1426,12 +1443,20 @@ public class TestBuilders {
                 throw new AssertionError("DataProvider is not configured for table " + table.name());
             }
 
-            int p = table.partitions();
+            List<NodeWithConsistencyToken> nodes;
 
-            List<NodeWithConsistencyToken> nodes = IntStream.range(0, p).mapToObj(n -> {
-                String nodeName = owningNodes.get(n % owningNodes.size());
-                return new NodeWithConsistencyToken(nodeName, p);
-            }).collect(Collectors.toList());
+            if (useTablePartitions) {
+                int p = table.partitions();
+
+                nodes = IntStream.range(0, p).mapToObj(n -> {
+                    String nodeName = owningNodes.get(n % owningNodes.size());
+                    return new NodeWithConsistencyToken(nodeName, p);
+                }).collect(Collectors.toList());
+            } else {
+                nodes = owningNodes.stream()
+                        .map(name -> new NodeWithConsistencyToken(name, 1))
+                        .collect(Collectors.toList());
+            }
 
             ExecutionTarget target = factory.partitioned(nodes);
 

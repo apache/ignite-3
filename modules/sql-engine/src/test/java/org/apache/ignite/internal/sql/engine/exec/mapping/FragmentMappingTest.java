@@ -291,7 +291,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
     }
 
     private TestSetup initSchema() {
-        ExecutionTargetProviderBuilder executionTargetProviderBuilder = TestBuilders.executionTargetProviderBuilder();
+
         List<IgniteDataSource> dataSources = new ArrayList<>();
         int objectId = 1;
 
@@ -350,10 +350,11 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             objectId += 1;
         }
 
-        executionTargetProviderBuilder.addTables(table2NodeNames);
-
         IgniteSchema schema = new IgniteSchema(CatalogManager.DEFAULT_SCHEMA_NAME, 1, dataSources);
-        ExecutionTargetProvider executionTargetProvider = executionTargetProviderBuilder.build();
+        ExecutionTargetProvider executionTargetProvider = TestBuilders.executionTargetProviderBuilder()
+                .useTablePartitions(true)
+                .addTables(table2NodeNames)
+                .build();
         LogicalTopologySnapshot logicalTopologySnapshot = newLogicalTopology();
 
         return new TestSetup(executionTargetProvider, schema, logicalTopologySnapshot);
