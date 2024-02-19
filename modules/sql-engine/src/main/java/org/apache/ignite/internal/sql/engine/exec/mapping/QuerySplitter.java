@@ -21,6 +21,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -250,7 +251,7 @@ public class QuerySplitter extends IgniteRelShuttle {
         private final IntSet seenRelations = new IntOpenHashSet();
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
-        private final Long2ObjectMap<IgniteTable> tables = new Long2ObjectArrayMap<>();
+        private final Long2ObjectMap<IgniteTable> tables = new Long2ObjectOpenHashMap<>();
         private final List<IgniteSystemView> systemViews = new ArrayList<>();
 
         private FragmentProto(long id, boolean correlated, IgniteRel root) {
