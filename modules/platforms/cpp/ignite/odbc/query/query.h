@@ -31,6 +31,9 @@ enum class query_type {
     /** Data query type. */
     DATA,
 
+    /** Batch query type. */
+    BATCH,
+
     /** Table metadata. */
     TABLE_METADATA,
 
