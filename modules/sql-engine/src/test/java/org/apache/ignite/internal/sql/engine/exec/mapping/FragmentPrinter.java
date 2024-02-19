@@ -181,7 +181,8 @@ final class FragmentPrinter extends IgniteRelShuttle {
         }
 
         if (!partitions.isEmpty()) {
-            String partitionsAsString = partitions.entrySet().stream().map(e -> {
+            String partitionsAsString = partitions.entrySet().stream()
+                    .map(e -> {
                         String valuesStr = e.getValue().stream()
                                 .map(v -> v.partId() + ":" + v.enlistmentConsistencyToken())
                                 .collect(Collectors.joining(", ", "[", "]"));

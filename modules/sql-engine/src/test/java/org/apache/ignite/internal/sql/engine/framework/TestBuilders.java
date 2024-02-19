@@ -361,6 +361,9 @@ public class TestBuilders {
         /** Sets id for the table. The caller must guarantee that provided id is unique. */
         TableBuilder tableId(int id);
 
+        /** Sets the number of partitions fot this table. Default value is equal to {@link CatalogUtils#DEFAULT_PARTITION_COUNT}. */
+        TableBuilder partitions(int num);
+
         /**
          * Builds a table.
          *
