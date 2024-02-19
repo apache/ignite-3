@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -84,6 +83,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -631,7 +631,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-            byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
+            byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
 
             node.metaStorageManager
                     .put(partAssignmentsPendingKey, bytesPendingAssignments)
@@ -745,8 +745,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> pendingAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 2);
         Set<Assignment> plannedAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 3);
 
-        byte[] bytesPendingAssignments = ByteUtils.toBytes(pendingAssignments);
-        byte[] bytesPlannedAssignments = ByteUtils.toBytes(plannedAssignments);
+        byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments);
+        byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments);
 
         Node node0 = getNode(0);
 
@@ -844,7 +844,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     ) {
         return metaStorageManager
                 .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : fromBytes(e.value()));
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).peers());
     }
 
     private static CompletableFuture<Set<Assignment>> partitionPlannedAssignments(
@@ -854,7 +854,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     ) {
         return metaStorageManager
                 .get(plannedPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : fromBytes(e.value()));
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).peers());
     }
 
     private class Node {

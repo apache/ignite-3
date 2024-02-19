@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -62,6 +61,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -385,7 +385,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         keyValueStorage.put(
-                stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), 0)).bytes(), toBytes(Set.of("node0")),
+                stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), 0)).bytes(), Assignments.toBytes(Set.of(Assignment.forPeer("node0"))),
                 clock.now()
         );
 
@@ -414,7 +414,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         for (int i = 0; i < 25; i++) {
             keyValueStorage.put(
-                    stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), i)).bytes(), toBytes(Set.of("node0")),
+                    stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), i)).bytes(), Assignments.toBytes(Set.of(Assignment.forPeer("node0"))),
                     clock.now()
             );
         }
@@ -473,7 +473,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
                     assertNotNull(actualAssignmentsBytes);
 
-                    Set<String> actualAssignments = ((Set<Assignment>) fromBytes(actualAssignmentsBytes))
+                    Set<String> actualAssignments = Assignments.fromBytes(actualAssignmentsBytes).peers()
                             .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertTrue(expectedAssignments.containsAll(actualAssignments));

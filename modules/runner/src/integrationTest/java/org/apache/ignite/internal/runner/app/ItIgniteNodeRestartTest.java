@@ -72,6 +72,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -1311,7 +1312,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             Entry e = restartedNode.metaStorageManager().getLocally(stablePartAssignmentsKey(tablePartitionId), recoveryRevision);
 
-            Set<Assignment> assignment = ByteUtils.fromBytes(e.value());
+            Set<Assignment> assignment = Assignments.fromBytes(e.value()).peers();
 
             boolean shouldBe = assignment.stream().anyMatch(n -> n.consistentId().equals(restartedNode.name()));
 
@@ -1377,7 +1378,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Populate the stable assignments before calling table create, if needed.
         if (populateStableAssignmentsBeforeTableCreation) {
-            node.metaStorageManager().put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(Set.of(Assignment.forPeer(node.name()))));
+            node.metaStorageManager().put(stablePartAssignmentsKey(partId), Assignments.toBytes(Set.of(Assignment.forPeer(node.name()))));
 
             waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
 
@@ -1698,7 +1699,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         return e == null || e.tombstone() || e.empty()
             ? emptySet()
-            : ByteUtils.fromBytes(e.value());
+            : Assignments.fromBytes(e.value()).peers();
     }
 
     private int tableId(Ignite node, String tableName) {

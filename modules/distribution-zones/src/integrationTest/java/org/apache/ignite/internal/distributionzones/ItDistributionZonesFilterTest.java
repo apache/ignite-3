@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -126,7 +127,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
+                (v) -> Assignments.fromBytes(v).peers().size(),
                 1,
                 TIMEOUT_MILLIS
         );
@@ -154,7 +155,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).peers()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(2).name()),
                 TIMEOUT_MILLIS * 2
@@ -191,7 +192,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).peers()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
@@ -211,7 +212,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).peers()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(1).name()),
                 TIMEOUT_MILLIS * 2
@@ -248,7 +249,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).peers()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
@@ -274,7 +275,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).peers()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
