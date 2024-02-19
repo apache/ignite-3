@@ -536,7 +536,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         for (int i = 0; i < initialAssignments.size(); i++) {
             var stableAssignmentPartitionKey = stablePartAssignmentsKey(new TablePartitionId(tableId, i)).bytes();
 
-            keyValueStorage.put(stableAssignmentPartitionKey, toBytes(initialAssignments.get(i)), clock.now());
+            keyValueStorage.put(stableAssignmentPartitionKey, Assignments.toBytes(initialAssignments.get(i)), clock.now());
         }
     }
 
