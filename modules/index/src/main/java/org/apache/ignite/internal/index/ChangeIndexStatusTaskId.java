@@ -17,25 +17,24 @@
 
 package org.apache.ignite.internal.index;
 
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.tostring.S;
 
-/** {@link IndexBuildingStarterTask} ID. */
-class IndexBuildingStarterTaskId {
-    private final int tableId;
-
+/** {@link ChangeIndexStatusTask} ID. */
+class ChangeIndexStatusTaskId {
     private final int indexId;
 
-    IndexBuildingStarterTaskId(int tableId, int indexId) {
-        this.tableId = tableId;
+    private final CatalogIndexStatus status;
+
+    ChangeIndexStatusTaskId(int indexId, CatalogIndexStatus status) {
         this.indexId = indexId;
+        this.status = status;
     }
 
-    public int tableId() {
-        return tableId;
-    }
-
-    public int indexId() {
-        return indexId;
+    ChangeIndexStatusTaskId(CatalogIndexDescriptor indexDescriptor) {
+        this.indexId = indexDescriptor.id();
+        this.status = indexDescriptor.status();
     }
 
     @Override
@@ -47,20 +46,20 @@ class IndexBuildingStarterTaskId {
             return false;
         }
 
-        IndexBuildingStarterTaskId that = (IndexBuildingStarterTaskId) o;
+        ChangeIndexStatusTaskId that = (ChangeIndexStatusTaskId) o;
 
-        return tableId == that.tableId && indexId == that.indexId;
+        return indexId == that.indexId && status == that.status;
     }
 
     @Override
     public int hashCode() {
-        int result = tableId;
-        result = 31 * result + indexId;
+        int result = indexId;
+        result = 31 * result + status.hashCode();
         return result;
     }
 
     @Override
     public String toString() {
-        return S.toString(IndexBuildingStarterTaskId.class, this);
+        return S.toString(ChangeIndexStatusTaskId.class, this);
     }
 }

@@ -165,7 +165,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         createAndStartComponents();
 
-        assertEquals(expCreationCatalogVersion, catalogManager.index(INDEX_NAME, clock.nowLong()).creationCatalogVersion());
+        assertEquals(expCreationCatalogVersion, catalogManager.index(INDEX_NAME, clock.nowLong()).txWaitCatalogVersion());
     }
 
     private void createAndStartComponents() {

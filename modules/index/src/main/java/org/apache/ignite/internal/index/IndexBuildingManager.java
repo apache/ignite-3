@@ -60,13 +60,11 @@ public class IndexBuildingManager implements IgniteComponent {
 
     private final IndexBuilder indexBuilder;
 
-    private final IndexBuildingStarter indexBuildingStarter;
-
     private final IndexAvailabilityController indexAvailabilityController;
 
     private final IndexBuildController indexBuildController;
 
-    private final IndexBuildingStarterController indexBuildingStarterController;
+    private final ChangeIndexStatusTaskController changeIndexStatusTaskController;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -102,7 +100,11 @@ public class IndexBuildingManager implements IgniteComponent {
 
         indexBuilder = new IndexBuilder(executor, replicaService);
 
-        indexBuildingStarter = new IndexBuildingStarter(
+        indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
+
+        indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
+
+        var indexTaskScheduler = new ChangeIndexStatusTaskScheduler(
                 catalogManager,
                 clusterService,
                 logicalTopologyService,
@@ -112,15 +114,11 @@ public class IndexBuildingManager implements IgniteComponent {
                 executor
         );
 
-        indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
-
-        indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
-
-        indexBuildingStarterController = new IndexBuildingStarterController(
+        changeIndexStatusTaskController = new ChangeIndexStatusTaskController(
                 catalogManager,
                 placementDriver,
                 clusterService,
-                indexBuildingStarter
+                indexTaskScheduler
         );
     }
 
@@ -149,10 +147,9 @@ public class IndexBuildingManager implements IgniteComponent {
 
         closeAllManually(
                 indexBuilder,
-                indexBuildingStarter,
                 indexAvailabilityController,
                 indexBuildController,
-                indexBuildingStarterController
+                changeIndexStatusTaskController
         );
 
         shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);

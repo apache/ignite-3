@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import java.util.Arrays;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -46,21 +47,14 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
     public final Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor schema = schemaByIndexId(catalog, indexId);
 
+        CatalogIndexDescriptor newIndexDescriptor = updateIndexStatus(catalog, causalityToken, newStatus);
+
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        schema.tables(),
-                        Arrays.stream(schema.indexes())
-                                .map(source -> source.id() == indexId ? updateIndexStatus(source, causalityToken, newStatus) : source)
-                                .toArray(CatalogIndexDescriptor[]::new),
-                        schema.systemViews(),
-                        causalityToken
-                ), catalog.schemas())
+                replaceSchema(replaceIndex(schema, newIndexDescriptor), catalog.schemas())
         );
     }
 
@@ -80,17 +74,22 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
         return schema;
     }
 
-    private static CatalogIndexDescriptor updateIndexStatus(
-            CatalogIndexDescriptor source,
+    private CatalogIndexDescriptor updateIndexStatus(
+            Catalog catalog,
             long causalityToken,
             CatalogIndexStatus newStatus
     ) {
+        CatalogIndexDescriptor source = indexOrThrow(catalog, indexId);
+
+        // We only care about the transitions to REGISTERED and STOPPING. REGISTERED status has already been handled on index creation.
+        int txWaitCatalogVersion = newStatus == CatalogIndexStatus.STOPPING ? catalog.version() + 1 : source.txWaitCatalogVersion();
+
         CatalogIndexDescriptor updateIndexDescriptor;
 
         if (source instanceof CatalogHashIndexDescriptor) {
-            updateIndexDescriptor = updateHashIndexStatus((CatalogHashIndexDescriptor) source, newStatus);
+            updateIndexDescriptor = updateHashIndexStatus((CatalogHashIndexDescriptor) source, newStatus, txWaitCatalogVersion);
         } else if (source instanceof CatalogSortedIndexDescriptor) {
-            updateIndexDescriptor = updateSortedIndexStatus((CatalogSortedIndexDescriptor) source, newStatus);
+            updateIndexDescriptor = updateSortedIndexStatus((CatalogSortedIndexDescriptor) source, newStatus, txWaitCatalogVersion);
         } else {
             throw new CatalogValidationException(format("Unsupported index type '{}' {}", source.id(), source));
         }
@@ -100,26 +99,30 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
         return updateIndexDescriptor;
     }
 
-    private static CatalogIndexDescriptor updateHashIndexStatus(CatalogHashIndexDescriptor index, CatalogIndexStatus newStatus) {
+    private static CatalogIndexDescriptor updateHashIndexStatus(
+            CatalogHashIndexDescriptor index, CatalogIndexStatus newStatus, int txWaitCatalogVersion
+    ) {
         return new CatalogHashIndexDescriptor(
                 index.id(),
                 index.name(),
                 index.tableId(),
                 index.unique(),
                 newStatus,
-                index.creationCatalogVersion(),
+                txWaitCatalogVersion,
                 index.columns()
         );
     }
 
-    private static CatalogIndexDescriptor updateSortedIndexStatus(CatalogSortedIndexDescriptor index, CatalogIndexStatus newStatus) {
+    private static CatalogIndexDescriptor updateSortedIndexStatus(
+            CatalogSortedIndexDescriptor index, CatalogIndexStatus newStatus, int txWaitCatalogVersion
+    ) {
         return new CatalogSortedIndexDescriptor(
                 index.id(),
                 index.name(),
                 index.tableId(),
                 index.unique(),
                 newStatus,
-                index.creationCatalogVersion(),
+                txWaitCatalogVersion,
                 index.columns()
         );
     }
