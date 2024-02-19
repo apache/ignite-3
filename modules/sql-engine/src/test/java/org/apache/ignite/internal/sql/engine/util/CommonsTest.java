@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,27 @@ public class CommonsTest {
     }
 
     @Test
+    public void testProjectionMapping() {
+        assertProjectionMapping(
+                ImmutableIntList.of(1, 2, 3, 4), // source
+                ImmutableIntList.of(3, 2), // projection
+                ImmutableIntList.of(4, 3) // expected result
+        );
+
+        assertProjectionMapping(
+                ImmutableIntList.of(1, 2, 3, 4), // source
+                ImmutableIntList.of(3, 0), // projection
+                ImmutableIntList.of(4, 1) // expected result
+        );
+
+        assertProjectionMapping(
+                ImmutableIntList.of(1, 2, 3, 4), // source
+                ImmutableIntList.of(1), // projection
+                ImmutableIntList.of(2) // expected result
+        );
+    }
+
+    @Test
     public void testArrayToMap() {
         assertEquals(Map.of(), Commons.arrayToMap(null));
 
@@ -57,5 +79,11 @@ public class CommonsTest {
 
         Mapping inverseMapping = mapping.inverse();
         assertEquals(bitSet, Mappings.apply(inverseMapping, expected), "inverse mapping");
+    }
+
+    private static void assertProjectionMapping(ImmutableIntList source, ImmutableIntList projection, ImmutableIntList expected) {
+        Mapping mapping = Commons.projectedMapping(source.size(), projection);
+
+        assertEquals(expected, Mappings.apply(mapping, source));
     }
 }

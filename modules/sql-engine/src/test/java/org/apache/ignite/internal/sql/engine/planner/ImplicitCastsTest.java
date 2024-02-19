@@ -39,7 +39,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
@@ -63,7 +63,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Type coercion related tests that ensure that the necessary casts are placed where it is necessary.
  */
 public class ImplicitCastsTest extends AbstractPlannerTest {
-    private static TestTable tableWithColumn(String tableName, String columnName, RelDataType columnType) {
+    private static IgniteTable tableWithColumn(String tableName, String columnName, RelDataType columnType) {
         return TestBuilders.table()
                 .name(tableName)
                 .addColumn("ID", NativeTypes.INT32, false)

@@ -788,12 +788,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public boolean isUpdateAllowed(RelOptTable tbl, int colIdx) {
-            return true;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public ColumnDescriptor columnDescriptor(String fieldName) {
             RelDataTypeField field = rowType.getField(fieldName, false, false);
 
@@ -861,6 +855,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this.idx = idx;
             this.name = name;
             this.physicalType = physicalType;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean hidden() {
+            return false;
         }
 
         /** {@inheritDoc} */

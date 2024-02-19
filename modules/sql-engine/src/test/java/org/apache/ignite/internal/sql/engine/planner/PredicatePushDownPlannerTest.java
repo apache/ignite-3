@@ -19,9 +19,9 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import org.apache.calcite.rel.core.Join;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
@@ -53,7 +53,7 @@ public class PredicatePushDownPlannerTest extends AbstractPlannerTest {
         );
     }
 
-    private static TestTable createTable(String tableName) {
+    private static IgniteTable createTable(String tableName) {
         return TestBuilders.table()
                 .name(tableName)
                 .addColumn("C1", NativeTypes.INT32)
