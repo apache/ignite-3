@@ -249,7 +249,7 @@ public class DistributionZoneRebalanceEngine {
                     int counter = bytesToInt(event.entryEvent().newEntry().value());
 
                     if (counter > 0) {
-                        LOG.info(">>>> Skipped");
+                        LOG.info(">>>> Skipped, counter = " + counter);
                         return nullCompletedFuture();
                     }
 
@@ -262,7 +262,7 @@ public class DistributionZoneRebalanceEngine {
                             return;
                         }
 
-                        LOG.info("");
+                        LOG.info("Started to update stable keys for tables from the zone [zoneId = {}, tables = [{}]]", zoneId, tables);
 
                         try {
                             Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
@@ -289,7 +289,7 @@ public class DistributionZoneRebalanceEngine {
                             });
 
                         } catch (Exception e) {
-                            LOG.info("");
+                            LOG.error("Failed to update stable keys for tables [{}]", tables);
                         } finally {
                             busyLock.leaveBusy();
                         }

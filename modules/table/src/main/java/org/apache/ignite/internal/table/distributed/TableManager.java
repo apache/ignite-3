@@ -1871,7 +1871,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 value(partitionsCounterKey(zoneId)).eq(intToBytes(0))
         );
 
-        byte[] countersValue = intToBytes(findTablesByZoneId(zoneId, catalogVersion, catalogService).size() * partitionsCount);
+        int tablesPartitionsInZone = findTablesByZoneId(zoneId, catalogVersion, catalogService).size() * partitionsCount;
+
+        byte[] countersValue = intToBytes(tablesPartitionsInZone);
 
         return metaStorageMgr.invoke(iif(
                 condition,
@@ -1879,17 +1881,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 ops().yield(false)
         )).whenComplete((res, e) -> {
             if (e != null) {
-                LOG.error(
-                        "Failed"
-                );
+                LOG.error("Failed to update counter for the zone [zoneId = {}]", zoneId);
             } else if (res.getAsBoolean()) {
-                LOG.info(
-                        "Updated"
-                );
+                LOG.info("Partitions tables counter for the zone is updated [zoneId = {}, counter = {}]", zoneId, tablesPartitionsInZone);
             } else {
-                LOG.info(
-                        "Not updated"
-                );
+                LOG.info("Partitions tables counter for the zone is not updated [zoneId = {}]", zoneId);
             }
         }).thenCompose((ignored) -> nullCompletedFuture());
     }

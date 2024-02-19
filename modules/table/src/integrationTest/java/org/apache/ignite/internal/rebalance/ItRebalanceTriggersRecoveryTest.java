@@ -206,6 +206,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 .get(10, TimeUnit.SECONDS).revision();
 
 
+        System.out.println(">>> RESTART");
         startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         long pendingsKeysRevisionAfterRecovery = node(0).metaStorageManager()
