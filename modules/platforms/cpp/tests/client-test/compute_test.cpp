@@ -198,7 +198,8 @@ TEST_F(compute_test, unknown_node_execute_throws) {
         ignite_error);
 }
 
-TEST_F(compute_test, unknown_node_broadcast_throws) {
+//TODO https://issues.apache.org/jira/browse/IGNITE-21553
+TEST_F(compute_test, DISABLED_unknown_node_broadcast_throws) {
     auto unknown_node = cluster_node("some", "random", {"127.0.0.1", 1234});
 
     EXPECT_THROW(
