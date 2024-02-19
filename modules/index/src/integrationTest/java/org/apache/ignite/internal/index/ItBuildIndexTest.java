@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -42,6 +45,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
@@ -55,7 +60,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.Command;
@@ -70,6 +74,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.TransactionOptions;
@@ -115,7 +120,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
-        assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
+        assertQuery(format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)
                 .returns(2, 2)
@@ -149,9 +154,70 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
             assertThat(indexDescriptor, is(notNullValue()));
             assertThat(indexDescriptor.status(), is(CatalogIndexStatus.STOPPING));
+            assertThat(indexRemovedFuture, willTimeoutFast());
         }, new TransactionOptions().readOnly(false));
 
         assertThat(indexRemovedFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testWritingIntoStoppingIndex() throws Exception {
+        int partitions = initialNodes();
+
+        int replicas = initialNodes();
+
+        createAndPopulateTable(replicas, partitions);
+
+        createIndex(INDEX_NAME);
+
+        checkIndexBuild(partitions, replicas, INDEX_NAME);
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        // Latch for waiting for the RW transaction to start before dropping the index.
+        var startTransactionLatch = new CountDownLatch(1);
+        // Latch for waiting for the index to be dropped, before inserting data in the transaction.
+        var dropIndexLatch = new CountDownLatch(1);
+
+        CompletableFuture<Void> dropIndexFuture = runAsync(() -> {
+            try {
+                startTransactionLatch.await(1, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                throw new CompletionException(e);
+            }
+
+            dropIndex(INDEX_NAME);
+
+            CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, INDEX_NAME);
+
+            assertThat(indexDescriptor, is(notNullValue()));
+            assertThat(indexDescriptor.status(), is(CatalogIndexStatus.STOPPING));
+
+            dropIndexLatch.countDown();
+        });
+
+        CompletableFuture<Void> insertDataIntoIndexTransaction = runAsync(() -> {
+            node.transactions().runInTransaction(tx -> {
+                startTransactionLatch.countDown();
+
+                try {
+                    dropIndexLatch.await(1, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    throw new CompletionException(e);
+                }
+
+                // Insert data into a STOPPING index. We expect it to be inserted.
+                sql(tx, format("INSERT INTO {} VALUES {}", TABLE_NAME, toValuesString(List.of(239, 239))));
+
+                assertQuery((InternalTransaction) tx, format("SELECT * FROM {} WHERE i1 > 10", TABLE_NAME))
+                        .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
+                        .returns(239, 239)
+                        .check();
+            }, new TransactionOptions().readOnly(false));
+        });
+
+        assertThat(dropIndexFuture, willCompleteSuccessfully());
+        assertThat(insertDataIntoIndexTransaction, willCompleteSuccessfully());
     }
 
     @Test
@@ -319,23 +385,23 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void createAndPopulateTable(int replicas, int partitions) {
-        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}",
+        sql(format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}",
                 ZONE_NAME, replicas, partitions
         ));
 
-        sql(IgniteStringFormatter.format(
+        sql(format(
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
                 TABLE_NAME, ZONE_NAME
         ));
 
-        sql(IgniteStringFormatter.format(
+        sql(format(
                 "INSERT INTO {} VALUES {}",
                 TABLE_NAME, toValuesString(List.of(1, 1), List.of(2, 2), List.of(3, 3), List.of(4, 4), List.of(5, 5))
         ));
     }
 
     private static void createIndex(String indexName) throws Exception {
-        sql(IgniteStringFormatter.format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME));
+        sql(format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME));
 
         waitForIndex(indexName);
     }
@@ -424,7 +490,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             assertEquals(
                     replicas,
                     entry.getValue().size(),
-                    IgniteStringFormatter.format("p={}, nodes={}", entry.getKey(), entry.getValue())
+                    format("p={}, nodes={}", entry.getKey(), entry.getValue())
             );
         }
 
