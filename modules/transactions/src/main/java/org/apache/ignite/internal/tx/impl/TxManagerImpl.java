@@ -60,7 +60,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -222,6 +221,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      * @param partitionOperationsExecutor Executor on which partition operations will be executed, if needed.
+     * @param cursorRegistry Cursor registry.
      */
     public TxManagerImpl(
             TransactionConfiguration txConfig,
@@ -233,7 +233,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
-            StripedThreadPoolExecutor partitionOperationsExecutor
+            StripedThreadPoolExecutor partitionOperationsExecutor,
+            CursorRegistry cursorRegistry
     ) {
         this(
                 txConfig,
@@ -245,7 +246,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 placementDriver,
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
-                new ChooseExecutorForReplicationGroup(partitionOperationsExecutor)
+                new ChooseExecutorForReplicationGroup(partitionOperationsExecutor),
+                cursorRegistry
         );
     }
 
@@ -261,6 +263,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     * @param cursorRegistry Cursor registry.
      */
     @TestOnly
     public TxManagerImpl(
@@ -272,7 +275,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            LocalRwTxCounter localRwTxCounter
+            LocalRwTxCounter localRwTxCounter,
+            CursorRegistry cursorRegistry
     ) {
         this(
                 txConfig,
@@ -284,7 +288,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 placementDriver,
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
-                groupId -> ForkJoinPool.commonPool()
+                groupId -> ForkJoinPool.commonPool(),
+                cursorRegistry
         );
     }
 
@@ -301,6 +306,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      * @param partitionOperationsStripeChooser Chooser of an executor on which partition operations will be executed, if needed.
+     * @param cursorRegistry Cursor registry.
      */
     private TxManagerImpl(
             TransactionConfiguration txConfig,
@@ -312,7 +318,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
-            ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser
+            ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser,
+            CursorRegistry cursorRegistry
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -345,7 +352,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
-        txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
+        txCleanupRequestHandler = new TxCleanupRequestHandler(
+                messagingService,
+                lockManager,
+                clock,
+                writeIntentSwitchProcessor,
+                cursorRegistry
+        );
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
     }
@@ -821,11 +834,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
         return runAsync(runnable, cleanupExecutor);
-    }
-
-    @Override
-    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
-        return supplyAsync(action, cleanupExecutor).thenCompose(f -> f);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {

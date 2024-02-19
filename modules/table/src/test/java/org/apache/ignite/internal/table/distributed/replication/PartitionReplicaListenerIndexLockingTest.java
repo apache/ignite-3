@@ -99,6 +99,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -254,7 +255,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 new TestPlacementDriver(localNode),
-                mock(ClusterNodeResolver.class)
+                mock(ClusterNodeResolver.class),
+                new CursorRegistry()
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

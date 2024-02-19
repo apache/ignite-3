@@ -179,6 +179,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -632,6 +633,8 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        CursorRegistry cursorRegistry = new CursorRegistry();
+
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 txConfig,
@@ -643,7 +646,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 indexNodeFinishedRwTransactionsChecker,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                cursorRegistry
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
@@ -676,7 +680,8 @@ public class IgniteImpl implements Ignite {
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
                 this::sql,
-                failureProcessor
+                failureProcessor,
+                cursorRegistry
         );
 
         indexManager = new IndexManager(

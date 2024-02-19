@@ -404,7 +404,8 @@ public class FakeInternalTable implements InternalTable {
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
-            @Nullable BitSet columnsToInclude) {
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
@@ -413,7 +414,8 @@ public class FakeInternalTable implements InternalTable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode
+            ClusterNode recipientNode,
+            String txCoordinatorId
     ) {
         return null;
     }
@@ -440,7 +442,8 @@ public class FakeInternalTable implements InternalTable {
             ClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }

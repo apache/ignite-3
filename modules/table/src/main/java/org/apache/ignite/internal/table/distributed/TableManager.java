@@ -183,6 +183,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -380,6 +381,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Index chooser for full state transfer. */
     private final FullStateTransferIndexChooser fullStateTransferIndexChooser;
 
+    private final CursorRegistry cursorRegistry;
+
     /**
      * Creates a new table manager.
      *
@@ -434,7 +437,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            CursorRegistry cursorRegistry
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -457,6 +461,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.placementDriver = placementDriver;
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
+        this.cursorRegistry = cursorRegistry;
 
         partitionOperationsStripeChooser = new ChooseExecutorForReplicationGroup(partitionOperationsExecutor);
 
@@ -1003,7 +1008,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsStripe),
                 catalogService,
                 new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsStripe),
-                clusterService.topologyService()
+                clusterService.topologyService(),
+                cursorRegistry
         );
     }
 

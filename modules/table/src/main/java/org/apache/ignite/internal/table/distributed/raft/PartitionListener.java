@@ -82,11 +82,11 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
-    /** Transaction manager. */
-    private final TxManager txManager;
-
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
+
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;

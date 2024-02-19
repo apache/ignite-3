@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -62,8 +63,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -166,6 +165,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
@@ -181,6 +181,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.tx.TransactionException;
@@ -224,11 +225,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Handler that processes updates writing them to storage. */
     private final StorageUpdateHandler storageUpdateHandler;
 
-    /**
-     * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id
-     * ({@link Long}).
-     */
-    private final ConcurrentNavigableMap<IgniteUuid, Cursor<?>> cursors;
+    /** Cursors registry. */
+    private final CursorRegistry cursorRegistry;
 
     /** Tx state storage. */
     private final TxStateStorage txStateStorage;
@@ -327,7 +325,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
-            ClusterNodeResolver clusterNodeResolver
+            ClusterNodeResolver clusterNodeResolver,
+            CursorRegistry cursorRegistry
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -347,10 +346,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.catalogService = catalogService;
         this.placementDriver = placementDriver;
         this.clusterNodeResolver = clusterNodeResolver;
+        this.cursorRegistry = cursorRegistry;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
-
-        cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
@@ -608,7 +606,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             ));
 
             // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
+            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false,
+                        () -> processScanRetrieveBatchAction(req))
                     .thenCompose(rows -> {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
@@ -796,13 +795,17 @@ public class PartitionReplicaListener implements ReplicaListener {
             return safeReadFuture.thenCompose(unused -> scanSortedIndex(request, indexStorage));
         }
 
-        return safeReadFuture.thenCompose(unused -> retrieveExactEntriesUntilCursorEmpty(txId, readTimestamp, cursorId, batchCount));
+        return safeReadFuture
+                .thenCompose(
+                        unused -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), readTimestamp, cursorId, batchCount)
+                );
     }
 
     /**
      * Extracts exact amount of entries, or less if cursor is become empty, from a cursor on the specific time.
      *
      * @param txId Transaction id is used for RW only.
+     * @param txCoordinatorId Transaction coordinator id.
      * @param readTimestamp Timestamp of the moment when that moment when the data will be extracted.
      * @param cursorId Cursor id.
      * @param count Amount of entries which sill be extracted.
@@ -810,12 +813,17 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<List<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(
             UUID txId,
+            String txCoordinatorId,
             @Nullable HybridTimestamp readTimestamp,
             IgniteUuid cursorId,
             int count
     ) {
-        @SuppressWarnings("resource") PartitionTimestampCursor cursor = (PartitionTimestampCursor) cursors.computeIfAbsent(cursorId,
-                id -> mvDataStorage.scan(readTimestamp == null ? HybridTimestamp.MAX_VALUE : readTimestamp));
+        PartitionTimestampCursor cursor = (PartitionTimestampCursor)
+                cursorRegistry.registerCursor(
+                        cursorId,
+                        txCoordinatorId,
+                        () -> mvDataStorage.scan(readTimestamp == null ? HybridTimestamp.MAX_VALUE : readTimestamp)
+                );
 
         var resolutionFuts = new ArrayList<CompletableFuture<TimedBinaryRow>>(count);
 
@@ -847,11 +855,12 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             if (rows.size() < count && cursor.hasNext()) {
-                return retrieveExactEntriesUntilCursorEmpty(txId, readTimestamp, cursorId, count - rows.size()).thenApply(binaryRows -> {
-                    rows.addAll(binaryRows);
+                return retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, readTimestamp, cursorId, count - rows.size())
+                        .thenApply(binaryRows -> {
+                            rows.addAll(binaryRows);
 
-                    return rows;
-                });
+                            return rows;
+                        });
             } else {
                 return completedFuture(closeCursorIfBatchNotFull(rows, count, cursorId));
             }
@@ -865,8 +874,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cursorId Cursor id.
      * @return Future finishes with the resolved binary row.
      */
-    private CompletableFuture<List<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(UUID txId, IgniteUuid cursorId, int count) {
-        return retrieveExactEntriesUntilCursorEmpty(txId, null, cursorId, count).thenCompose(rows -> {
+    private CompletableFuture<List<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(
+            UUID txId,
+            String txCoordinatorId,
+            IgniteUuid cursorId,
+            int count
+    ) {
+        return retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, null, cursorId, count).thenCompose(rows -> {
             if (nullOrEmpty(rows)) {
                 return emptyListCompletedFuture();
             }
@@ -983,39 +997,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Close all cursors connected with a transaction.
-     *
-     * @param txId Transaction id.
-     * @throws Exception When an issue happens on cursor closing.
-     */
-    private void closeAllTransactionCursors(UUID txId) {
-        var lowCursorId = new IgniteUuid(txId, Long.MIN_VALUE);
-        var upperCursorId = new IgniteUuid(txId, Long.MAX_VALUE);
-
-        Map<IgniteUuid, ? extends Cursor<?>> txCursors = cursors.subMap(lowCursorId, true, upperCursorId, true);
-
-        ReplicationException ex = null;
-
-        for (AutoCloseable cursor : txCursors.values()) {
-            try {
-                cursor.close();
-            } catch (Exception e) {
-                if (ex == null) {
-                    ex = new ReplicationException(Replicator.REPLICA_COMMON_ERR,
-                            format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId,
-                                    e.getMessage()), e);
-                } else {
-                    ex.addSuppressed(e);
-                }
-            }
-        }
-
-        if (ex != null) {
-            throw ex;
-        }
-    }
-
-    /**
      * Processes scan close request.
      *
      * @param request Scan close request operation.
@@ -1025,7 +1006,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        closeCursor(cursorId);
+        try {
+            cursorRegistry.closeCursor(cursorId);
+        } catch (IgniteException e) {
+            throw wrapCursorCloseException(e);
+        }
     }
 
     /**
@@ -1037,28 +1022,19 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private ArrayList<BinaryRow> closeCursorIfBatchNotFull(ArrayList<BinaryRow> rows, int batchSize, IgniteUuid cursorId) {
         if (rows.size() < batchSize) {
-            closeCursor(cursorId);
+            try {
+                cursorRegistry.closeCursor(cursorId);
+            } catch (IgniteException e) {
+                throw wrapCursorCloseException(e);
+            }
         }
 
         return rows;
     }
 
-    /**
-     * Closes a specific cursor.
-     *
-     * @param cursorId Cursor id.
-     */
-    private void closeCursor(IgniteUuid cursorId) {
-        Cursor<?> cursor = cursors.remove(cursorId);
-
-        if (cursor != null) {
-            try {
-                cursor.close();
-            } catch (Exception e) {
-                throw new ReplicationException(Replicator.REPLICA_COMMON_ERR,
-                        format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId, e.getMessage()), e);
-            }
-        }
+    private ReplicationException wrapCursorCloseException(IgniteException e) {
+        return new ReplicationException(CURSOR_CLOSE_ERR,
+                format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId, e.getMessage()), e);
     }
 
     /**
@@ -1067,9 +1043,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Scan retrieve batch request operation.
      * @return Listener response.
      */
-    private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(
-            ReadWriteScanRetrieveBatchReplicaRequest request
-    ) {
+    private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(ReadWriteScanRetrieveBatchReplicaRequest request) {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
@@ -1080,7 +1054,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
-                return lookupIndex(request, indexStorage.storage());
+                return lookupIndex(request, indexStorage.storage(), request.coordinatorId());
             }
 
             assert indexStorage.storage() instanceof SortedIndexStorage;
@@ -1094,7 +1068,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
         return lockManager.acquire(txId, new LockKey(tableId()), LockMode.S)
-                .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, cursorId, batchCount));
+                .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), cursorId, batchCount));
     }
 
     /**
@@ -1117,8 +1091,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         BinaryTuple key = request.exactKey().asBinaryTuple();
 
-        Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId,
-                id -> indexStorage.get(key));
+        Cursor<RowId> cursor = (Cursor<RowId>) cursorRegistry.registerCursor(cursorId,
+                request.coordinatorId(), () -> indexStorage.get(key));
 
         var result = new ArrayList<BinaryRow>(batchCount);
 
@@ -1130,7 +1104,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<List<BinaryRow>> lookupIndex(
             ReadWriteScanRetrieveBatchReplicaRequest request,
-            IndexStorage indexStorage
+            IndexStorage indexStorage,
+            String txCoordinatorId
     ) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
@@ -1146,8 +1121,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .thenCompose(tblLock -> {
                         return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
                                 .thenCompose(indRowLock -> { // Hash index bucket S lock
-                                    Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId,
-                                            id -> indexStorage.get(exactKey));
+                                    Cursor<RowId> cursor = (Cursor<RowId>) cursorRegistry.registerCursor(cursorId,
+                                            txCoordinatorId, () -> indexStorage.get(exactKey));
 
                                     var result = new ArrayList<BinaryRow>(batchCount);
 
@@ -1211,8 +1186,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
                         };
 
-                        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
-                                id -> indexStorage.scan(
+                        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursorRegistry.registerCursor(cursorId, request.coordinatorId(),
+                                () -> indexStorage.scan(
                                         lowerBound,
                                         // We have to handle upperBound on a level of replication listener,
                                         // for correctness of taking of a range lock.
@@ -1258,8 +1233,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
-                id -> indexStorage.scan(
+        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursorRegistry.registerCursor(cursorId, request.coordinatorId(),
+                () -> indexStorage.scan(
                         lowerBound,
                         upperBound,
                         flags
@@ -1657,13 +1632,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenCompose(res -> {
-                    try {
-                        closeAllTransactionCursors(request.txId());
-                    } catch (Exception e) {
-                        // TODO: IGNITE-21293 Should we stop write intent switch handling if closing cursors failed?
-                        return failedFuture(e);
-                    }
-
                     if (res.hadUpdateFutures()) {
                         HybridTimestamp commandTimestamp = hybridClock.now();
 

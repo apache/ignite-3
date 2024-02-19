@@ -177,6 +177,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -1037,6 +1038,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.partitionOperationsExecutor()
             );
 
+            var cursorRegistry = new CursorRegistry();
+
             txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
@@ -1046,7 +1049,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TransactionIdGenerator(addr.port()),
                     placementDriver,
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
-                    new TestLocalRwTxCounter()
+                    new TestLocalRwTxCounter(),
+                    cursorRegistry
             );
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
@@ -1142,7 +1146,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new HybridTimestampTracker(),
                     placementDriver,
                     () -> mock(IgniteSql.class),
-                    failureProcessor
+                    failureProcessor,
+                    cursorRegistry
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

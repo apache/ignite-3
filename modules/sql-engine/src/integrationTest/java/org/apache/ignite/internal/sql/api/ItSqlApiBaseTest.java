@@ -483,7 +483,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCode(
                 CursorClosedException.class,
-                Common.CURSOR_CLOSED_ERR,
+                Common.CURSOR_ALREADY_CLOSED_ERR,
                 () -> rs.forEachRemaining(System.out::println),
                 "Cursor is closed");
 
@@ -541,7 +541,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             IgniteTestUtils.assertThrowsWithCode(
                     CursorClosedException.class,
-                    Common.CURSOR_CLOSED_ERR,
+                    Common.CURSOR_ALREADY_CLOSED_ERR,
                     () -> rs.forEachRemaining(Object::hashCode),
                     "Cursor is closed");
         }

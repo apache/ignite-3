@@ -128,6 +128,7 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -196,6 +197,8 @@ public class ItTxTestCluster {
     protected Map<String, ReplicaService> replicaServices;
 
     protected Map<String, TxManager> txManagers;
+
+    protected Map<String, CursorRegistry> cursorRegistries;
 
     protected TxManager clientTxManager;
 
@@ -327,6 +330,7 @@ public class ItTxTestCluster {
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
+        cursorRegistries = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
@@ -385,13 +389,18 @@ public class ItTxTestCluster {
 
             replicaServices.put(node.name(), replicaSvc);
 
+            CursorRegistry cursorRegistry = new CursorRegistry();
+
+            cursorRegistries.put(node.name(), cursorRegistry);
+
             TxManagerImpl txMgr = newTxManager(
                     cluster.get(i),
                     replicaSvc,
                     clock,
                     new TransactionIdGenerator(i),
                     node,
-                    placementDriver
+                    placementDriver,
+                    cursorRegistry
             );
 
             txMgr.start();
@@ -425,7 +434,8 @@ public class ItTxTestCluster {
             HybridClock clock,
             TransactionIdGenerator generator,
             ClusterNode node,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            CursorRegistry cursorRegistry
     ) {
         return new TxManagerImpl(
                 txConfiguration,
@@ -437,7 +447,8 @@ public class ItTxTestCluster {
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
-                partitionOperationsExecutor
+                partitionOperationsExecutor,
+                cursorRegistry
         );
     }
 
@@ -600,7 +611,8 @@ public class ItTxTestCluster {
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         placementDriver,
-                                        nodeResolver
+                                        nodeResolver,
+                                        cursorRegistries.get(assignment)
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -698,7 +710,8 @@ public class ItTxTestCluster {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
-            ClusterNodeResolver clusterNodeResolver
+            ClusterNodeResolver clusterNodeResolver,
+            CursorRegistry cursorRegistry
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -721,7 +734,8 @@ public class ItTxTestCluster {
                 schemaSyncService,
                 catalogService,
                 placementDriver,
-                clusterNodeResolver
+                clusterNodeResolver,
+                cursorRegistry
         );
     }
 
@@ -886,7 +900,8 @@ public class ItTxTestCluster {
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
-                partitionOperationsExecutor
+                partitionOperationsExecutor,
+                new CursorRegistry()
         );
 
         clientTxStateResolver = new TransactionStateResolver(
