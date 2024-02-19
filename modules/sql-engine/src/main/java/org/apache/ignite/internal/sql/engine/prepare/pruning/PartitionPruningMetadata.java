@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +33,6 @@ public class PartitionPruningMetadata {
     /** Empty metadata. */
     public static PartitionPruningMetadata EMPTY = new PartitionPruningMetadata(Long2ObjectMaps.emptyMap());
 
-    @IgniteToStringInclude
     private final Long2ObjectMap<PartitionPruningColumns> data;
 
     /** Constructor. */
@@ -55,6 +53,6 @@ public class PartitionPruningMetadata {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(PartitionPruningMetadata.class, this, "data", data);
     }
 }

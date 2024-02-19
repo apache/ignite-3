@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -43,6 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -1426,9 +1426,14 @@ public class TestBuilders {
                 throw new AssertionError("DataProvider is not configured for table " + table.name());
             }
 
-            ExecutionTarget target = factory.partitioned(owningNodes.stream()
-                    .map(name -> new NodeWithConsistencyToken(name, 1))
-                    .collect(Collectors.toList()));
+            int p = table.partitions();
+
+            List<NodeWithConsistencyToken> nodes = IntStream.range(0, p).mapToObj(n -> {
+                String nodeName = owningNodes.get(n % owningNodes.size());
+                return new NodeWithConsistencyToken(nodeName, p);
+            }).collect(Collectors.toList());
+
+            ExecutionTarget target = factory.partitioned(nodes);
 
             return CompletableFuture.completedFuture(target);
         }
