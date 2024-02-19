@@ -436,7 +436,8 @@ public class ItTxTestCluster {
                 generator,
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                partitionOperationsExecutor
         );
     }
 
@@ -884,7 +885,8 @@ public class ItTxTestCluster {
                 new TransactionIdGenerator(-1),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                partitionOperationsExecutor
         );
 
         clientTxStateResolver = new TransactionStateResolver(

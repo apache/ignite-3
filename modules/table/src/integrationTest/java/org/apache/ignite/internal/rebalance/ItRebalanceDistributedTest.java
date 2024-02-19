@@ -1033,7 +1033,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
-                    hybridClock
+                    hybridClock, name,
+                    threadPoolsManager.partitionOperationsExecutor()
             );
 
             txManager = new TxManagerImpl(
