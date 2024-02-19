@@ -20,19 +20,15 @@ package org.apache.ignite.internal.index;
 import static java.util.Collections.binarySearch;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -43,6 +39,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for various operations, for example for RW transactions. */
@@ -175,25 +172,13 @@ class IndexChooser implements ManuallyCloseable {
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_REMOVED, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
-            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
-        });
-
-        catalogService.listen(CatalogEvent.TABLE_DROP, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onDropTable((DropTableEventParameters) parameters).thenApply(unused -> false);
-        });
+        catalogService.listen(CatalogEvent.TABLE_DROP, EventListener.fromConsumer(this::onDropTable));
     }
 
-    private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onIndexRemoved(RemoveIndexEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
             int previousCatalogVersion = parameters.catalogVersion() - 1;
 
             CatalogIndexDescriptor removedIndexDescriptor = catalogService.index(parameters.indexId(), previousCatalogVersion);
@@ -201,22 +186,18 @@ class IndexChooser implements ManuallyCloseable {
             assert removedIndexDescriptor != null : "indexId=" + parameters.indexId() + ", catalogVersion=" + previousCatalogVersion;
 
             if (removedIndexDescriptor.status() != AVAILABLE && removedIndexDescriptor.status() != STOPPING) {
-                return nullCompletedFuture();
+                return;
             }
 
             addRemovedAvailableIndex(removedIndexDescriptor, parameters.catalogVersion());
-
-            return nullCompletedFuture();
         });
     }
 
-    private CompletableFuture<?> onDropTable(DropTableEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onDropTable(DropTableEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
             // We can remove removed indexes on table drop as we need such indexes only for writing, and write operations will be denied
             // right after a table drop has been activated.
             removedAvailableTableIndexes.entrySet().removeIf(entry -> parameters.tableId() == entry.getKey().tableId);
-
-            return nullCompletedFuture();
         });
     }
 

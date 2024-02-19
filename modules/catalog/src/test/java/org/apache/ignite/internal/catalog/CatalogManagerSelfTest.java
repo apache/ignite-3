@@ -287,7 +287,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
         assertEquals(AVAILABLE, pkIndex.status());
-        assertEquals(manager.latestCatalogVersion(), pkIndex.creationCatalogVersion());
+        assertEquals(manager.latestCatalogVersion(), pkIndex.txWaitCatalogVersion());
 
         CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
         assertNotNull(desc);
@@ -1012,7 +1012,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
         assertEquals(REGISTERED, index.status());
-        assertEquals(manager.latestCatalogVersion(), index.creationCatalogVersion());
+        assertEquals(manager.latestCatalogVersion(), index.txWaitCatalogVersion());
     }
 
     @Test
@@ -1054,7 +1054,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
         assertEquals(REGISTERED, index.status());
-        assertEquals(manager.latestCatalogVersion(), index.creationCatalogVersion());
+        assertEquals(manager.latestCatalogVersion(), index.txWaitCatalogVersion());
     }
 
     @Test
@@ -2416,7 +2416,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
 
-        assertEquals(expCreationVersion, latestCatalog.index(indexId).creationCatalogVersion());
+        assertEquals(expCreationVersion, latestCatalog.index(indexId).txWaitCatalogVersion());
     }
 
     @ParameterizedTest(name = "hashIndex={0}, updateIndex={1}")
@@ -2444,7 +2444,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
 
-        assertEquals(expCreationVersion, latestCatalog.index(indexId).creationCatalogVersion());
+        assertEquals(expCreationVersion, latestCatalog.index(indexId).txWaitCatalogVersion());
     }
 
     private static Stream<Arguments> argumentsForCheckIndexCreationCatalogVersion() {

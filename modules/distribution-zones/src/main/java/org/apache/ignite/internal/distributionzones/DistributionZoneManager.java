@@ -61,7 +61,6 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -1390,7 +1389,7 @@ public class DistributionZoneManager implements IgniteComponent {
         catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(busyLock, () -> {
             assert exception == null : parameters;
 
-            return onDropZoneBusy((DropZoneEventParameters) parameters).thenCompose((ignored) -> falseCompletedFuture());
+            return onDropZoneBusy((DropZoneEventParameters) parameters).thenApply((ignored) -> false);
         }));
 
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());

@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.thread;
 
-dependencies {
-    api project(':ignite-api')
-    api libs.fastutil.core
+import java.util.concurrent.Executor;
 
-    implementation project(':ignite-configuration-api')
-    implementation project(':ignite-core')
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation testFixtures(project(':ignite-core'))
+/**
+ * Chooses an executor based on a given argument.
+ */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ExecutorChooser<T> {
+    /**
+     * Chooses an executor based on a given argument.
+     *
+     * @param argument Argument for which to choose an executor.
+     */
+    Executor choose(T argument);
 }
-
-description = 'ignite-network-api'

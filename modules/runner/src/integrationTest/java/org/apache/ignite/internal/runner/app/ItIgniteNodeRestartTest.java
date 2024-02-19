@@ -349,11 +349,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
                 = () -> TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
 
-        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+        var replicaService = new ReplicaService(
+                clusterSvc.messagingService(),
+                hybridClock,
+                name,
+                threadPools.partitionOperationsExecutor()
+        );
 
         var lockManager = new HeapLockManager();
-
-        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -439,7 +442,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                threadPools.partitionOperationsExecutor()
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -548,7 +552,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaManager,
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
-                replicaSvc,
+                replicaService,
                 hybridClock,
                 schemaSyncService,
                 catalogManager,

@@ -39,6 +39,8 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -55,7 +57,7 @@ import org.openjdk.jmh.annotations.TearDown;
 @State(Scope.Benchmark)
 public class AbstractMultiNodeBenchmark {
     private static final int BASE_PORT = 3344;
-    private static final int BASE_CLIENT_PORT = 10800;
+    protected static final int BASE_CLIENT_PORT = 10800;
     private static final int BASE_REST_PORT = 10300;
 
     protected static final String FIELD_VAL = "a".repeat(100);
@@ -133,6 +135,33 @@ public class AbstractMultiNodeBenchmark {
                         SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
                 ))
         );
+    }
+
+    static void populateTable(String tableName, int size, int batchSize) {
+        RecordView<Tuple> view = clusterNode.tables().table(tableName).recordView();
+
+        Tuple payload = Tuple.create();
+        for (int j = 1; j <= 10; j++) {
+            payload.set("field" + j, FIELD_VAL);
+        }
+
+        batchSize = Math.min(size, batchSize);
+        List<Tuple> batch = new ArrayList<>(batchSize);
+        for (int i = 0; i < size; i++) {
+            batch.add(Tuple.create(payload).set("ycsb_key", i));
+
+            if (batch.size() == batchSize) {
+                view.insertAll(null, batch);
+
+                batch.clear();
+            }
+        }
+
+        if (!batch.isEmpty()) {
+            view.insertAll(null, batch);
+
+            batch.clear();
+        }
     }
 
     /**

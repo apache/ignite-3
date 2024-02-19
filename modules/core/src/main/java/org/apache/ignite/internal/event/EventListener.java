@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.event;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
 /** A listener that handles events from an event producer. */
@@ -33,4 +37,23 @@ public interface EventListener<P extends EventParameters> {
      *         future will never be completed with {@code null} value.
      */
     CompletableFuture<Boolean> notify(P parameters, @Nullable Throwable exception);
+
+    /**
+     * Creates an adapter for a given callback.
+     *
+     * <p>Created listener will never return a future completed with {@code true}.
+     */
+    static <P extends EventParameters> EventListener<P> fromConsumer(Consumer<P> callback) {
+        return (parameters, exception) -> {
+            if (exception == null) {
+                try {
+                    callback.accept(parameters);
+                } catch (Throwable e) {
+                    return failedFuture(e);
+                }
+            }
+
+            return falseCompletedFuture();
+        };
+    }
 }

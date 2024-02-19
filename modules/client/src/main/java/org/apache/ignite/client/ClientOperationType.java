@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -162,5 +163,10 @@ public enum ClientOperationType {
     /**
      * Send streamer batch ({@link org.apache.ignite.table.DataStreamerTarget#streamData}).
      */
-    STREAMER_BATCH_SEND
+    STREAMER_BATCH_SEND,
+
+    /**
+     * SQL Execute batch ({@link org.apache.ignite.sql.Session#executeBatchAsync(Transaction, String, BatchedArguments)}).
+     */
+    SQL_EXECUTE_BATCH
 }

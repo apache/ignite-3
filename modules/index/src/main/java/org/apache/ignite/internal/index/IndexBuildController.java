@@ -312,7 +312,7 @@ class IndexBuildController implements ManuallyCloseable {
                 mvPartition,
                 localNode(),
                 enlistmentConsistencyToken,
-                indexDescriptor.creationCatalogVersion()
+                indexDescriptor.txWaitCatalogVersion()
         );
     }
 

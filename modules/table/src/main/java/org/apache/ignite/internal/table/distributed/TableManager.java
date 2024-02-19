@@ -65,6 +65,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -133,9 +134,10 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
+import org.apache.ignite.internal.replicator.ChooseExecutorForReplicationGroup;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupStripes;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -173,6 +175,7 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
@@ -312,11 +315,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private final ExecutorService ioExecutor;
 
-    /**
-     * Executor to execute partition operations (that might cause I/O and/or be blocked on locks).
-     */
-    private final StripedThreadPoolExecutor partitionOperationsExecutor;
-
     private final HybridClock clock;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
@@ -370,6 +368,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Configuration for {@link StorageUpdateHandler}. */
     private final StorageUpdateConfiguration storageUpdateConfig;
+
+    /**
+     * Chooses a stripe to execute partition operations (that might cause I/O and/or be blocked on locks).
+     */
+    private final ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser;
 
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
@@ -444,7 +447,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.ioExecutor = ioExecutor;
-        this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
@@ -455,6 +457,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.placementDriver = placementDriver;
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
+
+        partitionOperationsStripeChooser = new ChooseExecutorForReplicationGroup(partitionOperationsExecutor);
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -976,7 +980,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();
 
-        ExecutorService partitionOperationsStripe = ReplicationGroupStripes.stripeFor(tablePartitionId, partitionOperationsExecutor);
+        Executor partitionOperationsStripe = partitionOperationsStripeChooser.choose(tablePartitionId);
 
         return new PartitionReplicaListener(
                 mvPartitionStorage,

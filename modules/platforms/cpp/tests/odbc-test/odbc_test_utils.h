@@ -35,6 +35,10 @@
  if (!SQL_SUCCEEDED(ret))                                                                                              \
  FAIL() << get_odbc_error_message(type, handle)
 
+#define ODBC_FAIL_ON_ERROR_OR_NE(ret, expected, type, handle)                                                          \
+ if (!SQL_SUCCEEDED(ret) && (ret) != (expected))                                                                       \
+ FAIL() << get_odbc_error_message(type, handle)
+
 #define ODBC_THROW_ON_ERROR(ret, type, handle)                                                                         \
  if (!SQL_SUCCEEDED(ret))                                                                                              \
   throw odbc_exception {                                                                                               \
