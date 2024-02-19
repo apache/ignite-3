@@ -92,6 +92,20 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_on
 }
 
 /**
+ * Read tuple.
+ *
+ * @param reader Reader.
+ * @param sch Schema.
+ * @return Tuple.
+ */
+std::optional<ignite_tuple> read_tuple_opt(protocol::reader &reader, const schema *sch) {
+    if (reader.try_read_nil())
+        return std::nullopt;
+
+    return read_tuple(reader, sch);
+}
+
+/**
  * Read tuples.
  *
  * @param reader Reader.
@@ -140,7 +154,7 @@ std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sc
     return res;
 }
 
-void table_impl::get_latest_schema_async(ignite_callback<std::shared_ptr<schema>> callback) {
+void table_impl::load_latest_schema_async(ignite_callback<std::shared_ptr<schema>> callback) {
     auto latest_schema_version = m_latest_schema_version;
 
     if (latest_schema_version >= 0) {
@@ -164,13 +178,21 @@ void table_impl::get_latest_schema_async(ignite_callback<std::shared_ptr<schema>
         }
     }
 
-    load_schema_async(std::move(callback));
+    load_schema_async(std::nullopt, std::move(callback));
 }
 
-void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> callback) {
+void table_impl::load_schema_async(std::optional<std::int32_t> version,
+    ignite_callback<std::shared_ptr<schema>> callback) {
     auto writer_func = [&](protocol::writer &writer) {
         writer.write(m_id);
-        writer.write_nil();
+
+        if (!version) {
+            writer.write_nil();
+        } else {
+            // Number of requested schemas.
+            writer.write(1);
+            writer.write(*version);
+        }
     };
 
     auto table = shared_from_this();
@@ -179,13 +201,13 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
         if (!schema_cnt)
             throw ignite_error("Schema not found");
 
-        std::shared_ptr<schema> last;
+        std::shared_ptr<schema> sch;
         for (std::int32_t schema_idx = 0; schema_idx < schema_cnt; ++schema_idx) {
-            last = schema::read(reader);
-            table->add_schema(last);
+            sch = schema::read(reader);
+            table->add_schema(sch);
         }
 
-        return last;
+        return sch;
     };
 
     m_connection->perform_request<std::shared_ptr<schema>>(
@@ -203,17 +225,33 @@ void table_impl::get_async(
                 write_tuple(writer, sch, *key, true);
             };
 
-            auto reader_func = [self, key](protocol::reader &reader) -> std::optional<ignite_tuple> {
-                std::shared_ptr<schema> sch = self->get_schema(reader);
+            auto handle_func = [self, uc = std::move(callback)](ignite_result<bytes_view> res) mutable {
+                if (res.has_error()) {
+                    uc(std::move(res).error());
+                    return;
+                }
 
-                if (reader.try_read_nil())
-                    return std::nullopt;
+                auto msg = res.value();
+                protocol::reader reader(msg);
+                auto schema_ver = reader.read_int32();
+                std::shared_ptr<schema> sch = self->get_schema(schema_ver);
+                if (sch) {
+                    uc(read_tuple_opt(reader, sch.get()));
+                    return;
+                }
 
-                return read_tuple(reader, sch.get());
+                msg.remove_prefix(reader.position());
+                std::vector<std::byte> msg_copy(msg);
+
+                self->with_schema_async<std::optional<ignite_tuple>>(schema_ver, std::move(uc),
+                    [msg = std::move(msg_copy)] (const schema &sch, auto uc) mutable {
+                    protocol::reader reader(msg);
+                    uc(read_tuple_opt(reader, &sch));
+                });
             };
 
-            self->m_connection->perform_request<std::optional<ignite_tuple>>(protocol::client_operation::TUPLE_GET,
-                tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request_raw(protocol::client_operation::TUPLE_GET,
+                tx0.get(), writer_func, std::move(handle_func));
         });
 }
 
@@ -249,14 +287,33 @@ void table_impl::get_all_async(transaction *tx, std::vector<ignite_tuple> keys,
                 write_tuples(writer, sch, *keys, true);
             };
 
-            auto reader_func = [self](protocol::reader &reader) -> std::vector<std::optional<ignite_tuple>> {
-                std::shared_ptr<schema> sch = self->get_schema(reader);
-                return read_tuples_opt(reader, sch.get(), false);
+            auto handle_func = [self, uc = std::move(callback)](ignite_result<bytes_view> res) mutable {
+                if (res.has_error()) {
+                    uc(std::move(res).error());
+                    return;
+                }
+
+                auto msg = res.value();
+                protocol::reader reader(msg);
+                auto schema_ver = reader.read_int32();
+                std::shared_ptr<schema> sch = self->get_schema(schema_ver);
+                if (sch) {
+                    uc(read_tuples_opt(reader, sch.get(), false));
+                    return;
+                }
+
+                msg.remove_prefix(reader.position());
+                std::vector<std::byte> msg_copy(msg);
+
+                self->with_schema_async<std::vector<std::optional<ignite_tuple>>>(schema_ver, std::move(uc),
+                    [msg = std::move(msg_copy)] (const schema &sch, auto uc) mutable {
+                    protocol::reader reader(msg);
+                    uc(read_tuples_opt(reader, &sch, false));
+                });
             };
 
-            self->m_connection->perform_request<std::vector<std::optional<ignite_tuple>>>(
-                protocol::client_operation::TUPLE_GET_ALL, tx0.get(), writer_func, std::move(reader_func),
-                std::move(callback));
+            self->m_connection->perform_request_raw(protocol::client_operation::TUPLE_GET_ALL,
+                tx0.get(), writer_func, std::move(handle_func));
         });
 }
 
@@ -300,18 +357,33 @@ void table_impl::get_and_upsert_async(
                 write_tuple(writer, sch, *record, false);
             };
 
-            auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
-                std::shared_ptr<schema> sch = self->get_schema(reader);
+            auto handle_func = [self, uc = std::move(callback)](ignite_result<bytes_view> res) mutable {
+                if (res.has_error()) {
+                    uc(std::move(res).error());
+                    return;
+                }
 
-                if (reader.try_read_nil())
-                    return std::nullopt;
+                auto msg = res.value();
+                protocol::reader reader(msg);
+                auto schema_ver = reader.read_int32();
+                std::shared_ptr<schema> sch = self->get_schema(schema_ver);
+                if (sch) {
+                    uc(read_tuple_opt(reader, sch.get()));
+                    return;
+                }
 
-                return read_tuple(reader, sch.get());
+                msg.remove_prefix(reader.position());
+                std::vector<std::byte> msg_copy(msg);
+
+                self->with_schema_async<std::optional<ignite_tuple>>(schema_ver, std::move(uc),
+                    [msg = std::move(msg_copy)] (const schema &sch, auto uc) mutable {
+                    protocol::reader reader(msg);
+                    uc(read_tuple_opt(reader, &sch));
+                });
             };
 
-            self->m_connection->perform_request<std::optional<ignite_tuple>>(
-                protocol::client_operation::TUPLE_GET_AND_UPSERT, tx0.get(), writer_func, std::move(reader_func),
-                std::move(callback));
+            self->m_connection->perform_request_raw(protocol::client_operation::TUPLE_GET_AND_UPSERT,
+                tx0.get(), writer_func, std::move(handle_func));
         });
 }
 
@@ -347,13 +419,33 @@ void table_impl::insert_all_async(
                 write_tuples(writer, sch, *records, false);
             };
 
-            auto reader_func = [self, records](protocol::reader &reader) -> std::vector<ignite_tuple> {
-                std::shared_ptr<schema> sch = self->get_schema(reader);
-                return read_tuples(reader, sch.get(), false);
+            auto handle_func = [self, uc = std::move(callback)](ignite_result<bytes_view> res) mutable {
+                if (res.has_error()) {
+                    uc(std::move(res).error());
+                    return;
+                }
+
+                auto msg = res.value();
+                protocol::reader reader(msg);
+                auto schema_ver = reader.read_int32();
+                std::shared_ptr<schema> sch = self->get_schema(schema_ver);
+                if (sch) {
+                    uc(read_tuples(reader, sch.get(), false));
+                    return;
+                }
+
+                msg.remove_prefix(reader.position());
+                std::vector<std::byte> msg_copy(msg);
+
+                self->with_schema_async<std::vector<ignite_tuple>>(schema_ver, std::move(uc),
+                    [msg = std::move(msg_copy)] (const schema &sch, auto uc) mutable {
+                    protocol::reader reader(msg);
+                    uc(read_tuples(reader, &sch, false));
+                });
             };
 
-            self->m_connection->perform_request<std::vector<ignite_tuple>>(protocol::client_operation::TUPLE_INSERT_ALL,
-                tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request_raw(protocol::client_operation::TUPLE_INSERT_ALL,
+                tx0.get(), writer_func, std::move(handle_func));
         });
 }
 
@@ -410,18 +502,33 @@ void table_impl::get_and_replace_async(
                 write_tuple(writer, sch, *record, false);
             };
 
-            auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
-                std::shared_ptr<schema> sch = self->get_schema(reader);
+            auto handle_func = [self, uc = std::move(callback)](ignite_result<bytes_view> res) mutable {
+                if (res.has_error()) {
+                    uc(std::move(res).error());
+                    return;
+                }
 
-                if (reader.try_read_nil())
-                    return std::nullopt;
+                auto msg = res.value();
+                protocol::reader reader(msg);
+                auto schema_ver = reader.read_int32();
+                std::shared_ptr<schema> sch = self->get_schema(schema_ver);
+                if (sch) {
+                    uc(read_tuple_opt(reader, sch.get()));
+                    return;
+                }
 
-                return read_tuple(reader, sch.get());
+                msg.remove_prefix(reader.position());
+                std::vector<std::byte> msg_copy(msg);
+
+                self->with_schema_async<std::optional<ignite_tuple>>(schema_ver, std::move(uc),
+                    [msg = std::move(msg_copy)] (const schema &sch, auto uc) mutable {
+                    protocol::reader reader(msg);
+                    uc(read_tuple_opt(reader, &sch));
+                });
             };
 
-            self->m_connection->perform_request<std::optional<ignite_tuple>>(
-                protocol::client_operation::TUPLE_GET_AND_REPLACE, tx0.get(), writer_func, std::move(reader_func),
-                std::move(callback));
+            self->m_connection->perform_request_raw(protocol::client_operation::TUPLE_GET_AND_REPLACE,
+                tx0.get(), writer_func, std::move(handle_func));
         });
 }
 
@@ -476,18 +583,33 @@ void table_impl::get_and_remove_async(
                 write_tuple(writer, sch, *record, true);
             };
 
-            auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
-                std::shared_ptr<schema> sch = self->get_schema(reader);
+            auto handle_func = [self, uc = std::move(callback)](ignite_result<bytes_view> res) mutable {
+                if (res.has_error()) {
+                    uc(std::move(res).error());
+                    return;
+                }
 
-                if (reader.try_read_nil())
-                    return std::nullopt;
+                auto msg = res.value();
+                protocol::reader reader(msg);
+                auto schema_ver = reader.read_int32();
+                std::shared_ptr<schema> sch = self->get_schema(schema_ver);
+                if (sch) {
+                    uc(read_tuple_opt(reader, sch.get()));
+                    return;
+                }
 
-                return read_tuple(reader, sch.get());
+                msg.remove_prefix(reader.position());
+                std::vector<std::byte> msg_copy(msg);
+
+                self->with_schema_async<std::optional<ignite_tuple>>(schema_ver, std::move(uc),
+                    [msg = std::move(msg_copy)] (const schema &sch, auto uc) mutable {
+                    protocol::reader reader(msg);
+                    uc(read_tuple_opt(reader, &sch));
+                });
             };
 
-            self->m_connection->perform_request<std::optional<ignite_tuple>>(
-                protocol::client_operation::TUPLE_GET_AND_DELETE, tx0.get(), writer_func, std::move(reader_func),
-                std::move(callback));
+            self->m_connection->perform_request_raw(
+                protocol::client_operation::TUPLE_GET_AND_DELETE, tx0.get(), writer_func, std::move(handle_func));
         });
 }
 
@@ -501,13 +623,33 @@ void table_impl::remove_all_async(
                 write_tuples(writer, sch, keys, true);
             };
 
-            auto reader_func = [self](protocol::reader &reader) -> std::vector<ignite_tuple> {
-                std::shared_ptr<schema> sch = self->get_schema(reader);
-                return read_tuples(reader, sch.get(), true);
+            auto handle_func = [self, uc = std::move(callback)](ignite_result<bytes_view> res) mutable {
+                if (res.has_error()) {
+                    uc(std::move(res).error());
+                    return;
+                }
+
+                auto msg = res.value();
+                protocol::reader reader(msg);
+                auto schema_ver = reader.read_int32();
+                std::shared_ptr<schema> sch = self->get_schema(schema_ver);
+                if (sch) {
+                    uc(read_tuples(reader, sch.get(), true));
+                    return;
+                }
+
+                msg.remove_prefix(reader.position());
+                std::vector<std::byte> msg_copy(msg);
+
+                self->with_schema_async<std::vector<ignite_tuple>>(schema_ver, std::move(uc),
+                [msg = std::move(msg_copy)] (const schema &sch, auto uc) mutable {
+                    protocol::reader reader(msg);
+                    uc(read_tuples(reader, &sch, true));
+                });
             };
 
-            self->m_connection->perform_request<std::vector<ignite_tuple>>(protocol::client_operation::TUPLE_DELETE_ALL,
-                tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request_raw(protocol::client_operation::TUPLE_DELETE_ALL,
+                tx0.get(), writer_func, std::move(handle_func));
         });
 }
 
@@ -521,14 +663,33 @@ void table_impl::remove_all_exact_async(
                 write_tuples(writer, sch, records, false);
             };
 
-            auto reader_func = [self](protocol::reader &reader) -> std::vector<ignite_tuple> {
-                std::shared_ptr<schema> sch = self->get_schema(reader);
-                return read_tuples(reader, sch.get(), false);
+            auto handle_func = [self, uc = std::move(callback)](ignite_result<bytes_view> res) mutable {
+                if (res.has_error()) {
+                    uc(std::move(res).error());
+                    return;
+                }
+
+                auto msg = res.value();
+                protocol::reader reader(msg);
+                auto schema_ver = reader.read_int32();
+                std::shared_ptr<schema> sch = self->get_schema(schema_ver);
+                if (sch) {
+                    uc(read_tuples(reader, sch.get(), false));
+                    return;
+                }
+
+                msg.remove_prefix(reader.position());
+                std::vector<std::byte> msg_copy(msg);
+
+                self->with_schema_async<std::vector<ignite_tuple>>(schema_ver, std::move(uc),
+                [msg = std::move(msg_copy)] (const schema &sch, auto uc) mutable {
+                    protocol::reader reader(msg);
+                    uc(read_tuples(reader, &sch, false));
+                });
             };
 
-            self->m_connection->perform_request<std::vector<ignite_tuple>>(
-                protocol::client_operation::TUPLE_DELETE_ALL_EXACT, tx0.get(), writer_func, std::move(reader_func),
-                std::move(callback));
+            self->m_connection->perform_request_raw(
+                protocol::client_operation::TUPLE_DELETE_ALL_EXACT, tx0.get(), writer_func, std::move(handle_func));
         });
 }
 
