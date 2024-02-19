@@ -127,7 +127,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytesNotNull(v).nodes().size(),
+                (v) -> Assignments.fromBytes(v).nodes().size(),
                 1,
                 TIMEOUT_MILLIS
         );
@@ -155,7 +155,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytesNotNull(v).nodes()
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(2).name()),
                 TIMEOUT_MILLIS * 2
@@ -192,7 +192,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytesNotNull(v).nodes()
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
@@ -212,7 +212,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytesNotNull(v).nodes()
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(1).name()),
                 TIMEOUT_MILLIS * 2
@@ -249,7 +249,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytesNotNull(v).nodes()
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
@@ -275,7 +275,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> Assignments.fromBytesNotNull(v).nodes()
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS

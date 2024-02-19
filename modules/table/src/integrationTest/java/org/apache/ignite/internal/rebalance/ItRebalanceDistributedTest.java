@@ -843,7 +843,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     ) {
         return metaStorageManager
                 .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytesNotNull(e.value()).nodes());
+                .thenApply(e -> {
+                    if ((e.value() == null)) {
+                        return null;
+                    } else {
+                        byte @Nullable [] bytes = e.value();
+                        return Assignments.fromBytes(bytes).nodes();
+                    }
+                });
     }
 
     private static CompletableFuture<Set<Assignment>> partitionPlannedAssignments(
@@ -853,7 +860,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     ) {
         return metaStorageManager
                 .get(plannedPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytesNotNull(e.value()).nodes());
+                .thenApply(e -> {
+                    if ((e.value() == null)) {
+                        return null;
+                    } else {
+                        byte @Nullable [] bytes = e.value();
+                        return Assignments.fromBytes(bytes).nodes();
+                    }
+                });
     }
 
     private class Node {

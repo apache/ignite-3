@@ -93,19 +93,12 @@ public class Assignments implements Serializable {
     }
 
     /**
-     * Deserializes assignments from the array of bytes. Returns {@code null} if the argument is null.
+     * Deserializes assignments from the array of bytes. Returns {@code null} if the argument is {@code null}.
      */
     @Nullable
     @Contract("null -> null; !null -> !null")
-    public static Assignments fromBytesNullable(byte @Nullable [] bytes) {
+    public static Assignments fromBytes(byte @Nullable [] bytes) {
         return bytes == null ? null : ByteUtils.fromBytes(bytes);
-    }
-
-    /**
-     * Deserializes assignments from the array of bytes. Returns {@link #EMPTY} if the argument is null.
-     */
-    public static Assignments fromBytesNotNull(byte @Nullable [] bytes) {
-        return bytes == null ? EMPTY : ByteUtils.fromBytes(bytes);
     }
 
     @Override

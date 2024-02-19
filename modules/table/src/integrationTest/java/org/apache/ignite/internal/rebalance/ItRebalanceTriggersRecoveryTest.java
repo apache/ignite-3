@@ -229,7 +229,14 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     ) {
         return metaStorageManager
                 .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytesNotNull(e.value()).nodes());
+                .thenApply(e -> {
+                    if ((e.value() == null)) {
+                        return null;
+                    } else {
+                        byte @org.jetbrains.annotations.Nullable [] bytes = e.value();
+                        return Assignments.fromBytes(bytes).nodes();
+                    }
+                });
     }
 
     private static boolean containsPartition(Ignite node) {

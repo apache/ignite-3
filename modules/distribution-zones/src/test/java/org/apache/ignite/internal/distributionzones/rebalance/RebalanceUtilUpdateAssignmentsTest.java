@@ -494,21 +494,21 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         Set<Assignment> actualStableAssignments = null;
 
         if (actualStableBytes != null) {
-            actualStableAssignments = Assignments.fromBytesNotNull(actualStableBytes).nodes();
+            actualStableAssignments = Assignments.fromBytes(actualStableBytes).nodes();
         }
 
         byte[] actualPendingBytes = keyValueStorage.get(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {
-            actualPendingAssignments = Assignments.fromBytesNotNull(actualPendingBytes).nodes();
+            actualPendingAssignments = Assignments.fromBytes(actualPendingBytes).nodes();
         }
 
         byte[] actualPlannedBytes = keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPlannedAssignments = null;
 
         if (actualPlannedBytes != null) {
-            actualPlannedAssignments = Assignments.fromBytesNotNull(actualPlannedBytes).nodes();
+            actualPlannedAssignments = Assignments.fromBytes(actualPlannedBytes).nodes();
         }
 
         LOG.info("stableAssignments " + actualStableAssignments);

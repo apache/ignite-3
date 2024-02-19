@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.anyOf;
@@ -694,7 +695,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     assert assignmentsEntry != null && !assignmentsEntry.empty() && !assignmentsEntry.tombstone()
                                             : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "].";
 
-                                    Assignments real = Assignments.fromBytesNullable(assignmentsEntry.value());
+                                    Assignments real = Assignments.fromBytes(assignmentsEntry.value());
 
                                     realAssignments.add(real);
                                 }
@@ -1766,7 +1767,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Entry stableAssignmentsEntry = metaStorageMgr.getLocally(stablePartAssignmentsKey(replicaGrpId), revision);
 
-        Assignments pendingAssignments = Assignments.fromBytesNullable(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
 
         return tablesByIdVv.get(revision)
                 .thenApply(tables -> {
@@ -1795,7 +1796,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     stringKey, partId, table.name(), localNode().address(), pendingAssignments);
                         }
 
-                        Set<Assignment> stableAssignments = Assignments.fromBytesNotNull(stableAssignmentsEntry.value()).nodes();
+                        Set<Assignment> stableAssignments = stableAssignmentsEntry.value() == null
+                                ? emptySet()
+                                : Assignments.fromBytes(stableAssignmentsEntry.value()).nodes();
 
                         return handleChangePendingAssignmentEvent(
                                     replicaGrpId,
@@ -2152,13 +2155,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
         return supplyAsync(() -> {
-            Set<Assignment> stableAssignments = Assignments.fromBytesNotNull(stableAssignmentsWatchEvent.value()).nodes();
+            Set<Assignment> stableAssignments = stableAssignmentsWatchEvent.value() == null
+                    ? emptySet()
+                    : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsKey(tablePartitionId), revision);
 
             byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
 
-            Assignments pendingAssignments = Assignments.fromBytesNotNull(pendingAssignmentsFromMetaStorage);
+            Assignments pendingAssignments = pendingAssignmentsFromMetaStorage == null
+                    ? Assignments.EMPTY
+                    : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
 
             return stopAndDestroyPartitionAndUpdateClients(
                     tablePartitionId,

@@ -166,7 +166,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
-                        Set<Assignment> pendingAssignments = Assignments.fromBytesNotNull(pendingAssignmentsBytes).nodes();
+                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
 
                         var peers = new HashSet<String>();
                         var learners = new HashSet<String>();
@@ -462,7 +462,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 case SCHEDULE_PENDING_REBALANCE_SUCCESS:
                     LOG.info(
                             "Rebalance finished. Going to schedule next rebalance [tablePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            tablePartitionId, stable, Assignments.fromBytesNotNull(plannedEntry.value()).nodes()
+                            tablePartitionId, stable, Assignments.fromBytes(plannedEntry.value()).nodes()
                     );
                     break;
                 case FINISH_REBALANCE_SUCCESS:
@@ -501,6 +501,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private static Assignments readAssignments(Entry entry) {
         byte[] value = entry.value();
 
-        return Assignments.fromBytesNotNull(value);
+        return value == null ? Assignments.EMPTY : Assignments.fromBytes(value);
     }
 }

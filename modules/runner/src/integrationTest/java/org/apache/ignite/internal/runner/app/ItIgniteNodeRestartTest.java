@@ -1312,7 +1312,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             Entry e = restartedNode.metaStorageManager().getLocally(stablePartAssignmentsKey(tablePartitionId), recoveryRevision);
 
-            Set<Assignment> assignment = Assignments.fromBytesNotNull(e.value()).nodes();
+            byte @Nullable [] bytes = e.value();
+            Set<Assignment> assignment = Assignments.fromBytes(bytes).nodes();
 
             boolean shouldBe = assignment.stream().anyMatch(n -> n.consistentId().equals(restartedNode.name()));
 
@@ -1697,7 +1698,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private Set<Assignment> getAssignmentsFromMetaStorage(MetaStorageManager metaStorageManager, byte[] assignmentsKey) {
         var e = metaStorageManager.getLocally(new ByteArray(assignmentsKey), metaStorageManager.appliedRevision());
 
-        return e == null ? emptySet() : Assignments.fromBytesNotNull(e.value()).nodes();
+        return e == null || e.tombstone() || e.empty()
+                ? emptySet()
+                : Assignments.fromBytes(e.value()).nodes();
     }
 
     private int tableId(Ignite node, String tableName) {
