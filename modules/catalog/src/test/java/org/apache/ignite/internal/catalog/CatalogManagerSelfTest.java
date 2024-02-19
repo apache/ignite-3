@@ -417,7 +417,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotEquals(table1.id(), table2.id());
 
         // Ensure table is available for historical queries.
-        manager.table(table1.id(), catalogVersion);
+        assertNotNull(manager.table(table1.id(), catalogVersion));
     }
 
     @Test

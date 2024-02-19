@@ -539,8 +539,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         }
     }
 
-    private static CatalogZoneDescriptor tableZoneDescriptor(Catalog oldCatalog, int tableId) {
-        return Objects.requireNonNull(oldCatalog.zone(Objects.requireNonNull(oldCatalog.table(tableId)).zoneId()));
+    private static CatalogZoneDescriptor tableZoneDescriptor(Catalog catalog, int tableId) {
+        return Objects.requireNonNull(catalog.zone(Objects.requireNonNull(catalog.table(tableId), "table").zoneId()), "zone");
     }
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
