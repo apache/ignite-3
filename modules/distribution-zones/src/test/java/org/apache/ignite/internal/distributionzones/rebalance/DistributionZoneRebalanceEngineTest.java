@@ -477,7 +477,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
                     assertNotNull(actualAssignmentsBytes);
 
-                    Set<String> actualAssignments = Assignments.fromBytes(actualAssignmentsBytes).peers()
+                    Set<String> actualAssignments = Assignments.fromBytes(actualAssignmentsBytes).nodes()
                             .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertTrue(expectedAssignments.containsAll(actualAssignments));

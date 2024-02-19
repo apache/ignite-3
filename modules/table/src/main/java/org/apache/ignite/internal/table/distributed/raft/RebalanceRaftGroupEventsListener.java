@@ -167,7 +167,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
-                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).peers();
+                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
 
                         var peers = new HashSet<String>();
                         var learners = new HashSet<String>();
@@ -316,9 +316,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Entry switchReduceEntry = values.get(switchReduceKey);
             Entry switchAppendEntry = values.get(switchAppendKey);
 
-            Set<Assignment> retrievedStable = readAssignments(stableEntry).peers();
-            Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).peers();
-            Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).peers();
+            Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
+            Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
+            Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
 
 
             Set<Assignment> stable = createAssignments(configuration);
@@ -463,7 +463,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 case SCHEDULE_PENDING_REBALANCE_SUCCESS:
                     LOG.info(
                             "Rebalance finished. Going to schedule next rebalance [tablePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            tablePartitionId, stable, Assignments.fromBytes(plannedEntry.value()).peers()
+                            tablePartitionId, stable, Assignments.fromBytes(plannedEntry.value()).nodes()
                     );
                     break;
                 case FINISH_REBALANCE_SUCCESS:

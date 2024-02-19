@@ -97,7 +97,7 @@ public class AssignmentsTracker {
 
                     TablePartitionId grpId = TablePartitionId.fromString(strKey);
 
-                    Set<Assignment> assignments = Assignments.fromBytes(entry.value()).peers();
+                    Set<Assignment> assignments = Assignments.fromBytes(entry.value()).nodes();
 
                     groupAssignments.put(grpId, assignments);
                 }
@@ -147,7 +147,7 @@ public class AssignmentsTracker {
                 if (evt.newEntry().tombstone()) {
                     groupAssignments.remove(replicationGrpId);
                 } else {
-                    Set<Assignment> newAssignments = Assignments.fromBytes(evt.newEntry().value()).peers();
+                    Set<Assignment> newAssignments = Assignments.fromBytes(evt.newEntry().value()).nodes();
                     Set<Assignment> prevAssignment = groupAssignments.put(replicationGrpId, newAssignments);
 
                     if (CollectionUtils.nullOrEmpty(prevAssignment)) {

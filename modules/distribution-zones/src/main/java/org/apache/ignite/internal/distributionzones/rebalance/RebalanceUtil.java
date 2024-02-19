@@ -286,7 +286,7 @@ public class RebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             finalPartId,
-                            tableAssignments.get(finalPartId).peers()
+                            tableAssignments.get(finalPartId).nodes()
                     ));
         }
 
@@ -469,7 +469,7 @@ public class RebalanceUtil {
     ) {
         return metaStorageManager
                 .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).peers());
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     /**
@@ -490,7 +490,7 @@ public class RebalanceUtil {
     ) {
         Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)), revision);
 
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).peers();
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
     }
 
     /**

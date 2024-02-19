@@ -25,30 +25,33 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
 
 /**
- * Class that encapsulates a set of peers and its metadata.
+ * Class that encapsulates a set of nodes and its metadata.
  */
 public class Assignments implements Serializable {
+    /** Serial version UID. */
+    private static final long serialVersionUID = -59553172012153869L;
+
     /** Empty assignments. */
     public static final Assignments NO_ASSIGNMENTS = new Assignments(Collections.emptySet());
 
-    /** Set of peers. */
+    /** Set of nodes. */
     @IgniteToStringInclude
-    private final Set<Assignment> peers;
+    private final Set<Assignment> nodes;
 
     /**
      * Constructor.
      *
-     * @param peers Set of peers.
+     * @param nodes Set of nodes.
      */
-    public Assignments(Set<Assignment> peers) {
-        this.peers = peers;
+    public Assignments(Set<Assignment> nodes) {
+        this.nodes = nodes;
     }
 
     /**
-     * Returns a set of peers, represented by this assignments instance.
+     * Returns a set of nodes, represented by this assignments instance.
      */
-    public Set<Assignment> peers() {
-        return peers;
+    public Set<Assignment> nodes() {
+        return nodes;
     }
 
     /**

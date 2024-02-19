@@ -806,12 +806,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTable internalTbl = table.internalTable();
 
-        Assignment localMemberAssignment = newPartAssignment.peers().stream()
+        Assignment localMemberAssignment = newPartAssignment.nodes().stream()
                 .filter(a -> a.consistentId().equals(localNode().name()))
                 .findAny()
                 .orElse(null);
 
-        PeersAndLearners newConfiguration = configurationFromAssignments(newPartAssignment.peers());
+        PeersAndLearners newConfiguration = configurationFromAssignments(newPartAssignment.nodes());
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
@@ -1186,7 +1186,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 dataNodes,
                                 zoneDescriptor.partitions(),
                                 zoneDescriptor.replicas()
-                        ).stream().map(assignments -> new Assignments(assignments)).collect(Collectors.toList()));
+                        ).stream().map(Assignments::new).collect(Collectors.toList()));
 
                 assignmentsFuture.thenAccept(assignmentsList -> {
                     LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
@@ -1333,7 +1333,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return String representation of the given assignments list to use it for logging.
      */
     private static String assignmentListToString(List<Assignments> assignments) {
-        return S.toString(assignments, (sb, e, i) -> sb.app(i).app('=').app(e.peers()));
+        return S.toString(assignments, (sb, e, i) -> sb.app(i).app('=').app(e.nodes()));
     }
 
     /**
@@ -1798,7 +1798,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         Set<Assignment> stableAssignments = stableAssignmentsEntry.value() == null
                                 ? emptySet()
-                                : Assignments.fromBytes(stableAssignmentsEntry.value()).peers();
+                                : Assignments.fromBytes(stableAssignmentsEntry.value()).nodes();
 
                         return handleChangePendingAssignmentEvent(
                                     replicaGrpId,
@@ -1808,7 +1808,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     revision,
                                     isRecovery
                                 )
-                                .thenCompose(v -> changePeersOnRebalance(table, replicaGrpId, pendingAssignments.peers(), revision));
+                                .thenCompose(v -> changePeersOnRebalance(table, replicaGrpId, pendingAssignments.nodes(), revision));
                     } finally {
                         busyLock.leaveBusy();
                     }
@@ -1827,7 +1827,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         ClusterNode localMember = localNode();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
-        boolean shouldStartLocalGroupNode = pendingAssignments.peers().stream()
+        boolean shouldStartLocalGroupNode = pendingAssignments.nodes().stream()
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
@@ -1863,7 +1863,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return localServicesStartFuture.thenRunAsync(
                 () -> tbl.internalTable()
                         .partitionRaftGroupService(replicaGrpId.partitionId())
-                        .updateConfiguration(configurationFromAssignments(union(pendingAssignments.peers(), stableAssignments))),
+                        .updateConfiguration(configurationFromAssignments(union(pendingAssignments.nodes(), stableAssignments))),
                 ioExecutor
         );
     }
@@ -2157,7 +2157,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return supplyAsync(() -> {
             Set<Assignment> stableAssignments = stableAssignmentsWatchEvent.value() == null
                     ? emptySet()
-                    : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).peers();
+                    : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsKey(tablePartitionId), revision);
 
@@ -2202,7 +2202,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 ? nullCompletedFuture()
                 : updatePartitionClients(tablePartitionId, stableAssignments, revision);
 
-        boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.peers().stream())
+        boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.nodes().stream())
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
         if (shouldStopLocalServices) {
