@@ -233,8 +233,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                     if ((e.value() == null)) {
                         return null;
                     } else {
-                        byte @org.jetbrains.annotations.Nullable [] bytes = e.value();
-                        return Assignments.fromBytes(bytes).nodes();
+                        return Assignments.fromBytes(e.value()).nodes();
                     }
                 });
     }

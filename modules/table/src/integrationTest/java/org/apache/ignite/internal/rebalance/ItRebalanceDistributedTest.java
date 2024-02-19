@@ -847,8 +847,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     if ((e.value() == null)) {
                         return null;
                     } else {
-                        byte @Nullable [] bytes = e.value();
-                        return Assignments.fromBytes(bytes).nodes();
+                        return Assignments.fromBytes(e.value()).nodes();
                     }
                 });
     }
@@ -864,8 +863,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     if ((e.value() == null)) {
                         return null;
                     } else {
-                        byte @Nullable [] bytes = e.value();
-                        return Assignments.fromBytes(bytes).nodes();
+                        return Assignments.fromBytes(e.value()).nodes();
                     }
                 });
     }
