@@ -224,16 +224,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageProfile Storage profile.
      */
     protected static Table createZoneAndTable(
             String zoneName,
             String tableName,
             int replicas,
             int partitions,
-            @Nullable String storageEngine
+            String storageProfile
     ) {
-        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageEngine);
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageProfile);
 
         return createTableOnly(tableName, zoneName);
     }
