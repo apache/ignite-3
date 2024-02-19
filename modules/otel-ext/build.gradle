@@ -42,10 +42,12 @@ dependencies {
 
     annotationProcessor libs.auto.service
 
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-core')
     testImplementation libs.assertj.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
+    testImplementation libs.jmh.core
 
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-client')
@@ -58,6 +60,5 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.hamcrest.core
-    integrationTestImplementation libs.opentelemetry.instrumentation.annotations
 }
 

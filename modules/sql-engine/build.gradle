@@ -63,7 +63,6 @@ dependencies {
     implementation libs.auto.service.annotations
     implementation libs.jsr305
     implementation libs.guava
-    implementation libs.opentelemetry.instrumentation.annotations
 
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor project(':ignite-configuration-annotation-processor')

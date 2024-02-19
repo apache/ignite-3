@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimi
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -199,7 +198,6 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx) {
         CompletableFuture<QueryPlan> result;
@@ -226,7 +224,6 @@ public class PrepareServiceImpl implements PrepareService {
         );
     }
 
-    @WithSpan
     private CompletableFuture<QueryPlan> prepareAsync0(ParsedResult parsedResult, PlanningContext planningContext) {
         switch (parsedResult.queryType()) {
             case QUERY:
@@ -242,7 +239,6 @@ public class PrepareServiceImpl implements PrepareService {
         }
     }
 
-    @WithSpan
     private CompletableFuture<QueryPlan> prepareDdl(ParsedResult parsedResult, PlanningContext ctx) {
         SqlNode sqlNode = parsedResult.parsedTree();
 
@@ -251,7 +247,6 @@ public class PrepareServiceImpl implements PrepareService {
         return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
     }
 
-    @WithSpan
     private CompletableFuture<QueryPlan> prepareExplain(ParsedResult parsedResult, PlanningContext ctx) {
         SqlNode parsedTree = parsedResult.parsedTree();
 
@@ -299,7 +294,6 @@ public class PrepareServiceImpl implements PrepareService {
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    @WithSpan
     private CompletableFuture<QueryPlan> prepareQuery(ParsedResult parsedResult, PlanningContext ctx) {
         CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
 
@@ -366,7 +360,6 @@ public class PrepareServiceImpl implements PrepareService {
         return new PlanId(prepareServiceId, planIdGen.getAndIncrement());
     }
 
-    @WithSpan
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
         // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
         CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);

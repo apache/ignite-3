@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
@@ -90,49 +89,42 @@ public class DdlCommandHandler {
     }
 
     /** Handles create distribution zone command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneExistsValidationException.class));
     }
 
     /** Handles rename zone command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleRenameZone(AlterZoneRenameCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles alter zone command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleAlterZone(AlterZoneSetCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles drop distribution zone command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles create table command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifTableExists(), TableExistsValidationException.class));
     }
 
     /** Handles drop table command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     /** Handles add column command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleAlterAddColumn(AlterTableAddCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
             return falseCompletedFuture();
@@ -143,7 +135,6 @@ public class DdlCommandHandler {
     }
 
     /** Handles drop column command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleAlterDropColumn(AlterTableDropCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
             return falseCompletedFuture();
@@ -176,14 +167,12 @@ public class DdlCommandHandler {
     }
 
     /** Handles create index command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifNotExists(), IndexExistsValidationException.class));
     }
 
     /** Handles drop index command. */
-    @WithSpan
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifNotExists(), IndexNotFoundValidationException.class));

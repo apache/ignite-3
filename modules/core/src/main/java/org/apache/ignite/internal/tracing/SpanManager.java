@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tracing;
 
-import io.opentelemetry.context.Context;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;

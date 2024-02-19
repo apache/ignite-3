@@ -34,7 +34,6 @@ dependencies {
     implementation project(":ignite-failure-handler")
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
-    implementation libs.opentelemetry.instrumentation.annotations
 
     testAnnotationProcessor project(":ignite-configuration-annotation-processor")
     testImplementation project(':ignite-core')

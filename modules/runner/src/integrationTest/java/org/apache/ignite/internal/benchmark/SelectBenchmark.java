@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
@@ -179,13 +180,10 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for KV get via embedded client.
      */
     @Benchmark
-    @BenchmarkMode(Mode.SingleShotTime)
-    public void kvGetWithTracing() {
-        rootSpan("kvGetBenchmark", (parentSpan) -> {
-            keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
-
-            return null;
-        });
+    public void kvGetWithTracing(Blackhole bh) {
+        try (TraceSpan ignored = rootSpan("kvGetBenchmark")) {
+            kvGet(bh);
+        }
     }
 
     /**
@@ -202,7 +200,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + SelectBenchmark.class.getSimpleName() + ".kvGetWithTracing*")
+                .include(".*" + SelectBenchmark.class.getSimpleName() + ".kvGet*")
                 .param("clusterSize", "1")
                 .param("fsync", "false")
                 .build();

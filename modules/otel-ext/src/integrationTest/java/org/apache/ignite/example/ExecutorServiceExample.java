@@ -2,11 +2,9 @@ package org.apache.ignite.example;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 
@@ -28,12 +26,10 @@ public class ExecutorServiceExample {
         );
     }
 
-    @WithSpan
     private CompletableFuture<?> run() {
         return stripedThreadPoolExecutor.submit(this::process, 0);
     }
 
-    @WithSpan
     private void process() {
         try {
             SECONDS.sleep(1L);

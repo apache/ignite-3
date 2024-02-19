@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import io.opentelemetry.context.Context;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -91,9 +92,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        Context context = Context.current();
-        return dataCursor.requestNextAsync(rows)
-                .handle(context.wrapFunction((batch, error) -> {
+        return wrap(dataCursor.requestNextAsync(rows))
+                .handle((batch, error) -> {
                     if (error != null) {
                         return handleError(error).thenApply(none -> batch);
                     }
@@ -103,7 +103,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                             : closeAsync();
 
                     return fut.thenApply(none -> batch);
-                }))
+                })
                 .thenCompose(Function.identity());
     }
 

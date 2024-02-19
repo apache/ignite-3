@@ -78,8 +78,8 @@ awaitility = "4.2.0"
 progressBar = "0.9.4"
 guava = "32.1.3-jre"
 jna = "5.13.0"
-opentelemetrySdk = "1.30.0"
-opentelemetryJavaagent = "1.30.0-alpha"
+opentelemetrySdk = "1.35.0"
+opentelemetryJavaagent = "2.1.0-alpha"
 
 #Tools
 pmdTool = "6.55.0"
@@ -255,11 +255,10 @@ progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna"}
 
-opentelemetry-instrumentation-annotations = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations", version.ref = "opentelemetrySdk" }
 opentelemetry-api = { module = "io.opentelemetry:opentelemetry-api", version.ref = "opentelemetrySdk" }
 opentelemetry-sdk = { module = "io.opentelemetry:opentelemetry-sdk", version.ref = "opentelemetrySdk" }
-opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetrySdk" }
 opentelemetry-exporter-otlp-common = { module = "io.opentelemetry:opentelemetry-exporter-otlp-common", version.ref = "opentelemetrySdk" }
+opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetrySdk" }
 opentelemetry-exporter-zipkin = { module = "io.opentelemetry:opentelemetry-exporter-zipkin", version.ref = "opentelemetrySdk" }
 opentelemetry-sdk-extension-autoconfigure = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure", version.ref = "opentelemetrySdk" }
 opentelemetry-sdk-extension-autoconfigure-spi = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi", version.ref = "opentelemetrySdk" }

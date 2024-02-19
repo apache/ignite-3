@@ -22,9 +22,13 @@ import static io.opentelemetry.api.GlobalOpenTelemetry.getTracer;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import com.google.auto.service.AutoService;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.api.trace.TracerProvider;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapGetter;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,28 +49,33 @@ import org.jetbrains.annotations.Nullable;
 @AutoService(SpanManager.class)
 public class OtelSpanManager implements SpanManager {
     private static final TextMapGetter<Map<String, String>> GETTER = new MapGetter();
+    private volatile TracerProvider tracerProvider = TracerProvider.noop();
+    private volatile Tracer tracer;
 
     public OtelSpanManager() {
-        AutoConfiguredOpenTelemetrySdk.initialize();
+        AutoConfiguredOpenTelemetrySdk telemetrySdk = AutoConfiguredOpenTelemetrySdk.builder().build();
+
+        tracer = tracerProvider.get(null);
     }
 
     @Override
     public TraceSpan createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired) {
         boolean isBeginOfTrace = !Span.current().getSpanContext().isValid();
+        boolean invalidParent = parent == null || !parent.isValid();
 
-        if (isBeginOfTrace && !rootSpan && (parent == null || !parent.isValid())) {
+        if (isBeginOfTrace && !rootSpan && invalidParent) {
             return NoopSpan.INSTANCE;
         }
 
-        var spanBuilder = getTracer(null).spanBuilder(spanName);
+        var spanBuilder = tracer.spanBuilder(spanName);
 
-        if (parent != null && parent.getContext() != null) {
+        if (!invalidParent) {
             spanBuilder.setParent(parent.getContext());
         }
 
         var span = spanBuilder.startSpan();
         var scope = span.makeCurrent();
-        var ctx = Context.current();
+        Context ctx = Context.current();
 
         return new OtelTraceSpan(ctx, scope, span, endRequired);
     }

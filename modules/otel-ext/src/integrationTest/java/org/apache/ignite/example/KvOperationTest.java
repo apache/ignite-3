@@ -1,8 +1,12 @@
 package org.apache.ignite.example;
 
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,14 +25,58 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    void delayTracing() {
+        try (TraceSpan parentSpan = rootSpan("try-span")) {
+            try (TraceSpan ignored = span("childSpan")){
+                try {
+                    Thread.sleep(10L);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+
+        rootSpan("closure-span", (parentSpan) -> {
+           span("childSpan", (span) -> {
+               try {
+                   Thread.sleep(10L);
+               } catch (InterruptedException e) {
+                   throw new RuntimeException(e);
+               }
+           });
+
+           return null;
+        });
+    }
+
+    @Test
     void kvGetWithTracing() {
         KeyValueView<Tuple, Tuple> keyValueView = CLUSTER.aliveNode().tables().table(DEFAULT_TABLE_NAME).keyValueView();
 
-        rootSpan("kvGetOperation", (parentSpan) -> {
-            keyValueView.get(null, Tuple.create().set("id", 0));
+        // Warm-up
+        try (TraceSpan parentSpan = rootSpan("WarmSpan")) {
+            try {
+                Thread.sleep(10L);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
-            return null;
-        });
+        Tuple key = Tuple.create(Map.of("id", 0));
+
+        var start = System.nanoTime();
+
+        try (TraceSpan parentSpan = rootSpan("kvGetOperation")) {
+            try (TraceSpan childSpan = span("kvGet")) {
+
+            }
+        }
+
+        System.out.println(">>> " + (System.nanoTime() - start) / 1000L);
+//
+//        try (TraceSpan parentSpan = rootSpan("kvGetOperation")) {
+//            keyValueView.get(null, key);
+//        }
     }
 
     @Override

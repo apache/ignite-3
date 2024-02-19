@@ -3,11 +3,9 @@ package org.apache.ignite.example;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 
@@ -29,7 +27,6 @@ public class FutureExample {
         );
     }
 
-    @WithSpan
     private void start() {
         var futs = asList(submitToPool(), submitToPool());
 
@@ -41,7 +38,6 @@ public class FutureExample {
                 .thenAccept(unused -> process(2L));
     }
 
-    @WithSpan
     private void process(long delay) {
         try {
             SECONDS.sleep(delay);

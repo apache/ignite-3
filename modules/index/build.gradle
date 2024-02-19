@@ -39,7 +39,6 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-cluster-management')
     implementation libs.jetbrains.annotations
-    implementation libs.opentelemetry.instrumentation.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-core')))
