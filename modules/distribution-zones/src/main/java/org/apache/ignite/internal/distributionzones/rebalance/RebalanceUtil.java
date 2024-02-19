@@ -490,7 +490,7 @@ public class RebalanceUtil {
     ) {
         Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)), revision);
 
-        return (entry.empty() || entry.tombstone()) ? null : Assignments.fromBytesNullable(entry.value()).nodes();
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytesNullable(entry.value()).nodes();
     }
 
     /**

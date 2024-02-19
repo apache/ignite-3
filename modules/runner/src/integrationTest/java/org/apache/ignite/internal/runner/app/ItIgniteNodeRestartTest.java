@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
@@ -1696,7 +1697,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private Set<Assignment> getAssignmentsFromMetaStorage(MetaStorageManager metaStorageManager, byte[] assignmentsKey) {
         var e = metaStorageManager.getLocally(new ByteArray(assignmentsKey), metaStorageManager.appliedRevision());
 
-        return Assignments.fromBytesNotNull(e.value()).nodes();
+        return e == null ? emptySet() : Assignments.fromBytesNotNull(e.value()).nodes();
     }
 
     private int tableId(Ignite node, String tableName) {
