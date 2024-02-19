@@ -5642,7 +5642,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 cmp = -shift; // We need to fix the case when search row matches multiple data rows.
             }
 
-            //noinspection Duplicates
+            // noinspection Duplicates
             if (cmp < 0) {
                 low = mid + 1;
             } else if (cmp > 0) {

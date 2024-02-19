@@ -72,7 +72,7 @@ public abstract class DistributionFunction {
     /** {@inheritDoc} */
     @Override
     public final boolean equals(Object obj) {
-        if (obj instanceof DistributionFunction) { //noinspection StringEquality
+        if (obj instanceof DistributionFunction) { // noinspection StringEquality
             return name() == ((DistributionFunction) obj).name(); // NOPMD.UseEqualsToCompareStrings
         }
 

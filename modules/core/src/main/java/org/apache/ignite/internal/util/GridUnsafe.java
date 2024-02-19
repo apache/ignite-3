@@ -147,7 +147,7 @@ public abstract class GridUnsafe {
                 try {
                     directBufCtor = createAndTestNewDirectBufferCtor();
                 } catch (Exception exFallback) {
-                    //noinspection CallToPrintStackTrace
+                    // noinspection CallToPrintStackTrace
                     exFallback.printStackTrace(); // NOPMD
 
                     e.addSuppressed(exFallback);
@@ -167,7 +167,7 @@ public abstract class GridUnsafe {
                     nioAccessObj = javaNioAccessObject();
                     directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
                 } catch (Exception exFallback) {
-                    //noinspection CallToPrintStackTrace
+                    // noinspection CallToPrintStackTrace
                     exFallback.printStackTrace(); // NOPMD
 
                     e.addSuppressed(exFallback);

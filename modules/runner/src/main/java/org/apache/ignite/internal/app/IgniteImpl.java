@@ -758,7 +758,7 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
-                //TODO: IGNITE-20232 The observable timestamp should be different for each client.
+                // TODO: IGNITE-20232 The observable timestamp should be different for each client.
                 new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
                 nodeConfigRegistry,
                 compute,
@@ -928,7 +928,7 @@ public class IgniteImpl implements Ignite {
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
-                    //Disable REST component during initialization.
+                    // Disable REST component during initialization.
                     .thenAcceptAsync(unused -> restComponent.disable(), startupExecutor)
                     .thenComposeAsync(unused -> {
                         LOG.info("Join complete, starting MetaStorage");
@@ -992,7 +992,7 @@ public class IgniteImpl implements Ignite {
                     }, startupExecutor)
                     .thenRunAsync(() -> {
                         try {
-                            //Enable REST component on start complete.
+                            // Enable REST component on start complete.
                             restComponent.enable();
                             // Transfer the node to the STARTED state.
                             lifecycleManager.onStartComplete();

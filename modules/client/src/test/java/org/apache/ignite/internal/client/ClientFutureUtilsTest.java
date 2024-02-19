@@ -96,7 +96,7 @@ public class ClientFutureUtilsTest {
                 ctx -> {
                     assertNotNull(ctx.lastError());
 
-                    //noinspection DataFlowIssue
+                    // noinspection DataFlowIssue
                     assertEquals("fail", ctx.lastError().getMessage());
 
                     return ctx.attempt < 5;

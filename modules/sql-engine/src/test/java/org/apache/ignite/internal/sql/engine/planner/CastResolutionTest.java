@@ -349,7 +349,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
         INTERVAL_HOUR(SqlTypeName.INTERVAL_HOUR.getName(), CHAR_EXACT_AND_DAY_INTERVAL);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19274
-        //TIMESTAMP_TS(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), charAndDt);
+        // TIMESTAMP_TS(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), charAndDt);
 
         private String from;
         private Set<String> toTypes;

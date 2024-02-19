@@ -72,7 +72,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static final TestCluster cluster;
 
     static {
-        //@formatter:off
+        // @formatter:off
         cluster = TestBuilders.cluster()
                 .nodes("N1")
                 .addTable()
@@ -92,7 +92,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                         .dataProvider(SubscriptionUtils.fromIterable(Collections.singleton(new Object[]{42L, "blah"})))
                         .build())
                 .build();
-        //@formatter:on
+        // @formatter:on
 
         cluster.start();
 

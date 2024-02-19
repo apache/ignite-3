@@ -87,7 +87,7 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         waitForDurableCompletion(destroyFuture);
 
-        //TODO IGNITE-17626 Index must be invalid, we should assert that getIndex returns null and that in won't surface upon restart.
+        // TODO IGNITE-17626 Index must be invalid, we should assert that getIndex returns null and that in won't surface upon restart.
         // "destroy" is not "clear", you know. Maybe "getAndCreateIndex" will do it for the test, idk
         assertThat(getAll(index, row1), is(empty()));
         assertThat(getAll(index, row2), is(empty()));

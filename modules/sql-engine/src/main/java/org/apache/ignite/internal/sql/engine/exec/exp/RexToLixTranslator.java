@@ -1596,7 +1596,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
             final Constructor<?> constructor =
                     declaringClass.getConstructor(FunctionContext.class);
             final List<Expression> constantArgs = new ArrayList<>();
-            //noinspection unchecked
+            // noinspection unchecked
             Ord.forEach(method.getParameterTypes(),
                     (parameterType, i) ->
                             constantArgs.add(

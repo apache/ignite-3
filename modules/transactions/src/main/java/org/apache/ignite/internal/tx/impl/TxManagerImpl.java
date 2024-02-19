@@ -873,7 +873,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 res[0] = false;
                 return tuple;
             } else {
-                //noinspection NonAtomicOperationOnVolatileField
+                // noinspection NonAtomicOperationOnVolatileField
                 tuple.inflights++;
             }
 
@@ -888,7 +888,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
             assert ctx != null && ctx.inflights > 0 : ctx;
 
-            //noinspection NonAtomicOperationOnVolatileField
+            // noinspection NonAtomicOperationOnVolatileField
             ctx.inflights--;
 
             return ctx;

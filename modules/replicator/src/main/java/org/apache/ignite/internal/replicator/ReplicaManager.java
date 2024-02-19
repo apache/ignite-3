@@ -436,7 +436,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
 
                 if (node != null) {
-                    //TODO: IGNITE-19441 Stop lease prolongation message might be sent several
+                    // TODO: IGNITE-19441 Stop lease prolongation message might be sent several
                     clusterNetSvc.messagingService().send(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                             .groupId(groupId)
                             .redirectProposal(redirectNodeId)

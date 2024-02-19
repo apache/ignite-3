@@ -106,7 +106,7 @@ public class IgniteSqlFunctions {
 
     private static long timestampStringToNumeric0(String dtStr) {
         dtStr = dtStr.trim();
-        //"YYYY-MM-dd HH:mm:ss.ninenanos"
+        // "YYYY-MM-dd HH:mm:ss.ninenanos"
         if (dtStr.length() > 29) {
             dtStr = dtStr.substring(0, 29);
         }

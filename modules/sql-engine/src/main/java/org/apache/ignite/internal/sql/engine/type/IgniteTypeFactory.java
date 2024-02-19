@@ -241,7 +241,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17373
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
                 throw new IllegalArgumentException("Type is not supported yet: " + relType);
             case INTERVAL_DAY:
             case INTERVAL_DAY_HOUR:
@@ -253,7 +253,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case INTERVAL_MINUTE:
             case INTERVAL_MINUTE_SECOND:
             case INTERVAL_SECOND:
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17373
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
                 throw new IllegalArgumentException("Type is not supported yet:" + relType);
             case VARCHAR:
             case CHAR:
@@ -471,7 +471,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     /** {@inheritDoc} */
     @Override public RelDataType createType(Type type) {
-        //noinspection SuspiciousMethodCalls
+        // noinspection SuspiciousMethodCalls
         if (implementedJavaTypes.containsKey(type)) {
             return createJavaType((Class<?>) type);
         } else if (customDataTypes.javaTypes.contains(type)) {

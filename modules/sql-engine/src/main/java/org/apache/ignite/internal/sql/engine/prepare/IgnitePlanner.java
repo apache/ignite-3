@@ -240,7 +240,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
      * into account when measuring query planning timeout.
      */
     static void warmup() {
-        //noinspection ResultOfMethodCallIgnored
+        // noinspection ResultOfMethodCallIgnored
         PlannerPhase.values();
     }
 

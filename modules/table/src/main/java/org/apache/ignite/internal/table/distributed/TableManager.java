@@ -892,7 +892,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         startGroupFut
                 .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
                     try {
-                        //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
+                        // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
                         return raftMgr
                                 .startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
                     } catch (NodeStoppingException ex) {

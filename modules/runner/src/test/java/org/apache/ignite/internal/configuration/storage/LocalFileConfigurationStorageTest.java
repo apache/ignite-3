@@ -56,7 +56,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Test for local file configurations storage. */
 @ExtendWith(WorkDirectoryExtension.class)
-//TODO: https://issues.apache.org/jira/browse/IGNITE-19303
+// TODO: https://issues.apache.org/jira/browse/IGNITE-19303
 public class LocalFileConfigurationStorageTest {
 
     private static final String CONFIG_NAME = "ignite-config.conf";

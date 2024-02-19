@@ -85,7 +85,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
                         : ((CatalogSortedIndexDescriptor) index).columns().stream().map(CatalogIndexColumnDescriptor::name))
                 .collect(Collectors.toSet());
 
-        //To validate always in the same order let's sort given columns
+        // To validate always in the same order let's sort given columns
         List<String> sortedColumns = columns.stream().sorted().collect(Collectors.toUnmodifiableList());
         for (String columnName : sortedColumns) {
             if (table.column(columnName) == null) {
