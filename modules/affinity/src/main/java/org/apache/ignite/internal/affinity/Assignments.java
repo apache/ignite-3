@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.affinity;
 
+import static java.util.Collections.unmodifiableSet;
+
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class that encapsulates a set of nodes and its metadata.
@@ -32,7 +36,7 @@ public class Assignments implements Serializable {
     private static final long serialVersionUID = -59553172012153869L;
 
     /** Empty assignments. */
-    public static final Assignments NO_ASSIGNMENTS = new Assignments(Collections.emptySet());
+    public static final Assignments EMPTY = new Assignments(Collections.emptySet());
 
     /** Set of nodes. */
     @IgniteToStringInclude
@@ -43,8 +47,26 @@ public class Assignments implements Serializable {
      *
      * @param nodes Set of nodes.
      */
-    public Assignments(Set<Assignment> nodes) {
+    private Assignments(Set<Assignment> nodes) {
         this.nodes = nodes;
+    }
+
+    /**
+     * Creates a new instance.
+     *
+     * @param nodes Set of nodes.
+     */
+    public static Assignments of(Set<Assignment> nodes) {
+        return new Assignments(unmodifiableSet(nodes));
+    }
+
+    /**
+     * Creates a new instance.
+     *
+     * @param nodes Array of nodes.
+     */
+    public static Assignments of(Assignment... nodes) {
+        return new Assignments(Set.of(nodes));
     }
 
     /**
@@ -71,10 +93,19 @@ public class Assignments implements Serializable {
     }
 
     /**
-     * Deserializes assignments from the array of bytes.
+     * Deserializes assignments from the array of bytes. Returns {@code null} if the argument is null.
      */
-    public static Assignments fromBytes(byte[] bytes) {
-        return ByteUtils.fromBytes(bytes);
+    @Nullable
+    @Contract("null -> null; !null -> !null")
+    public static Assignments fromBytesNullable(byte @Nullable [] bytes) {
+        return bytes == null ? null : ByteUtils.fromBytes(bytes);
+    }
+
+    /**
+     * Deserializes assignments from the array of bytes. Returns {@link #EMPTY} if the argument is null.
+     */
+    public static Assignments fromBytesNotNull(byte @Nullable [] bytes) {
+        return bytes == null ? EMPTY : ByteUtils.fromBytes(bytes);
     }
 
     @Override

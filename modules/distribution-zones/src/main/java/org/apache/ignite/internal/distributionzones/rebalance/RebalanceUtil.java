@@ -469,7 +469,7 @@ public class RebalanceUtil {
     ) {
         return metaStorageManager
                 .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytesNullable(e.value()).nodes());
     }
 
     /**
@@ -490,7 +490,7 @@ public class RebalanceUtil {
     ) {
         Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)), revision);
 
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
+        return (entry.empty() || entry.tombstone()) ? null : Assignments.fromBytesNullable(entry.value()).nodes();
     }
 
     /**
@@ -525,7 +525,7 @@ public class RebalanceUtil {
                         Entry entry = mapEntry.getValue();
 
                         if (!entry.empty() && !entry.tombstone()) {
-                            result[partitionKeysToPartitionNumber.get(mapEntry.getKey())] = Assignments.fromBytes(entry.value());
+                            result[partitionKeysToPartitionNumber.get(mapEntry.getKey())] = Assignments.fromBytesNullable(entry.value());
                             numberOfMsPartitions++;
                         }
                     }
@@ -559,7 +559,7 @@ public class RebalanceUtil {
 
                     assert e != null && !e.empty() && !e.tombstone() : e;
 
-                    return Assignments.fromBytes(e.value());
+                    return Assignments.fromBytesNullable(e.value());
                 })
                 .collect(Collectors.toList());
     }

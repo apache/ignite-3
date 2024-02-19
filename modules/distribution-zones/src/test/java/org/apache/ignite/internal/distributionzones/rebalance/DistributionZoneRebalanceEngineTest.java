@@ -384,7 +384,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
-        byte[] assignmentsBytes = Assignments.toBytes(Set.of(Assignment.forPeer("node0")));
+        byte[] assignmentsBytes = Assignments.of(Assignment.forPeer("node0")).toBytes();
 
         keyValueStorage.put(
                 stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), 0)).bytes(), assignmentsBytes,
@@ -415,7 +415,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         for (int i = 0; i < 25; i++) {
-            byte[] assignmentsBytes = Assignments.toBytes(Set.of(Assignment.forPeer("node0")));
+            byte[] assignmentsBytes = Assignments.of(Assignment.forPeer("node0")).toBytes();
 
             keyValueStorage.put(
                     stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), i)).bytes(), assignmentsBytes,
@@ -477,7 +477,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
                     assertNotNull(actualAssignmentsBytes);
 
-                    Set<String> actualAssignments = Assignments.fromBytes(actualAssignmentsBytes).nodes()
+                    Set<String> actualAssignments = Assignments.fromBytesNotNull(actualAssignmentsBytes).nodes()
                             .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertTrue(expectedAssignments.containsAll(actualAssignments));

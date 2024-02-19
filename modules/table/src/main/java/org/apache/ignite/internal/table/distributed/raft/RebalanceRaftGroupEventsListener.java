@@ -60,7 +60,6 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.PartitionMover;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -167,7 +166,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
-                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
+                        Set<Assignment> pendingAssignments = Assignments.fromBytesNotNull(pendingAssignmentsBytes).nodes();
 
                         var peers = new HashSet<String>();
                         var learners = new HashSet<String>();
@@ -463,7 +462,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 case SCHEDULE_PENDING_REBALANCE_SUCCESS:
                     LOG.info(
                             "Rebalance finished. Going to schedule next rebalance [tablePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            tablePartitionId, stable, Assignments.fromBytes(plannedEntry.value()).nodes()
+                            tablePartitionId, stable, Assignments.fromBytesNotNull(plannedEntry.value()).nodes()
                     );
                     break;
                 case FINISH_REBALANCE_SUCCESS:
@@ -502,6 +501,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private static Assignments readAssignments(Entry entry) {
         byte[] value = entry.value();
 
-        return value == null ? Assignments.NO_ASSIGNMENTS : ByteUtils.fromBytes(value);
+        return Assignments.fromBytesNotNull(value);
     }
 }
