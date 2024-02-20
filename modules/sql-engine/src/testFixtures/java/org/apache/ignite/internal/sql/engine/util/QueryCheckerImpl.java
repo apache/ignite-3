@@ -297,7 +297,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         SqlProperties properties = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                .set(QueryProperty.LOCAL_TIME_ZONE_ID, timeZoneId)
+                .set(QueryProperty.DEFAULT_TIME_ZONE_ID, timeZoneId)
                 .build();
 
         String qry = queryTemplate.createQuery();

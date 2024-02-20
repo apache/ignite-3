@@ -297,7 +297,7 @@ public final class BaseQueryContext implements Context {
                     cancel,
                     parameters,
                     prefetchCallback,
-                    Objects.requireNonNullElseGet(timeZoneId, ZoneId::systemDefault)
+                    timeZoneId
             );
         }
     }

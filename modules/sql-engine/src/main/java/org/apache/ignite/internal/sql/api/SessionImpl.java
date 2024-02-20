@@ -213,10 +213,9 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.merge(
-                    SqlPropertiesHelper.newBuilder()
+            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .build(), props);
+                    .build();
 
             result = qryProc.querySingleAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
                     .thenCompose(cur -> {
@@ -299,10 +298,9 @@ public class SessionImpl implements AbstractSession {
         }
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.merge(
-                    SqlPropertiesHelper.newBuilder()
-                            .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
-                            .build(), props);
+            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
+                    .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
+                    .build();
 
             var counters = new LongArrayList(batch.size());
             CompletableFuture<?> tail = nullCompletedFuture();
@@ -407,10 +405,14 @@ public class SessionImpl implements AbstractSession {
             return CompletableFuture.failedFuture(sessionIsClosedException());
         }
 
+        SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+                .build();
+
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         try {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                    qryProc.queryScriptAsync(props, transactions, null, query, arguments);
+                    qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
 
             ScriptHandler handler = new ScriptHandler(resFut);
             f.whenComplete(handler::processCursor);

@@ -318,6 +318,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RexLiteral literal = values.get(i);
                 Object val = literal.getValueAs(types.get(field));
 
+                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
                 if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
                     val = IgniteSqlFunctions.timestampAtTimeZone((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
                 }

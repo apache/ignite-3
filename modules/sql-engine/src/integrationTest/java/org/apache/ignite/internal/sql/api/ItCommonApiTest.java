@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
@@ -102,10 +103,9 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19162 Trim all less than millisecond information from timestamp
         //String tsStr = "2023-03-29T08:22:33.005007Z";
-        String tsStr = "2023-03-29T08:22:33.005";
-        String isoInstantStr = tsStr + 'Z';
+        String tsStr = "2023-03-29T08:22:33.005Z";
 
-        LocalDateTime localDate = LocalDateTime.parse(tsStr);
+        LocalDateTime localDate = LocalDateTime.parse(tsStr, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
         Instant instant = localDate.atZone(ZoneId.systemDefault()).toInstant();
 
         sql("CREATE TABLE timestamps(id INTEGER PRIMARY KEY, i TIMESTAMP(9), i_tz TIMESTAMP WITH LOCAL TIME ZONE)");
@@ -127,7 +127,7 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
         tbl.recordView().insert(null, rec);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19161 Can`t insert timestamp representing in ISO_INSTANT format
-        String tsValue = isoInstantStr.replace("T", " ").substring(0, isoInstantStr.length() - 1);
+        String tsValue = tsStr.replace("T", " ").substring(0, tsStr.length() - 1);
 
         sql(format("INSERT INTO timestamps VALUES (101, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')", tsValue, tsValue));
 

@@ -118,7 +118,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
-        this.timeZoneId = timeZoneId;
+        this.timeZoneId = Objects.requireNonNullElseGet(timeZoneId, ZoneId::systemDefault);
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -126,7 +126,7 @@ public class ExecutionContext<RowT> implements DataContext {
         );
 
         Instant nowUtc = Instant.now();
-        startTs = nowUtc.plusSeconds(timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
+        startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
 
         if (LOG.isTraceEnabled()) {
             LOG.trace("Context created [qryId={}, fragmentId={}]", qryId, fragmentId());
