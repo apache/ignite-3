@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,7 +34,6 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -80,7 +78,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
 
         CatalogTableDescriptor table = tableOrThrow(schema, tableName);
 
-        Set<String> indexedColumns = aliveIndexesForTable(schema, table)
+        Set<String> indexedColumns = aliveIndexesForTable(catalog, table.id())
                 .flatMap(AlterTableDropColumnCommand::indexColumnNames)
                 .collect(Collectors.toSet());
 
@@ -96,7 +94,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             }
 
             if (indexedColumns.contains(columnName)) {
-                List<String> indexesNames = aliveIndexesForTable(schema, table)
+                List<String> indexesNames = aliveIndexesForTable(catalog, table.id())
                         .filter(index -> indexColumnNames(index).anyMatch(columnName::equals))
                         .map(CatalogIndexDescriptor::name)
                         .collect(Collectors.toList());
@@ -111,9 +109,8 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         );
     }
 
-    private static Stream<CatalogIndexDescriptor> aliveIndexesForTable(CatalogSchemaDescriptor schema, CatalogTableDescriptor table) {
-        return Arrays.stream(schema.indexes())
-                .filter(index -> index.tableId() == table.id() && index.status() != CatalogIndexStatus.STOPPING);
+    private static Stream<CatalogIndexDescriptor> aliveIndexesForTable(Catalog catalog, int tableId) {
+        return catalog.indexes(tableId).stream().filter(index -> index.status().isAlive());
     }
 
     private static Stream<String> indexColumnNames(CatalogIndexDescriptor index) {

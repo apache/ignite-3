@@ -103,7 +103,7 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private void rebuildMaps() {
         tablesMap = Arrays.stream(tables).collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
         indexesMap = Arrays.stream(indexes)
-                .filter(index -> index.status() != CatalogIndexStatus.STOPPING)
+                .filter(index -> index.status().isAlive())
                 .collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
         systemViewsMap = Arrays.stream(systemViews).collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
     }
