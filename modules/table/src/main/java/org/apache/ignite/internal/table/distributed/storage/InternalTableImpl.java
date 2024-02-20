@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.storage;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -143,6 +145,9 @@ public class InternalTableImpl implements InternalTable {
     /** Replica service. */
     private final ReplicaService replicaSvc;
 
+    /** Mutex for the partition maps update. */
+    private final Object updatePartitionMapsMux = new Object();
+
     /** Table messages factory. */
     private final TableMessagesFactory tableMessagesFactory;
 
@@ -155,6 +160,13 @@ public class InternalTableImpl implements InternalTable {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    /** Map update guarded by {@link #updatePartitionMapsMux}. */
+    private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> safeTimeTrackerByPartitionId = emptyMap();
+
+    /** Map update guarded by {@link #updatePartitionMapsMux}. */
+    private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
+
+    /** Table raft service. */
     private final TableRaftServiceImpl tableRaftService;
 
     /**
@@ -1980,6 +1992,55 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return e0;
+    }
+
+    @Override
+    public @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId) {
+        return safeTimeTrackerByPartitionId.get(partitionId);
+    }
+
+    @Override
+    public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
+        return storageIndexTrackerByPartitionId.get(partitionId);
+    }
+
+    /**
+     * Updates the partition trackers, if there were previous ones, it closes them.
+     *
+     * @param partitionId Partition ID.
+     * @param newSafeTimeTracker New partition safe time tracker.
+     * @param newStorageIndexTracker New partition storage index tracker.
+     */
+    public void updatePartitionTrackers(
+            int partitionId,
+            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker,
+            PendingComparableValuesTracker<Long, Void> newStorageIndexTracker
+    ) {
+        PendingComparableValuesTracker<HybridTimestamp, Void> previousSafeTimeTracker;
+        PendingComparableValuesTracker<Long, Void> previousStorageIndexTracker;
+
+        synchronized (updatePartitionMapsMux) {
+            Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> newSafeTimeTrackerMap =
+                    new Int2ObjectOpenHashMap<>(partitions);
+            Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> newStorageIndexTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
+
+            newSafeTimeTrackerMap.putAll(safeTimeTrackerByPartitionId);
+            newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);
+
+            previousSafeTimeTracker = newSafeTimeTrackerMap.put(partitionId, newSafeTimeTracker);
+            previousStorageIndexTracker = newStorageIndexTrackerMap.put(partitionId, newStorageIndexTracker);
+
+            safeTimeTrackerByPartitionId = newSafeTimeTrackerMap;
+            storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
+        }
+
+        if (previousSafeTimeTracker != null) {
+            previousSafeTimeTracker.close();
+        }
+
+        if (previousStorageIndexTracker != null) {
+            previousStorageIndexTracker.close();
+        }
     }
 
     private ReplicaRequest upsertAllInternal(

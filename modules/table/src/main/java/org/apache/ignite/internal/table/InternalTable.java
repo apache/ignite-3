@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -457,4 +458,18 @@ public interface InternalTable extends ManuallyCloseable {
      */
     @Override
     void close();
+
+    /**
+     * Returns the partition safe time tracker, {@code null} means not added.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId);
+
+    /**
+     * Returns the partition storage index tracker, {@code null} means not added.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
 }

@@ -840,7 +840,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         boolean shouldStartRaftListeners = localMemberAssignment != null && !((Loza) raftMgr).isStarted(raftNodeId);
 
         if (shouldStartRaftListeners) {
-            ((InternalTableImpl) internalTbl).tableRaftService().updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+            ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
             mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
         }
@@ -2298,9 +2298,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private static void closePartitionTrackers(InternalTable internalTable, int partitionId) {
-        closeTracker(internalTable.tableRaftService().getPartitionSafeTimeTracker(partitionId));
+        closeTracker(internalTable.getPartitionSafeTimeTracker(partitionId));
 
-        closeTracker(internalTable.tableRaftService().getPartitionStorageIndexTracker(partitionId));
+        closeTracker(internalTable.getPartitionStorageIndexTracker(partitionId));
     }
 
     private static void closeTracker(@Nullable PendingComparableValuesTracker<?, Void> tracker) {

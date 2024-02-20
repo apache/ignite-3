@@ -74,17 +74,17 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         );
 
         // Let's check the empty table.
-        assertNull(internalTable.tableRaftService().getPartitionSafeTimeTracker(0));
-        assertNull(internalTable.tableRaftService().getPartitionStorageIndexTracker(0));
+        assertNull(internalTable.getPartitionSafeTimeTracker(0));
+        assertNull(internalTable.getPartitionStorageIndexTracker(0));
 
         // Let's check the first insert.
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime0 = mock(PendingComparableValuesTracker.class);
         PendingComparableValuesTracker<Long, Void> storageIndex0 = mock(PendingComparableValuesTracker.class);
 
-        internalTable.tableRaftService().updatePartitionTrackers(0, safeTime0, storageIndex0);
+        internalTable.updatePartitionTrackers(0, safeTime0, storageIndex0);
 
-        assertSame(safeTime0, internalTable.tableRaftService().getPartitionSafeTimeTracker(0));
-        assertSame(storageIndex0, internalTable.tableRaftService().getPartitionStorageIndexTracker(0));
+        assertSame(safeTime0, internalTable.getPartitionSafeTimeTracker(0));
+        assertSame(storageIndex0, internalTable.getPartitionStorageIndexTracker(0));
 
         verify(safeTime0, never()).close();
         verify(storageIndex0, never()).close();
@@ -93,10 +93,10 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime1 = mock(PendingComparableValuesTracker.class);
         PendingComparableValuesTracker<Long, Void> storageIndex1 = mock(PendingComparableValuesTracker.class);
 
-        internalTable.tableRaftService().updatePartitionTrackers(0, safeTime1, storageIndex1);
+        internalTable.updatePartitionTrackers(0, safeTime1, storageIndex1);
 
-        assertSame(safeTime1, internalTable.tableRaftService().getPartitionSafeTimeTracker(0));
-        assertSame(storageIndex1, internalTable.tableRaftService().getPartitionStorageIndexTracker(0));
+        assertSame(safeTime1, internalTable.getPartitionSafeTimeTracker(0));
+        assertSame(storageIndex1, internalTable.getPartitionStorageIndexTracker(0));
 
         verify(safeTime0).close();
         verify(storageIndex0).close();

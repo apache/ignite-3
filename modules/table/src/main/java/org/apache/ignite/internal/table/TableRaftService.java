@@ -18,12 +18,9 @@
 package org.apache.ignite.internal.table;
 
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal facade that provides methods for table's raft operations.
@@ -52,18 +49,4 @@ public interface TableRaftService extends ManuallyCloseable {
      */
     @Override
     void close();
-
-    /**
-     * Returns the partition safe time tracker, {@code null} means not added.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId);
-
-    /**
-     * Returns the partition storage index tracker, {@code null} means not added.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
 }

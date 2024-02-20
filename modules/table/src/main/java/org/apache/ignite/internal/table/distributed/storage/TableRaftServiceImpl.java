@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.storage;
 
-import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
-
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -30,15 +28,12 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.table.TableRaftService;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -51,12 +46,6 @@ public class TableRaftServiceImpl implements TableRaftService {
 
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<RaftGroupService> raftGroupServiceByPartitionId;
-
-    /** Map update guarded by {@link #updatePartitionMapsMux}. */
-    private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> safeTimeTrackerByPartitionId = emptyMap();
-
-    /** Map update guarded by {@link #updatePartitionMapsMux}. */
-    private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
@@ -118,16 +107,6 @@ public class TableRaftServiceImpl implements TableRaftService {
         }
     }
 
-    @Override
-    public @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId) {
-        return safeTimeTrackerByPartitionId.get(partitionId);
-    }
-
-    @Override
-    public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
-        return storageIndexTrackerByPartitionId.get(partitionId);
-    }
-
     public void name(String newName) {
         this.tableName = newName;
     }
@@ -153,45 +132,6 @@ public class TableRaftServiceImpl implements TableRaftService {
 
         if (oldSrvc != null) {
             oldSrvc.shutdown();
-        }
-    }
-
-    /**
-     * Updates the partition trackers, if there were previous ones, it closes them.
-     *
-     * @param partitionId Partition ID.
-     * @param newSafeTimeTracker New partition safe time tracker.
-     * @param newStorageIndexTracker New partition storage index tracker.
-     */
-    public void updatePartitionTrackers(
-            int partitionId,
-            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker,
-            PendingComparableValuesTracker<Long, Void> newStorageIndexTracker
-    ) {
-        PendingComparableValuesTracker<HybridTimestamp, Void> previousSafeTimeTracker;
-        PendingComparableValuesTracker<Long, Void> previousStorageIndexTracker;
-
-        synchronized (updatePartitionMapsMux) {
-            Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> newSafeTimeTrackerMap =
-                    new Int2ObjectOpenHashMap<>(partitions);
-            Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> newStorageIndexTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
-
-            newSafeTimeTrackerMap.putAll(safeTimeTrackerByPartitionId);
-            newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);
-
-            previousSafeTimeTracker = newSafeTimeTrackerMap.put(partitionId, newSafeTimeTracker);
-            previousStorageIndexTracker = newStorageIndexTrackerMap.put(partitionId, newStorageIndexTracker);
-
-            safeTimeTrackerByPartitionId = newSafeTimeTrackerMap;
-            storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
-        }
-
-        if (previousSafeTimeTracker != null) {
-            previousSafeTimeTracker.close();
-        }
-
-        if (previousStorageIndexTracker != null) {
-            previousStorageIndexTracker.close();
         }
     }
 
