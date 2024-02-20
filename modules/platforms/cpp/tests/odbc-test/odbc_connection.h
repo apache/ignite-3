@@ -515,7 +515,7 @@ public:
             "key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
             "values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        int32_t records_num = to - from;
+        ptrdiff_t records_num = to - from;
 
         ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAMSET_SIZE, reinterpret_cast<SQLPOINTER>(records_num), 0);
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
