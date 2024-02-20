@@ -80,7 +80,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
 
         CatalogTableDescriptor table = tableOrThrow(schema, tableName);
 
-        Set<String> indexedColumns = indexesForTable(schema, table)
+        Set<String> indexedColumns = aliveIndexesForTable(schema, table)
                 .flatMap(AlterTableDropColumnCommand::indexColumnNames)
                 .collect(Collectors.toSet());
 
@@ -96,7 +96,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             }
 
             if (indexedColumns.contains(columnName)) {
-                List<String> indexesNames = indexesForTable(schema, table)
+                List<String> indexesNames = aliveIndexesForTable(schema, table)
                         .filter(index -> indexColumnNames(index).anyMatch(columnName::equals))
                         .map(CatalogIndexDescriptor::name)
                         .collect(Collectors.toList());
@@ -111,7 +111,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         );
     }
 
-    private static Stream<CatalogIndexDescriptor> indexesForTable(CatalogSchemaDescriptor schema, CatalogTableDescriptor table) {
+    private static Stream<CatalogIndexDescriptor> aliveIndexesForTable(CatalogSchemaDescriptor schema, CatalogTableDescriptor table) {
         return Arrays.stream(schema.indexes())
                 .filter(index -> index.tableId() == table.id() && index.status() != CatalogIndexStatus.STOPPING);
     }

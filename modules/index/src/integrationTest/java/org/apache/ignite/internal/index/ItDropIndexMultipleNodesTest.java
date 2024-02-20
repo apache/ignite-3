@@ -75,7 +75,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void testDropIndexDuringTransaction() {
+    void testActiveRwTransactionPreventsStoppingIndexFromBeingRemoved() {
         int indexId = createIndex();
 
         CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
@@ -174,31 +174,22 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         var dropIndexLatch = new CountDownLatch(1);
 
         CompletableFuture<Void> dropIndexFuture = runAsync(() -> {
-            // Wait for a transaction to start before dropping the index.
+            // Wait for a transaction to start before dropping the index. This way, the dropped index will be stuck in the
+            // STOPPING state until that transaction finishes.
             try {
                 startAvailableTransactionLatch.await(1, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 throw new CompletionException(e);
             }
 
-            // Drop the index inside a transaction. Until it finishes the index will be stuck in the STOPPING state.
-            runInRwTransaction(node, tx -> {
-                dropIndex();
+            dropIndex();
 
-                CatalogIndexDescriptor indexDescriptor = node.catalogManager().index(indexId, node.clock().nowLong());
+            CatalogIndexDescriptor indexDescriptor = node.catalogManager().index(indexId, node.clock().nowLong());
 
-                assertThat(indexDescriptor, is(notNullValue()));
-                assertThat(indexDescriptor.status(), is(CatalogIndexStatus.STOPPING));
+            assertThat(indexDescriptor, is(notNullValue()));
+            assertThat(indexDescriptor.status(), is(CatalogIndexStatus.STOPPING));
 
-                dropIndexLatch.countDown();
-
-                // Wait for a transaction to start before finishing this transaction, this way it will observe the index in STOPPING state.
-                try {
-                    insertDataTransactionLatch.await(1, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    throw new CompletionException(e);
-                }
-            });
+            dropIndexLatch.countDown();
         });
 
         CompletableFuture<Void> insertDataIntoIndexTransaction = runAsync(() -> {
@@ -302,11 +293,11 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         int idx = 0;
 
         insertData(TABLE_NAME, List.of("ID", "NAME", "SALARY"), new Object[][]{
-                {idx++, "Igor", 10d},
-                {idx++, null, 15d},
-                {idx++, "Ilya", 15d},
-                {idx++, "Roma", 10d},
-                {idx, "Roma", 10d}
+                {idx++, "Igor", 10.0d},
+                {idx++, null, 15.0d},
+                {idx++, "Ilya", 15.0d},
+                {idx++, "Roma", 10.0d},
+                {idx, "Roma", 10.0d}
         });
     }
 

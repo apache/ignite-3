@@ -65,18 +65,11 @@ public class DropIndexCommand extends AbstractIndexCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        List<CatalogIndexDescriptor> indexes = schema.indexes(indexName);
+        CatalogIndexDescriptor index = schema.aliveIndex(indexName);
 
-        if (indexes.isEmpty()) {
+        if (index == null) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), indexName));
         }
-
-        CatalogIndexDescriptor index = indexes.stream()
-                .filter(indexDescriptor -> indexDescriptor.status() != CatalogIndexStatus.STOPPING)
-                .findAny()
-                .orElseThrow(() -> new CatalogValidationException(format(
-                        "Index with name '{}.{}' has already been dropped", schema.name(), indexName
-                )));
 
         CatalogTableDescriptor table = catalog.table(index.tableId());
 
