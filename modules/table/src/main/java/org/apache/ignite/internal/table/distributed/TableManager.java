@@ -26,7 +26,6 @@ import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
@@ -2154,27 +2153,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
-        return supplyAsync(() -> {
-            Set<Assignment> stableAssignments = stableAssignmentsWatchEvent.value() == null
-                    ? emptySet()
-                    : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
+        return metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId), revision)
+                .thenComposeAsync(pendingAssignmentsEntry -> {
+                    Set<Assignment> stableAssignments = stableAssignmentsWatchEvent.value() == null
+                            ? emptySet()
+                            : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
-            Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsKey(tablePartitionId), revision);
+                    byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
 
-            byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
+                    Assignments pendingAssignments = pendingAssignmentsFromMetaStorage == null
+                            ? Assignments.EMPTY
+                            : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
 
-            Assignments pendingAssignments = pendingAssignmentsFromMetaStorage == null
-                    ? Assignments.EMPTY
-                    : Assignments.fromBytes(pendingAssignmentsFromMetaStorage);
-
-            return stopAndDestroyPartitionAndUpdateClients(
-                    tablePartitionId,
-                    stableAssignments,
-                    pendingAssignments,
-                    isRecovery,
-                    revision
-            );
-        }, ioExecutor).thenCompose(identity());
+                    return stopAndDestroyPartitionAndUpdateClients(
+                            tablePartitionId,
+                            stableAssignments,
+                            pendingAssignments,
+                            isRecovery,
+                            revision
+                    );
+                }, ioExecutor);
     }
 
     private CompletableFuture<Void> updatePartitionClients(
