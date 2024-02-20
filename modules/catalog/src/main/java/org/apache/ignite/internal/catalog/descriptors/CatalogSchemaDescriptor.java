@@ -87,8 +87,10 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Returns an <em>alive</em> index with the given name, that is an index which exists and is not in the
-     * {@link CatalogIndexStatus#STOPPING} state.
+     * Returns an <em>alive</em> index with the given name, that is an index that has not been dropped yet.
+     *
+     * <p>This effectively means that the index must be present in the schema and not in the {@link CatalogIndexStatus#STOPPING}
+     * state.
      */
     public @Nullable CatalogIndexDescriptor aliveIndex(String name) {
         return indexesMap.get(name);

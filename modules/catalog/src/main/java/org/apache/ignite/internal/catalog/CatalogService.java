@@ -62,8 +62,10 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     Collection<CatalogTableDescriptor> tables(int catalogVersion);
 
     /**
-     * Returns an <em>alive</em> index with the given name, that is an index which exists and is not in the
-     * {@link CatalogIndexStatus#STOPPING} state in the Catalog at a given point in time.
+     * Returns an <em>alive</em> index with the given name, that is an index that has not been dropped yet at a given point in time.
+     *
+     * <p>This effectively means that the index must be present in the Catalog and not in the {@link CatalogIndexStatus#STOPPING}
+     * state.
      */
     @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp);
 
