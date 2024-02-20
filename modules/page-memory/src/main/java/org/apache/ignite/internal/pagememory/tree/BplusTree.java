@@ -2130,8 +2130,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         long page = acquirePage(pageId);
 
         try {
-            Result res;
-
             for (; ; ) {
                 x.checkLockRetry();
 
@@ -2140,9 +2138,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 x.fwdId(fwdId);
                 x.backId(backId);
 
-                res = read(pageId, page, search, x, lvl, RETRY);
+                Result readResult = read(pageId, page, search, x, lvl, RETRY);
 
-                switch (res) {
+                switch (readResult) {
                     case GO_DOWN_X:
                         assert backId != 0;
                         assert x.backId == 0; // We did not setup it yet.
@@ -2150,10 +2148,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         x.backId(pageId); // Dirty hack to setup a check inside askNeighbor.
 
                         // We need to get backId here for our child page, it must be the last child of our back.
-                        res = askNeighbor(backId, x, true);
+                        Result askNeighborResult = askNeighbor(backId, x, true);
 
-                        if (res != FOUND) {
-                            return res; // Retry.
+                        if (askNeighborResult != FOUND) {
+                            return askNeighborResult; // Retry.
                         }
 
                         assert x.backId != pageId; // It must be updated in askNeighbor.
@@ -2161,21 +2159,19 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         // Intentional fallthrough.
                     case GO_DOWN:
                         // Go down recursively.
-                        res = invokeDown(x, x.pageId, x.backId, x.fwdId, lvl - 1);
+                        Result invokeDownResult = invokeDown(x, x.pageId, x.backId, x.fwdId, lvl - 1);
 
-                        if (res == RETRY_ROOT || x.isFinished()) {
-                            return res;
+                        if (invokeDownResult == RETRY_ROOT || x.isFinished()) {
+                            return invokeDownResult;
                         }
 
-                        if (res == RETRY) {
+                        if (invokeDownResult == RETRY) {
                             continue;
                         }
 
                         assert x.op != null; // Guarded by isFinished.
 
-                        res = x.op.finishOrLockTail(pageId, page, backId, fwdId, lvl);
-
-                        return res;
+                        return x.op.finishOrLockTail(pageId, page, backId, fwdId, lvl);
 
                     case NOT_FOUND:
                         if (lvl == 0) {
@@ -2199,7 +2195,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         return x.onFound(pageId, page, backId, fwdId, lvl);
 
                     default:
-                        return res;
+                        return readResult;
                 }
             }
         } finally {
