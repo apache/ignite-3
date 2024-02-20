@@ -513,6 +513,9 @@ namespace Apache.Ignite
 
             /// <summary> ChangeJobPriority error. </summary>
             public const int ChangeJobPriority = (GroupCode << 16) | (13 & 0xFFFF);
+
+            /// <summary> NodeNotFound error. </summary>
+            public const int NodeNotFound = (GroupCode << 16) | (14 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.rebalance;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -229,7 +229,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     ) {
         return metaStorageManager
                 .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : fromBytes(e.value()));
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     private static boolean containsPartition(Ignite node) {

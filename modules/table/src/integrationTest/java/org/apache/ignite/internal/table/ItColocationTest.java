@@ -89,6 +89,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -271,7 +272,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         intTable = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
-                partRafts,
                 PARTS,
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
@@ -280,7 +280,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HybridClockImpl(),
                 observableTimestampTracker,
-                new TestPlacementDriver(clusterNode)
+                new TestPlacementDriver(clusterNode),
+                new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode))
         );
     }
 

@@ -1539,11 +1539,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     private CompletableFuture<List<Tuple>> scan(InternalTable internalTable, @Nullable InternalTransaction internalTx) {
         Flow.Publisher<BinaryRow> pub = internalTx != null && internalTx.isReadOnly()
-                ? internalTable.scan(
+                ?
+                internalTable.scan(
                         0,
                         internalTx.id(),
                         internalTx.readTimestamp(),
-                        internalTable.leaderAssignment(0),
+                        internalTable.tableRaftService().leaderAssignment(0),
                         internalTx.coordinatorId()
                 )
                 : internalTable.scan(0, internalTx);
