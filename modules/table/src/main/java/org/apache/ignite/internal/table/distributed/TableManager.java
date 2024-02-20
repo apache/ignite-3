@@ -36,10 +36,10 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionsCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -1782,7 +1782,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 ? emptySet()
                                 : ByteUtils.fromBytes(stableAssignmentsEntry.value());
 
-                        return setTablesPartitionCountersForRebalance(tblId)
+                        return setTablesPartitionCountersForRebalance(replicaGrpId)
                                 .thenCompose(r ->
                                         handleChangePendingAssignmentEvent(
                                                 replicaGrpId,
@@ -1857,35 +1857,37 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
-    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(int tblId) {
+    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
-        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(getTableDescriptor(tblId, catalogVersion), catalogVersion);
+        int tableId = replicaGrpId.tableId();
+
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(getTableDescriptor(tableId, catalogVersion), catalogVersion);
 
         int zoneId = zoneDescriptor.id();
 
-        int partitionsCount = zoneDescriptor.partitions();
+        int partId = replicaGrpId.partitionId();
 
         Condition condition = or(
-                notExists(partitionsCounterKey(zoneId)),
-                value(partitionsCounterKey(zoneId)).eq(intToBytes(0))
+                notExists(tablesCounterKey(zoneId, partId)),
+                value(tablesCounterKey(zoneId, partId)).eq(intToBytes(0))
         );
 
-        int tablesPartitionsInZone = findTablesByZoneId(zoneId, catalogVersion, catalogService).size() * partitionsCount;
+        int tablesInZone = findTablesByZoneId(zoneId, catalogVersion, catalogService).size();
 
-        byte[] countersValue = intToBytes(tablesPartitionsInZone);
+        byte[] countersValue = intToBytes(tablesInZone);
 
         return metaStorageMgr.invoke(iif(
                 condition,
-                ops(put(partitionsCounterKey(zoneId), countersValue)).yield(true),
+                ops(put(tablesCounterKey(zoneId, partId), countersValue)).yield(true),
                 ops().yield(false)
         )).whenComplete((res, e) -> {
             if (e != null) {
                 LOG.error("Failed to update counter for the zone [zoneId = {}]", zoneId);
             } else if (res.getAsBoolean()) {
-                LOG.info("Partitions tables counter for the zone is updated [zoneId = {}, counter = {}]", zoneId, tablesPartitionsInZone);
+                LOG.info("Rebalance counter for the zone is updated [zoneId = {}, counter = {}]", zoneId, tablesInZone);
             } else {
-                LOG.info("Partitions tables counter for the zone is not updated [zoneId = {}]", zoneId);
+                LOG.info("Rebalance counter for the zone is not updated [zoneId = {}]", zoneId);
             }
         }).thenCompose((ignored) -> nullCompletedFuture());
     }
@@ -1976,7 +1978,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 busyLock,
                 createPartitionMover(internalTable, replicaGrpId.partitionId()),
                 rebalanceScheduler,
-                zoneId
+                zoneId,
+                catalogService,
+                distributionZoneManager
         );
 
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273

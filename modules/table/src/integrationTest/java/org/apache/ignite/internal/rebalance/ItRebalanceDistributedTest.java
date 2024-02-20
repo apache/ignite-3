@@ -1434,6 +1434,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static void alterZone(Node node, String zoneName, int replicas) {
         node.waitForMetadataCompletenessAtNow();
 
+        System.out.println(">>>> Alter zone");
         DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 

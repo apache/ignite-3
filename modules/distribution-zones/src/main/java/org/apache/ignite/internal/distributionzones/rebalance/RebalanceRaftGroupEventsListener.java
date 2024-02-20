@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine.calculateAssignments;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionsCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -129,6 +129,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
+    private final CatalogService catalogService;
+
+    private final DistributionZoneManager distributionZoneManager;
+
     /**
      * Constructs new listener.
      *
@@ -144,7 +148,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
             ScheduledExecutorService rebalanceScheduler,
-            int zoneId
+            int zoneId,
+            CatalogService catalogService,
+            DistributionZoneManager distributionZoneManager
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.tablePartitionId = tablePartitionId;
@@ -152,6 +158,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         this.partitionMover = partitionMover;
         this.rebalanceScheduler = rebalanceScheduler;
         this.zoneId = zoneId;
+        this.catalogService = catalogService;
+        this.distributionZoneManager = distributionZoneManager;
     }
 
     /** {@inheritDoc} */
@@ -234,14 +242,16 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     }
 
     /**
-     * This method count downs the counter for partitions from tables from the corresponding zone when raft configuration
+     * This method count downs the counter for partition from tables from the corresponding zone when raft configuration
      * of the partitions raft group gas been successfully changed.
      *
      * @param stable Stable assignments to save to metastore for further stable switch.
      */
     private void countDownPartitionsFromZone(Set<Assignment> stable) {
         try {
-            Entry counterEntry = metaStorageMgr.get(partitionsCounterKey(zoneId)).get();
+            int partId = tablePartitionId.partitionId();
+
+            Entry counterEntry = metaStorageMgr.get(tablesCounterKey(zoneId, partId)).get();
 
             assert counterEntry.value() != null;
 
@@ -249,12 +259,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             assert counter > 0;
 
-            Condition condition = value(partitionsCounterKey(zoneId)).eq(counterEntry.value());
+            Condition condition = value(tablesCounterKey(zoneId, partId)).eq(counterEntry.value());
 
             byte[] stableArray = ByteUtils.toBytes(stable);
 
             Update successCase = ops(
-                    put(partitionsCounterKey(zoneId), intToBytes(counter - 1)),
+                    put(tablesCounterKey(zoneId, partId), intToBytes(counter - 1)),
                     put(raftConfigurationAppliedKey(tablePartitionId), stableArray)
             ).yield(PART_COUNTER_DECREMENT_SUCCESS);
 
@@ -273,6 +283,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 return;
             } else {
                 LOG.info("Count down of zone's partitions is succeeded [zoneId={}, appliedPeers={}]", zoneId, stable);
+
+                doOnNewPeersConfigurationApplied(stable, tablePartitionId, metaStorageMgr, catalogService, distributionZoneManager);
             }
 
             rebalanceAttempts.set(0);

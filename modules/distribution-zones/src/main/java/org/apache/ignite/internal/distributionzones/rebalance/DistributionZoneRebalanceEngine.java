@@ -26,10 +26,10 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doOnNewPeersConfigurationApplied;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PARTITIONS_COUNTER_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionsCounterPrefixKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterPrefixKey;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -137,7 +137,7 @@ public class DistributionZoneRebalanceEngine {
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
             metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
 
-            metaStorageManager.registerPrefixWatch(partitionsCounterPrefixKey(), partitionsCounterListener);
+            metaStorageManager.registerPrefixWatch(tablesCounterPrefixKey(), partitionsCounterListener);
 
             CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -248,12 +248,12 @@ public class DistributionZoneRebalanceEngine {
 
                     int counter = bytesToInt(event.entryEvent().newEntry().value());
 
-                    if (counter > 0) {
+                    if (counter >= 0) {
                         LOG.info(">>>> Skipped, counter = " + counter);
                         return nullCompletedFuture();
                     }
 
-                    int zoneId = extractZoneId(event.entryEvent().newEntry().key(), PARTITIONS_COUNTER_PREFIX);
+                    int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
 
                     List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogService.latestCatalogVersion(), catalogService);
 
@@ -267,13 +267,11 @@ public class DistributionZoneRebalanceEngine {
                         try {
                             Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
 
-                            int partitions = catalogService.zone(zoneId, catalogService.latestCatalogVersion()).partitions();
+                            int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
 
                             for (CatalogTableDescriptor table : tables) {
-                                for (int i = 0; i < partitions; i++) {
-                                    TablePartitionId partId = new TablePartitionId(table.id(), i);
-                                    partitionTablesKeys.put(raftConfigurationAppliedKey(partId), partId);
-                                }
+                                TablePartitionId replicaGrpId = new TablePartitionId(table.id(), partId);
+                                partitionTablesKeys.put(raftConfigurationAppliedKey(replicaGrpId), replicaGrpId);
                             }
 
                             Map<ByteArray, Entry> entriesMap = metaStorageManager.getAll(partitionTablesKeys.keySet()).get();

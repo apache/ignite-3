@@ -301,7 +301,7 @@ public class RebalanceUtil {
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
 
-    public static final String PARTITIONS_COUNTER_PREFIX = "partitions.counter.";
+    public static final String TABLES_COUNTER_PREFIX = "tables.counter.";
 
     public static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
 
@@ -371,12 +371,12 @@ public class RebalanceUtil {
         return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
     }
 
-    public static ByteArray partitionsCounterKey(int zoneId) {
-        return new ByteArray(PARTITIONS_COUNTER_PREFIX + zoneId);
+    public static ByteArray tablesCounterKey(int zoneId, int partId) {
+        return new ByteArray(TABLES_COUNTER_PREFIX + zoneId + "_part_" + partId);
     }
 
-    public static ByteArray partitionsCounterPrefixKey() {
-        return new ByteArray(PARTITIONS_COUNTER_PREFIX);
+    public static ByteArray tablesCounterPrefixKey() {
+        return new ByteArray(TABLES_COUNTER_PREFIX);
     }
 
     public static ByteArray raftConfigurationAppliedKey(TablePartitionId partId) {
@@ -407,6 +407,18 @@ public class RebalanceUtil {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
         return Integer.parseInt(strKey.substring(prefix.length()));
+    }
+
+    /**
+     * Extract zone id from a metastorage key {@link RebalanceUtil#tablesCounterKey}.
+     *
+     * @param key Key.
+     * @return Table id.
+     */
+    static int extractZoneIdFromTablesCounter(byte[] key) {
+        String strKey = new String(key, StandardCharsets.UTF_8);
+
+        return Integer.parseInt(strKey.substring(TABLES_COUNTER_PREFIX.length(), strKey.indexOf("_part_")));
     }
 
     /**
