@@ -616,20 +616,20 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     // TODO: IGNITE-21560 Skip command if index was removed
     private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(BuildIndexCommand command) {
         int creationCatalogVersion = command.creationCatalogVersion();
-        Catalog creationIndexCatalogVersion = catalogService.catalog(creationCatalogVersion);
+        Catalog creationIndexCatalog = catalogService.catalog(creationCatalogVersion);
 
-        assert creationIndexCatalogVersion != null : "indexId=" + command.indexId() + ", catalogVersion=" + creationCatalogVersion;
+        assert creationIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + creationCatalogVersion;
 
         int latestCatalogVersion = catalogService.latestCatalogVersion();
-        Catalog startBuildingIndexCatalogVersion = IntStream.rangeClosed(creationCatalogVersion + 1, latestCatalogVersion)
+        Catalog startBuildingIndexCatalog = IntStream.rangeClosed(creationCatalogVersion, latestCatalogVersion)
                 .mapToObj(catalogService::catalog)
                 .filter(catalog -> catalog.index(command.indexId()).status() == CatalogIndexStatus.BUILDING)
                 .findFirst()
                 .orElse(null);
 
-        assert startBuildingIndexCatalogVersion != null : format("indexId={}, catalogVersionFrom={}, catalogVersionTo={}",
-                command.indexId(), creationIndexCatalogVersion, latestCatalogVersion);
+        assert startBuildingIndexCatalog != null : format("indexId={}, catalogVersionFrom={}, catalogVersionTo={}",
+                command.indexId(), creationCatalogVersion, latestCatalogVersion);
 
-        return new BuildIndexRowVersionChooser(storage, creationIndexCatalogVersion.time(), startBuildingIndexCatalogVersion.time());
+        return new BuildIndexRowVersionChooser(storage, creationIndexCatalog.time(), startBuildingIndexCatalog.time());
     }
 }
