@@ -305,6 +305,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     private int indexCreationCatalogVersion(String indexName) {
-        return getIndexStrict(catalogManager, indexName, clock.nowLong()).creationCatalogVersion();
+        return getIndexStrict(catalogManager, indexName, clock.nowLong()).txWaitCatalogVersion();
     }
 }

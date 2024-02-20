@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
@@ -47,7 +48,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +78,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.ChooseExecutorForReplicationGroup;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -84,7 +88,9 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
@@ -104,6 +110,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A transaction manager implementation.
@@ -200,6 +207,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
 
+    private final ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser;
+
     /**
      * The constructor.
      *
@@ -212,7 +221,48 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     * @param partitionOperationsExecutor Executor on which partition operations will be executed, if needed.
      */
+    public TxManagerImpl(
+            TransactionConfiguration txConfig,
+            ClusterService clusterService,
+            ReplicaService replicaService,
+            LockManager lockManager,
+            HybridClock clock,
+            TransactionIdGenerator transactionIdGenerator,
+            PlacementDriver placementDriver,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            LocalRwTxCounter localRwTxCounter,
+            StripedThreadPoolExecutor partitionOperationsExecutor
+    ) {
+        this(
+                txConfig,
+                clusterService,
+                replicaService,
+                lockManager,
+                clock,
+                transactionIdGenerator,
+                placementDriver,
+                idleSafeTimePropagationPeriodMsSupplier,
+                localRwTxCounter,
+                new ChooseExecutorForReplicationGroup(partitionOperationsExecutor)
+        );
+    }
+
+    /**
+     * Test-only constructor.
+     *
+     * @param txConfig Transaction configuration.
+     * @param clusterService Cluster service.
+     * @param replicaService Replica service.
+     * @param lockManager Lock manager.
+     * @param clock A hybrid logical clock.
+     * @param transactionIdGenerator Used to generate transaction IDs.
+     * @param placementDriver Placement driver.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     */
+    @TestOnly
     public TxManagerImpl(
             TransactionConfiguration txConfig,
             ClusterService clusterService,
@@ -224,6 +274,46 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter
     ) {
+        this(
+                txConfig,
+                clusterService,
+                replicaService,
+                lockManager,
+                clock,
+                transactionIdGenerator,
+                placementDriver,
+                idleSafeTimePropagationPeriodMsSupplier,
+                localRwTxCounter,
+                groupId -> ForkJoinPool.commonPool()
+        );
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param txConfig Transaction configuration.
+     * @param clusterService Cluster service.
+     * @param replicaService Replica service.
+     * @param lockManager Lock manager.
+     * @param clock A hybrid logical clock.
+     * @param transactionIdGenerator Used to generate transaction IDs.
+     * @param placementDriver Placement driver.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     * @param partitionOperationsStripeChooser Chooser of an executor on which partition operations will be executed, if needed.
+     */
+    private TxManagerImpl(
+            TransactionConfiguration txConfig,
+            ClusterService clusterService,
+            ReplicaService replicaService,
+            LockManager lockManager,
+            HybridClock clock,
+            TransactionIdGenerator transactionIdGenerator,
+            PlacementDriver placementDriver,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            LocalRwTxCounter localRwTxCounter,
+            ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser
+    ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
         this.clock = clock;
@@ -234,6 +324,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.messagingService = clusterService.messagingService();
         this.primaryReplicaEventListener = this::primaryReplicaEventListener;
         this.localRwTxCounter = localRwTxCounter;
+        this.partitionOperationsStripeChooser = partitionOperationsStripeChooser;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
 
@@ -519,7 +610,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     commitTimestamp,
                                     txFinishFuture);
                         })
-                .thenCompose(Function.identity())
+                .thenCompose(identity())
                 // Verification future is added in order to share the proper verification exception with the client.
                 .thenCompose(r -> verificationFuture);
     }
@@ -575,7 +666,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         if (TransactionFailureHandler.isRecoverable(cause)) {
                             LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
 
-                            return durableFinish(
+                            Executor stripe = partitionOperationsStripeChooser.choose(commitPartition);
+                            return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,
                                     commitPartition,
                                     commit,
@@ -583,7 +675,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txId,
                                     commitTimestamp,
                                     txFinishFuture
-                            );
+                            ), stripe).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx [txId={}].", ex, txId);
 
@@ -593,7 +685,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                     return CompletableFutures.<Void>nullCompletedFuture();
                 })
-                .thenCompose(Function.identity()));
+                .thenCompose(identity()));
     }
 
     private CompletableFuture<Void> makeFinishRequest(

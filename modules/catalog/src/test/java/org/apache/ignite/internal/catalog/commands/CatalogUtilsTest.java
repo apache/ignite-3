@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -336,7 +338,55 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         Exception e = assertThrows(CatalogValidationException.class, () -> replaceTable(schema, table));
 
-        assertThat(e.getMessage(), is(String.format("Table with ID %d has not been found in schema with ID %d", Integer.MAX_VALUE, 0)));
+        assertThat(e.getMessage(), is(String.format("Table with ID %d has not been found in schema with ID %d", table.id(), 0)));
+    }
+
+    @Test
+    void testReplaceIndex() {
+        String tableName = "table";
+
+        createTable(tableName);
+        createIndex(tableName, "foo");
+        createIndex(tableName, "bar");
+
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+
+        assertThat(schema, is(notNullValue()));
+
+        var fooIndex = (CatalogHashIndexDescriptor) catalogManager.index("foo", clock.nowLong());
+
+        assertThat(fooIndex, is(notNullValue()));
+
+        CatalogIndexDescriptor bazIndex = new CatalogHashIndexDescriptor(
+                fooIndex.id(),
+                "baz",
+                fooIndex.tableId(),
+                fooIndex.unique(),
+                fooIndex.status(),
+                fooIndex.txWaitCatalogVersion(),
+                fooIndex.columns()
+        );
+
+        CatalogSchemaDescriptor updatedSchema = replaceIndex(schema, bazIndex);
+
+        List<String> indexNames = Arrays.stream(updatedSchema.indexes()).map(CatalogIndexDescriptor::name).collect(toList());
+
+        assertThat(indexNames, contains(tableName + "_PK", "baz", "bar"));
+    }
+
+    @Test
+    void testReplaceIndexMissingIndex() {
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+
+        assertThat(schema, is(notNullValue()));
+
+        var index = mock(CatalogIndexDescriptor.class);
+
+        when(index.id()).thenReturn(Integer.MAX_VALUE);
+
+        Exception e = assertThrows(CatalogValidationException.class, () -> replaceIndex(schema, index));
+
+        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d", index.id(), 0)));
     }
 
     @Test

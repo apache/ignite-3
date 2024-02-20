@@ -154,6 +154,23 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    void optimizedGetNotUsedForPartiallyCoveredKey() {
+        node.initSchema("CREATE TABLE test (id1 INT, id2 INT, val INT, PRIMARY KEY (id1, id2))");
+
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id1 = 1");
+
+            assertThat(plan, not(instanceOf(KeyValueGetPlan.class)));
+        }
+
+        {
+            QueryPlan plan = node.prepare("SELECT id1 FROM test WHERE id1 = 1");
+
+            assertThat(plan, not(instanceOf(KeyValueGetPlan.class)));
+        }
+    }
+
+    @Test
     void optimizedGetUsedWithComplexKeysNormalOrder() {
         node.initSchema("CREATE TABLE test (id1 INT, id2 INT, val INT, PRIMARY KEY(id1, id2))");
 

@@ -35,7 +35,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -43,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
@@ -135,8 +135,8 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         }
     }
 
-    private static TestTable createTestTable(String tableName) {
-        TestTable testTable = TestBuilders.table()
+    private static IgniteTable createTestTable(String tableName) {
+        IgniteTable igniteTable = TestBuilders.table()
                 .name(tableName)
                 .addColumn("A", NativeTypes.INT32)
                 .addColumn("B", NativeTypes.INT32)
@@ -145,7 +145,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 .build();
 
         // Create a proxy.
-        TestTable spyTable = Mockito.spy(testTable);
+        IgniteTable spyTable = Mockito.spy(igniteTable);
 
         // Override and slowdown a method, which is called by Planner, to emulate long planning.
         Mockito.doAnswer(inv -> {
@@ -155,7 +155,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 throw new RuntimeException(e);
             }
             // Call original method.
-            return testTable.getRowType(inv.getArgument(0), inv.getArgument(1));
+            return igniteTable.getRowType(inv.getArgument(0), inv.getArgument(1));
         }).when(spyTable).getRowType(any(), any());
 
         return spyTable;

@@ -24,11 +24,11 @@ import java.util.Collections;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
@@ -77,7 +77,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
     }
 
     private void checkCachePlanStatistics(String qry, PrepareService prepareService, MetricSet metricSet, int hits, int misses) {
-        TestTable table = TestBuilders.table()
+        IgniteTable table = TestBuilders.table()
                 .name("T")
                 .addColumn("A", NativeTypes.INT32, false)
                 .addColumn("B", NativeTypes.INT32, false)

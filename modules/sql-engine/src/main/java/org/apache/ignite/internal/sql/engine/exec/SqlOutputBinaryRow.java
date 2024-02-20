@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.readValue;
+
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 
@@ -67,17 +67,24 @@ public class SqlOutputBinaryRow extends BinaryTupleReader implements BinaryRowEx
     }
 
     /** Creates BinaryRow from the given tuple. */
-    public static SqlOutputBinaryRow newRow(InternalTuple binaryTuple, SchemaDescriptor schema, BinaryTupleSchema tupleSchema) {
+    public static SqlOutputBinaryRow newRow(
+            int schemaVersion,
+            int[] colocationColumnIndexes,
+            NativeType[] colocationColumnTypes,
+            InternalTuple binaryTuple
+    ) {
         HashCalculator hashCalc = new HashCalculator();
 
-        for (Column c : schema.colocationColumns()) {
-            Object value = tupleSchema.value(binaryTuple, c.schemaIndex());
+        for (int i = 0; i < colocationColumnIndexes.length; i++) {
+            NativeType type = colocationColumnTypes[i];
 
-            ColocationUtils.append(hashCalc, value, c.type());
+            Object value = readValue(binaryTuple, type, colocationColumnIndexes[i]);
+
+            ColocationUtils.append(hashCalc, value, type);
         }
 
         int colocationHash = hashCalc.hash();
 
-        return new SqlOutputBinaryRow(schema.version(), colocationHash, binaryTuple.elementCount(), binaryTuple.byteBuffer());
+        return new SqlOutputBinaryRow(schemaVersion, colocationHash, binaryTuple.elementCount(), binaryTuple.byteBuffer());
     }
 }

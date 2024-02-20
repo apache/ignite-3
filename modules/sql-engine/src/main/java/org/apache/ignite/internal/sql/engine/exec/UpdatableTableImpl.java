@@ -322,7 +322,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
                     RowHandler<RowT> handler = ectx.rowHandler();
                     IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.insertRowType(typeFactory)));
+                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.rowType(typeFactory, null)));
                     RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
 
                     ArrayList<String> conflictRows = new ArrayList<>(response.size());
