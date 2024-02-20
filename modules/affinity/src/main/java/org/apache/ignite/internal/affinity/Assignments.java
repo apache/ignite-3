@@ -57,7 +57,7 @@ public class Assignments implements Serializable {
      * @param nodes Set of nodes.
      */
     public static Assignments of(Set<Assignment> nodes) {
-        return new Assignments(unmodifiableSet(nodes));
+        return new Assignments(nodes);
     }
 
     /**
@@ -73,7 +73,7 @@ public class Assignments implements Serializable {
      * Returns a set of nodes, represented by this assignments instance.
      */
     public Set<Assignment> nodes() {
-        return nodes;
+        return unmodifiableSet(nodes);
     }
 
     /**
