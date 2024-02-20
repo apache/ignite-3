@@ -235,7 +235,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /**
      * This method count downs the counter for partition from tables from the corresponding zone when raft configuration
-     * of the partitions raft group gas been successfully changed.
+     * of the partitions raft group has been successfully changed.
      *
      * @param stable Stable assignments to save to metastore for further stable switch.
      */
