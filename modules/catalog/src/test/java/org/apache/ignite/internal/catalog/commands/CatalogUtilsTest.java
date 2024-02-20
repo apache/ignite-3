@@ -139,13 +139,13 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         createTable(TABLE_NAME);
         createIndex(TABLE_NAME, indexName0);
-        createIndex(TABLE_NAME, indexName1);
-        createIndex(TABLE_NAME, indexName2);
+        int indexId1 = createIndex(TABLE_NAME, indexName1);
+        int indexId2 = createIndex(TABLE_NAME, indexName2);
 
-        startBuildingIndex(indexName1);
-        makeIndexAvailable(indexName1);
+        startBuildingIndex(indexId1);
+        makeIndexAvailable(indexId1);
 
-        startBuildingIndex(indexName2);
+        startBuildingIndex(indexId2);
 
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
         int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
@@ -181,13 +181,13 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         createTable(TABLE_NAME);
         createIndex(TABLE_NAME, indexName0);
-        createIndex(TABLE_NAME, indexName1);
-        createIndex(TABLE_NAME, indexName2);
+        int indexId1 = createIndex(TABLE_NAME, indexName1);
+        int indexId2 = createIndex(TABLE_NAME, indexName2);
 
-        startBuildingIndex(indexName1);
-        makeIndexAvailable(indexName1);
+        startBuildingIndex(indexId1);
+        makeIndexAvailable(indexId1);
 
-        startBuildingIndex(indexName2);
+        startBuildingIndex(indexId2);
 
         int catalogVersionBeforeDropIndex0 = catalogManager.latestCatalogVersion();
 
@@ -199,7 +199,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         int catalogVersionBeforeRemoveIndex1 = catalogManager.latestCatalogVersion();
 
-        removeIndex(indexName1);
+        removeIndex(indexId1);
 
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
         int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
@@ -250,23 +250,23 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         String indexName3 = INDEX_NAME + 3;
 
         createTable(TABLE_NAME);
-        createIndex(TABLE_NAME, indexName0);
-        createIndex(TABLE_NAME, indexName1);
-        createIndex(TABLE_NAME, indexName2);
+        int indexId0 = createIndex(TABLE_NAME, indexName0);
+        int indexId1 = createIndex(TABLE_NAME, indexName1);
+        int indexId2 = createIndex(TABLE_NAME, indexName2);
         createIndex(TABLE_NAME, indexName3);
 
-        startBuildingIndex(indexName0);
-        startBuildingIndex(indexName1);
-        startBuildingIndex(indexName2);
+        startBuildingIndex(indexId0);
+        startBuildingIndex(indexId1);
+        startBuildingIndex(indexId2);
 
-        makeIndexAvailable(indexName0);
-        makeIndexAvailable(indexName2);
+        makeIndexAvailable(indexId0);
+        makeIndexAvailable(indexId2);
 
         dropIndex(indexName0);
 
         int catalogVersionBeforeRemoveIndex0 = catalogManager.latestCatalogVersion();
 
-        removeIndex(indexName0);
+        removeIndex(indexId0);
 
         int catalogVersionBeforeDropIndex3 = catalogManager.latestCatalogVersion();
 
@@ -415,7 +415,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private void createIndex(String tableName, String indexName) {
+    private int createIndex(String tableName, String indexName) {
         CatalogCommand catalogCommand = CreateHashIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(tableName)
@@ -425,22 +425,18 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
+
+        return catalogManager.aliveIndex(indexName, clock.nowLong()).id();
     }
 
-    private void startBuildingIndex(String indexName) {
-        CatalogIndexDescriptor index = index(catalogManager, catalogManager.latestCatalogVersion(), indexName);
-
-        CatalogCommand catalogCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
+    private void startBuildingIndex(int indexId) {
+        CatalogCommand catalogCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private void makeIndexAvailable(String indexName) {
-        CatalogIndexDescriptor index = index(catalogManager, catalogManager.latestCatalogVersion(), indexName);
-
-        CatalogCommand catalogCommand = MakeIndexAvailableCommand.builder()
-                .indexId(index.id())
-                .build();
+    private void makeIndexAvailable(int indexId) {
+        CatalogCommand catalogCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
@@ -454,14 +450,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }
 
-    private void removeIndex(String indexName) {
-        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, HybridTimestamp.MAX_VALUE.longValue());
-
-        assertThat(indexDescriptor, is(notNullValue()));
-
-        CatalogCommand catalogCommand = RemoveIndexCommand.builder()
-                .indexId(indexDescriptor.id())
-                .build();
+    private void removeIndex(int indexId) {
+        CatalogCommand catalogCommand = RemoveIndexCommand.builder().indexId(indexId).build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
     }

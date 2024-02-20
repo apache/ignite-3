@@ -118,11 +118,9 @@ public class TableTestUtils {
      * Removes index from the catalog.
      *
      * @param catalogManager Catalog manager.
-     * @param indexName Index name.
+     * @param indexId Index ID.
      */
-    public static void removeIndex(CatalogManager catalogManager, String indexName) {
-        int indexId = getIndexIdStrict(catalogManager, indexName, Long.MAX_VALUE);
-
+    public static void removeIndex(CatalogManager catalogManager, int indexId) {
         assertThat(
                 catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).build()),
                 willCompleteSuccessfully()
