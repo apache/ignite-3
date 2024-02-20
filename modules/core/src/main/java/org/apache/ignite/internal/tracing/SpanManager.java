@@ -38,7 +38,7 @@ public interface SpanManager {
      * @param rootSpan Root span.
      * @return Created span.
      */
-    TraceSpan createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired);
+    TraceSpan create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired);
 
     /**
      * Creates Span with given name.
@@ -49,7 +49,7 @@ public interface SpanManager {
      * @param closure Closure.
      * @return Closure result.
      */
-    <R> R createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure);
+    <R> R create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure);
 
     /**
      * Call closure in span with given name.
@@ -59,7 +59,7 @@ public interface SpanManager {
      * @param rootSpan Root span.
      * @param closure Closure.
      */
-    void createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure);
+    void create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure);
 
     /**
      * Returns a {@link Runnable} that restore trace context and then invokes the input {@link Runnable}.

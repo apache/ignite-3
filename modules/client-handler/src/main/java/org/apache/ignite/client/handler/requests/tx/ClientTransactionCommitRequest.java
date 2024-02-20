@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
-import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
-
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;

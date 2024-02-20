@@ -18,18 +18,14 @@
 package org.apache.ignite.internal.tracing.otel;
 
 import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
-import static io.opentelemetry.api.GlobalOpenTelemetry.getTracer;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import com.google.auto.service.AutoService;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.api.trace.TracerProvider;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapGetter;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -52,14 +48,17 @@ public class OtelSpanManager implements SpanManager {
     private volatile TracerProvider tracerProvider = TracerProvider.noop();
     private volatile Tracer tracer;
 
+    /**
+     * AA.
+     */
     public OtelSpanManager() {
-        AutoConfiguredOpenTelemetrySdk telemetrySdk = AutoConfiguredOpenTelemetrySdk.builder().build();
+        // AutoConfiguredOpenTelemetrySdk telemetrySdk = AutoConfiguredOpenTelemetrySdk.builder().build();
 
         tracer = tracerProvider.get(null);
     }
 
     @Override
-    public TraceSpan createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired) {
+    public TraceSpan create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired) {
         boolean isBeginOfTrace = !Span.current().getSpanContext().isValid();
         boolean invalidParent = parent == null || !parent.isValid();
 
@@ -81,8 +80,8 @@ public class OtelSpanManager implements SpanManager {
     }
 
     @Override
-    public <R> R createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure) {
-        TraceSpan span = createSpan(spanName, parent, rootSpan, false);
+    public <R> R create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure) {
+        TraceSpan span = create(spanName, parent, rootSpan, false);
 
         try (span) {
             return span.endWhenComplete(closure.apply(span));
@@ -94,8 +93,8 @@ public class OtelSpanManager implements SpanManager {
     }
 
     @Override
-    public void createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure) {
-        TraceSpan span = createSpan(spanName, parent, rootSpan, true);
+    public void create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure) {
+        TraceSpan span = create(spanName, parent, rootSpan, true);
 
         try (span) {
             closure.accept(span);

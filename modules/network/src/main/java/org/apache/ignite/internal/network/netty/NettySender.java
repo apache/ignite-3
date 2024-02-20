@@ -187,7 +187,6 @@ public class NettySender {
 
     private void writeWithRecovery(OutNetworkObject obj, Channel channel, Runnable triggerChannelRecreation) {
         CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
-        CompletableFuture<Void> acknowledgedFuture = obj.acknowledgedFuture();
 
         chainRecoverSendAfterChannelClosure(writeFuture, obj, channel, triggerChannelRecreation);
     }

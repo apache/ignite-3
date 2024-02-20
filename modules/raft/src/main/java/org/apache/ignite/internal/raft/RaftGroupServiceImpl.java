@@ -469,21 +469,22 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             Function<Peer, ActionRequest> requestFactory;
 
-        if (cmd instanceof WriteCommand) {
-            byte[] commandBytes = commandsMarshaller.marshall(cmd);
+            if (cmd instanceof WriteCommand) {
+                byte[] commandBytes = commandsMarshaller.marshall(cmd);
 
-            requestFactory = targetPeer -> factory.writeActionRequest()
-                    .groupId(groupId)
-                    .command(commandBytes)
-                    // Having prepared deserialized command makes its handling more efficient in the state machine.
-                    // This saves us from extra-deserialization on a local machine, which would take precious time to do.
-                    .deserializedCommand((WriteCommand) cmd)
-                    .build();
-        } else {
-            requestFactory = targetPeer -> factory.readActionRequest()
-                    .groupId(groupId).command((ReadCommand) cmd)
-                    .readOnlySafe(true)
-                    .build();}
+                requestFactory = targetPeer -> factory.writeActionRequest()
+                        .groupId(groupId)
+                        .command(commandBytes)
+                        // Having prepared deserialized command makes its handling more efficient in the state machine.
+                        // This saves us from extra-deserialization on a local machine, which would take precious time to do.
+                        .deserializedCommand((WriteCommand) cmd)
+                        .build();
+            } else {
+                requestFactory = targetPeer -> factory.readActionRequest()
+                        .groupId(groupId).command((ReadCommand) cmd)
+                        .readOnlySafe(true)
+                        .build();
+            }
 
             return this.<ActionResponse>sendWithRetry(leader, requestFactory)
                     .thenApply(resp -> (R) resp.result());

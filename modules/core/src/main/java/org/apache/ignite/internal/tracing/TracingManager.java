@@ -56,7 +56,7 @@ public class TracingManager {
      * @return Created span.
      */
     public static TraceSpan asyncSpan(String spanName) {
-        return SPAN_MANAGER.createSpan(spanName, null, false, false);
+        return SPAN_MANAGER.create(spanName, null, false, false);
     }
 
     /**
@@ -67,7 +67,7 @@ public class TracingManager {
      * @return Created span.
      */
     public static TraceSpan asyncSpan(String spanName, TraceSpan parent) {
-        return SPAN_MANAGER.createSpan(spanName, parent, false, false);
+        return SPAN_MANAGER.create(spanName, parent, false, false);
     }
 
     /**
@@ -77,7 +77,7 @@ public class TracingManager {
      * @return Created span.
      */
     public static TraceSpan rootSpan(String spanName) {
-        return SPAN_MANAGER.createSpan(spanName, null, true, true);
+        return SPAN_MANAGER.create(spanName, null, true, true);
     }
 
     /**
@@ -88,7 +88,7 @@ public class TracingManager {
      * @return Created span.
      */
     public static <R> R rootSpan(String spanName, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.createSpan(spanName, null, true, closure);
+        return SPAN_MANAGER.create(spanName, null, true, closure);
     }
 
     /**
@@ -98,7 +98,7 @@ public class TracingManager {
      * @return Created span.
      */
     public static TraceSpan span(String spanName) {
-        return SPAN_MANAGER.createSpan(spanName, null, false, true);
+        return SPAN_MANAGER.create(spanName, null, false, true);
     }
 
     /**
@@ -108,7 +108,7 @@ public class TracingManager {
      * @param closure Closure.
      */
     public static void span(String spanName, Consumer<TraceSpan> closure) {
-        SPAN_MANAGER.createSpan(spanName, null, false, closure);
+        SPAN_MANAGER.create(spanName, null, false, closure);
     }
 
     /**
@@ -119,7 +119,7 @@ public class TracingManager {
      * @param closure Closure.
      */
     public static void span(String spanName, @Nullable TraceSpan parent, Consumer<TraceSpan> closure) {
-        SPAN_MANAGER.createSpan(spanName, parent, false, closure);
+        SPAN_MANAGER.create(spanName, parent, false, closure);
     }
 
     /**
@@ -130,7 +130,7 @@ public class TracingManager {
      * @return Closure result.
      */
     public static <R> R span(String spanName, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.createSpan(spanName, null, false, closure);
+        return SPAN_MANAGER.create(spanName, null, false, closure);
     }
 
     /**
@@ -141,7 +141,7 @@ public class TracingManager {
      * @return Closure result.
      */
     public static <R> R span(String spanName, @Nullable TraceSpan parent, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.createSpan(spanName, parent, false, closure);
+        return SPAN_MANAGER.create(spanName, parent, false, closure);
     }
 
     /**
@@ -153,7 +153,7 @@ public class TracingManager {
      * @return Created span.
      */
     public static <R> R spanWithResult(String spanName, TraceSpan parent, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.createSpan(spanName, parent, true, closure);
+        return SPAN_MANAGER.create(spanName, parent, true, closure);
     }
 
     public static Executor taskWrapping(Executor executor) {
