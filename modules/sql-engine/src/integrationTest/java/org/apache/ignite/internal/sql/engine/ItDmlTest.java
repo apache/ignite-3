@@ -579,7 +579,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         try {
             assertThrowsSqlException(
                     Sql.STMT_VALIDATION_ERR,
-                    "Invalid default value for column",
+                    "Invalid default value for column 'VAL'",
                     () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val " + sqlType + " DEFAULT " + sqlVal + ")")
             );
         } finally {
