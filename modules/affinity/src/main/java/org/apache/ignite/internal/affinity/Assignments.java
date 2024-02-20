@@ -21,6 +21,7 @@ import static java.util.Collections.unmodifiableSet;
 
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -57,7 +58,7 @@ public class Assignments implements Serializable {
      * @param nodes Set of nodes.
      */
     public static Assignments of(Set<Assignment> nodes) {
-        return new Assignments(nodes);
+        return new Assignments(new HashSet<>(nodes));
     }
 
     /**
