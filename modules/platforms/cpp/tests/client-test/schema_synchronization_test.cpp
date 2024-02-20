@@ -82,6 +82,16 @@ TEST_F(schema_synchronization_test, upsert_add_column_upsert) {
     tuple_view.upsert(nullptr, val2);
 }
 
+TEST_F(schema_synchronization_test, upsert_add_column_upsert_old) {
+    auto val1 = ignite_tuple{{"ID", std::int32_t(1)}, {"VAL1", std::int32_t(2)}};
+    tuple_view.upsert(nullptr, val1);
+
+    m_client.get_sql().execute(nullptr, {"ALTER TABLE SCHEMA_SYN_TEST ADD COLUMN VAL2 INT"}, {});
+
+    auto val2 = ignite_tuple{{"ID", std::int32_t(2)}, {"VAL1", std::int32_t(3)}};
+    tuple_view.upsert(nullptr, val2);
+}
+
 TEST_F(schema_synchronization_test, upsert_add_column_upsert_all) {
     auto val1 = ignite_tuple{{"ID", std::int32_t(1)}, {"VAL1", std::int32_t(2)}};
     tuple_view.upsert(nullptr, val1);
