@@ -133,6 +133,26 @@ public:
     }
 
     /**
+     * Performs operation with proper schema.
+     *
+     * @param handler Callback to call on error during retrieval of the latest schema.
+     */
+    template<typename T>
+    void with_proper_schema_async(ignite_callback<T> user_callback,
+        std::function<void(const schema &, ignite_callback<T>)> callback) {
+        auto fail_over = [uc = std::move(user_callback), this, callback] (ignite_result<T> &&res) mutable {
+            if (res.has_error() && res.error().get_schema_version().has_value()) {
+                auto ver = *res.error().get_schema_version();
+                with_schema_async<T>(ver, std::move(uc), callback);
+            } else {
+                uc(std::move(res));
+            }
+        };
+
+        with_latest_schema_async<T>(std::move(fail_over), callback);
+    }
+
+    /**
      * Gets a record by key asynchronously.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
