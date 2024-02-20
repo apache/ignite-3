@@ -20,14 +20,9 @@ package org.apache.ignite.internal.storage.rocksdb.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfigurationSchema;
 
 /**
@@ -43,15 +38,8 @@ public class RocksDbStorageEngineLocalConfigurationModule implements Configurati
 
     /** {@inheritDoc} */
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(RocksDbStorageEngineConfiguration.KEY);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
-                RocksDbDataStorageConfigurationSchema.class,
                 RocksDbProfileConfigurationSchema.class
         );
     }
@@ -61,11 +49,5 @@ public class RocksDbStorageEngineLocalConfigurationModule implements Configurati
         return List.of(
                 RocksDbStorageEngineExtensionConfigurationSchema.class
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Set<Validator<?, ?>> validators() {
-        return Set.of(RocksDbDataRegionValidatorImpl.INSTANCE);
     }
 }

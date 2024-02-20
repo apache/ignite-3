@@ -579,7 +579,10 @@ public class IgniteImpl implements Ignite {
                 longJvmPauseDetector,
                 failureProcessor
         );
-        dataStorageMgr = new DataStorageManager(applyThreadAssertionsIfNeeded(storageEngines));
+        dataStorageMgr = new DataStorageManager(
+                applyThreadAssertionsIfNeeded(storageEngines),
+                nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
+        );
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
 
@@ -703,7 +706,6 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 schemaManager,
                 dataStorageMgr,
-                () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
                 schemaSyncService,

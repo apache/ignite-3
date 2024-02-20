@@ -26,7 +26,6 @@ import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurat
  */
 @ConfigurationExtension
 public class PersistentPageMemoryStorageEngineExtensionConfigurationSchema extends StorageEngineConfigurationSchema {
-
     @ConfigValue
-    public PersistentPageMemoryProfileStorageEngineConfigurationSchema aipersist;
+    public PersistentPageMemoryStorageEngineConfigurationSchema aipersist;
 }

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.PRIMARY_ZONE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.AFFINITY_FUNCTION;
@@ -26,7 +24,6 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.D
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_FILTER;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_STORAGE_ENGINE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
@@ -38,18 +35,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.ColumnStrategy;
@@ -103,20 +97,8 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-15859 Add documentation
 public class DdlSqlToCommandConverter {
-    private final Supplier<String> defaultDataStorageSupplier;
-
-    /**
-     * Mapping: Data storage ID -> data storage name.
-     *
-     * <p>Example for "rocksdb": {@code Map.of("ROCKSDB", "rocksdb")}.
-     */
-    private final Map<String, String> dataStorageNames;
-
     /** Mapping: Table option ID -> DDL option info. */
     private final Map<TableOptionEnum, DdlOptionInfo<CreateTableCommand, ?>> tableOptionInfos;
-
-    /** Like {@link #tableOptionInfos}, but for each data storage name. */
-    private final Map<String, Map<String, DdlOptionInfo<CreateZoneCommand, ?>>> dataStorageOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
     private final Map<ZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
@@ -129,40 +111,17 @@ public class DdlSqlToCommandConverter {
 
     /**
      * Constructor.
-     *
-     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
-     * @param defaultDataStorageSupplier Default data storage supplier.
      */
-    public DdlSqlToCommandConverter(
-            Map<String, Map<String, Class<?>>> dataStorageFields,
-            Supplier<String> defaultDataStorageSupplier
-    ) {
-        this.defaultDataStorageSupplier = defaultDataStorageSupplier;
-
+    public DdlSqlToCommandConverter() {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
                 .stream()
                 .map(Enum::name)
                 .collect(Collectors.toSet());
 
-        this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
-
         this.tableOptionInfos = new EnumMap<>(Map.of(
                 PRIMARY_ZONE, new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
                 STORAGE_PROFILE, new DdlOptionInfo<>(String.class, this::checkEmptyString, CreateTableCommand::storageProfile)
         ));
-
-        this.dataStorageOptionInfos = dataStorageFields.entrySet()
-                .stream()
-                .collect(toUnmodifiableMap(
-                        Entry::getKey,
-                        e0 -> e0.getValue().entrySet().stream()
-                                .map(this::dataStorageFieldOptionInfo)
-                                .collect(toUnmodifiableMap(k -> k.getKey().toUpperCase(), Entry::getValue))
-                ));
-
-        dataStorageOptionInfos.values().forEach(
-                v -> checkDuplicates(v.keySet(), tableOptionInfos.keySet().stream().map(Enum::name).collect(Collectors.toSet()))
-        );
 
         // CREATE ZONE options.
         zoneOptionInfos = new EnumMap<>(Map.of(
@@ -170,14 +129,12 @@ public class DdlSqlToCommandConverter {
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
                 AFFINITY_FUNCTION, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::affinity),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::nodeFilter),
-
                 DATA_NODES_AUTO_ADJUST,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjust),
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown),
-                DATA_STORAGE_ENGINE, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::dataStorage),
                 STORAGE_PROFILES, new DdlOptionInfo<>(String.class, this::checkEmptyString, CreateZoneCommand::storageProfiles)
         ));
 
@@ -186,7 +143,6 @@ public class DdlSqlToCommandConverter {
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::partitions),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneSetCommand::nodeFilter),
-
                 DATA_NODES_AUTO_ADJUST,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjust),
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
@@ -561,18 +517,14 @@ public class DdlSqlToCommandConverter {
      */
     private CreateZoneCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
         CreateZoneCommand createZoneCmd = new CreateZoneCommand();
-        String dataStorageName = deriveDataStorage(createZoneNode.engineName(), ctx);
 
         createZoneCmd.schemaName(deriveSchemaName(createZoneNode.name(), ctx));
         createZoneCmd.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         createZoneCmd.ifNotExists(createZoneNode.ifNotExists());
-        createZoneCmd.dataStorage(dataStorageName);
 
         if (createZoneNode.createOptionList() == null) {
             throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
         }
-
-        Map<String, DdlOptionInfo<CreateZoneCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
 
         Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
@@ -583,14 +535,12 @@ public class DdlSqlToCommandConverter {
 
             String optionName = option.key().getSimple().toUpperCase();
 
-            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo;
+            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = null;
 
             if (remainingKnownOptions.remove(optionName)) {
                 zoneOptionInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
             } else if (knownZoneOptionNames.contains(optionName)) {
                 throw duplicateZoneOption(ctx, optionName);
-            } else {
-                zoneOptionInfo = dsOptInfos != null ? dsOptInfos.get(optionName) : null;
             }
 
             if (zoneOptionInfo == null) {
@@ -723,18 +673,6 @@ public class DdlSqlToCommandConverter {
     }
 
     /**
-     * Collects a mapping of the ID of the data storage to a name.
-     *
-     * <p>Example: {@code collectDataStorageNames(Set.of("rocksdb"))} -> {@code Map.of("ROCKSDB", "rocksdb")}.
-     *
-     * @param dataStorages Names of the data storages.
-     * @throws IllegalStateException If there is a duplicate ID.
-     */
-    static Map<String, String> collectDataStorageNames(Set<String> dataStorages) {
-        return dataStorages.stream().collect(toUnmodifiableMap(String::toUpperCase, identity()));
-    }
-
-    /**
      * Checks that there are no ID duplicates.
      *
      * @param set0 Set of string identifiers.
@@ -747,27 +685,6 @@ public class DdlSqlToCommandConverter {
                 throw new IllegalStateException("Duplicate id: " + id);
             }
         }
-    }
-
-    private String deriveDataStorage(@Nullable SqlIdentifier engineName, PlanningContext ctx) {
-        if (engineName == null) {
-            String defaultDataStorage = defaultDataStorageSupplier.get();
-
-            return defaultDataStorage;
-        }
-
-        assert engineName.isSimple() : engineName;
-
-        String dataStorage = engineName.getSimple().toUpperCase();
-
-        if (!dataStorageNames.containsKey(dataStorage)) {
-            throw new SqlException(STMT_VALIDATION_ERR, String.format(
-                    "Unexpected data storage engine [engine=%s, expected=%s, query=%s]",
-                    dataStorage, dataStorageNames, ctx.query()
-            ));
-        }
-
-        return dataStorageNames.get(dataStorage);
     }
 
     private <S, T> void updateCommandOption(
@@ -819,14 +736,6 @@ public class DdlSqlToCommandConverter {
         if (string.isEmpty()) {
             throw new SqlException(STMT_VALIDATION_ERR, "String cannot be empty");
         }
-    }
-
-
-    private Entry<String, DdlOptionInfo<CreateZoneCommand, ?>> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
-        return new SimpleEntry<>(
-                e.getKey(),
-                new DdlOptionInfo<>(e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o))
-        );
     }
 
     private Type convertIndexType(IgniteSqlIndexType type) {

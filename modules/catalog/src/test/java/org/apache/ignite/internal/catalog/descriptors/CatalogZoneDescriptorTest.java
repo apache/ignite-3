@@ -39,7 +39,6 @@ class CatalogZoneDescriptorTest {
                 5,
                 6,
                 "the-filter",
-                new CatalogDataStorageDescriptor("the-engine", "the-region"),
                 fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
         );
 
@@ -54,6 +53,6 @@ class CatalogZoneDescriptorTest {
         assertThat(toString, containsString("dataNodesAutoAdjustScaleUp=5"));
         assertThat(toString, containsString("dataNodesAutoAdjustScaleDown=6"));
         assertThat(toString, containsString("filter=the-filter"));
-        assertThat(toString, containsString("dataStorage=CatalogDataStorageDescriptor ["));
+        assertThat(toString, containsString("storageProfiles=CatalogStorageProfilesDescriptor ["));
     }
 }

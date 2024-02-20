@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryTestConstants.DEFAULT_DATA_REGION_NAME;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -28,7 +28,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +44,7 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndex
     @BeforeEach
     void setUp(
             @InjectConfiguration
-            VolatilePageMemoryProfileStorageEngineConfiguration engineConfig,
+            VolatilePageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
             StorageConfiguration storageConfiguration
     ) {

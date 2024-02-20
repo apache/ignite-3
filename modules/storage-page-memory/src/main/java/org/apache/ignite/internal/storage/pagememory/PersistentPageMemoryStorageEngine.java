@@ -41,7 +41,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,7 +53,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final String igniteInstanceName;
 
-    private final PersistentPageMemoryProfileStorageEngineConfiguration engineConfig;
+    private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     private final StorageConfiguration storageConfiguration;
 
@@ -89,7 +89,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
-            PersistentPageMemoryProfileStorageEngineConfiguration engineConfig,
+            PersistentPageMemoryStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfiguration,
             PageIoRegistry ioRegistry,
             Path storagePath,
@@ -108,7 +108,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     /**
      * Returns a storage engine configuration.
      */
-    public PersistentPageMemoryProfileStorageEngineConfiguration configuration() {
+    public PersistentPageMemoryStorageEngineConfiguration configuration() {
         return engineConfig;
     }
 
@@ -197,9 +197,9 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        PersistentPageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
+        PersistentPageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getStorageProfile());
 
-        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getDataRegion();
+        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
         return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion);
     }

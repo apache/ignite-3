@@ -15,23 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.storage.pagememory;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
-
-import org.junit.jupiter.api.Test;
-
-class CatalogDataStorageDescriptorTest {
-    @Test
-    void toStringContainsTypeAndFields() {
-        var descriptor = new CatalogDataStorageDescriptor("the-engine", "the-region");
-
-        String toString = descriptor.toString();
-
-        assertThat(toString, startsWith("CatalogDataStorageDescriptor ["));
-        assertThat(toString, containsString("engine=the-engine"));
-        assertThat(toString, containsString("dataRegion=the-region"));
-    }
+/**
+ * Useful constants in page memory tests.
+ */
+public class PageMemoryTestConstants {
+    /** Name of the default data region. */
+    public static final String DEFAULT_DATA_REGION_NAME = "default";
 }

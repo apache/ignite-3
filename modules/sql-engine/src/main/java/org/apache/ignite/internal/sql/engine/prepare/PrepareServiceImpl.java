@@ -41,7 +41,6 @@ import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -116,7 +115,6 @@ public class PrepareServiceImpl implements PrepareService {
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheFactory A factory to create cache of query plans.
      * @param dataStorageManager Data storage manager.
-     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
      * @param metricManager Metric manager.
      * @param clusterCfg  Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
@@ -125,7 +123,6 @@ public class PrepareServiceImpl implements PrepareService {
             String nodeName,
             CacheFactory cacheFactory,
             DataStorageManager dataStorageManager,
-            Map<String, Map<String, Class<?>>> dataStorageFields,
             MetricManager metricManager,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg
@@ -134,7 +131,7 @@ public class PrepareServiceImpl implements PrepareService {
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
-                new DdlSqlToCommandConverter(dataStorageFields, () -> CatalogUtils.DEFAULT_STORAGE_ENGINE),
+                new DdlSqlToCommandConverter(),
                 clusterCfg.planner().maxPlanningTime().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager

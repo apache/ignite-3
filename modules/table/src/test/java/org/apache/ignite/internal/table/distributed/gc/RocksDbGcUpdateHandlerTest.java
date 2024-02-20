@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -29,7 +29,7 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbTableStorage;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -48,7 +48,7 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration RocksDbProfileStorageEngineConfiguration engineConfig,
+            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
             StorageConfiguration storageConfiguration
     ) {
@@ -57,7 +57,7 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
         engine.start();
 
         table = engine.createMvTable(
-                new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_PROFILE_NAME),
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 

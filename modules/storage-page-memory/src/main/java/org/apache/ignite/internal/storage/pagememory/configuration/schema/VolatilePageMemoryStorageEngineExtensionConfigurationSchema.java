@@ -26,7 +26,6 @@ import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurat
  */
 @ConfigurationExtension
 public class VolatilePageMemoryStorageEngineExtensionConfigurationSchema extends StorageEngineConfigurationSchema {
-
     @ConfigValue
-    public VolatilePageMemoryProfileStorageEngineConfigurationSchema aimem;
+    public VolatilePageMemoryStorageEngineConfigurationSchema aimem;
 }

@@ -77,14 +77,6 @@ public interface CreateZoneCommandBuilder extends AbstractZoneCommandBuilder<Cre
     CreateZoneCommandBuilder filter(@Nullable String filter);
 
     /**
-     * Sets the data storage.
-     *
-     * @param params Optional data storage params.
-     * @return This instance.
-     */
-    CreateZoneCommandBuilder dataStorageParams(@Nullable DataStorageParams params);
-
-    /**
      * Sets the storage profiles.
      *
      * @param params Optional storage profile params.

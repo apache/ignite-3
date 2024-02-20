@@ -85,7 +85,6 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -1328,15 +1327,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param zoneDescriptor Catalog distributed zone descriptor.
      */
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21385 we must use table storage profile instead
-        CatalogDataStorageDescriptor dataStorage = zoneDescriptor.dataStorage();
+        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
 
-        StorageEngine engine = dataStorageMgr.engine(dataStorage.engine());
-
-        assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + dataStorage.engine();
+        assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + engine.name();
 
         MvTableStorage tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
+                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), tableDescriptor.storageProfile()),
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 

@@ -47,7 +47,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
-import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -70,16 +69,16 @@ public class DistributionZonesTestUtil {
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @param dataStorage Data storage, {@code null} if not set.
+     * @param storageProfile Data storage, {@code null} if not set.
      */
-    public static void createZoneWithDataStorage(
+    public static void createZoneWithStorageProfile(
             CatalogManager catalogManager,
             String zoneName,
             int partitions,
             int replicas,
-            @Nullable String dataStorage
+            @Nullable String storageProfile
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, dataStorage, DEFAULT_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, storageProfile);
     }
 
     /**
@@ -91,7 +90,7 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, DEFAULT_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, DEFAULT_STORAGE_PROFILE);
     }
 
     /**
@@ -120,7 +119,6 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
-                null,
                 DEFAULT_STORAGE_PROFILE
         );
     }
@@ -153,7 +151,6 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
-                null,
                 storageProfiles
         );
     }
@@ -166,7 +163,6 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            @Nullable String dataStorage,
             String storageProfiles
     ) {
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder().zoneName(zoneName);
@@ -189,10 +185,6 @@ public class DistributionZonesTestUtil {
 
         if (filter != null) {
             builder.filter(filter);
-        }
-
-        if (dataStorage != null) {
-            builder.dataStorageParams(DataStorageParams.builder().engine(dataStorage).build());
         }
 
         assertNotNull(storageProfiles);

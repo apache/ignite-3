@@ -22,7 +22,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
@@ -158,12 +160,9 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -244,7 +243,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
-    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+    @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = \"aipersist\", test.engine=\"test\"}")
     private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
@@ -942,9 +941,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY,
-                            StorageConfiguration.KEY,
-                            PersistentPageMemoryStorageEngineConfiguration.KEY,
-                            VolatilePageMemoryStorageEngineConfiguration.KEY),
+                            StorageConfiguration.KEY),
                     List.of(
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                             VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
@@ -961,8 +958,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
-                            PersistentPageMemoryStorageEngineConfiguration.KEY,
-                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             StorageConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
@@ -1098,7 +1093,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureProcessor
-                    )
+                    ),
+                    storageConfiguration
             );
 
             clockWaiter = new ClockWaiter(name, hybridClock);
@@ -1423,13 +1419,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         createZone(node, zoneName, partitions, replicas, false);
     }
 
-    private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testDataStorage) {
-        DistributionZonesTestUtil.createZoneWithDataStorage(
+    private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
+        DistributionZonesTestUtil.createZoneWithStorageProfile(
                 node.catalogManager,
                 zoneName,
                 partitions,
                 replicas,
-                testDataStorage ? TestStorageEngine.ENGINE_NAME : null
+                testStorageProfile ? DEFAULT_TEST_PROFILE_NAME : DEFAULT_STORAGE_PROFILE
         );
     }
 

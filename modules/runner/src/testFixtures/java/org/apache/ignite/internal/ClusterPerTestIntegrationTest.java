@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
@@ -47,9 +52,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "    }\n"
             + "  },\n"
             + "  storage.profiles: {"
-            + "        default_aipersist.engine: aipersist, "
-            + "        default_aimem.engine: aimem, "
-            + "        default_rocksdb.engine: rocksDb"
+            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {}\n"

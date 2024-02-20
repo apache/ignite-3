@@ -33,8 +33,8 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -46,7 +46,8 @@ import org.rocksdb.RocksDB;
  */
 public class RocksDbStorageEngine implements StorageEngine {
     /** Engine name. */
-    public static final String ENGINE_NAME = "rocksdb";
+    // TODO: KKK db vs Db
+    public static final String ENGINE_NAME = "rocksDb";
 
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
 
@@ -54,7 +55,7 @@ public class RocksDbStorageEngine implements StorageEngine {
         RocksDB.loadLibrary();
     }
 
-    private final RocksDbProfileStorageEngineConfiguration engineConfig;
+    private final RocksDbStorageEngineConfiguration engineConfig;
 
     private final StorageConfiguration storageConfiguration;
 
@@ -80,7 +81,7 @@ public class RocksDbStorageEngine implements StorageEngine {
      * @param engineConfig RocksDB storage engine configuration.
      * @param storagePath Storage path.
      */
-    public RocksDbStorageEngine(String nodeName, RocksDbProfileStorageEngineConfiguration engineConfig,
+    public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfiguration, Path storagePath) {
         this.engineConfig = engineConfig;
         this.storageConfiguration = storageConfiguration;
@@ -99,7 +100,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     /**
      * Returns a RocksDB storage engine configuration.
      */
-    public RocksDbProfileStorageEngineConfiguration configuration() {
+    public RocksDbStorageEngineConfiguration configuration() {
         return engineConfig;
     }
 
@@ -170,13 +171,13 @@ public class RocksDbStorageEngine implements StorageEngine {
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        RocksDbDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
+        RocksDbDataRegion dataRegion = regions.get(tableDescriptor.getStorageProfile());
 
         int tableId = tableDescriptor.getId();
 
-        assert dataRegion != null : "tableId=" + tableId + ", dataRegion=" + tableDescriptor.getDataRegion();
+        assert dataRegion != null : "tableId=" + tableId + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        SharedRocksDbInstance sharedInstance = sharedInstances.computeIfAbsent(tableDescriptor.getDataRegion(), name -> {
+        SharedRocksDbInstance sharedInstance = sharedInstances.computeIfAbsent(tableDescriptor.getStorageProfile(), name -> {
             try {
                 return new SharedRocksDbInstanceCreator().create(
                         this,

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
-import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -64,7 +64,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
     @Test
     void testCreateIndexInsideRwTransaction() {
-        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME);
+        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, DEFAULT_TEST_PROFILE_NAME);
 
         setAwaitIndexAvailability(false);
         dropAnyBuildIndexMessages();
@@ -88,7 +88,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
     @Test
     void testDropIndexInsideRwTransaction() {
-        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME);
+        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, DEFAULT_TEST_PROFILE_NAME);
 
         createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 

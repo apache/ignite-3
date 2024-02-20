@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.configuration;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema;
+package org.apache.ignite.internal;
 
 /**
- * Annotation for checking the existence of a data region in {@link RocksDbStorageEngineConfigurationSchema}.
+ * Test default profile names for different storages.
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-21385 remove it
-@Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface RocksDbDataRegionName {
+public interface TestDefaultProfilesNames {
+    String DEFAULT_AIMEM_PROFILE_NAME = "default_aimem";
+
+    String DEFAULT_AIPERSIST_PROFILE_NAME = "default_aipersist";
+
+    String DEFAULT_ROCKSDB_PROFILE_NAME = "default_rocksdb";
+
+    String DEFAULT_TEST_PROFILE_NAME = "test";
 }

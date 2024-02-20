@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
+package org.apache.ignite.internal.storage.impl.schema;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 
 /**
- * Root configuration for {@link RocksDbStorageEngine}.
+ * Configuration for test storage profile of {@link TestStorageEngine}.
  */
-@Config
-public class RocksDbProfileStorageEngineConfigurationSchema {
-    /** Delay before executing a flush triggered by RAFT. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public int flushDelayMillis = 100;
+@PolymorphicConfigInstance(TestStorageEngine.ENGINE_NAME)
+public class TestProfileConfigurationSchema extends StorageProfileConfigurationSchema {
+    public static final String TEST_PROFILE_NAME = "test";
 }

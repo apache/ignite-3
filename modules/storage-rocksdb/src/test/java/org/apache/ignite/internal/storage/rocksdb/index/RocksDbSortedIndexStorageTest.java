@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -28,7 +27,7 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -48,7 +47,7 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock {flushDelayMillis = 0}")
-            RocksDbProfileStorageEngineConfiguration engineConfig,
+            RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
             StorageConfiguration storageConfiguration
     ) {
@@ -57,7 +56,7 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
         engine.start();
 
         tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, "default"),
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 

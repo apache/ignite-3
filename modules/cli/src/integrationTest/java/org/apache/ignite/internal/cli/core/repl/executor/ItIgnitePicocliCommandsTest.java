@@ -274,9 +274,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                         "cluster",
                         "deployment",
                         "nodeAttributes",
-                        "aimem",
-                        "aipersist",
-                        "rocksDb",
                         "storage",
                         "criticalWorkers",
                         "sql"

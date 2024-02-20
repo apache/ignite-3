@@ -52,7 +52,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     private static final List<String> STRING_OPTIONS = Arrays.asList(
             "AFFINITY_FUNCTION",
             "DATA_NODES_FILTER",
-            "DATA_STORAGE_ENGINE",
             "STORAGE_PROFILES"
     );
 

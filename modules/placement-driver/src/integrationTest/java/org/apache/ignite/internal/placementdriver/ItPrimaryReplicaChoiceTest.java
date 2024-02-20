@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -48,7 +47,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.NodeUtils;
@@ -91,8 +90,8 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         super.setup(testInfo);
 
         String zoneSql = IgniteStringFormatter.format(
-                "CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
-                ZONE_NAME, TestStorageEngine.ENGINE_NAME, 3, 1, DEFAULT_STORAGE_PROFILE
+                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
+                ZONE_NAME, 3, 1, TestProfileConfigurationSchema.TEST_PROFILE_NAME
         );
 
         String sql = IgniteStringFormatter.format(

@@ -35,7 +35,6 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
-import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -64,14 +62,6 @@ public class CatalogUtils {
      * nodes.
      */
     public static final String DEFAULT_FILTER = "$..*";
-
-    /** Default distribution zone storage engine. */
-    // TODO: IGNITE-19719 Should be defined differently
-    public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aipersist");
-
-    /** Default distribution zone storage engine data region. */
-    // TODO: IGNITE-19719 Must be storage engine specific
-    public static final String DEFAULT_DATA_REGION = "default";
 
     /** Infinite value for the distribution zone timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
@@ -157,9 +147,6 @@ public class CatalogUtils {
      * @return Distribution zone descriptor.
      */
     public static CatalogZoneDescriptor fromParams(int id, String zoneName) {
-        DataStorageParams dataStorageParams =
-                DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
-
         List<StorageProfileParams> storageProfiles =
                 List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build());
 
@@ -172,20 +159,8 @@ public class CatalogUtils {
                 IMMEDIATE_TIMER_VALUE,
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
-                fromParams(dataStorageParams),
                 fromParams(storageProfiles)
         );
-    }
-
-    /**
-     * Converts DataStorageParams to descriptor.
-     *
-     * @param params Parameters.
-     * @return Data storage descriptor.
-     */
-    // TODO: IGNITE-19719 Must be storage engine specific
-    public static CatalogDataStorageDescriptor fromParams(DataStorageParams params) {
-        return new CatalogDataStorageDescriptor(params.engine(), params.dataRegion());
     }
 
     /**

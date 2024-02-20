@@ -28,5 +28,5 @@ import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurat
 public class RocksDbStorageEngineExtensionConfigurationSchema extends StorageEngineConfigurationSchema {
 
     @ConfigValue
-    public RocksDbProfileStorageEngineConfigurationSchema rocksdb;
+    public RocksDbStorageEngineConfigurationSchema rocksDb;
 }
