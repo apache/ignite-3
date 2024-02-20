@@ -40,13 +40,12 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -110,17 +109,14 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
     }
 
     private static <T extends Temporal & Comparable<? super T>> void checkDateTimeQuery(
-            String sql, Clock<T> clock, Class<T> cls, ZoneId zoneId
+            String sql, Clock<T> clock, Class<T> cls, ZoneId timeZone
     ) {
         while (true) {
-            T tsBeg = clock.now(zoneId);
+            T tsBeg = clock.now(timeZone);
 
-            IgniteImpl node = CLUSTER.aliveNode();
-            Session session = node.sql().sessionBuilder().timeZoneId(zoneId).build();
-            List<List<Object>> res = getAllResultSet(session.execute(null, sql));
-            session.close();
+            List<List<Object>> res = sql(0, null, timeZone, sql, ArrayUtils.OBJECT_EMPTY_ARRAY);
 
-            T tsEnd = clock.now(zoneId);
+            T tsEnd = clock.now(timeZone);
 
             // Date changed, time comparison may return wrong result.
             if (tsBeg.compareTo(tsEnd) > 0) {
