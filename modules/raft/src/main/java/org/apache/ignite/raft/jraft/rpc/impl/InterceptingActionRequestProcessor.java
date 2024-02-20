@@ -23,7 +23,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.TracingManager;import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;

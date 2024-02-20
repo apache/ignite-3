@@ -20,14 +20,13 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.tracing.NoopSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -51,9 +50,8 @@ public class ClientTupleGetRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var parent = tx == null ? NoopSpan.INSTANCE : tx.traceSpan();
 
-            return TracingManager.spanWithResult("ClientTupleGetRequest.process", parent, (span) -> {
+            return span(tx.parentSpan(), "ClientTupleGetRequest.process", (span) -> {
                 return readTuple(in, table, true).thenCompose(keyTuple -> {
                     return table.recordView().getAsync(tx, keyTuple)
                             .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));

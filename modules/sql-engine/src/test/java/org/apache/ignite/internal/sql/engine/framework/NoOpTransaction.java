@@ -128,7 +128,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public TraceSpan traceSpan() {
+    public TraceSpan parentSpan() {
         return NoopSpan.INSTANCE;
     }
 

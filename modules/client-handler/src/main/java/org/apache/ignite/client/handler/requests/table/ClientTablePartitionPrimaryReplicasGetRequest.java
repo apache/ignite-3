@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
@@ -45,13 +45,11 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             ClientMessagePacker out,
             ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
-        var span = asyncSpan("ClientTablePartitionAssignmentGetRequest.process");
-
-        try (span) {
+        return span("ClientTablePartitionAssignmentGetRequest.process", (span) -> {
             int tableId = in.unpackInt();
             long timestamp = in.unpackLong();
 
-            return span.endWhenComplete(tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
+            return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
                 if (primaryReplicas == null) {
                     out.packInt(0);
                 } else {
@@ -62,11 +60,7 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
                         out.packString(nodeName);
                     }
                 }
-            }));
-        } catch (Exception e) {
-            span.recordException(e);
-
-            throw e;
-        }
+            });
+        });
     }
 }

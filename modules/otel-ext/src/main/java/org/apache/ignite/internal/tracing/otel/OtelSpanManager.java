@@ -58,18 +58,18 @@ public class OtelSpanManager implements SpanManager {
     }
 
     @Override
-    public TraceSpan create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired) {
+    public TraceSpan create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, boolean endRequired) {
         boolean isBeginOfTrace = !Span.current().getSpanContext().isValid();
-        boolean invalidParent = parent == null || !parent.isValid();
+        boolean invalidParent = parentSpan == null || !parentSpan.isValid();
 
-        if (isBeginOfTrace && !rootSpan && invalidParent) {
+        if (isBeginOfTrace && !forceTracing && invalidParent) {
             return NoopSpan.INSTANCE;
         }
 
-        var spanBuilder = tracer.spanBuilder(spanName);
+        var spanBuilder = tracer.spanBuilder(lb);
 
         if (!invalidParent) {
-            spanBuilder.setParent(parent.getContext());
+            spanBuilder.setParent(parentSpan.getContext());
         }
 
         var span = spanBuilder.startSpan();
@@ -80,8 +80,8 @@ public class OtelSpanManager implements SpanManager {
     }
 
     @Override
-    public <R> R create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure) {
-        TraceSpan span = create(spanName, parent, rootSpan, false);
+    public <R> R create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, Function<TraceSpan, R> closure) {
+        TraceSpan span = create(parentSpan, lb, forceTracing, false);
 
         try (span) {
             return span.endWhenComplete(closure.apply(span));
@@ -93,8 +93,8 @@ public class OtelSpanManager implements SpanManager {
     }
 
     @Override
-    public void create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure) {
-        TraceSpan span = create(spanName, parent, rootSpan, true);
+    public void create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, Consumer<TraceSpan> closure) {
+        TraceSpan span = create(parentSpan, lb, forceTracing, true);
 
         try (span) {
             closure.accept(span);
@@ -116,7 +116,7 @@ public class OtelSpanManager implements SpanManager {
     }
 
     @Override
-    public @Nullable Map<String, String> serializeSpan() {
+    public @Nullable Map<String, String> serializeSpanContext() {
         if (Span.current().getSpanContext().isValid()) {
             var propagator = getPropagators().getTextMapPropagator();
             Map<String, String> headers = new HashMap<>(capacity(propagator.fields().size()));

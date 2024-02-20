@@ -332,7 +332,7 @@ public class StorageUpdateHandler {
                                     + committedItem.commitTimestamp();
 
                     if (lastCommitTs.compareTo(committedItem.commitTimestamp()) > 0) {
-                        // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
+                        // When lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
                         // Action: commit this write intent.
                         performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
                     } else {

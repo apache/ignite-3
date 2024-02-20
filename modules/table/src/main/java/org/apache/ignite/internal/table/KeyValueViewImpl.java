@@ -728,9 +728,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             );
 
             StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items, deleted) ->
-                 withSchemaSync(
-                        null,
-                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion), deleted, partitionId));
+                    withSchemaSync(
+                            null,
+                            schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion), deleted, partitionId));
 
             return DataStreamer.streamData(publisher, options, batchSender, partitioner);
         });

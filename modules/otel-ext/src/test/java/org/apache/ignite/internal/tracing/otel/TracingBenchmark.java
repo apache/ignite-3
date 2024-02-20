@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.tracing.otel;
 
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;
 
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -40,12 +40,11 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- *
+ * Benchmark that runs get operation with tracing.
  */
 @State(Scope.Benchmark)
 @Warmup(iterations = 10, time = 10)
@@ -55,15 +54,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Fork(1)
 public class TracingBenchmark {
     /** Logger. */
-    protected final IgniteLogger LOG = Loggers.forClass(getClass());
+    private static final IgniteLogger LOG = Loggers.forClass(TracingBenchmark.class);
 
-    /**
-     * Benchmark                                Mode  Cnt      Score       Error   Units
-     * Utf8CodecBenchmark.defaultToUtf8Bytes   thrpt    3  13744.773 ±  2188.618  ops/ms
-     * Utf8CodecBenchmark.defaultToUtf8String  thrpt    3  18136.042 ± 10964.592  ops/ms
-     * Utf8CodecBenchmark.unsafeToUtf8Bytes    thrpt    3  21743.863 ±   228.019  ops/ms
-     * Utf8CodecBenchmark.unsafeToUtf8String   thrpt    3  20670.839 ±  9921.726  ops/ms
-     */
     private ExecutorService executor;
 
     @Setup
@@ -79,36 +71,50 @@ public class TracingBenchmark {
         IgniteUtils.shutdownAndAwaitTermination(executor, 1L, TimeUnit.SECONDS);
     }
 
+    /**
+     * ss.
+     *
+     * @throws Exception If failed.
+     */
     @Benchmark
     public void tracingExecutorDisabled() throws Exception {
         executor.submit(() -> {
             try {
                 Thread.sleep(100L);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 LOG.error("Thread was interrupted", e);
             }
         }).get();
     }
 
+    /**
+     * ss.
+     *
+     * @throws Exception If failed.
+     */
     @Benchmark
     public void tracingExecutorEnabled() throws Exception {
         rootSpan("root", (ignored) -> {
             return executor.submit(() -> {
                 try (TraceSpan ignored1 = span("thread")) {
                     Thread.sleep(100L);
-                }
-                catch (InterruptedException e) {
+                } catch (InterruptedException e) {
                     LOG.error("Thread was interrupted", e);
                 }
             });
         }).get();
     }
 
-    public static void main(String[] args) throws RunnerException {
+    /**
+     * Runs the benchmark.
+     *
+     * @param args args
+     * @throws Exception if something goes wrong
+     */
+    public static void main(String[] args) throws Exception {
         Options opt = new OptionsBuilder() //
-            .include(TracingBenchmark.class.getSimpleName() + ".*")
-            .build();
+                .include(TracingBenchmark.class.getSimpleName() + ".*")
+                .build();
 
         new Runner(opt).run();
     }

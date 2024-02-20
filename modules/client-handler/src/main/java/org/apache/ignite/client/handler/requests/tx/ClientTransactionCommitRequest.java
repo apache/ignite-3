@@ -17,13 +17,13 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.tracing.NoopSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
@@ -46,9 +46,8 @@ public class ClientTransactionCommitRequest {
         long resourceId = in.unpackLong();
 
         var tx = resources.remove(resourceId).get(InternalTransaction.class);
-        var parent = tx == null ? NoopSpan.INSTANCE : tx.traceSpan();
 
-        return TracingManager.spanWithResult("ClientTransactionCommitRequest.process", parent, (span) -> {
+        return span(tx.parentSpan(), "ClientTransactionCommitRequest.process", (span) -> {
             return tx.commitAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());
         });
     }

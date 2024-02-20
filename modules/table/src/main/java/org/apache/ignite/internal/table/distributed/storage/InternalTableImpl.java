@@ -597,7 +597,7 @@ public class InternalTableImpl implements InternalTable {
             return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
                 if (full) { // Full txn is already finished remotely. Just update local state.
                     txManager.finishFull(observableTimestampTracker, tx0.id(), e == null);
-                    tx0.traceSpan().end();
+                    tx0.parentSpan().end();
 
                     return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
                 }
@@ -638,7 +638,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryRowEx row,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        try (var txSpan = asyncSpan("tx operation")) {
+        try (TraceSpan ignored = asyncSpan("tx operation")) {
             InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
             int partId = partitionId(row);

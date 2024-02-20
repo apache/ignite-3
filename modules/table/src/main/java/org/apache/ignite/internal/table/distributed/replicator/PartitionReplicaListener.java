@@ -600,8 +600,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
                 var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
-                // Scan's request.full() has a slightly different semantics than the same field in other requests -
-                // it identifies an implicit transaction. Please note that request.full() is always false in the following `appendTxCommand`.
+                // Scan's request.full() has a slightly different semantics than the same field in other requests - it identifies
+                // an implicit transaction. Please note that request.full() is always false in the following `appendTxCommand`.
                 // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
                 // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
                 // If they don't fit the bucket, the transaction is treated as 2pc.
@@ -914,7 +914,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = TracingManager.span("safeReadFuture", (span) -> isPrimaryInTimestamp(isPrimary, readTimestamp)
+        CompletableFuture<Void> safeReadFuture = span("safeReadFuture", (span) -> isPrimaryInTimestamp(isPrimary, readTimestamp)
                 ? nullCompletedFuture() : safeTime.waitFor(request.readTimestamp()));
 
         return safeReadFuture.thenCompose(unused -> resolveRowByPkForReadOnly(primaryKey, readTimestamp));
@@ -1552,7 +1552,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // Within 'roll back' it's allowed to see:
                 // - null (if it's the first change state attempt)
                 // - aborted  (if it was already updated in the previous attempt or the result of a concurrent recovery)
-                // - commit (if initiate recovery has started, but a delayed message from the coordinator finally arrived and executed earlier).
+                // - commit (if initiate recovery has started, but a delayed message from the coordinator finally arrived and executed
+                //      earlier).
 
                 // Let the client know a transaction has finished with a different outcome.
                 if (commit != (txMeta.txState() == COMMITTED)) {
@@ -1963,8 +1964,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 } else {
                     ReadResult writeIntent = writeIntents.get(0);
 
-                    // Assume that all write intents for the same key belong to the same transaction, as the key should be exclusively locked.
-                    // This means that we can just resolve the state of this transaction.
+                    // Assume that all write intents for the same key belong to the same transaction, as the key should be exclusively
+                    // locked. This means that we can just resolve the state of this transaction.
                     checkWriteIntentsBelongSameTx(writeIntents);
 
                     return inBusyLockAsync(busyLock, () ->
@@ -2561,8 +2562,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 null,
                                 null,
                                 null,
-                            indexIdsAtRwTxBeginTs(txId)
-                    );
+                                indexIdsAtRwTxBeginTs(txId)
+                        );
 
                         updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                     }
@@ -2598,8 +2599,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         null,
                                         cmd.safeTime(),
                                         null,
-                                    indexIdsAtRwTxBeginTs(txId)
-                            );
+                                        indexIdsAtRwTxBeginTs(txId)
+                                );
 
                                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                             }

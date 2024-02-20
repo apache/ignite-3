@@ -46,9 +46,9 @@ public class DemoAutoConfigurationCustomizerProvider implements AutoConfiguratio
     @Override
     public void customize(AutoConfigurationCustomizer autoConfiguration) {
         autoConfiguration
-//                .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIncludedMethods)
+                // .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIncludedMethods)
                 .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIgniteExecutors);
-//                .addSamplerCustomizer(DemoAutoConfigurationCustomizerProvider::customizeSampler);
+        // .addSamplerCustomizer(DemoAutoConfigurationCustomizerProvider::customizeSampler);
     }
 
     private static Map<String, String> customizeIgniteExecutors(ConfigProperties configProperties) {

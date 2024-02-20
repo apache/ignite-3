@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import static org.apache.ignite.internal.tracing.TracingManager.span;import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -58,7 +57,6 @@ import org.apache.ignite.raft.jraft.util.ArrayDeque;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.SegmentList;
-import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**

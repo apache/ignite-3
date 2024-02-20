@@ -50,110 +50,88 @@ public class TracingManager {
     }
 
     /**
-     * Call closure in span with given name.
+     * Call closure in span with given label.
      *
-     * @param spanName Name of span to create.
+     * @param lb Label.
      * @return Created span.
      */
-    public static TraceSpan asyncSpan(String spanName) {
-        return SPAN_MANAGER.create(spanName, null, false, false);
-    }
-
-    /**
-     * Call closure in span with given name.
-     *
-     * @param spanName Name of span to create.
-     * @param parent Parent context.
-     * @return Created span.
-     */
-    public static TraceSpan asyncSpan(String spanName, TraceSpan parent) {
-        return SPAN_MANAGER.create(spanName, parent, false, false);
+    public static TraceSpan asyncSpan(String lb) {
+        return SPAN_MANAGER.create(null, lb, false, false);
     }
 
     /**
      * Creates span given name.
      *
-     * @param spanName Name of span to create.
+     * @param lb Label.
      * @return Created span.
      */
-    public static TraceSpan rootSpan(String spanName) {
-        return SPAN_MANAGER.create(spanName, null, true, true);
+    public static TraceSpan rootSpan(String lb) {
+        return SPAN_MANAGER.create(null, lb, true, true);
     }
 
     /**
-     * Creates span given name.
+     * Call closure in span with given label.
      *
-     * @param spanName Name of span to create.
+     * @param lb Label.
      * @param closure Closure.
      * @return Created span.
      */
-    public static <R> R rootSpan(String spanName, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.create(spanName, null, true, closure);
+    public static <R> R rootSpan(String lb, Function<TraceSpan, R> closure) {
+        return SPAN_MANAGER.create(null, lb, true, closure);
     }
 
     /**
-     * Creates span given name.
+     * Creates span given label.
      *
-     * @param spanName Name of span to create.
+     * @param lb Label.
      * @return Created span.
      */
-    public static TraceSpan span(String spanName) {
-        return SPAN_MANAGER.create(spanName, null, false, true);
+    public static TraceSpan span(String lb) {
+        return SPAN_MANAGER.create(null, lb, false, true);
     }
 
     /**
-     * Call closure in span with given name.
+     * Call closure in span with given label.
      *
      * @param spanName Name of span to create.
      * @param closure Closure.
      */
     public static void span(String spanName, Consumer<TraceSpan> closure) {
-        SPAN_MANAGER.create(spanName, null, false, closure);
+        SPAN_MANAGER.create(null, spanName, false, closure);
     }
 
     /**
-     * Call closure in span with given name.
+     * Call closure in span with given label.
      *
-     * @param spanName Name of span to create.
-     * @param parent Parent context.
+     * @param parentSpan Parent span.
+     * @param lb Label.
      * @param closure Closure.
      */
-    public static void span(String spanName, @Nullable TraceSpan parent, Consumer<TraceSpan> closure) {
-        SPAN_MANAGER.create(spanName, parent, false, closure);
+    public static void span(@Nullable TraceSpan parentSpan, String lb, Consumer<TraceSpan> closure) {
+        SPAN_MANAGER.create(parentSpan, lb, false, closure);
     }
 
     /**
-     * Call closure in span with given name.
+     * Call closure in span with given label.
      *
-     * @param spanName Name of span to create.
-     * @param closure Closure.
-     * @return Closure result.
-     */
-    public static <R> R span(String spanName, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.create(spanName, null, false, closure);
-    }
-
-    /**
-     * Call closure in span with given name.
-     *
-     * @param spanName Name of span to create.
+     * @param lb Label.
      * @param closure Closure.
      * @return Closure result.
      */
-    public static <R> R span(String spanName, @Nullable TraceSpan parent, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.create(spanName, parent, false, closure);
+    public static <R> R span(String lb, Function<TraceSpan, R> closure) {
+        return SPAN_MANAGER.create(null, lb, false, closure);
     }
 
     /**
-     * Call closure in span with given name.
+     * Call closure in span with given label.
      *
-     * @param spanName Name of span to create.
-     * @param parent Parent context.
+     * @param parentSpan Parent span.
+     * @param lb Label.
      * @param closure Closure.
-     * @return Created span.
+     * @return Closure result.
      */
-    public static <R> R spanWithResult(String spanName, TraceSpan parent, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.create(spanName, parent, true, closure);
+    public static <R> R span(@Nullable TraceSpan parentSpan, String lb, Function<TraceSpan, R> closure) {
+        return SPAN_MANAGER.create(parentSpan, lb, false, closure);
     }
 
     public static Executor taskWrapping(Executor executor) {
@@ -182,8 +160,8 @@ public class TracingManager {
         return SPAN_MANAGER.wrap(fut);
     }
 
-    public static @Nullable Map<String, String> serializeSpan() {
-        return SPAN_MANAGER.serializeSpan();
+    public static @Nullable Map<String, String> serializeSpanContext() {
+        return SPAN_MANAGER.serializeSpanContext();
     }
 
     public static TraceSpan restoreSpanContext(Map<String, String> headers) {

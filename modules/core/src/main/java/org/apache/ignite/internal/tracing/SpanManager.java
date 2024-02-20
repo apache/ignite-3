@@ -33,33 +33,33 @@ public interface SpanManager {
     /**
      * Creates Span with given name.
      *
-     * @param spanName Span name to create.
-     * @param parent Parent context.
-     * @param rootSpan Root span.
+     * @param parentSpan Parent span.
+     * @param lb Label.
+     * @param forceTracing Trace given span regardless tracing configuration parameters. Applicable only for root spans.
      * @return Created span.
      */
-    TraceSpan create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired);
+    TraceSpan create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, boolean endRequired);
 
     /**
      * Creates Span with given name.
      *
-     * @param spanName Span name to create.
-     * @param parent Parent context.
-     * @param rootSpan Root span.
+     * @param parentSpan Parent span.
+     * @param lb Label.
+     * @param forceTracing Trace given span regardless tracing configuration parameters. Applicable only for root spans.
      * @param closure Closure.
      * @return Closure result.
      */
-    <R> R create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure);
+    <R> R create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, Function<TraceSpan, R> closure);
 
     /**
      * Call closure in span with given name.
      *
-     * @param spanName Span name to create.
-     * @param parent Parent context.
-     * @param rootSpan Root span.
+     * @param parentSpan Parent span.
+     * @param lb Label.
+     * @param forceTracing Trace given span regardless tracing configuration parameters. Applicable only for root spans.
      * @param closure Closure.
      */
-    void create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure);
+    void create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, Consumer<TraceSpan> closure);
 
     /**
      * Returns a {@link Runnable} that restore trace context and then invokes the input {@link Runnable}.
@@ -72,24 +72,21 @@ public interface SpanManager {
     ExecutorService taskWrapping(ExecutorService executorService);
 
     /**
-     * Returns a {@link Callable} that makes this the {@linkplain Context#current() current context}
-     * and then invokes the input {@link Callable}.
+     * Returns a {@link Callable} that makes this the current context and then invokes the input {@link Callable}.
      */
     <T> Callable<T> wrap(Callable<T> callable);
 
     /**
-     * Returns a {@link Runnable} that makes this the {@linkplain Context#current() current context}
-     * and then invokes the input {@link Runnable}.
+     * Returns a {@link Runnable} that makes this the current context. and then invokes the input {@link Runnable}.
      */
     Runnable wrap(Runnable runnable);
 
     /**
-     * Returns a {@link CompletableFuture} that makes this the {@linkplain Context#current() current context}
-     * and then invokes the input {@link CompletableFuture}.
+     * Returns a {@link CompletableFuture} that makes this the current context and then invokes the input {@link CompletableFuture}.
      */
     <R> CompletableFuture<R> wrap(CompletableFuture<R> fut);
 
-    @Nullable Map<String, String> serializeSpan();
+    @Nullable Map<String, String> serializeSpanContext();
 
     TraceSpan restoreSpanContext(Map<String, String> headers);
 

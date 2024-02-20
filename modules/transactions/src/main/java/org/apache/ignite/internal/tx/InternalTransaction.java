@@ -104,7 +104,7 @@ public interface InternalTransaction extends Transaction {
      *
      * @return Context that is used to combine all operation in transaction.
      */
-    public TraceSpan traceSpan();
+    public TraceSpan parentSpan();
 
     /**
      * Finishes a read-only transaction with a specific execution timestamp.

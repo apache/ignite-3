@@ -25,7 +25,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -120,8 +119,8 @@ public class PersistentVaultService implements VaultService {
                 db.delete(key.bytes());
             } else {
                 try (TraceSpan ignored = span("vaultStoragePutData")) {
-                        db.put(key.bytes(), val);
-                    }
+                    db.put(key.bytes(), val);
+                }
             }
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to write data to RocksDB", e);
@@ -179,8 +178,8 @@ public class PersistentVaultService implements VaultService {
             }
 
             try (TraceSpan ignored = span("putAll")) {
-                    db.write(writeOpts, writeBatch);
-                }
+                db.write(writeOpts, writeBatch);
+            }
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to write data to RocksDB", e);
         }

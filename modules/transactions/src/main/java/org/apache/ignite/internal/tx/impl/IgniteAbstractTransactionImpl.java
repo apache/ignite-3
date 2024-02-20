@@ -48,8 +48,8 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      */
     private final String coordinatorId;
 
-    /** The transaction context. */
-    protected final TraceSpan traceSpan;
+    /** Parent span. */
+    protected final TraceSpan parentSpan;
 
     /**
      * The constructor.
@@ -57,12 +57,13 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * @param txManager The tx manager.
      * @param id The id.
      * @param coordinatorId Transaction coordinator inconsistent ID.
+     * @param parentSpan Parent span.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, String coordinatorId, TraceSpan traceSpan) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, String coordinatorId, TraceSpan parentSpan) {
         this.txManager = txManager;
         this.id = id;
         this.coordinatorId = coordinatorId;
-        this.traceSpan = traceSpan;
+        this.parentSpan = parentSpan;
     }
 
     /** {@inheritDoc} */
@@ -123,8 +124,8 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
     /** {@inheritDoc} */
     @Override
-    public TraceSpan traceSpan() {
-        return traceSpan;
+    public TraceSpan parentSpan() {
+        return parentSpan;
     }
 
     /**

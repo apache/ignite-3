@@ -36,6 +36,8 @@ import org.junit.jupiter.api.Test;
  */
 public class TransactionsTest {
     /**
+     * SSS.
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -72,7 +74,7 @@ public class TransactionsTest {
                 Transaction tx2 = client.transactions().begin();
 
                 accounts.put(tx1, key, new Account("John", "Doe", 1000.0d));
-                
+
                 Exception err = assertThrows(Exception.class, () -> accounts.put(tx2, key, new Account("John", "Doe", 2000.0d)));
 
                 assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
@@ -89,7 +91,9 @@ public class TransactionsTest {
     }
 
     /**
-     * @throws Exception If failed.  ˚
+     * SSs.
+     *
+     * @throws Exception If failed.
      */
     @Test
     public void testUpsertSequentially() throws Exception {

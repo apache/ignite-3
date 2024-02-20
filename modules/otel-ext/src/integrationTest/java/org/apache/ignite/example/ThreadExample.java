@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.example;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -8,8 +25,8 @@ import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 
 /**
  * Tests for propagating context between threads.
@@ -49,14 +66,16 @@ public class ThreadExample {
             }
         }
 
-        TracingManager.spanWithResult("ClientTupleGetRequest.process", parent, (span) -> completedFuture(10)).join();
+        span(parent, "ClientTupleGetRequest.process", (Function<TraceSpan, CompletableFuture<Integer>>) (span) ->
+            completedFuture(10)).join();
 
-        try (var rootSpan = asyncSpan("main", parent)) {
+
+
+        span(parent, "main", (rootSpan) -> {
             System.out.println(rootSpan);
+        });
 
-            rootSpan.end();
-            parent.end();
-        }
+        parent.end();
 
         try (var rootSpan = rootSpan("main")) {
             try (var ignored = span("main1")) {

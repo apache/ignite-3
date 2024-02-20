@@ -84,8 +84,7 @@ public class SpanTest {
 
                 return closure.apply(span);
             });
-        }
-        catch (Exception ignored) {
+        } catch (Exception ignored) {
             // No-op.
         }
 
@@ -102,8 +101,7 @@ public class SpanTest {
                 otelSpan.set((ReadableSpan) Span.current());
 
                 span.endWhenComplete(closure.apply(span));
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 span.recordException(e);
             }
         }

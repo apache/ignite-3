@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
-import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
@@ -338,7 +337,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 // LW after we add transaction to the map (adding transaction to the map before reading LW value, of course).
                 readOnlyTxFutureById.remove(txIdAndTimestamp);
 
-                // Completing the future is necessary, because "updateLowWatermark" method may already wait for it if race condition happened.
+                // Completing the future is necessary, because "updateLowWatermark" method may already wait for it if race condition
+                // happened.
                 txFuture.complete(null);
 
                 throw new IgniteInternalException(
@@ -380,7 +380,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         try (TraceSpan ignored = span("finishFull")) {
             TxState finalState;
 
-            finishedTxs.incrementAndGet();if (commit) {
+            finishedTxs.incrementAndGet();
+            if (commit) {
                 timestampTracker.update(clock.now());
 
                 finalState = COMMITTED;

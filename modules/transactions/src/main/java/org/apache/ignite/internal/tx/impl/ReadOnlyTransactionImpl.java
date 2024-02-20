@@ -27,7 +27,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.network.ClusterNode;
 
@@ -109,12 +108,12 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
     protected CompletableFuture<Void> finish(boolean commit) {
-        return traceSpan.endWhenComplete(finish(commit, readTimestamp));
+        return parentSpan.endWhenComplete(finish(commit, readTimestamp));
     }
 
     @Override
     public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
-        return traceSpan.endWhenComplete(span("finishtransaction", traceSpan, (span) -> {
+        return parentSpan.endWhenComplete(span(parentSpan, "finishtransaction", (span) -> {
             span.addAttribute("commit", () -> Boolean.toString(commit));
 
             if (!finishGuard.compareAndSet(false, true)) {

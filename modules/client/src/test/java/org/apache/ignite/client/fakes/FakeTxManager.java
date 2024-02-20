@@ -152,7 +152,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public TraceSpan traceSpan() {
+            public TraceSpan parentSpan() {
                 return NoopSpan.INSTANCE;
             }
         };

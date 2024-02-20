@@ -34,17 +34,17 @@ public class NoopSpanManager implements SpanManager {
     public static final SpanManager INSTANCE = new NoopSpanManager();
 
     @Override
-    public TraceSpan create(String spanName, TraceSpan parent, boolean rootSpan, boolean endRequired) {
+    public TraceSpan create(TraceSpan parentSpan, String lb, boolean forceTracing, boolean endRequired) {
         return NoopSpan.INSTANCE;
     }
 
     @Override
-    public <R> R create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure) {
+    public <R> R create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, Function<TraceSpan, R> closure) {
         return closure.apply(NoopSpan.INSTANCE);
     }
 
     @Override
-    public void create(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure) {
+    public void create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, Consumer<TraceSpan> closure) {
         closure.accept(NoopSpan.INSTANCE);
     }
 
@@ -74,7 +74,7 @@ public class NoopSpanManager implements SpanManager {
     }
 
     @Override
-    public @Nullable Map<String, String> serializeSpan() {
+    public @Nullable Map<String, String> serializeSpanContext() {
         return null;
     }
 

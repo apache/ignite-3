@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
-import static org.apache.ignite.internal.tracing.TracingManager.serializeSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.serializeSpanContext;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 
 import io.netty.channel.Channel;
@@ -102,7 +102,7 @@ public class NettySender {
      * @return Future of the send operation (that gets completed when the message gets acknowledged by the receiver).
      */
     public CompletableFuture<Void> send(OutNetworkObject obj0, Runnable triggerChannelRecreation) {
-        Map<String, String> headers = serializeSpan();
+        Map<String, String> headers = serializeSpanContext();
         OutNetworkObject obj;
 
         if (headers != null) {

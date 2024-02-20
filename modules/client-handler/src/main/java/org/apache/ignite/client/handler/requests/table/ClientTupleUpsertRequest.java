@@ -20,13 +20,12 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.tracing.NoopSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -50,9 +49,8 @@ public class ClientTupleUpsertRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var parent = tx == null ? NoopSpan.INSTANCE : tx.traceSpan();
 
-            return TracingManager.spanWithResult("ClientTupleUpsertRequest.process", parent, (span) -> {
+            return span(tx.parentSpan(), "ClientTupleUpsertRequest.process", (span) -> {
                 return readTuple(in, table, false).thenCompose(tuple -> {
                     return table.recordView().upsertAsync(tx, tuple)
                             .thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));

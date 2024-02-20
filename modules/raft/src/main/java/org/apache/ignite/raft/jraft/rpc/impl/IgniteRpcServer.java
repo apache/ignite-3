@@ -27,7 +27,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.internal.tracing.TracingManager;import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.internal.network.NetworkMessage;
