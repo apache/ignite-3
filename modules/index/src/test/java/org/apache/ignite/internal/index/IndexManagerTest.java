@@ -100,6 +100,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -218,6 +219,43 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         verify(tableViewInternal, never()).unregisterIndex(anyInt());
     }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
+    @Test
+    void testDestroyIndex() throws Exception {
+        createIndex(TABLE_NAME, INDEX_NAME);
+
+        CatalogIndexDescriptor indexDescriptor = catalogManager.index(INDEX_NAME, catalogManager.latestCatalogVersion());
+        int indexId = indexDescriptor.id();
+        int tableId = indexDescriptor.tableId();
+
+        dropIndex(INDEX_NAME);
+        CatalogTestUtils.waitCatalogCompaction(catalogManager, Long.MAX_VALUE);
+
+        long causalityToken = 0L; // Use last token.
+        MvTableStorage mvTableStorage = indexManager.getMvTableStorage(causalityToken, tableId).get();
+
+        verify(mvTableStorage).destroyIndex(indexId);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
+    @Test
+    void testIndexDestroyedWithTable() throws Exception {
+        createIndex(TABLE_NAME, INDEX_NAME);
+
+        CatalogIndexDescriptor indexDescriptor = catalogManager.index(INDEX_NAME, catalogManager.latestCatalogVersion());
+        int indexId = indexDescriptor.id();
+        int tableId = indexDescriptor.tableId();
+
+        dropTable(TABLE_NAME);
+        CatalogTestUtils.waitCatalogCompaction(catalogManager, Long.MAX_VALUE);
+
+        long causalityToken = 0L; // Use last token.
+        MvTableStorage mvTableStorage = indexManager.getMvTableStorage(causalityToken, tableId).get();
+
+        verify(mvTableStorage).destroyIndex(indexId);
+    }
+
 
     @Test
     void testCollectIndexesForRecoveryForCreatedTables() {

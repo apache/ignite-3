@@ -15,23 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
+package org.apache.ignite.internal.compute;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.compute.IgniteCompute;
 
-/**
- * Event parameters for an 'index removed from the Catalog' event (don't confuse it with {@link StoppingIndexEventParameters}
- * that is about switching the index to the {@link CatalogIndexStatus#STOPPING} state).
- */
-public class RemoveIndexEventParameters extends IndexEventParameters {
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param indexId Index ID.
-     */
-    public RemoveIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
-        super(causalityToken, catalogVersion, indexId);
+class ItEmbeddedComputeErrorsTest extends ItComputeErrorsBaseTest {
+    @Override
+    protected IgniteCompute compute() {
+        return CLUSTER.node(0).compute();
     }
 }

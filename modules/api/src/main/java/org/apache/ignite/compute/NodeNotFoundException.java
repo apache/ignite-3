@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
+package org.apache.ignite.compute;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import static org.apache.ignite.lang.ErrorGroups.Compute.NODE_NOT_FOUND_ERR;
+
+import java.util.Set;
+import java.util.UUID;
 
 /**
- * Event parameters for an 'index removed from the Catalog' event (don't confuse it with {@link StoppingIndexEventParameters}
- * that is about switching the index to the {@link CatalogIndexStatus#STOPPING} state).
+ * Thrown when compute component can't find the node to run the job on in the cluster.
  */
-public class RemoveIndexEventParameters extends IndexEventParameters {
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param indexId Index ID.
-     */
-    public RemoveIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
-        super(causalityToken, catalogVersion, indexId);
+public class NodeNotFoundException extends ComputeException {
+    public NodeNotFoundException(Set<String> nodeNames) {
+        super(NODE_NOT_FOUND_ERR, "None of the specified nodes are present in the cluster: " + nodeNames);
+    }
+
+    //TODO https://issues.apache.org/jira/browse/IGNITE-20140
+    public NodeNotFoundException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

@@ -17,32 +17,34 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.storage.Fireable;
 
-/**
- * Event parameters for the 'index has moved to the {@link CatalogIndexStatus#STOPPING} that contains an id of the dropped index.
- *
- * @see CatalogEvent#INDEX_STOPPING
- */
-public class StoppingIndexEventParameters extends IndexEventParameters {
+/** {@link CatalogEvent#INDEX_DESTROY} event. */
+public class DestroyIndexEvent implements Fireable {
     private final int tableId;
+    private final int indexId;
+    private final int partitions;
 
     /**
      * Constructor.
      *
-     * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
      * @param indexId An id of dropped index.
-     * @param tableId Table ID for which the index was removed.
+     * @param tableId An id of table the index belongs to.
+     * @param partitions Table partitions.
      */
-    public StoppingIndexEventParameters(long causalityToken, int catalogVersion, int indexId, int tableId) {
-        super(causalityToken, catalogVersion, indexId);
-
+    public DestroyIndexEvent(int indexId, int tableId, int partitions) {
+        this.indexId = indexId;
         this.tableId = tableId;
+        this.partitions = partitions;
     }
 
-    /** Returns table ID for which the index was removed. */
-    public int tableId() {
-        return tableId;
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.INDEX_DESTROY;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DestroyIndexEventParameters(causalityToken, catalogVersion, indexId, tableId, partitions);
     }
 }
