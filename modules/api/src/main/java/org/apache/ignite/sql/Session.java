@@ -402,13 +402,10 @@ public interface Session extends AutoCloseable {
         /**
          * Sets a default time zone for this session.
          *
-         * @param timeZoneId Zone
+         * @param timeZoneId Time zone ID.
          * @return {@code this} for chaining.
          */
-        // TODO remove default
-        default SessionBuilder timeZoneId(ZoneId timeZoneId) {
-            throw new UnsupportedOperationException();
-        }
+        SessionBuilder timeZoneId(ZoneId timeZoneId);
 
         /**
          * Returns a session property.
