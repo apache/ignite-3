@@ -248,7 +248,7 @@ public class DistributionZoneRebalanceEngine {
 
                     int counter = bytesToInt(event.entryEvent().newEntry().value());
 
-                    if (counter >= 0) {
+                    if (counter > 0) {
                         LOG.info(">>>> Skipped, counter = " + counter);
                         return nullCompletedFuture();
                     }

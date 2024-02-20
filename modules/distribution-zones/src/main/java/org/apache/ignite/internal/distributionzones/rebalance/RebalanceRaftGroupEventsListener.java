@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine.calculateAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
@@ -36,14 +35,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -54,7 +50,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -134,10 +129,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
-    private final CatalogService catalogService;
-
-    private final DistributionZoneManager distributionZoneManager;
-
     /**
      * Constructs new listener.
      *
@@ -153,9 +144,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
             ScheduledExecutorService rebalanceScheduler,
-            int zoneId,
-            CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            int zoneId
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.tablePartitionId = tablePartitionId;
@@ -163,8 +152,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         this.partitionMover = partitionMover;
         this.rebalanceScheduler = rebalanceScheduler;
         this.zoneId = zoneId;
-        this.catalogService = catalogService;
-        this.distributionZoneManager = distributionZoneManager;
     }
 
     /** {@inheritDoc} */
@@ -288,29 +275,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 return;
             } else {
                 LOG.info("Count down of zone's partitions is succeeded [zoneId={}, appliedPeers={}]", zoneId, stable);
-
-                if (counter == 1) {
-                    List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogService.latestCatalogVersion(), catalogService);
-
-                    Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
-
-                    for (CatalogTableDescriptor table : tables) {
-                        TablePartitionId replicaGrpId = new TablePartitionId(table.id(), partId);
-                        partitionTablesKeys.put(raftConfigurationAppliedKey(replicaGrpId), replicaGrpId);
-                    }
-
-                    Map<ByteArray, Entry> entriesMap = metaStorageMgr.getAll(partitionTablesKeys.keySet()).get();
-
-                    entriesMap.forEach((key, stableAssignment) -> {
-                        doOnNewPeersConfigurationApplied(
-                                fromBytes(stableAssignment.value()),
-                                partitionTablesKeys.get(key),
-                                metaStorageMgr,
-                                catalogService,
-                                distributionZoneManager
-                        );
-                    });
-                }
             }
 
             rebalanceAttempts.set(0);
