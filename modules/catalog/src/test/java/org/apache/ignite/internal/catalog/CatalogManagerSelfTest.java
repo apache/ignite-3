@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessary
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropTableCommand;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
@@ -81,7 +80,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -1169,7 +1167,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testTableEvents() {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.TABLE_CREATE, eventListener);
         manager.listen(CatalogEvent.TABLE_DROP, eventListener);
@@ -1178,18 +1176,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
         assertThat(manager.execute(simpleTable(TABLE_NAME_3)), willBe(nullValue()));
-        verify(eventListener, times(3)).notify(any(CreateTableEventParameters.class), isNull());
+        verify(eventListener, times(3)).notify(any(CreateTableEventParameters.class));
 
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
         assertThat(manager.execute(dropTableCommand(TABLE_NAME_2)), willBe(nullValue()));
-        verify(eventListener, times(2)).notify(any(DropTableEventParameters.class), isNull());
+        verify(eventListener, times(2)).notify(any(DropTableEventParameters.class));
 
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
 
         // Got 'destroy' event only after Catalog compaction.
         assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(true));
-        verify(eventListener, times(2)).notify(any(DestroyTableEventParameters.class), isNull());
+        verify(eventListener, times(2)).notify(any(DestroyTableEventParameters.class));
 
         verifyNoMoreInteractions(eventListener);
         clearInvocations();
@@ -1207,7 +1205,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogCommand dropIndexCmd = DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.INDEX_CREATE, eventListener);
         manager.listen(CatalogEvent.INDEX_BUILDING, eventListener);
@@ -1222,32 +1220,32 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Create table with PK index.
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
-        verify(eventListener).notify(any(MakeIndexAvailableEventParameters.class), isNull());
+        verify(eventListener).notify(any(CreateIndexEventParameters.class));
+        verify(eventListener).notify(any(MakeIndexAvailableEventParameters.class));
 
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
 
         // Create index.
         assertThat(manager.execute(createIndexCmd), willCompleteSuccessfully());
-        verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(CreateIndexEventParameters.class));
 
         startBuildingIndex(indexId(INDEX_NAME));
-        verify(eventListener).notify(any(StartBuildingIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(StartBuildingIndexEventParameters.class));
 
         makeIndexAvailable(indexId(INDEX_NAME));
-        verify(eventListener).notify(any(MakeIndexAvailableEventParameters.class), isNull());
+        verify(eventListener).notify(any(MakeIndexAvailableEventParameters.class));
 
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
 
         // Drop index.
         assertThat(manager.execute(dropIndexCmd), willBe(nullValue()));
-        verify(eventListener).notify(any(StoppingIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(StoppingIndexEventParameters.class));
 
         // Remove index.
         removeIndex(indexId(INDEX_NAME));
-        verify(eventListener).notify(any(RemoveIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(RemoveIndexEventParameters.class));
 
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
@@ -1258,13 +1256,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // Try drop index once again.
         assertThat(manager.execute(dropIndexCmd), willThrow(IndexNotFoundValidationException.class));
 
-        verify(eventListener).notify(any(RemoveIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(RemoveIndexEventParameters.class));
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
 
         // Got 'destroy' event only after Catalog compaction.
         assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(true));
-        verify(eventListener, times(2 /* PK + secondary index */)).notify(any(DestroyIndexEventParameters.class), isNull());
+        verify(eventListener, times(2 /* PK + secondary index */)).notify(any(DestroyIndexEventParameters.class));
 
         clearInvocations();
 
@@ -1490,7 +1488,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.ZONE_CREATE, eventListener);
         manager.listen(CatalogEvent.ZONE_DROP, eventListener);
@@ -1499,7 +1497,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(fut, willCompleteSuccessfully());
 
-        verify(eventListener).notify(any(CreateZoneEventParameters.class), isNull());
+        verify(eventListener).notify(any(CreateZoneEventParameters.class));
 
         CatalogCommand dropCommand = DropZoneCommand.builder()
                 .zoneName(zoneName)
@@ -1509,14 +1507,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(fut, willCompleteSuccessfully());
 
-        verify(eventListener).notify(any(DropZoneEventParameters.class), isNull());
+        verify(eventListener).notify(any(DropZoneEventParameters.class));
         verifyNoMoreInteractions(eventListener);
     }
 
     @Test
     public void testColumnEvents() {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
@@ -1530,11 +1528,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Add column.
         assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32))), willBe(nullValue()));
-        verify(eventListener).notify(any(AddColumnEventParameters.class), isNull());
+        verify(eventListener).notify(any(AddColumnEventParameters.class));
 
         // Drop column.
         assertThat(manager.execute(dropColumnParams(TABLE_NAME, NEW_COLUMN_NAME)), willBe(nullValue()));
-        verify(eventListener).notify(any(DropColumnEventParameters.class), isNull());
+        verify(eventListener).notify(any(DropColumnEventParameters.class));
 
         verifyNoMoreInteractions(eventListener);
     }
@@ -1604,7 +1602,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testGetCatalogEntityInCatalogEvent() {
         CompletableFuture<Void> result = new CompletableFuture<>();
 
-        manager.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
+        manager.listen(CatalogEvent.TABLE_CREATE, parameters -> {
             try {
                 assertNotNull(manager.schema(parameters.catalogVersion()));
 
@@ -1654,8 +1652,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ArgumentCaptor<StoppingIndexEventParameters> stoppingCaptor = ArgumentCaptor.forClass(StoppingIndexEventParameters.class);
         ArgumentCaptor<RemoveIndexEventParameters> removingCaptor = ArgumentCaptor.forClass(RemoveIndexEventParameters.class);
 
-        doReturn(falseCompletedFuture()).when(stoppingListener).notify(stoppingCaptor.capture(), any());
-        doReturn(falseCompletedFuture()).when(removedListener).notify(removingCaptor.capture(), any());
+        doReturn(falseCompletedFuture()).when(stoppingListener).notify(stoppingCaptor.capture());
+        doReturn(falseCompletedFuture()).when(removedListener).notify(removingCaptor.capture());
 
         manager.listen(CatalogEvent.INDEX_STOPPING, stoppingListener);
         manager.listen(CatalogEvent.INDEX_REMOVED, removedListener);
@@ -2218,17 +2216,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
 
-        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
-            if (exception != null) {
-                fireEventFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    assertEquals(indexId, ((MakeIndexAvailableEventParameters) parameters).indexId());
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, parameters -> {
+            try {
+                assertEquals(indexId, ((MakeIndexAvailableEventParameters) parameters).indexId());
 
-                    fireEventFuture.complete(null);
-                } catch (Throwable t) {
-                    fireEventFuture.completeExceptionally(t);
-                }
+                fireEventFuture.complete(null);
+            } catch (Throwable t) {
+                fireEventFuture.completeExceptionally(t);
             }
 
             return falseCompletedFuture();
@@ -2248,15 +2242,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testPkAvailableIndexEvent() {
         CompletableFuture<Integer> fireEventFuture = new CompletableFuture<>();
 
-        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
-            if (exception != null) {
-                fireEventFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    fireEventFuture.complete(((MakeIndexAvailableEventParameters) parameters).indexId());
-                } catch (Throwable t) {
-                    fireEventFuture.completeExceptionally(t);
-                }
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, parameters -> {
+            try {
+                fireEventFuture.complete(((MakeIndexAvailableEventParameters) parameters).indexId());
+            } catch (Throwable t) {
+                fireEventFuture.completeExceptionally(t);
             }
 
             return falseCompletedFuture();
@@ -2275,19 +2265,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testPkAvailableOnCreateIndexEvent() {
         CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
 
-        manager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
-            if (exception != null) {
-                fireEventFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    CreateIndexEventParameters createIndexEventParameters = (CreateIndexEventParameters) parameters;
+        manager.listen(CatalogEvent.INDEX_CREATE, parameters -> {
+            try {
+                CreateIndexEventParameters createIndexEventParameters = (CreateIndexEventParameters) parameters;
 
-                    assertEquals(AVAILABLE, createIndexEventParameters.indexDescriptor().status());
+                assertEquals(AVAILABLE, createIndexEventParameters.indexDescriptor().status());
 
-                    fireEventFuture.complete(null);
-                } catch (Throwable t) {
-                    fireEventFuture.completeExceptionally(t);
-                }
+                fireEventFuture.complete(null);
+            } catch (Throwable t) {
+                fireEventFuture.completeExceptionally(t);
             }
 
             return falseCompletedFuture();
@@ -2386,12 +2372,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         var eventFuture = new CompletableFuture<CatalogEventParameters>();
 
-        manager.listen(CatalogEvent.TABLE_ALTER, (parameters, e) -> {
-            if (e != null) {
-                eventFuture.completeExceptionally(e);
-            } else {
-                eventFuture.complete(parameters);
-            }
+        manager.listen(CatalogEvent.TABLE_ALTER, parameters -> {
+            eventFuture.complete(parameters);
 
             return trueCompletedFuture();
         });
@@ -2467,17 +2449,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
 
-        manager.listen(CatalogEvent.INDEX_BUILDING, (parameters, exception) -> {
-            if (exception != null) {
-                fireEventFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    assertEquals(indexId, ((StartBuildingIndexEventParameters) parameters).indexId());
+        manager.listen(CatalogEvent.INDEX_BUILDING, parameters -> {
+            try {
+                assertEquals(indexId, ((StartBuildingIndexEventParameters) parameters).indexId());
 
-                    fireEventFuture.complete(null);
-                } catch (Throwable t) {
-                    fireEventFuture.completeExceptionally(t);
-                }
+                fireEventFuture.complete(null);
+            } catch (Throwable t) {
+                fireEventFuture.completeExceptionally(t);
             }
 
             return falseCompletedFuture();

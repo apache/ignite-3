@@ -87,7 +87,7 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
         for (int i = 0; i < listeners.size(); i++) {
             EventListener<P> listener = listeners.get(i);
 
-            CompletableFuture<Boolean> future = listener.notify(params, err);
+            CompletableFuture<Boolean> future = listener.notify(params);
 
             if (future.isDone() && !future.isCompletedExceptionally()) {
                 if (future.join()) {

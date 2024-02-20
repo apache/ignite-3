@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -189,27 +188,15 @@ class IndexAvailabilityController implements ManuallyCloseable {
     }
 
     private void addListeners(CatalogService catalogService, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
-        catalogService.listen(CatalogEvent.INDEX_BUILDING, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
+        catalogService.listen(CatalogEvent.INDEX_BUILDING, parameters -> {
             return onIndexBuilding((StartBuildingIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_REMOVED, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, parameters -> {
             return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
+        catalogService.listen(CatalogEvent.INDEX_AVAILABLE, parameters -> {
             return onIndexAvailable((MakeIndexAvailableEventParameters) parameters).thenApply(unused -> false);
         });
 

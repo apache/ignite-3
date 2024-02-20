@@ -1378,17 +1378,13 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     private void registerCatalogEventListenersOnStartManagerBusy() {
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> inBusyLock(busyLock, () -> {
-            assert exception == null : parameters;
-
+        catalogManager.listen(ZONE_CREATE, parameters -> inBusyLock(busyLock, () -> {
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
 
             return onCreateZone(params.zoneDescriptor(), params.causalityToken()).thenApply((ignored) -> false);
         }));
 
-        catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(busyLock, () -> {
-            assert exception == null : parameters;
-
+        catalogManager.listen(ZONE_DROP, parameters -> inBusyLock(busyLock, () -> {
             return onDropZoneBusy((DropZoneEventParameters) parameters).thenApply((ignored) -> false);
         }));
 

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
@@ -1782,11 +1781,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private void waitForIndexToBecomeAvailable(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(nodes.size());
 
-        nodes.forEach(node -> node.catalogManager().listen(CatalogEvent.INDEX_AVAILABLE, (event, ex) -> {
-            if (ex != null) {
-                return failedFuture(ex);
-            }
-
+        nodes.forEach(node -> node.catalogManager().listen(CatalogEvent.INDEX_AVAILABLE, event -> {
             MakeIndexAvailableEventParameters availableEvent = (MakeIndexAvailableEventParameters) event;
 
             CatalogIndexDescriptor index = node.catalogManager().index(availableEvent.indexId(), event.catalogVersion());
