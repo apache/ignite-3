@@ -218,6 +218,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private static final String TABLE_NAME = "TBL1";
 
+    private static final String TABLE_NAME_2 = "TBL2";
+
+    private static final String TABLE_NAME_3 = "TBL3";
+
     private static final String ZONE_NAME = "zone1";
 
     private static final int BASE_PORT = 20_000;
@@ -331,6 +335,29 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
         checkPartitionNodes(0, 2);
+    }
+
+    @Test
+    void testOneRebalanceSeveralTables() throws Exception {
+        Node node = getNode(0);
+
+        createZone(node, ZONE_NAME, 1, 1);
+
+        createTable(node, ZONE_NAME, TABLE_NAME);
+        createTable(node, ZONE_NAME, TABLE_NAME_2);
+        createTable(node, ZONE_NAME, TABLE_NAME_3);
+
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        alterZone(node, ZONE_NAME, 2);
+
+        waitPartitionAssignmentsSyncedToExpected(TABLE_NAME, 0, 2);
+        waitPartitionAssignmentsSyncedToExpected(TABLE_NAME_2, 0, 2);
+        waitPartitionAssignmentsSyncedToExpected(TABLE_NAME_3, 0, 2);
+
+        checkPartitionNodes(TABLE_NAME, 0, 2);
+        checkPartitionNodes(TABLE_NAME_2, 0, 2);
+        checkPartitionNodes(TABLE_NAME_3, 0, 2);
     }
 
     @Test
@@ -777,6 +804,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
+        waitPartitionAssignmentsSyncedToExpected(TABLE_NAME, partNum, replicasNum);
+    }
+
+    private void waitPartitionAssignmentsSyncedToExpected(String tableName, int partNum, int replicasNum) throws Exception {
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
@@ -788,7 +819,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         return nodes.stream().allMatch(n ->
                                 n.tableManager
                                         .latestTables()
-                                        .get(getTableId(n, TABLE_NAME))
+                                        .get(getTableId(n, tableName))
                                         .internalTable()
                                         .partitionRaftGroupService(partNum) != null
                         );
@@ -825,6 +856,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, int partNum) {
         return Optional.ofNullable(getTableId(node, TABLE_NAME))
+                .map(tableId -> partitionAssignments(node.metaStorageManager, tableId, partNum).join())
+                .orElse(Set.of());
+    }
+
+    private static Set<Assignment> getPartitionClusterNodes(Node node, String tableName, int partNum) {
+        return Optional.ofNullable(getTableId(node, tableName))
                 .map(tableId -> partitionAssignments(node.metaStorageManager, tableId, partNum).join())
                 .orElse(Set.of());
     }
@@ -1286,7 +1323,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         }
 
         @Nullable TablePartitionId getTablePartitionId(WatchEvent event) {
-            //assertTrue(event.single(), event.toString());
+            assertTrue(event.single(), event.toString());
 
             Entry stableAssignmentsWatchEvent = event.entryEvent().newEntry();
 
@@ -1434,7 +1471,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static void alterZone(Node node, String zoneName, int replicas) {
         node.waitForMetadataCompletenessAtNow();
 
-        System.out.println(">>>> Alter zone");
         DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
@@ -1465,6 +1501,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private void checkPartitionNodes(int partitionId, int expNodeCount) {
         for (Node node : nodes) {
             assertEquals(expNodeCount, getPartitionClusterNodes(node, partitionId).size(), node.name);
+        }
+    }
+
+    private void checkPartitionNodes(String tableName, int partitionId, int expNodeCount) {
+        for (Node node : nodes) {
+            assertEquals(expNodeCount, getPartitionClusterNodes(node, tableName, partitionId).size(), node.name);
         }
     }
 }

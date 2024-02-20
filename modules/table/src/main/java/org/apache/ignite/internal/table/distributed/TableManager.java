@@ -1762,14 +1762,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     try {
                         TableImpl table = tables.get(tblId);
 
-                        // Table can be null only recovery, because we use a revision from the future. See comment inside
-                        // performRebalanceOnRecovery.
-                        if (table == null) {
-                            assert false : "Table cannot be null.";
-
-                            return CompletableFutures.<Void>nullCompletedFuture();
-                        }
-
                         if (LOG.isInfoEnabled()) {
                             var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 

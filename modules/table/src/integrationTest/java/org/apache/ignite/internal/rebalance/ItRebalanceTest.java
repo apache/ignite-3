@@ -95,7 +95,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 nodeName(2)
         ), table.tableId());
 
-        BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("value", "value1"));
+        BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("val", "value1"));
         BinaryRowEx key = marshalTuple(table, Tuple.create().set("id", 1));
 
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(nullValue()));
@@ -175,7 +175,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 + "partitions=1, replicas=3, "
                 + "data_nodes_auto_adjust_scale_up=0, "
                 + "data_nodes_auto_adjust_scale_down=0";
-        String sql2 = "create table test (id int primary key, value varchar(20))"
+        String sql2 = "create table test (id int primary key, val varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
