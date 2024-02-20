@@ -92,6 +92,16 @@ TEST_F(schema_synchronization_test, upsert_add_column_upsert_old) {
     tuple_view.upsert(nullptr, val2);
 }
 
+TEST_F(schema_synchronization_test, upsert_add_column_compute) {
+    std::pair key{"ID", std::int32_t(1)};
+    auto val1 = ignite_tuple{key, {"VAL1", std::int32_t(2)}};
+    tuple_view.upsert(nullptr, val1);
+
+    m_client.get_sql().execute(nullptr, {"ALTER TABLE SCHEMA_SYN_TEST ADD COLUMN VAL2 INT"}, {});
+
+    m_client.get_compute().execute_colocated("SCHEMA_SYN_TEST", {key}, {}, NODE_NAME_JOB, {});
+}
+
 TEST_F(schema_synchronization_test, upsert_add_column_upsert_all) {
     auto val1 = ignite_tuple{{"ID", std::int32_t(1)}, {"VAL1", std::int32_t(2)}};
     tuple_view.upsert(nullptr, val1);
@@ -109,4 +119,13 @@ TEST_F(schema_synchronization_test, upsert_add_column_get) {
     m_client.get_sql().execute(nullptr, {"ALTER TABLE SCHEMA_SYN_TEST ADD COLUMN VAL2 INT"}, {});
 
     auto val2 = tuple_view.get(nullptr, {{"ID", std::int32_t(1)}});
+}
+
+TEST_F(schema_synchronization_test, upsert_add_column_get_all) {
+    auto val1 = ignite_tuple{{"ID", std::int32_t(1)}, {"VAL1", std::int32_t(2)}};
+    tuple_view.upsert(nullptr, val1);
+
+    m_client.get_sql().execute(nullptr, {"ALTER TABLE SCHEMA_SYN_TEST ADD COLUMN VAL2 INT"}, {});
+
+    auto val2 = tuple_view.get_all(nullptr, {{{"ID", std::int32_t(1)}}, {{"ID", std::int32_t(2)}}});
 }
