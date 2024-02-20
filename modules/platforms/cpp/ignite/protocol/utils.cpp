@@ -35,9 +35,8 @@ namespace ignite::protocol {
  * Keys are defined here.
  */
 namespace error_extensions {
-    const std::string EXPECTED_SCHEMA_VERSION{"expected-schema-ver"};
+const std::string EXPECTED_SCHEMA_VERSION{"expected-schema-ver"};
 }
-
 
 /**
  * Check if int value fits in @c T.

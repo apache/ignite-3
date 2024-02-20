@@ -21,8 +21,8 @@
 
 #include <cstdint>
 #include <exception>
-#include <string>
 #include <optional>
+#include <string>
 
 namespace ignite {
 

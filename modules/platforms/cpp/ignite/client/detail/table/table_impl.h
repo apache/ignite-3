@@ -122,7 +122,8 @@ public:
 
             auto schema = res.value();
             if (!schema) {
-                handler(ignite_error{"Can not get a schema of version " + std::to_string(version) + " for the table " + m_name});
+                handler(ignite_error{
+                    "Can not get a schema of version " + std::to_string(version) + " for the table " + m_name});
                 return;
             }
 
@@ -138,9 +139,9 @@ public:
      * @param handler Callback to call on error during retrieval of the latest schema.
      */
     template<typename T>
-    void with_proper_schema_async(ignite_callback<T> user_callback,
-        std::function<void(const schema &, ignite_callback<T>)> callback) {
-        auto fail_over = [uc = std::move(user_callback), this, callback] (ignite_result<T> &&res) mutable {
+    void with_proper_schema_async(
+        ignite_callback<T> user_callback, std::function<void(const schema &, ignite_callback<T>)> callback) {
+        auto fail_over = [uc = std::move(user_callback), this, callback](ignite_result<T> &&res) mutable {
             if (res.has_error() && res.error().get_schema_version().has_value()) {
                 auto ver = *res.error().get_schema_version();
                 with_schema_async<T>(ver, std::move(uc), callback);
