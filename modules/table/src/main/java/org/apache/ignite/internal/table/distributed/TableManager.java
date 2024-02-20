@@ -178,6 +178,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
+import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -905,7 +906,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
                 }), ioExecutor)
                 .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
-                    ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
+                    ((InternalTableImpl) internalTbl).tableRaftService()
+                            .updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                     boolean startedRaftNode = startGroupFut.join();
                     if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
@@ -1242,10 +1244,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int partitions = zoneDescriptor.partitions();
 
+        TableRaftServiceImpl tableRaftService = new TableRaftServiceImpl(
+                tableName,
+                partitions,
+                new Int2ObjectOpenHashMap<>(partitions),
+                clusterService.topologyService()
+        );
+
         InternalTableImpl internalTable = new InternalTableImpl(
                 tableName,
                 tableId,
-                new Int2ObjectOpenHashMap<>(partitions),
                 partitions,
                 clusterService.topologyService(),
                 txManager,
@@ -1254,7 +1262,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 replicaSvc,
                 clock,
                 observableTimestampTracker,
-                placementDriver
+                placementDriver,
+                tableRaftService
         );
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get());
@@ -1866,6 +1875,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return localServicesStartFuture.thenRunAsync(
                 () -> tbl.internalTable()
+                        .tableRaftService()
                         .partitionRaftGroupService(replicaGrpId.partitionId())
                         .updateConfiguration(configurationFromAssignments(union(pendingAssignments.nodes(), stableAssignments))),
                 ioExecutor
@@ -1880,7 +1890,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) {
         int partId = replicaGrpId.partitionId();
 
-        RaftGroupService partGrpSvc = table.internalTable().partitionRaftGroupService(partId);
+        RaftGroupService partGrpSvc = table.internalTable().tableRaftService().partitionRaftGroupService(partId);
 
         return partGrpSvc.refreshAndGetLeaderWithTerm()
                 .exceptionally(throwable -> {
@@ -2043,7 +2053,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private PartitionMover createPartitionMover(InternalTable internalTable, int partId) {
-        return new PartitionMover(busyLock, () -> internalTable.partitionRaftGroupService(partId));
+        return new PartitionMover(busyLock, () -> internalTable.tableRaftService().partitionRaftGroupService(partId));
     }
 
     private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
@@ -2189,6 +2199,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // Update raft client peers and learners according to the actual assignments.
         return tablesById(revision).thenAccept(t -> {
             t.get(tablePartitionId.tableId()).internalTable()
+                    .tableRaftService()
                     .partitionRaftGroupService(tablePartitionId.partitionId())
                     .updateConfiguration(configurationFromAssignments(stableAssignments));
         });
