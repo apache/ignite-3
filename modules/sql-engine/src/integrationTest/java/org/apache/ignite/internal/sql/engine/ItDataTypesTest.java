@@ -26,8 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -197,45 +200,127 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT date '1992-01-19'").returns(sqlDate("1992-01-19")).check();
         assertQuery("SELECT date '1992-01-18' + interval (1) days").returns(sqlDate("1992-01-19")).check();
         assertQuery("SELECT date '1992-01-18' + interval (24) hours").returns(sqlDate("1992-01-19")).check();
+        assertQuery("SELECT timestamp '1992-01-18 02:30:00'")
+                .returns(sqlDateTime("1992-01-18T02:30:00")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-01-18 02:30:00'")
+                .returns(sqlTimestamp("1992-01-18T02:30:00")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-01-19T03:30:00")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-01-18 02:30:00' + interval (25) hours")
+                .returns(sqlTimestamp("1992-01-19T03:30:00")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (23) hours")
                 .returns(sqlDateTime("1992-01-19T01:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-01-18 02:30:00' + interval (23) hours")
+                .returns(sqlTimestamp("1992-01-19T01:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (24) hours")
                 .returns(sqlDateTime("1992-01-19T02:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-01-18 02:30:00' + interval (24) hours")
+                .returns(sqlTimestamp("1992-01-19T02:30:00.000")).check();
 
         assertQuery("SELECT date '1992-03-29'").returns(sqlDate("1992-03-29")).check();
         assertQuery("SELECT date '1992-03-28' + interval (1) days").returns(sqlDate("1992-03-29")).check();
         assertQuery("SELECT date '1992-03-28' + interval (24) hours").returns(sqlDate("1992-03-29")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-03-29T03:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-03-28 02:30:00' + interval (25) hours")
+                .returns(sqlTimestamp("1992-03-29T03:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (23) hours")
                 .returns(sqlDateTime("1992-03-29T01:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-03-28 02:30:00' + interval (23) hours")
+                .returns(sqlTimestamp("1992-03-29T01:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (24) hours")
                 .returns(sqlDateTime("1992-03-29T02:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-03-28 02:30:00' + interval (24) hours")
+                .returns(sqlTimestamp("1992-03-29T02:30:00.000")).check();
 
         assertQuery("SELECT date '1992-09-27'").returns(sqlDate("1992-09-27")).check();
         assertQuery("SELECT date '1992-09-26' + interval (1) days").returns(sqlDate("1992-09-27")).check();
         assertQuery("SELECT date '1992-09-26' + interval (24) hours").returns(sqlDate("1992-09-27")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-09-27T03:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-09-26 02:30:00'")
+                .returns(sqlTimestamp("1992-09-26T02:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (23) hours")
                 .returns(sqlDateTime("1992-09-27T01:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-09-26 02:30:00' + interval (23) hours")
+                .returns(sqlTimestamp("1992-09-27T01:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (24) hours")
                 .returns(sqlDateTime("1992-09-27T02:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '1992-09-26 02:30:00' + interval (24) hours")
+                .returns(sqlTimestamp("1992-09-27T02:30:00.000")).check();
 
         assertQuery("SELECT date '2021-11-07'").returns(sqlDate("2021-11-07")).check();
         assertQuery("SELECT date '2021-11-06' + interval (1) days").returns(sqlDate("2021-11-07")).check();
         assertQuery("SELECT date '2021-11-06' + interval (24) hours").returns(sqlDate("2021-11-07")).check();
         assertQuery("SELECT timestamp '2021-11-06 01:30:00' + interval (25) hours")
                 .returns(sqlDateTime("2021-11-07T02:30:00.000")).check();
+        assertQuery("SELECT timestamp with local time zone '2021-11-06 01:30:00' + interval (25) hours")
+                .returns(sqlTimestamp("2021-11-07T02:30:00.000")).check();
         // Check string representation here, since after timestamp calculation we have '2021-11-07T01:30:00.000-0800'
         // but Timestamp.valueOf method converts '2021-11-07 01:30:00' in 'America/Los_Angeles' time zone to
         // '2021-11-07T01:30:00.000-0700' (we pass through '2021-11-07 01:30:00' twice after DST ended).
         assertQuery("SELECT (timestamp '2021-11-06 02:30:00' + interval (23) hours)::varchar")
                 .returns("2021-11-07 01:30:00").check();
+        assertQuery("SELECT (timestamp with local time zone '2021-11-06 02:30:00' + interval (23) hours)::varchar")
+                .withTimeZoneId(ZoneId.of("UTC"))
+                .returns("2021-11-07 01:30:00 UTC").check();
         assertQuery("SELECT (timestamp '2021-11-06 01:30:00' + interval (24) hours)::varchar")
                 .returns("2021-11-07 01:30:00").check();
+        assertQuery("SELECT (timestamp with local time zone '2021-11-06 01:30:00' + interval (24) hours)::varchar")
+                .withTimeZoneId(ZoneId.of("UTC"))
+                .returns("2021-11-07 01:30:00 UTC").check();
+    }
+
+    /**
+     * Checks the conversion from {@link SqlTypeName#TIMESTAMP} to {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE}
+     * and vise versa using dynamic parameters.
+     */
+    @Test
+    public void testTimestampConversion() {
+        String date = "1970-01-01";
+        String time = "00:00:00.056";
+
+        String tsStr = date + ' ' + time;
+        String isoStr = date + 'T' + time;
+
+        sql("CREATE TABLE timestamps(id INT PRIMARY KEY, ts TIMESTAMP, ts_tz TIMESTAMP WITH LOCAL TIME ZONE)");
+
+        ZoneId zoneId = ZoneId.of("America/New_York");
+
+        LocalDateTime localDateTime = LocalDateTime.parse(isoStr);
+        Instant instant = localDateTime.atZone(zoneId).toInstant();
+
+        assertQuery(format("INSERT INTO timestamps VALUES(1, '{}', '{}')", tsStr, tsStr))
+                .withTimeZoneId(zoneId)
+                .returns(1L)
+                .check();
+        assertQuery("SELECT ts, ts_tz FROM timestamps WHERE id=?")
+                .withParam(1)
+                .returns(localDateTime, instant)
+                .check();
+
+        // Instant -> LocalDateTime
+        assertQuery("INSERT INTO timestamps VALUES(2, ?, ?)")
+                .withTimeZoneId(zoneId)
+                .withParams(instant, instant)
+                .returns(1L)
+                .check();
+        assertQuery("SELECT ts, ts_tz FROM timestamps WHERE id=?")
+                .withParam(2)
+                .returns(localDateTime, instant)
+                .check();
+
+        // LocalDateTime -> Instant
+        assertQuery("INSERT INTO timestamps VALUES(3, ?, ?)")
+                .withTimeZoneId(zoneId)
+                .withParams(localDateTime, localDateTime)
+                .returns(1L)
+                .check();
+        assertQuery("SELECT ts, ts_tz FROM timestamps WHERE id=?")
+                .withParam(3)
+                // TODO Conversion loses precision https://issues.apache.org/jira/browse/IGNITE-21567
+                .returns(localDateTime, instant.truncatedTo(ChronoUnit.SECONDS))
+                .check();
     }
 
     /** Test decimal scale for dynamic parameters. */
@@ -695,5 +780,9 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     private LocalDateTime sqlDateTime(String str) {
         return LocalDateTime.parse(str);
+    }
+
+    private Instant sqlTimestamp(String str) {
+        return sqlDateTime(str).atZone(ZoneId.systemDefault()).toInstant();
     }
 }

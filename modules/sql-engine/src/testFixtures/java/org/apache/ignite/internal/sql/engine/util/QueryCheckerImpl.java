@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Type;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -67,10 +68,6 @@ import org.jetbrains.annotations.Nullable;
 abstract class QueryCheckerImpl implements QueryChecker {
     private static final IgniteLogger LOG = Loggers.forClass(QueryCheckerImpl.class);
 
-    private static final SqlProperties PROPERTIES = SqlPropertiesHelper.newBuilder()
-            .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-            .build();
-
     private final QueryTemplate queryTemplate;
 
     private final ArrayList<Matcher<String>> planMatchers = new ArrayList<>();
@@ -84,6 +81,8 @@ abstract class QueryCheckerImpl implements QueryChecker {
     private boolean ordered;
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
+
+    private ZoneId timeZoneId = ZoneId.systemDefault();
 
     private final @Nullable InternalTransaction tx;
 
@@ -136,6 +135,19 @@ abstract class QueryCheckerImpl implements QueryChecker {
     @Override
     public QueryChecker withParam(Object param) {
         return this.withParams(param);
+    }
+
+    /**
+     * Set client time zone for query.
+     *
+     * @param zoneId Zone ID.
+     * @return This.
+     */
+    @Override
+    public QueryChecker withTimeZoneId(ZoneId zoneId) {
+        this.timeZoneId = zoneId;
+
+        return this;
     }
 
     /**
@@ -283,14 +295,18 @@ abstract class QueryCheckerImpl implements QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
+        SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                .set(QueryProperty.LOCAL_TIME_ZONE_ID, timeZoneId)
+                .build();
+
         String qry = queryTemplate.createQuery();
 
         LOG.info("Executing query: {}", qry);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
-
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.querySingleAsync(
-                    PROPERTIES, transactions(), tx, "EXPLAIN PLAN FOR " + qry, params);
+                    properties, transactions(), tx, "EXPLAIN PLAN FOR " + qry, params);
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
             List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
 
@@ -305,7 +321,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check column metadata only.
         if (resultChecker == null && metadataMatchers != null) {
-            QueryMetadata queryMetadata = await(qryProc.prepareSingleAsync(PROPERTIES, tx, qry, params));
+            QueryMetadata queryMetadata = await(qryProc.prepareSingleAsync(properties, tx, qry, params));
 
             assertNotNull(queryMetadata);
 
@@ -316,7 +332,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
-                qryProc.querySingleAsync(PROPERTIES, transactions(), tx, qry, params);
+                qryProc.querySingleAsync(properties, transactions(), tx, qry, params);
 
         AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 
