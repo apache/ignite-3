@@ -851,7 +851,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
                 // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
                 return Expressions.call(
-                        IgniteMethod.TIMESTAMP_AT_TIME_ZONE.method(),
+                        IgniteMethod.LOCAL_TIMESTAMP_TO_UTC.method(),
                         Expressions.constant(val, long.class),
                         Expressions.call(BuiltInMethod.TIME_ZONE.method, DataContext.ROOT)
                 );

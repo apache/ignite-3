@@ -556,8 +556,8 @@ public class IgniteSqlFunctions {
         return args1;
     }
 
-    /** Returns the timestamp value minus specified timezone offset. */
-    public static Long timestampAtTimeZone(Long timestamp, TimeZone timeZone) {
+    /** Returns the timestamp value minus the offset of the specified timezone. */
+    public static Long localTimestampToUtc(Long timestamp, TimeZone timeZone) {
         // A second offset calculation is required to handle DST transition period correctly.
         int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
 
