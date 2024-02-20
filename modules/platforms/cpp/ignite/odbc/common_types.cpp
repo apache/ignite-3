@@ -276,6 +276,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::PRIMARY_REPLICA_RESOLVE:
         case error::code::CHANGE_JOB_PRIORITY_JOB_EXECUTING:
         case error::code::CHANGE_JOB_PRIORITY:
+        case error::code::NODE_NOT_FOUND:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17
