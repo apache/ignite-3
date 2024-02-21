@@ -133,7 +133,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         AtomicBoolean primaryChanged = new AtomicBoolean();
 
-        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
             primaryChanged.set(true);
 
             return falseCompletedFuture();
@@ -166,7 +166,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<Boolean> primaryChangedHandling = new CompletableFuture<>();
 
-        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> primaryChangedHandling);
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> primaryChangedHandling);
 
         log.info("Primary replica is: " + primary);
 

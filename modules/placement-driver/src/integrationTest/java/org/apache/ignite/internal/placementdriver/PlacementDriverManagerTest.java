@@ -343,7 +343,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         ConcurrentHashMap<String, HybridTimestamp> electedEvts = new ConcurrentHashMap<>(2);
         ConcurrentHashMap<String, HybridTimestamp> expiredEvts = new ConcurrentHashMap<>(2);
 
-        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (evt, e) -> {
+        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, evt -> {
             log.info("Primary replica is elected [grp={}]", evt.groupId());
 
             electedEvts.put(evt.leaseholderId(), evt.startTime());
@@ -351,7 +351,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             return falseCompletedFuture();
         });
 
-        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
             log.info("Primary replica is expired [grp={}]", evt.groupId());
 
             expiredEvts.put(evt.leaseholderId(), evt.startTime());
@@ -464,7 +464,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 groupIds.stream().collect(Collectors.toMap(id -> id, id -> new AtomicBoolean()));
 
         groupIds.forEach(groupId -> {
-            placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+            placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
                 log.info("Primary replica is expired [grp={}]", groupId);
 
                 leaseExpirationMap.get(groupId).set(true);

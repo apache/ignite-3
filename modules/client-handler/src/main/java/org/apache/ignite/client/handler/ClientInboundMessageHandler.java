@@ -910,7 +910,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     @Override
-    public CompletableFuture<Boolean> notify(AuthenticationEventParameters parameters, @Nullable Throwable exception) {
+    public CompletableFuture<Boolean> notify(AuthenticationEventParameters parameters) {
         if (shouldCloseConnection(parameters)) {
             LOG.warn("Closing connection due to authentication event [connectionId=" + connectionId + ", remoteAddress="
                     + channelHandlerContext.channel().remoteAddress() + ", event=" + parameters.type() + ']');
