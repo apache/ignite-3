@@ -656,13 +656,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private CompletableFuture<PrimaryReplicaEventParameters> listenReplicaBecomePrimaryEvent(@Nullable ReplicationGroupId groupId) {
         var eventParametersFuture = new CompletableFuture<PrimaryReplicaEventParameters>();
 
-        placementDriver.listen(PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
+        placementDriver.listen(PRIMARY_REPLICA_ELECTED, parameters -> {
             if (groupId == null || groupId.equals(parameters.groupId())) {
-                if (exception != null) {
-                    eventParametersFuture.completeExceptionally(exception);
-                } else {
-                    eventParametersFuture.complete(parameters);
-                }
+                eventParametersFuture.complete(parameters);
             }
 
             return falseCompletedFuture();

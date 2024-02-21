@@ -135,7 +135,7 @@ public class OrphanDetector {
     /**
      * Sends {@link TxRecoveryMessage} if the transaction is orphaned.
      */
-    private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
+    private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params) {
         if (busyLock.enterBusy()) {
             try {
                 return checkTxOrphanedInternal(params.lockHolderTx());

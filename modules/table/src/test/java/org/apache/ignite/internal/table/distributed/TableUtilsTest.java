@@ -69,6 +69,12 @@ public class TableUtilsTest extends IgniteAbstractTest {
                 createSimpleHashIndex(catalogManager, TABLE_NAME, indexName);
             }
 
+            int indexId0 = indexId(catalogManager, indexName0);
+            int indexId1 = indexId(catalogManager, indexName1);
+            int indexId2 = indexId(catalogManager, indexName2);
+            int indexId3 = indexId(catalogManager, indexName3);
+            int indexId4 = indexId(catalogManager, indexName4);
+
             for (String indexName : List.of(indexName1, indexName2, indexName3, indexName4)) {
                 startBuildingIndex(catalogManager, indexId(catalogManager, indexName));
             }
@@ -81,7 +87,7 @@ public class TableUtilsTest extends IgniteAbstractTest {
                 dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
             }
 
-            removeIndex(catalogManager, indexName4);
+            removeIndex(catalogManager, indexId4);
 
             CatalogManager spy = spy(catalogManager);
 
@@ -93,10 +99,10 @@ public class TableUtilsTest extends IgniteAbstractTest {
                     indexIdsAtRwTxBeginTs(spy, transactionId(beginTs, 1), tableId),
                     contains(
                             indexId(catalogManager, pkIndexName(TABLE_NAME)),
-                            indexId(catalogManager, indexName0),
-                            indexId(catalogManager, indexName1),
-                            indexId(catalogManager, indexName2),
-                            indexId(catalogManager, indexName3)
+                            indexId0,
+                            indexId1,
+                            indexId2,
+                            indexId3
                     )
             );
 

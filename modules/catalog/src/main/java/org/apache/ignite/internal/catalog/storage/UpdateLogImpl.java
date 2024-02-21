@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -54,7 +55,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -114,7 +114,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             recoveryStateFromMetastore(handler);
 
-            UpdateListener listener = new UpdateListener(onUpdateHandler, marshaller);
+            UpdateListener listener = new UpdateListener(handler, marshaller);
             this.listener = listener;
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
@@ -196,7 +196,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             if (oldSnapshotVersion >= snapshotVersion) {
                 // Nothing to do.
-                return CompletableFutures.trueCompletedFuture();
+                return falseCompletedFuture();
             }
 
             Condition versionIsRecent = or(
