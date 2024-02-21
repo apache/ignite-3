@@ -20,6 +20,7 @@ package org.apache.ignite.internal.failure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
@@ -37,6 +38,9 @@ public class FailureProcessor implements IgniteComponent {
     /** Failure log message. */
     static final String FAILURE_LOG_MSG = "Critical system error detected. "
             + "Will be handled accordingly to configured handler ";
+
+    /** Ignored failure log message. */
+    static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed accordingly to a configured handler ";
 
     /** Handler. */
     private final FailureHandler handler;
@@ -115,7 +119,11 @@ public class FailureProcessor implements IgniteComponent {
             return false;
         }
 
-        LOG.error(FAILURE_LOG_MSG + "[hnd=" + handler + ", failureCtx=" + failureCtx + ']', failureCtx.error());
+        if (failureTypeIgnored(failureCtx, handler)) {
+            LOG.warn(IGNORED_FAILURE_LOG_MSG + "[hnd=" + handler + ", failureCtx=" + failureCtx + ']', failureCtx.error());
+        } else {
+            LOG.error(FAILURE_LOG_MSG + "[hnd=" + handler + ", failureCtx=" + failureCtx + ']', failureCtx.error());
+        }
 
         boolean invalidated = handler.onFailure(nodeName, failureCtx);
 
@@ -124,5 +132,16 @@ public class FailureProcessor implements IgniteComponent {
         }
 
         return invalidated;
+    }
+
+    /**
+     * Returns {@code true} if the given failure type is ignored by the given handler.
+     *
+     * @param failureCtx Failure context.
+     * @param handler Handler.
+     */
+    private static boolean failureTypeIgnored(FailureContext failureCtx, FailureHandler handler) {
+        return handler instanceof AbstractFailureHandler
+                && ((AbstractFailureHandler) handler).ignoredFailureTypes().contains(failureCtx.type());
     }
 }

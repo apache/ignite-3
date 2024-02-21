@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.failure;
 
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_CRITICAL_OPERATION_TIMEOUT;
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -26,6 +29,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
@@ -45,6 +49,23 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
             verify(handler, times(1)).onFailure(anyString(), any());
+        } finally {
+            failureProcessor.stop();
+        }
+    }
+
+    @Test
+    void testIgnoredFailureTypes() {
+        FailureHandler handler = new NoOpFailureHandler();
+
+        FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
+
+        assertThat(failureProcessor.start(), willSucceedFast());
+
+        try {
+            assertThat(failureProcessor.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null)), is(false));
+
+            assertThat(failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, null)), is(false));
         } finally {
             failureProcessor.stop();
         }

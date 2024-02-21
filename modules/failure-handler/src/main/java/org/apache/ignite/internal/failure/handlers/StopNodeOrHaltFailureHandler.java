@@ -28,7 +28,7 @@ import org.apache.ignite.internal.tostring.S;
  * If node can't be stopped during provided {@code timeout} or {@code tryStop} value is {@code false}
  * then JVM process will be terminated forcibly using {@code Runtime.getRuntime().halt()}.
  */
-public class StopNodeOrHaltFailureHandler implements FailureHandler {
+public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
     /**
      * This is kill code that can be used by external tools, like Shell scripts,
      * to auto-stop the Ignite JVM process without restarting.
@@ -60,7 +60,7 @@ public class StopNodeOrHaltFailureHandler implements FailureHandler {
     }
 
     @Override
-    public boolean onFailure(String nodeName, FailureContext failureCtx) {
+    protected boolean handle(String nodeName, FailureContext failureCtx) {
         if (tryStop) {
             CountDownLatch latch = new CountDownLatch(1);
 
