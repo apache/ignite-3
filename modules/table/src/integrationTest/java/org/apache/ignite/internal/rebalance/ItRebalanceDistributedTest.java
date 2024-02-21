@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -87,6 +86,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -165,6 +165,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -188,7 +189,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -419,7 +419,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         Node newNode = nodes.stream().filter(n -> !partitionNodesConsistentIds.contains(n.name)).findFirst().orElseThrow();
 
-        Node leaderNode = findNodeByConsistentId(table.leaderAssignment(0).name());
+        Node leaderNode = findNodeByConsistentId(table.tableRaftService().leaderAssignment(0).name());
 
         String nonLeaderNodeConsistentId = partitionNodesConsistentIds.stream()
                 .filter(n -> !n.equals(leaderNode.name))
@@ -452,8 +452,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(countDownLatch.await(10, SECONDS));
 
+        TableRaftService tableRaftService = nonLeaderTable.internalTable().tableRaftService();
+
         assertThat(
-                nonLeaderTable.internalTable().partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeConsistentId)),
+                tableRaftService.partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeConsistentId)),
                 willCompleteSuccessfully()
         );
 
@@ -662,7 +664,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-            byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
+            byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
 
             node.metaStorageManager
                     .put(partAssignmentsPendingKey, bytesPendingAssignments)
@@ -682,6 +684,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                 .latestTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
+                                .tableRaftService()
                                 .partitionRaftGroupService(0)
                                 .peers()
                                 .equals(List.of(new Peer(newNodeNameForAssignment)))),
@@ -719,7 +722,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-        byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
+        byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
 
         AtomicBoolean stopDropping = new AtomicBoolean(true);
 
@@ -737,6 +740,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                 .latestTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
+                                .tableRaftService()
                                 .partitionRaftGroupService(0)
                                 .peers()
                                 .stream()
@@ -776,8 +780,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> pendingAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 2);
         Set<Assignment> plannedAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 3);
 
-        byte[] bytesPendingAssignments = ByteUtils.toBytes(pendingAssignments);
-        byte[] bytesPlannedAssignments = ByteUtils.toBytes(plannedAssignments);
+        byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments);
+        byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments);
 
         Node node0 = getNode(0);
 
@@ -821,6 +825,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                         .latestTables()
                                         .get(getTableId(n, tableName))
                                         .internalTable()
+                                        .tableRaftService()
                                         .partitionRaftGroupService(partNum) != null
                         );
                     } catch (IgniteInternalException e) {
@@ -883,7 +888,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     ) {
         return metaStorageManager
                 .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : fromBytes(e.value()));
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     private static CompletableFuture<Set<Assignment>> partitionPlannedAssignments(
@@ -893,7 +898,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     ) {
         return metaStorageManager
                 .get(plannedPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : fromBytes(e.value()));
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     private class Node {
@@ -1074,7 +1079,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
-                    hybridClock
+                    hybridClock, name,
+                    threadPoolsManager.partitionOperationsExecutor()
             );
 
             txManager = new TxManagerImpl(

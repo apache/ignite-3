@@ -3721,6 +3721,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .indexId(request.indexId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())
+                .creationCatalogVersion(request.creationCatalogVersion())
                 .build();
     }
 
@@ -3772,17 +3773,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         CatalogIndexDescriptor indexDescriptor = latestIndexDescriptorInBuildingStatus(catalogService, tableId());
 
         if (indexDescriptor != null) {
-            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.txWaitCatalogVersion());
         }
 
         catalogService.listen(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
     }
 
-    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters, @Nullable Throwable exception) {
-        if (exception != null) {
-            return failedFuture(exception);
-        }
-
+    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters) {
         if (!busyLock.enterBusy()) {
             return trueCompletedFuture();
         }
@@ -3795,7 +3792,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
 
             if (indexDescriptor.tableId() == tableId()) {
-                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.txWaitCatalogVersion());
             }
 
             return falseCompletedFuture();

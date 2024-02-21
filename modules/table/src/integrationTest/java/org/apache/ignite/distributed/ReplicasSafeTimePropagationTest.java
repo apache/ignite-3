@@ -67,6 +67,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -115,6 +116,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
      * </ol>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21565")
     public void testSafeTimeReorderingOnLeaderReElection() throws Exception {
         // Start three nodes and a raft group with three peers.
         {

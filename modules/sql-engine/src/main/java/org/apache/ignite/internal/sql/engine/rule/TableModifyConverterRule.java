@@ -41,21 +41,19 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.util.IgniteIntList;
 
 /**
- * TableModifyConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Rule that translates logical modify to the similar one but in Ignite's convention.
  */
 public class TableModifyConverterRule extends AbstractIgniteConverterRule<LogicalTableModify> {
     public static final RelOptRule INSTANCE = new TableModifyConverterRule();
@@ -81,19 +79,9 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
             // To perform the delete, we need a row with key fields only.
             // Input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
             // Here we adjusting distribution keys so that a row containing only the key fields can be read.
-            IgniteIntList keyFields = new IgniteIntList();
+            ImmutableIntList keyColumns = igniteTable.keyColumns();
 
-            for (int i = 0; i < igniteTable.descriptor().columnsCount(); i++) {
-                ColumnDescriptor column = igniteTable.descriptor().columnDescriptor(i);
-
-                if (column.key()) {
-                    keyFields.add(column.logicalIndex());
-                }
-            }
-
-            ImmutableBitSet keysBitSet = ImmutableBitSet.of(keyFields.array());
-
-            distribution = distribution.apply(Commons.trimmingMapping(keysBitSet.size(), keysBitSet));
+            distribution = distribution.apply(Commons.projectedMapping(igniteTable.descriptor().columnsCount(), keyColumns));
         }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)

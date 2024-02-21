@@ -61,7 +61,6 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -1388,18 +1387,12 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     private void registerCatalogEventListenersOnStartManagerBusy() {
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> inBusyLock(busyLock, () -> {
-            assert exception == null : parameters;
-
-            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
-
-            return onCreateZone(params.zoneDescriptor(), params.causalityToken()).thenApply((ignored) -> false);
+        catalogManager.listen(ZONE_CREATE, (CreateZoneEventParameters parameters) -> inBusyLock(busyLock, () -> {
+            return onCreateZone(parameters.zoneDescriptor(), parameters.causalityToken()).thenApply((ignored) -> false);
         }));
 
-        catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(busyLock, () -> {
-            assert exception == null : parameters;
-
-            return onDropZoneBusy((DropZoneEventParameters) parameters).thenCompose((ignored) -> falseCompletedFuture());
+        catalogManager.listen(ZONE_DROP, (DropZoneEventParameters parameters) -> inBusyLock(busyLock, () -> {
+            return onDropZoneBusy(parameters).thenApply((ignored) -> false);
         }));
 
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());

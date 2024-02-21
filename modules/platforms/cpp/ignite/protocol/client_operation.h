@@ -121,6 +121,9 @@ enum class client_operation {
 
     /** SQL query metadata. */
     SQL_QUERY_META = 57,
+
+    /** Execute SQL query with the parameters batch. */
+    SQL_EXEC_BATCH = 63,
 };
 
 } // namespace ignite::protocol

@@ -149,9 +149,18 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
 
         if (requiredColumns != null) {
             Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
-                    rowType.getFieldCount(), requiredColumns);
+                    rowType.getFieldCount(), requiredColumns
+            );
+
+            RelCollation beforeTrimming = collation;
 
             collation = collation.apply(targetMapping);
+
+            if (collation.getFieldCollations().size() != beforeTrimming.getFieldCollations().size()) {
+                // some columns used in the key were trimmed out. There is no chance to compose
+                // proper search bound
+                return null;
+            }
         }
 
         return RexUtils.buildHashSearchBounds(

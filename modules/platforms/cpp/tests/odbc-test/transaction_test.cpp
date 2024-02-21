@@ -354,6 +354,10 @@ TEST_F(transaction_test, transaction_connection_rollback_update_2) {
 
     check_test_value(42, "Some");
 
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+
     update_test_value(42, "Other");
 
     check_test_value(42, "Other");
@@ -403,6 +407,10 @@ TEST_F(transaction_test, transaction_connection_rollback_delete_2) {
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
     check_test_value(42, "Some");
+
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
     delete_test_value(42);
 
@@ -490,6 +498,10 @@ TEST_F(transaction_test, transaction_environment_rollback_update_2) {
 
     check_test_value(42, "Some");
 
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+
     update_test_value(42, "Other");
 
     check_test_value(42, "Other");
@@ -539,6 +551,10 @@ TEST_F(transaction_test, transaction_environment_rollback_delete_2) {
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_ENV, m_env);
 
     check_test_value(42, "Some");
+
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
     delete_test_value(42);
 

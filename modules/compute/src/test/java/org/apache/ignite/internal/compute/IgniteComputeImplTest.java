@@ -98,6 +98,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setupMocks() {
         lenient().when(topologyService.localMember()).thenReturn(localNode);
+        lenient().when(topologyService.getByConsistentId(localNode.name())).thenReturn(localNode);
+        lenient().when(topologyService.getByConsistentId(remoteNode.name())).thenReturn(remoteNode);
     }
 
     @Test

@@ -2881,7 +2881,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(hashIndexDescriptor.id()).thenReturn(indexId);
         when(hashIndexDescriptor.tableId()).thenReturn(TABLE_ID);
         when(hashIndexDescriptor.status()).thenReturn(BUILDING);
-        when(hashIndexDescriptor.creationCatalogVersion()).thenReturn(1);
+        when(hashIndexDescriptor.txWaitCatalogVersion()).thenReturn(1);
 
         when(catalogService.index(eq(indexId), anyInt())).thenReturn(hashIndexDescriptor);
 
