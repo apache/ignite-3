@@ -65,8 +65,6 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.PartitionMover;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -255,7 +253,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             Condition condition = value(tablesCounterKey(zoneId, partId)).eq(counterEntry.value());
 
-            byte[] stableArray = ByteUtils.toBytes(stable);
+            byte[] stableArray = Assignments.toBytes(stable);
 
             Update successCase = ops(
                     put(tablesCounterKey(zoneId, partId), intToBytes(--counter)),
@@ -465,11 +463,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 Condition con5;
                 if (plannedEntry.value() != null) {
                     // eq(revision(partition.assignments.planned), plannedEntry.revision)
-                    con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
-//                    con5 = and(
-//                            revision(plannedPartAssignmentsKey).eq(plannedEntry.revision()),
-//                            value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray)
-//                    );
+                    //con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
+                    con5 = and(
+                            revision(plannedPartAssignmentsKey).eq(plannedEntry.revision()),
+                            value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray)
+                    );
 
                     successCase = ops(
                             put(stablePartAssignmentsKey, Assignments.toBytes(stableFromRaft)),
@@ -480,8 +478,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     failCase = ops().yield(SCHEDULE_PENDING_REBALANCE_FAIL);
                 } else {
                     // notExists(partition.assignments.planned)
-                    con5 = notExists(plannedPartAssignmentsKey);
-                    //con5 = and(notExists(plannedPartAssignmentsKey), value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray));
+                    //con5 = notExists(plannedPartAssignmentsKey);
+                    con5 = and(notExists(plannedPartAssignmentsKey), value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray));
 
                     successCase = ops(
                             put(stablePartAssignmentsKey, Assignments.toBytes(stableFromRaft)),

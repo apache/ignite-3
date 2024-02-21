@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterPrefixKey;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -47,6 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -277,7 +277,7 @@ public class DistributionZoneRebalanceEngine {
 
                             entriesMap.forEach((key, stable) -> {
                                 doOnNewPeersConfigurationApplied(
-                                        fromBytes(stable.value()),
+                                        Assignments.fromBytes(stable.value()).nodes(),
                                         partitionTablesKeys.get(key),
                                         metaStorageManager,
                                         catalogService,
