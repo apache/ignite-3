@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 
 import java.util.List;
@@ -57,11 +58,7 @@ public class RemoveIndexCommand implements CatalogCommand {
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
-        CatalogIndexDescriptor index = catalog.index(indexId);
-
-        if (index == null) {
-            return List.of();
-        }
+        CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
 
         if (index.status() != STOPPING) {
             throw new CatalogValidationException("Cannot remove index {} because its status is {}", indexId, index.status());
