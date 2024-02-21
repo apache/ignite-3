@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.catalog.events;
 
 /** {@link CatalogEvent#INDEX_BUILDING} event parameters. */
-public class StartBuildingIndexEventParameters extends CatalogEventParameters {
-    private final int indexId;
-
+public class StartBuildingIndexEventParameters extends IndexEventParameters {
     /**
      * Constructor.
      *
@@ -29,13 +27,6 @@ public class StartBuildingIndexEventParameters extends CatalogEventParameters {
      * @param indexId Index ID.
      */
     public StartBuildingIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
-        super(causalityToken, catalogVersion);
-
-        this.indexId = indexId;
-    }
-
-    /** Returns index ID. */
-    public int indexId() {
-        return indexId;
+        super(causalityToken, catalogVersion, indexId);
     }
 }

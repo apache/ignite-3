@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTa
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexDescriptor;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.startBuildingIndex;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -57,8 +58,11 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -89,9 +93,9 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/** For {@link IndexBuildingStarterTask} testing. */
+/** For {@link ChangeIndexStatusTask} testing. */
 @ExtendWith(MockitoExtension.class)
-public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
+public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -113,7 +117,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
     @Mock(strictness = LENIENT)
     private LogicalTopologyService logicalTopologyService;
 
-    private IndexBuildingStarterTask task;
+    private ChangeIndexStatusTask task;
 
     private CatalogIndexDescriptor indexDescriptor;
 
@@ -140,7 +144,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
         when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(logicalTopologySnapshotFuture);
 
-        task = new IndexBuildingStarterTask(
+        task = new ChangeIndexStatusTask(
                 indexDescriptor,
                 catalogManager,
                 placementDriver,
@@ -150,7 +154,12 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
                 clockWaiter,
                 executor,
                 busyLock
-        );
+        ) {
+            @Override
+            CatalogCommand switchIndexStatusCommand() {
+                return StartBuildingIndexCommand.builder().indexId(indexDescriptor.id()).build();
+            }
+        };
     }
 
     @AfterEach
@@ -212,7 +221,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
                 awaitPrimaryReplicaFuture1
         );
 
-        assertThat(task.start(), willCompleteSuccessfully());
+        assertThat(task.start(), willThrow(IndexTaskStoppingException.class));
         assertEquals(REGISTERED, actualIndexStatus());
 
         verify(placementDriver, times(2)).awaitPrimaryReplica(any(), any(), anyLong(), any());
@@ -229,7 +238,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
                 awaitPrimaryReplicaFuture1
         );
 
-        assertThat(task.start(), willCompleteSuccessfully());
+        assertThat(task.start(), willThrow(PrimaryReplicaAwaitException.class));
         assertEquals(REGISTERED, actualIndexStatus());
 
         verify(placementDriver, times(2)).awaitPrimaryReplica(any(), any(), anyLong(), any());
@@ -285,13 +294,12 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
 
     @Test
     void testFailedSendIsNodeFinishedRwTransactionsStartedBeforeRequest() {
-        CompletableFuture<NetworkMessage> invokeFuture = failedFuture(new Exception());
-
-        when(clusterService.messagingService().invoke(any(ClusterNode.class), any(), anyLong())).thenReturn(invokeFuture);
+        when(clusterService.messagingService().invoke(any(ClusterNode.class), any(), anyLong()))
+                .thenReturn(failedFuture(new Exception("test")));
 
         clearInvocations(clockWaiter);
 
-        assertThat(task.start(), willCompleteSuccessfully());
+        assertThat(task.start(), willThrow(Exception.class, "test"));
         assertEquals(REGISTERED, actualIndexStatus());
 
         verify(clusterService.messagingService(), times(1)).invoke(any(ClusterNode.class), any(), anyLong());
@@ -302,7 +310,7 @@ public class IndexBuildingStarterTaskTest extends IgniteAbstractTest {
     void testIndexAlreadyInBuildingStatus() {
         startBuildingIndex(catalogManager, indexDescriptor.id());
 
-        assertThat(task.start(), willCompleteSuccessfully());
+        assertThat(task.start(), willThrow(ChangeIndexStatusValidationException.class));
         assertEquals(BUILDING, actualIndexStatus());
     }
 

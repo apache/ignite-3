@@ -72,7 +72,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogIndexDescriptor index(String indexName, long timestamp) {
+    public CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
         return null;
     }
 

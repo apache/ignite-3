@@ -37,7 +37,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRI
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.net.ConnectException;
 import java.nio.ByteBuffer;
@@ -47,8 +46,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -63,19 +60,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -129,9 +121,6 @@ public class InternalTableImpl implements InternalTable {
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
-    /** Map update guarded by {@link #updatePartitionMapsMux}. */
-    protected volatile Int2ObjectMap<RaftGroupService> raftGroupServiceByPartitionId;
-
     /** Partitions. */
     private final int partitions;
 
@@ -177,12 +166,14 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
+    /** Table raft service. */
+    private final TableRaftServiceImpl tableRaftService;
+
     /**
      * Constructor.
      *
      * @param tableName Table name.
      * @param tableId Table id.
-     * @param partMap Map partition id to raft group.
      * @param partitions Partitions.
      * @param clusterNodeResolver Cluster node resolver.
      * @param txManager Transaction manager.
@@ -191,11 +182,11 @@ public class InternalTableImpl implements InternalTable {
      * @param replicaSvc Replica service.
      * @param clock A hybrid logical clock.
      * @param placementDriver Placement driver.
+     * @param tableRaftService Table raft service.
      */
     public InternalTableImpl(
             String tableName,
             int tableId,
-            Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
@@ -204,11 +195,11 @@ public class InternalTableImpl implements InternalTable {
             ReplicaService replicaSvc,
             HybridClock clock,
             HybridTimestampTracker observableTimestampTracker,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            TableRaftServiceImpl tableRaftService
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
-        this.raftGroupServiceByPartitionId = partMap;
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
@@ -219,6 +210,7 @@ public class InternalTableImpl implements InternalTable {
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+        this.tableRaftService = tableRaftService;
     }
 
     /** {@inheritDoc} */
@@ -247,7 +239,14 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public void name(String newName) {
+        tableRaftService.name(newName);
+
         this.tableName = newName;
+    }
+
+    @Override
+    public TableRaftServiceImpl tableRaftService() {
+        return tableRaftService;
     }
 
     /**
@@ -800,10 +799,10 @@ public class InternalTableImpl implements InternalTable {
             ClusterNode recipientNode
     ) {
         int partId = partitionId(keyRow);
-        ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
         return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowPkReplicaRequest()
-                .groupId(partGroupId)
+                .groupId(tablePartitionId)
                 .schemaVersion(keyRow.schemaVersion())
                 .primaryKey(keyRow.tupleSlice())
                 .requestType(RequestType.RO_GET)
@@ -882,10 +881,10 @@ public class InternalTableImpl implements InternalTable {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-            ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partitionRowBatch.getIntKey()).groupId();
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionRowBatch.getIntKey());
 
             ReadOnlyMultiRowPkReplicaRequest request = tableMessagesFactory.readOnlyMultiRowPkReplicaRequest()
-                    .groupId(partGroupId)
+                    .groupId(tablePartitionId)
                     .schemaVersion(partitionRowBatch.getValue().requestedRows.get(0).schemaVersion())
                     .primaryKeys(serializeBinaryTuples(partitionRowBatch.getValue().requestedRows))
                     .requestType(RequestType.RO_GET_ALL)
@@ -1327,13 +1326,14 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude);
+        return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude);
     }
 
     @Override
@@ -1347,7 +1347,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(
+        return readWriteScan(
                 partId,
                 txId,
                 commitPartition,
@@ -1365,6 +1365,7 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
@@ -1373,11 +1374,53 @@ public class InternalTableImpl implements InternalTable {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, readTimestamp, recipientNode, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+        return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
     }
 
-    private Publisher<BinaryRow> scan(
+    @Override
+    public Publisher<BinaryRow> scan(
             int partId,
+            @Nullable InternalTransaction tx,
+            @Nullable Integer indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return readWriteScan(partId, tx, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+    }
+
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
+            UUID txId,
+            TablePartitionId commitPartition,
+            String coordinatorId,
+            PrimaryReplica recipient,
+            @Nullable Integer indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return readWriteScan(
+                partId,
+                txId,
+                commitPartition,
+                coordinatorId,
+                recipient,
+                indexId,
+                null,
+                lowerBound,
+                upperBound,
+                flags,
+                columnsToInclude
+        );
+    }
+
+    private Publisher<BinaryRow> readOnlyScan(
+            int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
@@ -1389,14 +1432,12 @@ public class InternalTableImpl implements InternalTable {
     ) {
         validatePartitionIndex(partId);
 
-        UUID txId = UUID.randomUUID();
-
-        ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
                     ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
-                            .groupId(partGroupId)
+                            .groupId(tablePartitionId)
                             .readTimestampLong(readTimestamp.longValue())
                             // TODO: IGNITE-17666 Close cursor tx finish.
                             .transactionId(txId)
@@ -1413,24 +1454,11 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (intentionallyClose, fut) -> completeScan(txId, partGroupId, fut, recipientNode, intentionallyClose)
+                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipientNode, intentionallyClose)
         );
     }
 
-    @Override
-    public Publisher<BinaryRow> scan(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return scan(partId, tx, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
-    }
-
-    private Publisher<BinaryRow> scan(
+    private Publisher<BinaryRow> readWriteScan(
             int partId,
             @Nullable InternalTransaction tx,
             @Nullable Integer indexId,
@@ -1491,36 +1519,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
-
-    @Override
-    public Publisher<BinaryRow> scan(
-            int partId,
-            UUID txId,
-            TablePartitionId commitPartition,
-            String coordinatorId,
-            PrimaryReplica recipient,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return scan(
-                partId,
-                txId,
-                commitPartition,
-                coordinatorId,
-                recipient,
-                indexId,
-                null,
-                lowerBound,
-                upperBound,
-                flags,
-                columnsToInclude
-        );
-    }
-
-    private Publisher<BinaryRow> scan(
+    private Publisher<BinaryRow> readWriteScan(
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
@@ -1533,12 +1532,12 @@ public class InternalTableImpl implements InternalTable {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
                     ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
-                            .groupId(partGroupId)
+                            .groupId(tablePartitionId)
                             .timestampLong(clock.nowLong())
                             .transactionId(txId)
                             .scanId(scanId)
@@ -1558,7 +1557,7 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipient.node(), request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (intentionallyClose, fut) -> completeScan(txId, partGroupId, fut, recipient.node(), intentionallyClose));
+                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipient.node(), intentionallyClose));
     }
 
     /**
@@ -1630,45 +1629,10 @@ public class InternalTableImpl implements InternalTable {
         return rowBatchByPartitionId;
     }
 
-    @Override
-    public ClusterNode leaderAssignment(int partition) {
-        awaitLeaderInitialization();
-
-        RaftGroupService raftGroupService = raftGroupServiceByPartitionId.get(partition);
-        if (raftGroupService == null) {
-            throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
-        }
-
-        return clusterNodeResolver.getByConsistentId(raftGroupService.leader().consistentId());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RaftGroupService partitionRaftGroupService(int partition) {
-        RaftGroupService raftGroupService = raftGroupServiceByPartitionId.get(partition);
-        if (raftGroupService == null) {
-            throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
-        }
-
-        return raftGroupService;
-    }
-
     /** {@inheritDoc} */
     @Override
     public TxStateTableStorage txStateStorage() {
         return txStateStorage;
-    }
-
-    private void awaitLeaderInitialization() {
-        List<CompletableFuture<Void>> futs = new ArrayList<>();
-
-        for (RaftGroupService raftSvc : raftGroupServiceByPartitionId.values()) {
-            if (raftSvc.leader() == null) {
-                futs.add(raftSvc.refreshLeader());
-            }
-        }
-
-        CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new)).join();
     }
 
     /** {@inheritDoc} */
@@ -1676,24 +1640,6 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public int partition(BinaryRowEx keyRow) {
         return partitionId(keyRow);
-    }
-
-    /**
-     * Returns map of partition -> list of peers and learners of that partition.
-     */
-    @TestOnly
-    public Map<Integer, List<String>> peersAndLearners() {
-        awaitLeaderInitialization();
-
-        return raftGroupServiceByPartitionId.int2ObjectEntrySet().stream()
-                .collect(Collectors.toMap(Entry::getIntKey, e -> {
-                    RaftGroupService service = e.getValue();
-                    return Stream.of(service.peers(), service.learners())
-                            .filter(Objects::nonNull)
-                            .flatMap(Collection::stream)
-                            .map(Peer::consistentId)
-                            .collect(Collectors.toList());
-                }));
     }
 
     /** {@inheritDoc} */
@@ -1789,30 +1735,6 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Updates internal table raft group service for given partition.
-     *
-     * @param p Partition.
-     * @param raftGrpSvc Raft group service.
-     */
-    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
-        RaftGroupService oldSrvc;
-
-        synchronized (updatePartitionMapsMux) {
-            Int2ObjectMap<RaftGroupService> newPartitionMap = new Int2ObjectOpenHashMap<>(partitions);
-
-            newPartitionMap.putAll(raftGroupServiceByPartitionId);
-
-            oldSrvc = newPartitionMap.put(p, raftGrpSvc);
-
-            raftGroupServiceByPartitionId = newPartitionMap;
-        }
-
-        if (oldSrvc != null) {
-            oldSrvc.shutdown();
-        }
-    }
-
-    /**
      * Enlists a partition.
      *
      * @param partId Partition id.
@@ -1892,9 +1814,7 @@ public class InternalTableImpl implements InternalTable {
                 subscriber.onError(new IllegalStateException("Scan publisher does not support multiple subscriptions."));
             }
 
-            PartitionScanSubscription subscription = new PartitionScanSubscription(subscriber);
-
-            subscriber.onSubscribe(subscription);
+            subscriber.onSubscribe(new PartitionScanSubscription(subscriber));
         }
 
         /**
@@ -2018,9 +1938,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        for (RaftGroupService srv : raftGroupServiceByPartitionId.values()) {
-            srv.shutdown();
-        }
+        tableRaftService.close();
     }
 
     // TODO: IGNITE-17963 Use smarter logic for recipient node evaluation.

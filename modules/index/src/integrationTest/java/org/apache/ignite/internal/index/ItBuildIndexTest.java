@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.Command;
@@ -106,7 +106,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
-        assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
+        assertQuery(format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)
                 .returns(2, 2)
@@ -187,23 +187,23 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void createAndPopulateTable(int replicas, int partitions) {
-        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
+        sql(format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
                 ZONE_NAME, replicas, partitions, DEFAULT_STORAGE_PROFILE
         ));
 
-        sql(IgniteStringFormatter.format(
+        sql(format(
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
                 TABLE_NAME, ZONE_NAME
         ));
 
-        sql(IgniteStringFormatter.format(
+        sql(format(
                 "INSERT INTO {} VALUES {}",
                 TABLE_NAME, toValuesString(List.of(1, 1), List.of(2, 2), List.of(3, 3), List.of(4, 4), List.of(5, 5))
         ));
     }
 
     private static void createIndex(String indexName) throws Exception {
-        sql(IgniteStringFormatter.format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME));
+        sql(format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME));
 
         waitForIndex(indexName);
     }
@@ -224,7 +224,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
-        return table.internalTable().partitionRaftGroupService(partitionId);
+        return table.internalTable().tableRaftService().partitionRaftGroupService(partitionId);
     }
 
     /**
@@ -292,7 +292,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             assertEquals(
                     replicas,
                     entry.getValue().size(),
-                    IgniteStringFormatter.format("p={}, nodes={}", entry.getKey(), entry.getValue())
+                    format("p={}, nodes={}", entry.getKey(), entry.getValue())
             );
         }
 
@@ -338,7 +338,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 );
 
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                    RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
+                    RaftGroupService raftGroupService = internalTable.tableRaftService().partitionRaftGroupService(partitionId);
 
                     List<Peer> allPeers = raftGroupService.peers();
 
@@ -402,7 +402,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static @Nullable CatalogIndexDescriptor getIndexDescriptor(Ignite node, String indexName) {
         IgniteImpl nodeImpl = (IgniteImpl) node;
 
-        return nodeImpl.catalogManager().index(indexName, nodeImpl.clock().nowLong());
+        return nodeImpl.catalogManager().aliveIndex(indexName, nodeImpl.clock().nowLong());
     }
 
     /**
@@ -419,7 +419,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }

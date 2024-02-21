@@ -597,9 +597,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         AtomicBoolean reached = new AtomicBoolean();
 
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) ->  {
-            assert exception == null : parameters;
-
+        catalogManager.listen(ZONE_CREATE, parameters ->  {
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
 
             return CompletableFuture.runAsync(() -> {
@@ -1527,7 +1525,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     private void addCatalogZoneEventListeners() {
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> {
+        catalogManager.listen(ZONE_CREATE, parameters -> {
             String zoneName = ((CreateZoneEventParameters) parameters).zoneDescriptor().name();
 
             completeRevisionFuture(createZoneRevisions.remove(zoneName), parameters.causalityToken());
@@ -1535,7 +1533,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             return falseCompletedFuture();
         });
 
-        catalogManager.listen(ZONE_DROP, (parameters, exception) -> {
+        catalogManager.listen(ZONE_DROP, parameters -> {
             completeRevisionFuture(dropZoneRevisions.remove(((DropZoneEventParameters) parameters).zoneId()), parameters.causalityToken());
 
             return falseCompletedFuture();

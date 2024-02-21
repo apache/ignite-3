@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.Nullable;
 
 /** Helper class for working with {@link CompletableFuture}. */
 public class CompletableFutures {
@@ -114,5 +116,20 @@ public class CompletableFutures {
      */
     public static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
         return future.isDone() && !future.isCompletedExceptionally() && !future.isCancelled();
+    }
+
+    /**
+     * Produces a future that is either successfully completed or failed, from the pair [result, exception].
+     *
+     * @param result Result (might be null, cannot be non-null at the same time as ex is not null).
+     * @param ex Exception (cannot be non-null at the same time with result).
+     * @param <T> Type of the value in the future.
+     */
+    public static <T> CompletableFuture<T> completedOrFailedFuture(@Nullable T result, @Nullable Throwable ex) {
+        if (ex != null) {
+            return failedFuture(ex);
+        } else {
+            return completedFuture(result);
+        }
     }
 }

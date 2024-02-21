@@ -170,7 +170,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
 
         // Find the leader of the table's partition group.
-        RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
+        RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
         LeaderWithTerm leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
         String leaderId = leaderWithTerm.leader().consistentId();
 
@@ -214,7 +214,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private static boolean solePartitionAssignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
-        Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
+        Map<Integer, List<String>> assignments = internalTable.tableRaftService().peersAndLearners();
 
         List<String> partitionAssignments = assignments.get(0);
 

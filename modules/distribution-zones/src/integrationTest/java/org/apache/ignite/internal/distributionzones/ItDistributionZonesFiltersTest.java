@@ -39,6 +39,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -141,7 +142,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
+                (v) -> Assignments.fromBytes(v).nodes().size(),
                 1,
                 TIMEOUT_MILLIS
         );
@@ -175,7 +176,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(3).name()),
                 TIMEOUT_MILLIS * 2
@@ -212,7 +213,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
@@ -232,7 +233,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(1).name()),
                 TIMEOUT_MILLIS * 2
@@ -269,7 +270,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
@@ -295,7 +296,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
+                (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
@@ -406,7 +407,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // We need to be sure, that the first asynchronous catalog change of replica was handled,
         // so we create a listener with a latch, and change replica again and wait for latch, so we can be sure that the first
         // replica was handled.
-        node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, (parameters, exception) -> {
+        node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, parameters -> {
             latch.countDown();
 
             return falseCompletedFuture();

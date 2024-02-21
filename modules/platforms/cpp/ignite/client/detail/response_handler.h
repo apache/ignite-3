@@ -70,6 +70,52 @@ protected:
 };
 
 /**
+ * Response handler raw implementation.
+ */
+class response_handler_raw final : public response_handler {
+public:
+    // Default
+    response_handler_raw() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param callback Callback.
+     */
+    explicit response_handler_raw(ignite_callback<bytes_view> callback)
+        : m_callback(std::move(callback)) {}
+
+    /**
+     * Handle response.
+     *
+     * @param msg Message.
+     */
+    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection>, bytes_view msg, std::int32_t) final {
+        auto res = result_of_operation<void>([&]() { return m_callback(bytes_view{msg}); });
+        if (res.has_error()) {
+            m_callback(std::move(res).error());
+        }
+        this->m_handling_complete = true;
+        return res;
+    }
+
+    /**
+     * Set error.
+     *
+     * @param err Error to set.
+     */
+    [[nodiscard]] ignite_result<void> set_error(ignite_error err) override {
+        auto res = result_of_operation<void>([&]() { m_callback({std::move(err)}); });
+        m_handling_complete = true;
+        return res;
+    }
+
+private:
+    /** Callback. */
+    ignite_callback<bytes_view> m_callback;
+};
+
+/**
  * Response handler adapter.
  */
 template<typename T>
@@ -92,12 +138,13 @@ public:
      * @param err Error to set.
      */
     [[nodiscard]] ignite_result<void> set_error(ignite_error err) override {
+        auto res = result_of_operation<void>([&]() { m_callback({std::move(err)}); });
         m_handling_complete = true;
-        return result_of_operation<void>([&]() { m_callback({std::move(err)}); });
+        return res;
     }
 
 protected:
-    /** Promise. */
+    /** Callback. */
     ignite_callback<T> m_callback;
 };
 
@@ -259,8 +306,8 @@ public:
     /**
      * Handle response.
      *
-     * @param conn Connection.
      * @param msg Message.
+     * @param flags Flags.
      */
     [[nodiscard]] ignite_result<void> handle(
         std::shared_ptr<node_connection>, bytes_view msg, std::int32_t flags) final {

@@ -556,6 +556,9 @@ public class ErrorGroups {
 
         /** Cannot change job priority. */
         public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Specified node is not found in the cluster. */
+        public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Catalog error group. */

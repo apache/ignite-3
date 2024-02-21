@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -29,6 +31,8 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
@@ -38,7 +42,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
     private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = new HybridTimestampTracker();
 
     @Override
-    protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
+    protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
         if (tx == null) {
             return internalTbl.scan(part, null);
         }
@@ -54,16 +58,29 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         );
     }
 
+    @Test
+    public void testInvalidPartitionParameterScan() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> scan(-1, null)
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> scan(1, null)
+        );
+    }
+
     @Override
     protected InternalTransaction startTx() {
         InternalTransaction tx = internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER);
 
         TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
-        RaftGroupService raftSvc = internalTbl.partitionRaftGroupService(tblPartId.partitionId());
+        RaftGroupService raftSvc = internalTbl.tableRaftService().partitionRaftGroupService(tblPartId.partitionId());
         long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
 
         tx.assignCommitPartition(tblPartId);
-        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.leaderAssignment(tblPartId.partitionId()), term));
+        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.tableRaftService().leaderAssignment(tblPartId.partitionId()), term));
 
         return tx;
     }

@@ -30,6 +30,9 @@ public interface ColumnDescriptor {
     /** Returns {@code true} if this column is part of the primary key. */
     boolean key();
 
+    /** Returns {@code true} if this column should not be expanded in query until user explicitly specify it as part of the statement. */
+    boolean hidden();
+
     /** Returns the strategy to follow when generating value for column not specified in the INSERT statement. */
     DefaultValueStrategy defaultStrategy();
 

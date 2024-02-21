@@ -83,7 +83,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  compute.threadPoolSize: 1\n"
             + "}";
 
     /** Cluster nodes. */
@@ -518,7 +519,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }

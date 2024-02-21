@@ -20,9 +20,12 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Set;
@@ -41,14 +44,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
+import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
+import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -64,7 +69,7 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName), clock);
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
@@ -113,7 +118,6 @@ public class CatalogTestUtils {
             public void beforeNodeStop() {
                 super.beforeNodeStop();
 
-                clockWaiter.beforeNodeStop();
                 metastore.beforeNodeStop();
             }
 
@@ -121,7 +125,6 @@ public class CatalogTestUtils {
             public void stop() throws Exception {
                 super.stop();
 
-                clockWaiter.stop();
                 metastore.stop();
             }
         };
@@ -140,6 +143,55 @@ public class CatalogTestUtils {
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
+            @Override
+            public CompletableFuture<Void> start() {
+                return allOf(clockWaiter.start(), super.start());
+            }
+
+            @Override
+            public void beforeNodeStop() {
+                super.beforeNodeStop();
+
+                clockWaiter.beforeNodeStop();
+            }
+
+            @Override
+            public void stop() throws Exception {
+                super.stop();
+
+                clockWaiter.stop();
+            }
+        };
+    }
+
+    /**
+     * Creates a test implementation of {@link CatalogManager}.
+     *
+     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals it needs, may change in the future.
+     *
+     * @param nodeName Node name.
+     * @param clock Hybrid clock.
+     * @param metastore Meta storage manager.
+     */
+    public static CatalogManager createTestCatalogManagerWithInterceptor(
+            String nodeName,
+            HybridClock clock,
+            MetaStorageManager metastore,
+            UpdateHandlerInterceptor interceptor
+    ) {
+        var clockWaiter = new ClockWaiter(nodeName, clock);
+
+        UpdateLogImpl updateLog = new UpdateLogImpl(metastore) {
+            @Override
+            public void registerUpdateHandler(OnUpdateHandler handler) {
+                interceptor.registerUpdateHandler(handler);
+
+                super.registerUpdateHandler(interceptor);
+            }
+        };
+
+
+        return new CatalogManagerImpl(updateLog, clockWaiter) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(clockWaiter.start(), super.start());
@@ -301,6 +353,31 @@ public class CatalogTestUtils {
         return AlterZoneCommand.builder().zoneName(zoneName);
     }
 
+    /**
+     * Starts catalog compaction and waits it finished locally.
+     *
+     * @param catalogManager Catalog manager.
+     * @param timestamp Timestamp catalog should be compacted up to.
+     * @return {@code True} if a new snapshot has been successfully written, {@code false} otherwise.
+     */
+    public static boolean waitCatalogCompaction(CatalogManager catalogManager, long timestamp) {
+        int version = catalogManager.activeCatalogVersion(timestamp);
+
+        CompletableFuture<Boolean> operationFuture = ((CatalogManagerImpl) catalogManager).compactCatalog(timestamp);
+
+        try {
+            boolean result = operationFuture.get();
+
+            if (result) {
+                waitForCondition(() -> catalogManager.earliestCatalogVersion() == version, 3_000);
+            }
+        } catch (Exception e) {
+            fail(e);
+        }
+
+        return operationFuture.join();
+    }
+
     private static class TestUpdateLog implements UpdateLog {
         private final HybridClock clock;
 
@@ -327,7 +404,7 @@ public class CatalogTestUtils {
         @Override
         public synchronized CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry) {
             snapshotVersion = snapshotEntry.version();
-            return CompletableFutures.trueCompletedFuture();
+            return trueCompletedFuture();
         }
 
         @Override
@@ -404,5 +481,40 @@ public class CatalogTestUtils {
                 .filter(index -> indexName.equals(index.name()))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Update handler interceptor for test purposes.
+     */
+    public abstract static class UpdateHandlerInterceptor implements OnUpdateHandler {
+        private OnUpdateHandler delegate;
+
+        void registerUpdateHandler(OnUpdateHandler handler) {
+            this.delegate = handler;
+        }
+
+        protected OnUpdateHandler delegate() {
+            return delegate;
+        }
+    }
+
+    /**
+     * An interceptor, which allow dropping events.
+     */
+    public static class TestUpdateHandlerInterceptor extends UpdateHandlerInterceptor {
+        private volatile boolean dropEvents;
+
+        public void dropSnapshotEvents() {
+            this.dropEvents = true;
+        }
+
+        @Override
+        public CompletableFuture<Void> handle(UpdateLogEvent update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+            if (dropEvents && update instanceof SnapshotEntry) {
+                return nullCompletedFuture();
+            }
+
+            return delegate().handle(update, metaStorageUpdateTimestamp, causalityToken);
+        }
     }
 }

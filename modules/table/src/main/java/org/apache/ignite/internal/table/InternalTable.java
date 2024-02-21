@@ -25,8 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -304,10 +302,11 @@ public interface InternalTable extends ManuallyCloseable {
      */
     default Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return scan(partId, readTimestamp, recipientNode, null, null, null, 0, null);
+        return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null);
     }
 
     /**
@@ -326,6 +325,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
@@ -397,6 +397,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             int indexId,
@@ -437,29 +438,18 @@ public interface InternalTable extends ManuallyCloseable {
     int partitions();
 
     /**
-     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
-     * it cannot be found.
-     *
-     * @param partition partition number
-     * @return leader node of the partition group corresponding to the partition
-     */
-    ClusterNode leaderAssignment(int partition);
-
-    /**
-     * Returns raft group client for corresponding partition.
-     *
-     * @param partition partition number
-     * @return raft group client for corresponding partition
-     * @throws IgniteInternalException if partition can't be found.
-     */
-    RaftGroupService partitionRaftGroupService(int partition);
-
-    /**
      * Storage of transaction states for this table.
      *
      * @return Transaction states' storage.
      */
     TxStateTableStorage txStateStorage();
+
+    /**
+     * Raft service for this table.
+     *
+     * @return Table raft service.
+     */
+    TableRaftService tableRaftService();
 
     //TODO: IGNITE-14488. Add invoke() methods.
 

@@ -98,7 +98,6 @@ class IndexBuilder implements ManuallyCloseable {
      *      to the replica.
      * @param creationCatalogVersion Catalog version in which the index was created.
      */
-    // TODO: IGNITE-19498 Perhaps we need to start building the index only once
     public void scheduleBuildIndex(
             int tableId,
             int partitionId,

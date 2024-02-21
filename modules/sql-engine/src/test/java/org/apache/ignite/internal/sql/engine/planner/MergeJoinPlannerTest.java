@@ -30,12 +30,12 @@ import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.core.Join;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
@@ -1599,7 +1599,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft1() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -1637,7 +1637,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft2() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -1675,7 +1675,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft3() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -1713,7 +1713,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft4() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -1751,7 +1751,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft5() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -1789,7 +1789,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft6() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -1827,7 +1827,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft7() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -1866,7 +1866,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft8() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -1906,7 +1906,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft9() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C3", Collation.ASC_NULLS_LAST)
@@ -1951,7 +1951,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft10() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -1990,7 +1990,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft11() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2037,7 +2037,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft12() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2079,7 +2079,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft13() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C3", Collation.ASC_NULLS_LAST)
@@ -2127,7 +2127,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight1() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2165,7 +2165,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight2() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -2203,7 +2203,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight3() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_LAST)
@@ -2241,7 +2241,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight4() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2279,7 +2279,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight5() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2317,7 +2317,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight6() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2356,7 +2356,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight7() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_LAST)
@@ -2395,7 +2395,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight8() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_LAST)
@@ -2434,7 +2434,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight9() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2473,7 +2473,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight10() throws Exception {
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2520,7 +2520,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDeriveMixed1() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx1")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2528,7 +2528,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx2")
                         .addColumn("C2", Collation.ASC_NULLS_LAST)
@@ -2566,7 +2566,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDeriveMixed2() throws Exception {
-        TestTable left = createTableB("LEFT_T",
+        IgniteTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx1")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2574,7 +2574,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        TestTable right = createTableB("RIGHT_T",
+        IgniteTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx2")
                         .addColumn("C3", Collation.ASC_NULLS_FIRST)
@@ -2627,7 +2627,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     private IgniteSort sortOnTopOfScan(IgniteRel root, String tableName) {
         List<IgniteSort> sortNodes = findNodes(root, byClass(IgniteSort.class)
                 .and(node -> node.getInputs().size() == 1 && node.getInput(0) instanceof IgniteTableScan
-                        && node.getInput(0).getTable().unwrap(TestTable.class).name().equals(tableName)));
+                        && node.getInput(0).getTable().unwrap(IgniteTable.class).name().equals(tableName)));
 
         if (sortNodes.size() > 1) {
             throw new AssertionError("Unexpected count of sort nodes: exp<=1, act=" + sortNodes.size());
@@ -2653,7 +2653,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
         return sortNodes.isEmpty() ? null : sortNodes.get(0);
     }
 
-    private static TestTable createTableA(String tableName) {
+    private static IgniteTable createTableA(String tableName) {
         return TestBuilders.table()
                 .name(tableName)
                 .addColumn("C1", NativeTypes.INT32)
@@ -2663,12 +2663,12 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                 .build();
     }
 
-    private static TestTable createTableB(String tableName) {
+    private static IgniteTable createTableB(String tableName) {
         return createTableB(tableName, ignore -> {
         });
     }
 
-    private static TestTable createTableB(String tableName, Consumer<TableBuilder> changer) {
+    private static IgniteTable createTableB(String tableName, Consumer<TableBuilder> changer) {
         TableBuilder tableBuilder = TestBuilders.table()
                 .name(tableName)
                 .distribution(IgniteDistributions.single())

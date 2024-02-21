@@ -58,11 +58,9 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
-            + "  compute: {\n"
-            + "    threadPoolSize: 1\n"
-            + "  }\n"
-            + "}\n";
+            + "  rest.port: {},\n"
+            + "  compute.threadPoolSize: 1\n"
+            + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
     public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"

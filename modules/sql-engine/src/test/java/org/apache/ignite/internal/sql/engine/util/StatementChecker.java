@@ -42,7 +42,6 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
@@ -120,7 +119,7 @@ public class StatementChecker {
 
     private final SqlPrepare sqlPrepare;
 
-    private final Map<String, Function<TestBuilders.TableBuilder, TestTable>> testTables = new HashMap<>();
+    private final Map<String, Function<TestBuilders.TableBuilder, IgniteTable>> testTables = new HashMap<>();
 
     private boolean dumpPlan;
 
@@ -187,7 +186,7 @@ public class StatementChecker {
     /**
      * Updates schema to include a table with 1 column.
      */
-    public StatementChecker table(String tableName, Function<TestBuilders.TableBuilder, TestTable> table) {
+    public StatementChecker table(String tableName, Function<TestBuilders.TableBuilder, IgniteTable> table) {
         testTables.put(tableName, table);
 
         return this;
@@ -412,11 +411,11 @@ public class StatementChecker {
 
     private IgniteSchema createSchema() {
         List<IgniteTable> tables = new ArrayList<>();
-        for (Map.Entry<String, Function<TestBuilders.TableBuilder, TestTable>> entry : testTables.entrySet()) {
+        for (Map.Entry<String, Function<TestBuilders.TableBuilder, IgniteTable>> entry : testTables.entrySet()) {
             String tableName = entry.getKey();
-            Function<TableBuilder, TestTable> addTable = entry.getValue();
+            Function<TableBuilder, IgniteTable> addTable = entry.getValue();
 
-            TestTable table = addTable.apply(TestBuilders.table().name(tableName));
+            IgniteTable table = addTable.apply(TestBuilders.table().name(tableName));
 
             tables.add(table);
         }

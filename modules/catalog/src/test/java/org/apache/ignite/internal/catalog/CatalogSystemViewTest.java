@@ -240,7 +240,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
     @EnumSource(SystemViewType.class)
     public void testCreateSystemViewDoesNotReplaceExistingViewWithTheSameNameIfItsStructureIsTheSame(SystemViewType type) {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.SYSTEM_VIEW_CREATE, eventListener);
 
@@ -255,7 +255,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(command), willCompleteSuccessfully());
 
-        verify(eventListener, times(1)).notify(any(), any());
+        verify(eventListener, times(1)).notify(any());
         Mockito.reset(eventListener);
 
         // Create view
@@ -279,6 +279,6 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         assertSame(view1, view2, "system view was replaced");
 
         // Event listener should not have been called.
-        verify(eventListener, never()).notify(any(), any());
+        verify(eventListener, never()).notify(any());
     }
 }

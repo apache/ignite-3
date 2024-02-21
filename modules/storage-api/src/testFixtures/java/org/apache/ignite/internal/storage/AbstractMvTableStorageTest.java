@@ -130,8 +130,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
-        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalogService.index(SORTED_INDEX_NAME, clock.nowLong());
-        CatalogIndexDescriptor catalogHashIndexDescriptor = catalogService.index(HASH_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalogService.aliveIndex(SORTED_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor catalogHashIndexDescriptor = catalogService.aliveIndex(HASH_INDEX_NAME, clock.nowLong());
 
         sortedIdx = new StorageSortedIndexDescriptor(catalogTableDescriptor, (CatalogSortedIndexDescriptor) catalogSortedIndexDescriptor);
         hashIdx = new StorageHashIndexDescriptor(catalogTableDescriptor, (CatalogHashIndexDescriptor) catalogHashIndexDescriptor);
@@ -808,8 +808,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
-        when(catalogService.index(eq(SORTED_INDEX_NAME), anyLong())).thenReturn(sortedIndex);
-        when(catalogService.index(eq(HASH_INDEX_NAME), anyLong())).thenReturn(hashIndex);
+        when(catalogService.aliveIndex(eq(SORTED_INDEX_NAME), anyLong())).thenReturn(sortedIndex);
+        when(catalogService.aliveIndex(eq(HASH_INDEX_NAME), anyLong())).thenReturn(hashIndex);
 
         when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
         when(catalogService.index(eq(sortedIndexId), anyInt())).thenReturn(sortedIndex);

@@ -15,42 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.replicator;
 
-import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
-
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.worker.ThreadAssertions;
+import java.util.concurrent.Executor;
+import org.apache.ignite.internal.thread.ExecutorChooser;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 
 /**
- * {@link Cursor} that performs thread assertions when doing read operations.
- *
- * @see ThreadAssertions
+ * Executor chooser that makes its choice based on {@link ReplicationGroupId} it is provided.
  */
-public class ThreadAssertingCursor<T> implements Cursor<T> {
-    private final Cursor<T> cursor;
+public class ChooseExecutorForReplicationGroup implements ExecutorChooser<ReplicationGroupId> {
+    private final StripedThreadPoolExecutor partitionOperationsPool;
 
     /** Constructor. */
-    public ThreadAssertingCursor(Cursor<T> cursor) {
-        this.cursor = cursor;
+    public ChooseExecutorForReplicationGroup(StripedThreadPoolExecutor partitionOperationsPool) {
+        this.partitionOperationsPool = partitionOperationsPool;
     }
 
     @Override
-    public void close() {
-        cursor.close();
-    }
-
-    @Override
-    public boolean hasNext() {
-        assertThreadAllowsToRead();
-
-        return cursor.hasNext();
-    }
-
-    @Override
-    public T next() {
-        assertThreadAllowsToRead();
-
-        return cursor.next();
+    public Executor choose(ReplicationGroupId groupId) {
+        return ReplicationGroupStripes.stripeFor(groupId, partitionOperationsPool);
     }
 }

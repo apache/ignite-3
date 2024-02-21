@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -33,7 +35,9 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -111,7 +115,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -263,7 +267,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 5,
-                NamedThreadFactory.create("test", "partition-operations", log),
+                IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE),
                 false,
                 0
         );
@@ -342,6 +346,37 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
 
         assertEquals(0, tableManager.tables().size());
+    }
+
+    /**
+     * Tests create a table through public API right after another table with the same name was dropped.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testReCreateTableWithSameName() throws Exception {
+        mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
+
+        TableManager tableManager = tblManagerFut.join();
+
+        TableViewInternal table = (TableViewInternal) tableManager.table(DYNAMIC_TABLE_NAME);
+
+        assertNotNull(table);
+
+        int oldTableId = table.tableId();
+
+        dropTable(DYNAMIC_TABLE_NAME);
+        createTable(DYNAMIC_TABLE_NAME);
+
+        table = tableManager.tableView(DYNAMIC_TABLE_NAME);
+
+        assertNotNull(table);
+        assertNotEquals(oldTableId, table.tableId());
+
+        // TODO IGNITE-20680 ensure old table is available
+        // assertNotNull(tableManager.getTable(oldTableId));
+        assertNotNull(tableManager.getTable(table.tableId()));
+        assertNotSame(tableManager.getTable(oldTableId), tableManager.getTable(table.tableId()));
     }
 
     /**
@@ -556,7 +591,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         createTableManager(tblManagerFut, (mvTableStorage) -> {
@@ -654,13 +689,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         int tablesBeforeCreation = tableManager.tables().size();
 
         if (phaser != null) {
-            catalogManager.listen(TABLE_CREATE, (parameters, exception) -> {
+            catalogManager.listen(TABLE_CREATE, parameters -> {
                 phaser.arriveAndAwaitAdvance();
 
                 return falseCompletedFuture();
             });
 
-            catalogManager.listen(TABLE_DROP, (parameters, exception) -> {
+            catalogManager.listen(TABLE_DROP, parameters -> {
                 phaser.arriveAndAwaitAdvance();
 
                 return falseCompletedFuture();

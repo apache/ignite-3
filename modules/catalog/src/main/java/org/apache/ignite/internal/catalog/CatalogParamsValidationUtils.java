@@ -127,7 +127,7 @@ public class CatalogParamsValidationUtils {
      * @throws CatalogValidationException If relation with specified name exists in given schema.
      */
     public static void ensureNoTableIndexOrSysViewExistsWithGivenName(CatalogSchemaDescriptor schema, String name) {
-        if (schema.index(name) != null) {
+        if (schema.aliveIndex(name) != null) {
             throw new IndexExistsValidationException(format("Index with name '{}.{}' already exists", schema.name(), name));
         }
 
