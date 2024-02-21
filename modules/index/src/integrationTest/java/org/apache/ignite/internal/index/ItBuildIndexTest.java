@@ -273,15 +273,11 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         var indexBuildingFuture = new CompletableFuture<Void>();
 
-        node.catalogManager().listen(CatalogEvent.INDEX_BUILDING, (StartBuildingIndexEventParameters parameters, Throwable e) -> {
-            if (e == null) {
-                CatalogIndexDescriptor indexDescriptor = node.catalogManager().index(parameters.indexId(), parameters.catalogVersion());
+        node.catalogManager().listen(CatalogEvent.INDEX_BUILDING, (StartBuildingIndexEventParameters parameters) -> {
+            CatalogIndexDescriptor indexDescriptor = node.catalogManager().index(parameters.indexId(), parameters.catalogVersion());
 
-                if (indexDescriptor != null && indexDescriptor.name().equals(INDEX_NAME)) {
-                    indexBuildingFuture.complete(null);
-                }
-            } else {
-                indexBuildingFuture.completeExceptionally(e);
+            if (indexDescriptor != null && indexDescriptor.name().equals(INDEX_NAME)) {
+                indexBuildingFuture.complete(null);
             }
 
             return falseCompletedFuture();
@@ -295,18 +291,14 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         var indexRemovedFuture = new CompletableFuture<Void>();
 
-        node.catalogManager().listen(CatalogEvent.INDEX_REMOVED, (RemoveIndexEventParameters parameters, Throwable e) -> {
-            if (e == null) {
-                node.catalogManager()
-                        .catalog(parameters.catalogVersion() - 1)
-                        .indexes()
-                        .stream()
-                        .filter(index -> index.name().equals(INDEX_NAME))
-                        .findAny()
-                        .ifPresent(index -> indexRemovedFuture.complete(null));
-            } else {
-                indexRemovedFuture.completeExceptionally(e);
-            }
+        node.catalogManager().listen(CatalogEvent.INDEX_REMOVED, (RemoveIndexEventParameters parameters) -> {
+            node.catalogManager()
+                    .catalog(parameters.catalogVersion() - 1)
+                    .indexes()
+                    .stream()
+                    .filter(index -> index.name().equals(INDEX_NAME))
+                    .findAny()
+                    .ifPresent(index -> indexRemovedFuture.complete(null));
 
             return falseCompletedFuture();
         });
@@ -422,7 +414,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
-        return table.internalTable().partitionRaftGroupService(partitionId);
+        return table.internalTable().tableRaftService().partitionRaftGroupService(partitionId);
     }
 
     /**
@@ -536,7 +528,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 );
 
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                    RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
+                    RaftGroupService raftGroupService = internalTable.tableRaftService().partitionRaftGroupService(partitionId);
 
                     List<Peer> allPeers = raftGroupService.peers();
 

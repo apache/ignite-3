@@ -212,4 +212,35 @@ std::shared_ptr<node_connection> cluster_connection::get_random_channel() {
     return std::next(m_connections.begin(), idx)->second;
 }
 
+void cluster_connection::perform_request_handler(protocol::client_operation op, transaction_impl *tx,
+    const std::function<void(protocol::writer &)> &wr, const std::shared_ptr<response_handler> &handler) {
+    if (tx) {
+        auto channel = tx->get_connection();
+        if (!channel)
+            throw ignite_error("Transaction was not started properly");
+
+        auto res = channel->perform_request(op, wr, handler);
+        if (!res)
+            throw ignite_error("Connection associated with the transaction is closed");
+
+        return;
+    }
+
+    while (true) {
+        auto channel = get_random_channel();
+        if (!channel)
+            throw ignite_error("No nodes connected");
+
+        auto res = channel->perform_request(op, wr, handler);
+        if (res)
+            return;
+    }
+}
+
+void cluster_connection::perform_request_raw(protocol::client_operation op, transaction_impl *tx,
+    const std::function<void(protocol::writer &)> &wr, ignite_callback<bytes_view> callback) {
+    auto handler = std::make_shared<response_handler_raw>(std::move(callback));
+    perform_request_handler(op, tx, wr, std::move(handler));
+}
+
 } // namespace ignite::detail

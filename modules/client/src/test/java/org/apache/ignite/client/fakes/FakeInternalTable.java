@@ -36,7 +36,6 @@ import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -446,14 +446,10 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public ClusterNode leaderAssignment(int partition) {
+    public TableRaftService tableRaftService() {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    @Override
-    public RaftGroupService partitionRaftGroupService(int partition) {
-        return null;
-    }
 
     @Override public TxStateTableStorage txStateStorage() {
         return null;

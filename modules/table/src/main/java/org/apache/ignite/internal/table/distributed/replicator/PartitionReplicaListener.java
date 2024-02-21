@@ -3779,11 +3779,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         catalogService.listen(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
     }
 
-    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters, @Nullable Throwable exception) {
-        if (exception != null) {
-            return failedFuture(exception);
-        }
-
+    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters) {
         if (!busyLock.enterBusy()) {
             return trueCompletedFuture();
         }
