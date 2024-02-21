@@ -338,7 +338,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         );
 
         logicalTopologyService.addEventListener(mappingService);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, ignore) -> mappingService.onPrimaryReplicaExpired(evt));
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),

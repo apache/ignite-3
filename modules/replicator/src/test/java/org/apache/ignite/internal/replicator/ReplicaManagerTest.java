@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -134,8 +133,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     ) throws NodeStoppingException {
         when(raftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
 
-        when(createReplicaListener.notify(any(), any())).thenReturn(falseCompletedFuture());
-        when(removeReplicaListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(createReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
+        when(removeReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
 
         replicaManager.listen(AFTER_REPLICA_STARTED, createReplicaListener);
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);
@@ -154,14 +153,14 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var expectedCreateParams = new LocalReplicaEventParameters(groupId);
 
-        verify(createReplicaListener).notify(eq(expectedCreateParams), isNull());
-        verify(removeReplicaListener, never()).notify(any(), any());
+        verify(createReplicaListener).notify(eq(expectedCreateParams));
+        verify(removeReplicaListener, never()).notify(any());
 
         CompletableFuture<Boolean> stopReplicaFuture = replicaManager.stopReplica(groupId);
 
         assertThat(stopReplicaFuture, willBe(true));
 
-        verify(createReplicaListener).notify(eq(expectedCreateParams), isNull());
-        verify(removeReplicaListener).notify(eq(expectedCreateParams), isNull());
+        verify(createReplicaListener).notify(eq(expectedCreateParams));
+        verify(removeReplicaListener).notify(eq(expectedCreateParams));
     }
 }

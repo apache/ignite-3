@@ -77,7 +77,7 @@ public class NodeUtils {
 
         // Change leader for the replication group.
 
-        RaftGroupService raftSrvc = tbl.internalTable().partitionRaftGroupService(0);
+        RaftGroupService raftSrvc = tbl.internalTable().tableRaftService().partitionRaftGroupService(0);
 
         raftSrvc.refreshLeader();
 

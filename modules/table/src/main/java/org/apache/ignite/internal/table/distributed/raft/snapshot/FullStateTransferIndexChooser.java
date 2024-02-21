@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -230,11 +229,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     private void addListenersBusy() {
-        catalogService.listen(INDEX_REMOVED, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
+        catalogService.listen(INDEX_REMOVED, parameters -> {
             return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
         });
     }
