@@ -85,7 +85,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -255,7 +254,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /**
      * Tests destroying an index.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
     @Test
     public void testDestroyIndex() {
         MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
