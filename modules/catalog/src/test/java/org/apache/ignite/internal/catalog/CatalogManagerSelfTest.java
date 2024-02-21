@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
@@ -53,7 +52,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -65,7 +63,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -96,6 +93,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
@@ -1600,24 +1598,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testGetCatalogEntityInCatalogEvent() {
-        CompletableFuture<Void> result = new CompletableFuture<>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.TABLE_CREATE, parameters -> {
-            try {
-                assertNotNull(manager.schema(parameters.catalogVersion()));
-
-                result.complete(null);
-
-                return trueCompletedFuture();
-            } catch (Throwable t) {
-                result.completeExceptionally(t);
-
-                return failedFuture(t);
-            }
-        });
+        manager.listen(CatalogEvent.TABLE_CREATE, fromConsumer(fireEventFuture, parameters -> {
+            assertNotNull(manager.schema(parameters.catalogVersion()));
+        }));
 
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(result, willCompleteSuccessfully());
+        assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -2214,19 +2202,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int indexId = index(manager.latestCatalogVersion(), INDEX_NAME).id();
 
-        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.INDEX_AVAILABLE, parameters -> {
-            try {
-                assertEquals(indexId, ((MakeIndexAvailableEventParameters) parameters).indexId());
-
-                fireEventFuture.complete(null);
-            } catch (Throwable t) {
-                fireEventFuture.completeExceptionally(t);
-            }
-
-            return falseCompletedFuture();
-        });
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, fromConsumer(fireEventFuture, (MakeIndexAvailableEventParameters parameters) -> {
+            assertEquals(indexId, parameters.indexId());
+        }));
 
         assertThat(
                 manager.execute(startBuildingIndexCommand(indexId)),
@@ -2240,44 +2220,26 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testPkAvailableIndexEvent() {
-        CompletableFuture<Integer> fireEventFuture = new CompletableFuture<>();
-
-        manager.listen(CatalogEvent.INDEX_AVAILABLE, parameters -> {
-            try {
-                fireEventFuture.complete(((MakeIndexAvailableEventParameters) parameters).indexId());
-            } catch (Throwable t) {
-                fireEventFuture.completeExceptionally(t);
-            }
-
-            return falseCompletedFuture();
-        });
-
         String tableName = TABLE_NAME + "_new";
+
+        var fireEventFuture = new CompletableFuture<Void>();
+
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, fromConsumer(fireEventFuture, (MakeIndexAvailableEventParameters parameters) -> {
+            assertEquals(indexId(pkIndexName(tableName)), parameters.indexId());
+        }));
 
         createSomeTable(tableName);
 
-        assertThat(fireEventFuture, willBe(notNullValue()));
-
-        assertEquals(indexId(pkIndexName(tableName)), fireEventFuture.join());
+        assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     @Test
     void testPkAvailableOnCreateIndexEvent() {
-        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.INDEX_CREATE, parameters -> {
-            try {
-                CreateIndexEventParameters createIndexEventParameters = (CreateIndexEventParameters) parameters;
-
-                assertEquals(AVAILABLE, createIndexEventParameters.indexDescriptor().status());
-
-                fireEventFuture.complete(null);
-            } catch (Throwable t) {
-                fireEventFuture.completeExceptionally(t);
-            }
-
-            return falseCompletedFuture();
-        });
+        manager.listen(CatalogEvent.INDEX_CREATE, fromConsumer(fireEventFuture, (CreateIndexEventParameters parameters) -> {
+            assertEquals(AVAILABLE, parameters.indexDescriptor().status());
+        }));
 
         createSomeTable(TABLE_NAME);
 
@@ -2370,13 +2332,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testTableRenameFiresEvent() {
         createSomeTable(TABLE_NAME);
 
-        var eventFuture = new CompletableFuture<CatalogEventParameters>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.TABLE_ALTER, parameters -> {
-            eventFuture.complete(parameters);
+        manager.listen(CatalogEvent.TABLE_ALTER, fromConsumer(fireEventFuture, (RenameTableEventParameters parameters) -> {
+            CatalogTableDescriptor tableDescriptor = table(manager.latestCatalogVersion(), TABLE_NAME_2);
 
-            return trueCompletedFuture();
-        });
+            assertThat(parameters.tableId(), is(tableDescriptor.id()));
+            assertThat(parameters.newTableName(), is(tableDescriptor.name()));
+        }));
 
         CatalogCommand command = RenameTableCommand.builder()
                 .schemaName(SCHEMA_NAME)
@@ -2385,17 +2348,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .build();
 
         assertThat(manager.execute(command), willCompleteSuccessfully());
-        assertThat(eventFuture, willCompleteSuccessfully());
-
-        CatalogTableDescriptor tableDescriptor = table(manager.latestCatalogVersion(), TABLE_NAME_2);
-
-        assertThat(tableDescriptor, is(notNullValue()));
-
-        CatalogEventParameters eventParameters = eventFuture.join();
-
-        assertThat(eventParameters, is(instanceOf(RenameTableEventParameters.class)));
-        assertThat(((RenameTableEventParameters) eventParameters).tableId(), is(tableDescriptor.id()));
-        assertThat(((RenameTableEventParameters) eventParameters).newTableName(), is(tableDescriptor.name()));
+        assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -2447,19 +2400,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int indexId = index(manager.latestCatalogVersion(), INDEX_NAME).id();
 
-        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.INDEX_BUILDING, parameters -> {
-            try {
-                assertEquals(indexId, ((StartBuildingIndexEventParameters) parameters).indexId());
-
-                fireEventFuture.complete(null);
-            } catch (Throwable t) {
-                fireEventFuture.completeExceptionally(t);
-            }
-
-            return falseCompletedFuture();
-        });
+        manager.listen(CatalogEvent.INDEX_BUILDING, fromConsumer(fireEventFuture, (StartBuildingIndexEventParameters parameters) -> {
+            assertEquals(indexId, parameters.indexId());
+        }));
 
         assertThat(
                 manager.execute(startBuildingIndexCommand(indexId)),
@@ -2689,5 +2634,22 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     private List<Integer> tableIndexIds(int catalogVersion, int tableId) {
         return manager.indexes(catalogVersion, tableId).stream().map(CatalogObjectDescriptor::id).collect(toList());
+    }
+
+    private static <T extends CatalogEventParameters> EventListener<T> fromConsumer(
+            CompletableFuture<Void> fireEventFuture,
+            Consumer<T> consumer
+    ) {
+        return parameters -> {
+            try {
+                consumer.accept(parameters);
+
+                fireEventFuture.complete(null);
+            } catch (Throwable t) {
+                fireEventFuture.completeExceptionally(t);
+            }
+
+            return falseCompletedFuture();
+        };
     }
 }

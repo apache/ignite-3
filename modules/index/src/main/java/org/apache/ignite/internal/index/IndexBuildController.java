@@ -122,12 +122,12 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_BUILDING, parameters -> {
-            return onIndexBuilding((StartBuildingIndexEventParameters) parameters).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_BUILDING, (StartBuildingIndexEventParameters parameters) -> {
+            return onIndexBuilding(parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_REMOVED, parameters -> {
-            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, (RemoveIndexEventParameters parameters) -> {
+            return onIndexRemoved(parameters).thenApply(unused -> false);
         });
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters -> {

@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Event producer.
@@ -71,10 +70,9 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
      *
      * @param evt Event.
      * @param params Event parameters.
-     * @param err Exception when it was happened, or {@code null} otherwise.
      * @return Completable future which is completed when event handling is complete.
      */
-    protected CompletableFuture<Void> fireEvent(T evt, P params, @Nullable Throwable err) {
+    protected CompletableFuture<Void> fireEvent(T evt, P params) {
         List<EventListener<P>> listeners = listenersByEvent.get(evt);
 
         if (listeners == null) {
@@ -107,16 +105,5 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
         }
 
         return futures == null ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
-    }
-
-    /**
-     * Notifies every listener that subscribed before.
-     *
-     * @param evt Event.
-     * @param params Event parameters.
-     * @return Completable future which is completed when event handling is complete.
-     */
-    protected CompletableFuture<Void> fireEvent(T evt, P params) {
-        return fireEvent(evt, params, null);
     }
 }

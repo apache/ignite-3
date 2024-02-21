@@ -140,7 +140,7 @@ public class IndexManager implements IgniteComponent {
 
         startIndexes();
 
-        catalogService.listen(INDEX_CREATE, parameters -> onIndexCreate((CreateIndexEventParameters) parameters));
+        catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
 
         LOG.info("Index manager started");
 

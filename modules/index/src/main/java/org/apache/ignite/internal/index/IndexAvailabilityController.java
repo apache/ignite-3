@@ -188,16 +188,16 @@ class IndexAvailabilityController implements ManuallyCloseable {
     }
 
     private void addListeners(CatalogService catalogService, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
-        catalogService.listen(CatalogEvent.INDEX_BUILDING, parameters -> {
-            return onIndexBuilding((StartBuildingIndexEventParameters) parameters).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_BUILDING, (StartBuildingIndexEventParameters parameters) -> {
+            return onIndexBuilding(parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_REMOVED, parameters -> {
-            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, (RemoveIndexEventParameters parameters) -> {
+            return onIndexRemoved(parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_AVAILABLE, parameters -> {
-            return onIndexAvailable((MakeIndexAvailableEventParameters) parameters).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_AVAILABLE, (MakeIndexAvailableEventParameters parameters) -> {
+            return onIndexAvailable(parameters).thenApply(unused -> false);
         });
 
         metaStorageManager.registerPrefixWatch(ByteArray.fromString(PARTITION_BUILD_INDEX_KEY_PREFIX), new WatchListener() {
