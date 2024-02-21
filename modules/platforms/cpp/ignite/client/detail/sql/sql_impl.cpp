@@ -102,7 +102,7 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
         return result_set{std::make_shared<result_set_impl>(std::move(channel), msg)};
     };
 
-    m_connection->perform_request_raw<result_set>(
+    m_connection->perform_request_bytes<result_set>(
         protocol::client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
 }
 

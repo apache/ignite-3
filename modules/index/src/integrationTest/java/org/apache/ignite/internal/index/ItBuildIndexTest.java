@@ -414,7 +414,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
-        return table.internalTable().partitionRaftGroupService(partitionId);
+        return table.internalTable().tableRaftService().partitionRaftGroupService(partitionId);
     }
 
     /**
@@ -528,7 +528,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 );
 
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                    RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
+                    RaftGroupService raftGroupService = internalTable.tableRaftService().partitionRaftGroupService(partitionId);
 
                     List<Peer> allPeers = raftGroupService.peers();
 

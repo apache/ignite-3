@@ -366,9 +366,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws InterruptedException If fail.
      */
     private static void waitingForLeaderCache(TableViewInternal tbl, String primary) throws InterruptedException {
-        RaftGroupService raftSrvc = tbl.internalTable().partitionRaftGroupService(0);
+        RaftGroupService raftSrvc = tbl.internalTable().tableRaftService().partitionRaftGroupService(0);
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+        assertTrue(waitForCondition(() -> {
             raftSrvc.refreshLeader();
 
             Peer leader = raftSrvc.leader();
