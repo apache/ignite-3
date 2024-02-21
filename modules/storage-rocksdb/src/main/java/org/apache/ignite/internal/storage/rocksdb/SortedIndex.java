@@ -18,11 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.INDEX_CF_PREFIX;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
-import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
-import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -79,18 +74,10 @@ class SortedIndex implements ManuallyCloseable {
     /**
      * Removes all data associated with the index.
      */
-    void destroy() {
-        var indexId = descriptor.id();
-        try (WriteBatch writeBatch = new WriteBatch()) {
-            deleteByPrefix(writeBatch, indexCf, createKey(BYTE_EMPTY_ARRAY, indexId));
-            deleteByPrefix(writeBatch, indexMetaStorage.columnFamily(), createKey(INDEX_CF_PREFIX, indexId));
+    void destroy(WriteBatch writeBatch) {
+        close();
 
-            rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to destroy index " + indexId, e);
-        }
-
-        rocksDb.dropCfOnIndexDestroy(indexCf.nameBytes(), indexId);
+        rocksDb.dropCfOnIndexDestroy(indexCf.nameBytes(), descriptor.id());
     }
 
     /**
@@ -112,9 +99,7 @@ class SortedIndex implements ManuallyCloseable {
     @Override
     public void close() {
         try {
-            IgniteUtils.closeAll(
-                    storages.values().stream().map(index -> index::close)
-            );
+            IgniteUtils.closeAll(storages.values().stream().map(index -> index::close));
         } catch (Exception e) {
             throw new StorageException("Failed to close index storages: " + descriptor.id(), e);
         }

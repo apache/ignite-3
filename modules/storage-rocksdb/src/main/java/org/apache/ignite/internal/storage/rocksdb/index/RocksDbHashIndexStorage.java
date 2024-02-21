@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.IND
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
@@ -177,10 +178,6 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
     @Override
     public void destroyData(WriteBatch writeBatch) throws RocksDBException {
-        byte[] rangeEnd = incrementPrefix(constantPrefix);
-
-        assert rangeEnd != null;
-
-        writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
+        deleteByPrefix(writeBatch, indexCf, constantPrefix);
     }
 }
