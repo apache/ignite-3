@@ -432,7 +432,8 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("TIME", "'2020-01-02 01:01:01'", testItems, false, ctx);
+        fillTestCase("TIME", "'2020-01-02 01:01:01'", testItems, true, ctx,
+                LocalTime.of(1, 1, 1));
         fillTestCase("TIME", "'2020-01-02'", testItems, false, ctx);
         fillTestCase("TIME", "'01:01:01.2'", testItems, true, ctx,
                 LocalTime.of(1, 1, 1, 200000000));

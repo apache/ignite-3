@@ -913,7 +913,12 @@ public class DdlSqlToCommandConverter {
                     }
                 }
                 case TIME: {
-                    literal = SqlParserUtil.parseTimeLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                    String strLiteral = literal.getValueAs(String.class).trim();
+                    int pos = strLiteral.indexOf(' ');
+                    if (pos != -1) {
+                        strLiteral = strLiteral.substring(pos);
+                    }
+                    literal = SqlParserUtil.parseTimeLiteral(strLiteral, literal.getParserPosition());
                     int val = literal.getValueAs(TimeString.class).getMillisOfDay();
                     return fromInternal(val, LocalTime.class);
                 }
