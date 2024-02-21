@@ -50,7 +50,7 @@ public class BuildIndexRowVersionChooserTest extends IgniteAbstractTest {
 
     private static final long CREATE_INDEX_ACTIVATION_TS_MILLS = 100;
 
-    private static final long START_BUILDING_INDEX_ACTIVATION_TS_MILLS = 100;
+    private static final long START_BUILDING_INDEX_ACTIVATION_TS_MILLS = 200;
 
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,

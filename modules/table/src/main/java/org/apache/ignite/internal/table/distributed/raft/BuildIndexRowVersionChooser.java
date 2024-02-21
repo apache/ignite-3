@@ -27,11 +27,11 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.util.Cursor;
 
-/** {@link BinaryRowAndRowId} chooser for index building. */
+/** Obtains versions of a row to be indexed while building an index. */
 class BuildIndexRowVersionChooser {
     private final PartitionDataStorage storage;
 
-    /** Timestamp of activation of the catalog version in which the index created. */
+    /** Timestamp of activation of the catalog version in which the index was created. */
     private final long createIndexActivationTs;
 
     /** Timestamp of activation of the catalog version in which the index start building (get {@link CatalogIndexStatus#BUILDING}). */
@@ -57,7 +57,7 @@ class BuildIndexRowVersionChooser {
      * <p>Index selection algorithm:</p>
      * <ul>
      *     <li>For writeCommitted with commitTs > activationTs(BUILDING), we will ignore.</li>
-     *     <li>For writeCommitted with commitTs <= activationTs(BUILDING), we will take the latest version.</li>
+     *     <li>For writeCommitted with commitTs <= activationTs(BUILDING), we will take the latest of them.</li>
      *     <li>For writeIntent with beginTs >= activationTs(REGISTERED), we will ignore.</li>
      *     <li>For writeIntent with beginTs < activationTs(REGISTERED), we take.</li>
      * </ul>
@@ -70,6 +70,7 @@ class BuildIndexRowVersionChooser {
 
             boolean takenLatestVersionOfWriteCommitted = false;
 
+            // Versions are iterated in the newest-to-oldest order.
             for (ReadResult readResult : rowVersionCursor) {
                 if (readResult.isEmpty()) {
                     continue;
@@ -82,14 +83,17 @@ class BuildIndexRowVersionChooser {
                 } else {
                     if (commitTs(readResult) > startBuildingIndexActivationTs) {
                         continue;
-                    } else if (takenLatestVersionOfWriteCommitted) {
-                        break;
                     } else {
                         takenLatestVersionOfWriteCommitted = true;
                     }
                 }
 
+                // TODO: IGNITE-21546 It may be necessary to return ReadResult for write intent resolution
                 result.add(new BinaryRowAndRowId(readResult.binaryRow(), rowId));
+
+                if (takenLatestVersionOfWriteCommitted) {
+                    break;
+                }
             }
 
             return result;

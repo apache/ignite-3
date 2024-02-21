@@ -30,10 +30,10 @@ public class BinaryRowAndRowIdMatcher extends TypeSafeMatcher<BinaryRowAndRowId>
 
     private final Matcher<BinaryRow> binaryRowMatcher;
 
-    private BinaryRowAndRowIdMatcher(BinaryRowAndRowId exp) {
-        this.rowId = exp.rowId();
+    private BinaryRowAndRowIdMatcher(BinaryRowAndRowId expected) {
+        this.rowId = expected.rowId();
 
-        BinaryRow row = exp.binaryRow();
+        BinaryRow row = expected.binaryRow();
         this.binaryRowMatcher = row == null ? Matchers.nullValue(BinaryRow.class) : BinaryRowMatcher.equalToRow(row);
     }
 
