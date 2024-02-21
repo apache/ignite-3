@@ -324,7 +324,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         String zoneName = "testZone";
 
-        Catalog catalog = catalog(List.of(createZoneCommand(zoneName, List.of("profile1, profile2"))));
+        Catalog catalog = catalog(createZoneCommand(zoneName, List.of("profile1, profile2")));
 
         String tableProfile = "profile3";
 
@@ -338,7 +338,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         assertDoesNotThrow(() -> {
             // Let's check the success case.
-            Catalog newCatalog = catalog(List.of(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile))));
+            Catalog newCatalog = catalog(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
 
             command.get(newCatalog);
         });
