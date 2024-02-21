@@ -74,7 +74,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         return tableCache.computeIfAbsent(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
     }
 
-    //TODO Create a ticket to get rid of future because physical table must exists if we found catalog version, where table is alive.
+    //TODO https://issues.apache.org/jira/browse/IGNITE-21584 Remove future.
     private CompletableFuture<ExecutableTable> loadTable(IgniteTable sqlTable) {
         return CompletableFuture.completedFuture(tableManager.getTable(sqlTable.id()))
                 .thenApply((table) -> {

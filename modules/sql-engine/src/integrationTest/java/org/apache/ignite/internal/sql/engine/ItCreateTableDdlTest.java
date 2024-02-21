@@ -43,6 +43,8 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,7 +52,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Integration test for CREATE TABLE DDL command.
+ * Integration tests for DDL statements that affect tables.
  */
 public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach
@@ -335,5 +337,17 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> reservedSchemaNames() {
         return SYSTEM_SCHEMAS.stream().map(Arguments::of);
+    }
+
+    @Test
+    public void concurrentDrop() {
+        sql("CREATE TABLE test (key INT PRIMARY KEY)");
+
+        IgniteImpl node = CLUSTER.node(0);
+        Transaction tx = node.transactions().begin(new TransactionOptions().readOnly(true));
+
+        sql("DROP TABLE test");
+
+        sql(tx,"SELECT COUNT(*) FROM test");
     }
 }
