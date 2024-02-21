@@ -26,6 +26,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.Ignite;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,6 +48,10 @@ public class TracingManager {
                 .map(Provider::get)
                 .findFirst()
                 .orElse(NoopSpanManager.INSTANCE);
+    }
+
+    public static void initialize(Ignite ignite) {
+        SPAN_MANAGER.initialize(ignite);
     }
 
     /**
@@ -134,10 +139,16 @@ public class TracingManager {
         return SPAN_MANAGER.create(parentSpan, lb, false, closure);
     }
 
+    /**
+     * Returns a {@link Runnable} that restore trace context and then invokes the input {@link Runnable}.
+     */
     public static Executor taskWrapping(Executor executor) {
         return SPAN_MANAGER.taskWrapping(executor);
     }
 
+    /**
+     * Returns a {@link Callable} that makes this the current context and then invokes the input {@link Callable}.
+     */
     public static ExecutorService taskWrapping(ExecutorService executorService) {
         return SPAN_MANAGER.taskWrapping(executorService);
     }

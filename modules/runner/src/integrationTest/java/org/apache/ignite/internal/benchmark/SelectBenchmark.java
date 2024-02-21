@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
@@ -177,10 +178,10 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark for KV get via embedded client.
+     * Benchmark for KV get via embedded client with enabled tracing.
      */
     @Benchmark
-    public void kvGetWithTracing(Blackhole bh) {
+    public void kvGetTracing(TracingEnableState state, Blackhole bh) {
         try (TraceSpan ignored = rootSpan("kvGetBenchmark")) {
             kvGet(bh);
         }
@@ -361,6 +362,31 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
         KeyValueView<Tuple, Tuple> kvView() {
             return kvView;
+        }
+    }
+
+    /**
+     * Benchmark state for {@link #kvThinGet(KvThinState, Blackhole)}.
+     *
+     * <p>Holds {@link IgniteClient} and {@link KeyValueView} for the table.
+     */
+    @State(Scope.Benchmark)
+    public static class TracingEnableState {
+        /**
+         * Creates the client.
+         */
+        @Setup
+        public void setUp() {
+            clusterNode.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> {
+                change.changeRatio(0.5d);
+            });
+        }
+
+        @TearDown
+        public void tearDown() throws Exception {
+            clusterNode.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> {
+                change.changeRatio(0.0d);
+            });
         }
     }
 

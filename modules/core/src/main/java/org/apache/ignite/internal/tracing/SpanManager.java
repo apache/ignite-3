@@ -24,6 +24,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.Ignite;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,6 +37,7 @@ public interface SpanManager {
      * @param parentSpan Parent span.
      * @param lb Label.
      * @param forceTracing Trace given span regardless tracing configuration parameters. Applicable only for root spans.
+     * @param endRequired {@code True} if current span should be ended at close moment.
      * @return Created span.
      */
     TraceSpan create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, boolean endRequired);
@@ -91,4 +93,6 @@ public interface SpanManager {
     TraceSpan restoreSpanContext(Map<String, String> headers);
 
     TraceSpan current();
+
+    void initialize(Ignite ignite);
 }

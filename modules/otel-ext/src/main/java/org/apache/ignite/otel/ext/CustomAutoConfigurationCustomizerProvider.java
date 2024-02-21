@@ -22,14 +22,9 @@ import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizer;
 import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizerProvider;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
-import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import javax.management.MBeanRegistrationException;
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-import javax.management.OperationsException;
 import org.apache.ignite.otel.ext.sampler.DynamicRatioSampler;
 
 /**
@@ -41,14 +36,26 @@ import org.apache.ignite.otel.ext.sampler.DynamicRatioSampler;
  * @see AutoConfigurationCustomizerProvider
  */
 @AutoService(AutoConfigurationCustomizerProvider.class)
-public class DemoAutoConfigurationCustomizerProvider implements AutoConfigurationCustomizerProvider {
+public class CustomAutoConfigurationCustomizerProvider implements AutoConfigurationCustomizerProvider {
     /** {@inheritDoc} */
     @Override
     public void customize(AutoConfigurationCustomizer autoConfiguration) {
         autoConfiguration
-                // .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIncludedMethods)
-                .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIgniteExecutors);
-        // .addSamplerCustomizer(DemoAutoConfigurationCustomizerProvider::customizeSampler);
+                .addPropertiesCustomizer(CustomAutoConfigurationCustomizerProvider::defaultConfiguration)
+                .addSamplerCustomizer(CustomAutoConfigurationCustomizerProvider::customizeSampler);
+    }
+
+    private static Map<String, String> defaultConfiguration(ConfigProperties configProperties) {
+        String exporter = configProperties.getString("otel.traces.exporter", "zipkin");
+
+        return Map.of(
+                "otel.metrics.exporter", "none",
+                "otel.traces.exporter", exporter
+        );
+    }
+
+    private static Sampler customizeSampler(Sampler sampler, ConfigProperties configProperties) {
+        return new DynamicRatioSampler();
     }
 
     private static Map<String, String> customizeIgniteExecutors(ConfigProperties configProperties) {
@@ -61,12 +68,12 @@ public class DemoAutoConfigurationCustomizerProvider implements AutoConfiguratio
                 + "org.apache.ignite.raft.jraft.util.LogScheduledThreadPoolExecutor,"
                 + "org.apache.ignite.raft.jraft.util.concurrent.MpscSingleThreadExecutor"
         );
-
     }
 
     // Choose methods to instrument. Can be used as an alternative of @WithSpan or manual span building.
     private static Map<String, String> customizeIncludedMethods(ConfigProperties configProperties) {
         String existed = configProperties.getString("otel.instrumentation.methods.include");
+
         Set<String> methods = Set.of(
                 "org.apache.ignite.internal.replicator.ReplicaService"
                         + "[invoke,sendToReplica]",
@@ -79,17 +86,8 @@ public class DemoAutoConfigurationCustomizerProvider implements AutoConfiguratio
         String joined = String.join(";", methods);
         Map<String, String> properties = new HashMap<>();
         properties.put("otel.instrumentation.methods.include", existed == null ? joined : existed + ";" + joined);
-        return properties;
-    }
 
-    private static Sampler customizeSampler(Sampler sampler, ConfigProperties configProperties) {
-        MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-        try {
-            DynamicRatioSampler dynamicRatioSampler = new DynamicRatioSampler();
-            mbs.registerMBean(dynamicRatioSampler, new ObjectName("org.apache.ignite.otel.ext:type=IgniteDynamicRatioSampler"));
-            return dynamicRatioSampler;
-        } catch (OperationsException | MBeanRegistrationException e) {
-            throw new RuntimeException(e);
-        }
+        properties.put("otel.instrumentation.methods.include", existed == null ? joined : existed + ";" + joined);
+        return properties;
     }
 }

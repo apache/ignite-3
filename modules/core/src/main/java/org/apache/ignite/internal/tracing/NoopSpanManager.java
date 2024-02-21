@@ -24,6 +24,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.Ignite;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -86,5 +87,10 @@ public class NoopSpanManager implements SpanManager {
     @Override
     public TraceSpan current() {
         return NoopSpan.INSTANCE;
+    }
+
+    @Override
+    public void initialize(Ignite ignite) {
+        // No-op.
     }
 }

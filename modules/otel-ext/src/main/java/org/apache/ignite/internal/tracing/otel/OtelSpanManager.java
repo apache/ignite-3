@@ -18,25 +18,37 @@
 package org.apache.ignite.internal.tracing.otel;
 
 import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static org.apache.ignite.otel.ext.sampler.DynamicRatioSampler.SAMPLING_RATE_NEVER;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.api.trace.TracerProvider;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapGetter;
+import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tracing.NoopSpan;
 import org.apache.ignite.internal.tracing.SpanManager;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
+import org.apache.ignite.internal.tracing.configuration.TracingView;
+import org.apache.ignite.otel.ext.sampler.DynamicRatioSampler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,21 +56,38 @@ import org.jetbrains.annotations.Nullable;
  */
 @AutoService(SpanManager.class)
 public class OtelSpanManager implements SpanManager {
+    private static final IgniteLogger LOG = Loggers.forClass(OtelSpanManager.class);
+
     private static final TextMapGetter<Map<String, String>> GETTER = new MapGetter();
-    private volatile TracerProvider tracerProvider = TracerProvider.noop();
-    private volatile Tracer tracer;
+
+    private final SdkTracerProvider tracerProvider;
+
+    private final Tracer tracer;
 
     /**
-     * AA.
+     * Read-write lock for the list of authenticators and the authentication enabled flag.
+     */
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+    /** Tracing enabled flag. */
+    private volatile boolean tracingEnabled = true;
+
+    /**
+     * Constructor.
      */
     public OtelSpanManager() {
-        // AutoConfiguredOpenTelemetrySdk telemetrySdk = AutoConfiguredOpenTelemetrySdk.builder().build();
+        AutoConfiguredOpenTelemetrySdk telemetrySdk = AutoConfiguredOpenTelemetrySdk.initialize();
 
+        tracerProvider = telemetrySdk.getOpenTelemetrySdk().getSdkTracerProvider();
         tracer = tracerProvider.get(null);
     }
 
     @Override
     public TraceSpan create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, boolean endRequired) {
+        if (!tracingEnabled) {
+            return NoopSpan.INSTANCE;
+        }
+
         boolean isBeginOfTrace = !Span.current().getSpanContext().isValid();
         boolean invalidParent = parentSpan == null || !parentSpan.isValid();
 
@@ -73,6 +102,11 @@ public class OtelSpanManager implements SpanManager {
         }
 
         var span = spanBuilder.startSpan();
+
+        if (!span.isRecording()) {
+            return NoopSpan.INSTANCE;
+        }
+
         var scope = span.makeCurrent();
         Context ctx = Context.current();
 
@@ -156,6 +190,38 @@ public class OtelSpanManager implements SpanManager {
         }
 
         return new TracingFuture<>(fut);
+    }
+
+    @Override
+    public void initialize(Ignite ignite) {
+        TracingConfiguration tracingConfiguration = ((IgniteImpl) ignite).clusterConfiguration()
+                .getConfiguration(TracingConfiguration.KEY);
+
+        tracingConfiguration.listen((ctx) -> {
+            refreshTracers(ignite.name(), ctx.newValue());
+
+            return nullCompletedFuture();
+        });
+    }
+
+    private void refreshTracers(String name, @Nullable TracingView view) {
+        rwLock.writeLock().lock();
+        try {
+            if (view == null || view.ratio() == SAMPLING_RATE_NEVER) {
+                tracingEnabled = false;
+            } else {
+                tracingEnabled = true;
+
+                DynamicRatioSampler sampler = (DynamicRatioSampler) tracerProvider.getSampler();
+                sampler.configure(view.ratio(), true);
+
+                LOG.debug("refresh tracing configuration [name={}, ratio={}]", name, view.ratio());
+            }
+        } catch (Exception exception) {
+            LOG.error("Couldn't refresh tracing configuration for `{}`. Leaving the old settings", name, exception);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     private static class MapGetter implements TextMapGetter<Map<String, String>> {

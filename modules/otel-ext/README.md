@@ -1,18 +1,37 @@
 # Apache Ignite 3 OpenTelemetry extension
 
-1. Prepare extension jar
-`$ gradle clean build`
-2. Download OpenTelemetry java agent v.1.30.0 required for code auto instrumentation
-https://opentelemetry.io/docs/instrumentation/java/automatic/#setup
-3. Launch ignite with additional java parameters
-`-javaagent:{pathToJavaAgent}/opentelemetry-javaagent-1.30.0.jar -Dotel.javaagent.extensions=ignite-3/modules/otel-ext/build/libs/ignite-otel-ext-3.0.0-SNAPSHOT.jar`
-and configured span exporter
-https://github.com/open-telemetry/opentelemetry-java/blob/main/sdk-extensions/autoconfigure/README.md#span-exporters
-For example Zipkin:
-`-Dotel.traces.exporter=zipkin -Dotel.exporter.zipkin.endpoint=http://localhost:9411/api/v2/spans`
-   
+By default all traces will be exported by using Zipkin exporter and will be send by http://localhost:9411/api/v2/spans
+
+To override endpoint need to pass following system properties:
+`-Dotel.exporter.zipkin.endpoint=http://host:9411/api/v2/spans`
+or using environment variables:
+`OTEL_EXPORTER_ZIPKIN_ENDPOINT=http://host:9411/api/v2/spans`
+
+To enable export, you need to set the sampling rate:
+```java
+node.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> {
+    change.changeRatio(0.5d);
+});
+```
+
 # Exporting traces to the files in zipkin format
+
+All trace files will be placed into <work folder path> in JSON format with name `<traceId>.json`
 
 To enable need to pass following system properties:
 `-Dotel.traces.exporter=file-zipkin -Dotel.exporter.file-zipkin.base-path=<work folder path>`
-All trace files will be placed into <work folder path> in JSON format with name `<traceId>.json`
+or using environment variables:
+`OTEL_TRACES_EXPORTER=file-zipkin OTEL_EXPORTER_FILE_ZIPKIN_BASE_PATH=<work folder path>`
+
+NOTE: These settings must be set on all nodes.
+
+# Exporting traces to the jaeger
+
+To enable need to pass following system properties:
+`-Dotel.traces.exporter=otel -Dotel.exporter.otlp.endpoint=http://host:9411/api/v2/spans`
+or using environment variables:
+`OTEL_TRACES_EXPORTER=otel OTEL_EXPORTER_OTLP_ENDPOINT=http://host:9411/api/v2/spans`
+
+NOTE: These settings must be set on all nodes.
+
+

@@ -39,10 +39,10 @@ public class DynamicRatioSampler implements Sampler, DynamicRatioSamplerMBean {
     private volatile Sampler sampler;
 
     public DynamicRatioSampler() {
-        this(Sampler.parentBased(Sampler.alwaysOn()));
+        this(Sampler.parentBased(Sampler.alwaysOff()));
     }
 
-    public DynamicRatioSampler(Sampler sampler) {
+    private DynamicRatioSampler(Sampler sampler) {
         this.sampler = sampler;
     }
 
@@ -69,6 +69,7 @@ public class DynamicRatioSampler implements Sampler, DynamicRatioSamplerMBean {
     @Override
     public SamplingResult shouldSample(Context parentContext, String traceId, String name, SpanKind spanKind, Attributes attributes,
             List<LinkData> parentLinks) {
+
         return sampler.shouldSample(parentContext, traceId, name, spanKind, attributes, parentLinks);
     }
 
