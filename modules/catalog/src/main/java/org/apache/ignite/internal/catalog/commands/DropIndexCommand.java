@@ -82,8 +82,6 @@ public class DropIndexCommand extends AbstractIndexCommand {
                 return List.of(new RemoveIndexEntry(index.id()));
             case AVAILABLE:
                 return List.of(new DropIndexEntry(index.id(), index.tableId()));
-            case STOPPING:
-                throw new CatalogValidationException("Dropping an already dropped index is not allowed");
             default:
                 throw new IllegalStateException("Unknown index status: " + index.status());
         }

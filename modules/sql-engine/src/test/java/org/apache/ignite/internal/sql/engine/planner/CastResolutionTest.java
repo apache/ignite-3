@@ -51,7 +51,7 @@ import org.apache.calcite.sql.type.SqlTypeCoercionRule;
 import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssigmentsRules;
+import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
@@ -212,7 +212,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
     public Stream<DynamicTest> allowedCastsFromNull() {
         List<DynamicTest> testItems = new ArrayList<>();
 
-        SqlTypeMappingRule rules = SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
+        SqlTypeMappingRule rules = SqlTypeCoercionRule.instance(IgniteCustomAssignmentsRules.instance().getTypeMapping());
 
         for (SqlTypeName type : ALL_TYPES) {
             if (type == SqlTypeName.NULL) {
@@ -241,7 +241,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
         List<SqlTypeName> singleDayIntervals = List.of(INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE,
                 INTERVAL_SECOND);
 
-        SqlTypeMappingRule rules = SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
+        SqlTypeMappingRule rules = SqlTypeCoercionRule.instance(IgniteCustomAssignmentsRules.instance().getTypeMapping());
 
         for (SqlTypeName toType : singleIntervals) {
             for (SqlTypeName fromType : EXACT_TYPES) {

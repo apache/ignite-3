@@ -30,7 +30,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Event listener for changing the distribution zone and its fields.
@@ -68,11 +67,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     @Override
-    public CompletableFuture<Boolean> notify(AlterZoneEventParameters parameters, @Nullable Throwable exception) {
-        if (exception != null) {
-            return failedFuture(exception);
-        }
-
+    public CompletableFuture<Boolean> notify(AlterZoneEventParameters parameters) {
         try {
             CatalogZoneDescriptor newZone = parameters.zoneDescriptor();
 

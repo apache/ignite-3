@@ -17,22 +17,22 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -42,30 +42,36 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * Component is responsible for starting and stopping {@link IndexBuildingStarterTask} via {@link IndexBuildingStarter}.
+ * Component that reacts to certain Catalog changes and starts or stops corresponding {@link ChangeIndexStatusTask}s via the
+ * {@link ChangeIndexStatusTaskScheduler}.
  *
- * <p>Tasks will be started only if the local node is the primary replica for the {@code 0} partition of the table for which indexes are
- * created.</p>
+ * <p>Tasks will be started only if the local node is the primary replica for the {@code 0} partition of the table which indexes have been
+ * modified in the Catalog.
  *
- * <br><p>Tasks are started and stopped based on events:</p>
+ * <p>The following events are being monitored:
  * <ul>
- *     <li>{@link CatalogEvent#INDEX_CREATE} - task starts for the new index.</li>
- *     <li>{@link CatalogEvent#INDEX_REMOVED} - stops task for the new index if it has been added.</li>
- *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - when the local node becomes the primary replica for partition {@code 0} of
- *     the table, it starts tasks for its all new indexes, and when the primary replica expires, it stops all tasks for the table.</li>
+ *     <li>{@link CatalogEvent#INDEX_CREATE} - when an index is created, a task will be started to move the index to the
+ *     {@link CatalogIndexStatus#BUILDING} state; </li>
+ *     <li>{@link CatalogEvent#INDEX_STOPPING} - when an index is dropped, a task will be started to remove the index from the Catalog;</li>
+ *     <li>{@link CatalogEvent#INDEX_REMOVED} - when an index is removed from the Catalog, all ongoing tasks for the index will be stopped;
+ *     </li>
+ *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - if the local node has become the primary replica for partition {@code 0} of
+ *     the table, it starts corresponding tasks depending on the current status of indices in the Catalog. If the local node stops being the
+ *     primary replica for the partition {@code 0}, it stops all tasks that belong to indices of the table that the partition belongs to.
+ *     </li>
  * </ul>
  *
- * <br><p>On node recovery, tasks will be started on {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}, which will fire due to a change in
- * the {@link ReplicaMeta#getLeaseholderId()} on node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
+ * <p>On node recovery, tasks will be started on {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}, which will fire due to a change in
+ * the {@link ReplicaMeta#getLeaseholderId()} on node restart but after {@link ReplicaMeta#getExpirationTime()}.
  */
-class IndexBuildingStarterController implements ManuallyCloseable {
+class ChangeIndexStatusTaskController implements ManuallyCloseable {
     private final CatalogService catalogService;
 
     private final PlacementDriver placementDriver;
 
     private final ClusterService clusterService;
 
-    private final IndexBuildingStarter indexBuildingStarter;
+    private final ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
 
     /** Tables IDs for which the local node is the primary replica for the partition with ID {@code 0}. */
     private final Set<Integer> localNodeIsPrimaryReplicaForTableIds = ConcurrentHashMap.newKeySet();
@@ -74,16 +80,16 @@ class IndexBuildingStarterController implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    IndexBuildingStarterController(
-            CatalogService catalogService,
+    ChangeIndexStatusTaskController(
+            CatalogManager catalogManager,
             PlacementDriver placementDriver,
             ClusterService clusterService,
-            IndexBuildingStarter indexBuildingStarter
+            ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler
     ) {
-        this.catalogService = catalogService;
+        this.catalogService = catalogManager;
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
-        this.indexBuildingStarter = indexBuildingStarter;
+        this.changeIndexStatusTaskScheduler = changeIndexStatusTaskScheduler;
 
         addListeners();
     }
@@ -96,68 +102,56 @@ class IndexBuildingStarterController implements ManuallyCloseable {
 
         busyLock.block();
 
-        indexBuildingStarter.close();
+        changeIndexStatusTaskScheduler.close();
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
+        catalogService.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(this::onIndexCreated));
 
-            return onIndexCreate((CreateIndexEventParameters) parameters).thenApply(unused -> false);
-        });
+        catalogService.listen(CatalogEvent.INDEX_STOPPING, EventListener.fromConsumer(this::onIndexDropped));
 
-        catalogService.listen(CatalogEvent.INDEX_REMOVED, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
-            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
-        });
-
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onPrimaryReplicaElected(parameters).thenApply(unused -> false);
-        });
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, EventListener.fromConsumer(this::onPrimaryReplicaElected));
     }
 
-    private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onIndexCreated(CreateIndexEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
             CatalogIndexDescriptor indexDescriptor = parameters.indexDescriptor();
 
             if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
                 // Schedule building the index only if the local node is the primary replica for the 0 partition of the table for which the
                 // index was created.
-                indexBuildingStarter.scheduleTask(parameters.indexDescriptor());
+                changeIndexStatusTaskScheduler.scheduleStartBuildingTask(parameters.indexDescriptor());
             }
-
-            return nullCompletedFuture();
         });
     }
 
-    private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
-            CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion() - 1);
+    private void onIndexDropped(StoppingIndexEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion());
 
             assert indexDescriptor != null : parameters.indexId();
 
-            indexBuildingStarter.stopTask(indexDescriptor);
-
-            return nullCompletedFuture();
+            if (localNodeIsPrimaryReplicaForTableIds.contains(indexDescriptor.tableId())) {
+                // Schedule index removal only if the local node is the primary replica for the 0 partition of the table for which the
+                // index was dropped.
+                changeIndexStatusTaskScheduler.scheduleRemoveIndexTask(indexDescriptor);
+            }
         });
     }
 
-    private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onIndexRemoved(RemoveIndexEventParameters parameters) {
+        inBusyLock(busyLock, () -> changeIndexStatusTaskScheduler.stopStartBuildingTask(parameters.indexId()));
+    }
+
+    private void onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
             TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
 
             if (primaryReplicaId.partitionId() != 0) {
                 // We are only interested in the 0 partition.
-                return nullCompletedFuture();
+                return;
             }
 
             int tableId = primaryReplicaId.tableId();
@@ -168,11 +162,9 @@ class IndexBuildingStarterController implements ManuallyCloseable {
                 }
             } else {
                 if (localNodeIsPrimaryReplicaForTableIds.remove(tableId)) {
-                    indexBuildingStarter.stopTasks(tableId);
+                    changeIndexStatusTaskScheduler.stopTasksForTable(tableId);
                 }
             }
-
-            return nullCompletedFuture();
         });
     }
 
@@ -181,8 +173,19 @@ class IndexBuildingStarterController implements ManuallyCloseable {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, tableId)) {
-            if (indexDescriptor.status() == REGISTERED) {
-                indexBuildingStarter.scheduleTask(indexDescriptor);
+            switch (indexDescriptor.status()) {
+                case REGISTERED:
+                    changeIndexStatusTaskScheduler.scheduleStartBuildingTask(indexDescriptor);
+
+                    break;
+
+                case STOPPING:
+                    changeIndexStatusTaskScheduler.scheduleRemoveIndexTask(indexDescriptor);
+
+                    break;
+
+                default:
+                    break;
             }
         }
     }

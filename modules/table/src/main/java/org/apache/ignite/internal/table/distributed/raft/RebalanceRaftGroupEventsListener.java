@@ -45,6 +45,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.PartitionMover;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -166,7 +166,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
-                        Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsBytes);
+                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
 
                         var peers = new HashSet<String>();
                         var learners = new HashSet<String>();
@@ -315,9 +315,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Entry switchReduceEntry = values.get(switchReduceKey);
             Entry switchAppendEntry = values.get(switchAppendKey);
 
-            Set<Assignment> retrievedStable = readAssignments(stableEntry);
-            Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry);
-            Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry);
+            Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
+            Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
+            Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
 
 
             Set<Assignment> stable = createAssignments(configuration);
@@ -363,11 +363,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Update successCase;
             Update failCase;
 
-            byte[] stableByteArray = ByteUtils.toBytes(stable);
-            byte[] additionByteArray = ByteUtils.toBytes(calculatedPendingAddition);
-            byte[] reductionByteArray = ByteUtils.toBytes(calculatedPendingReduction);
-            byte[] switchReduceByteArray = ByteUtils.toBytes(calculatedSwitchReduce);
-            byte[] switchAppendByteArray = ByteUtils.toBytes(calculatedSwitchAppend);
+            byte[] stableByteArray = Assignments.toBytes(stable);
+            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition);
+            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction);
+            byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce);
+            byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend);
 
             if (!calculatedSwitchAppend.isEmpty()) {
                 successCase = ops(
@@ -392,7 +392,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
 
                     successCase = ops(
-                            put(stablePartAssignmentsKey, ByteUtils.toBytes(stable)),
+                            put(stablePartAssignmentsKey, Assignments.toBytes(stable)),
                             put(pendingPartAssignmentsKey, plannedEntry.value()),
                             remove(plannedPartAssignmentsKey)
                     ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
@@ -403,7 +403,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     con5 = notExists(plannedPartAssignmentsKey);
 
                     successCase = ops(
-                            put(stablePartAssignmentsKey, ByteUtils.toBytes(stable)),
+                            put(stablePartAssignmentsKey, Assignments.toBytes(stable)),
                             remove(pendingPartAssignmentsKey)
                     ).yield(FINISH_REBALANCE_SUCCESS);
 
@@ -462,7 +462,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 case SCHEDULE_PENDING_REBALANCE_SUCCESS:
                     LOG.info(
                             "Rebalance finished. Going to schedule next rebalance [tablePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            tablePartitionId, stable, ByteUtils.fromBytes(plannedEntry.value())
+                            tablePartitionId, stable, Assignments.fromBytes(plannedEntry.value()).nodes()
                     );
                     break;
                 case FINISH_REBALANCE_SUCCESS:
@@ -498,9 +498,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param entry MetaStorage entry.
      * @return Set of cluster assignments.
      */
-    private static Set<Assignment> readAssignments(Entry entry) {
+    private static Assignments readAssignments(Entry entry) {
         byte[] value = entry.value();
 
-        return value == null ? Set.of() : ByteUtils.fromBytes(value);
+        return value == null ? Assignments.EMPTY : Assignments.fromBytes(value);
     }
 }

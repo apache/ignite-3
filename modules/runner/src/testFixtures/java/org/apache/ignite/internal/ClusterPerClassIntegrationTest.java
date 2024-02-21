@@ -517,7 +517,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }
