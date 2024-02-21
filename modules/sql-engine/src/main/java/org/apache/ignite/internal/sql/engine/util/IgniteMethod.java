@@ -73,8 +73,8 @@ public enum IgniteMethod {
 
     STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToNumeric", String.class),
 
-    /** See {@link IgniteSqlFunctions#localTimestampToUtc(Long, TimeZone)}. **/
-    LOCAL_TIMESTAMP_TO_UTC(IgniteSqlFunctions.class, "localTimestampToUtc", Long.class, TimeZone.class),
+    /** See {@link IgniteSqlFunctions#subtractTimeZoneOffset(long, TimeZone)}. **/
+    SUBTRACT_TIMEZONE_OFFSET(IgniteSqlFunctions.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
 
     /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)}. */
     PARSE_INTERVAL_YEAR_MONTH(SqlParserUtil.class, "intervalToMonths", String.class, SqlIntervalQualifier.class),

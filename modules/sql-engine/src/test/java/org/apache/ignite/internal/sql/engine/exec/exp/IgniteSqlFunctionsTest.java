@@ -511,7 +511,7 @@ public class IgniteSqlFunctionsTest {
         long expMillis = dateFormatTz.parse(input).getTime();
         long utcMillis = dateFormatUtc.parse(input).getTime();
 
-        long actualTs = IgniteSqlFunctions.localTimestampToUtc(utcMillis, cyprusTz);
+        long actualTs = IgniteSqlFunctions.subtractTimeZoneOffset(utcMillis, cyprusTz);
 
         assertEquals(Instant.ofEpochMilli(expMillis), Instant.ofEpochMilli(actualTs));
     }
