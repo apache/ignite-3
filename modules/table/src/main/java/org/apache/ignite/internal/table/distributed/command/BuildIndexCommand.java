@@ -34,4 +34,7 @@ public interface BuildIndexCommand extends WriteCommand {
 
     /** Returns {@code true} if this batch is the last one. */
     boolean finish();
+
+    /** Returns the catalog version in which the index was created. */
+    int creationCatalogVersion();
 }

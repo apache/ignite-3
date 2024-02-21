@@ -221,7 +221,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     void testDestroyIndex() throws Exception {
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(INDEX_NAME, catalogManager.latestCatalogVersion());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(INDEX_NAME, catalogManager.latestCatalogVersion());
         int indexId = indexDescriptor.id();
         int tableId = indexDescriptor.tableId();
 
@@ -239,7 +239,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     void testIndexDestroyedWithTable() throws Exception {
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(INDEX_NAME, catalogManager.latestCatalogVersion());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(INDEX_NAME, catalogManager.latestCatalogVersion());
         int indexId = indexDescriptor.id();
         int tableId = indexDescriptor.tableId();
 

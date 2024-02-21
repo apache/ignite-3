@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -56,6 +57,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -183,6 +185,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private CatalogService catalogService;
 
+    private CatalogIndexDescriptor indexDescriptor;
+
     /**
      * Initializes a table listener before tests.
      */
@@ -196,8 +200,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
+        int indexId = pkStorage.id();
+
         indexUpdateHandler = spy(new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(indexId, pkStorage))
         ));
 
         storageUpdateHandler = spy(new StorageUpdateHandler(
@@ -209,10 +215,14 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         catalogService = mock(CatalogService.class);
 
-        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+        Catalog catalog = mock(Catalog.class);
 
-        lenient().when(indexDescriptor.id()).thenReturn(pkStorage.id());
+        indexDescriptor = mock(CatalogIndexDescriptor.class);
+
+        lenient().when(indexDescriptor.id()).thenReturn(indexId);
+        lenient().when(catalog.index(indexId)).thenReturn(indexDescriptor);
         lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
         commandListener = new PartitionListener(
                 mock(TxManager.class),
@@ -493,9 +503,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testBuildIndexCommand() {
-        int indexId = 1;
+        int indexId = pkStorage.id();
 
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
+        when(indexDescriptor.status()).thenReturn(BUILDING);
 
         RowId row0 = new RowId(PARTITION_ID);
         RowId row1 = new RowId(PARTITION_ID);

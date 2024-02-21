@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAM
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
-import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -61,10 +60,10 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
     void rejectToDropZoneWithTable() {
         String tableName = "table1";
 
-        Catalog catalog = catalog(List.of(
+        Catalog catalog = catalog(
                 createZoneCommand(ZONE_NAME),
                 createTableCommand(ZONE_NAME, tableName)
-        ));
+        );
 
         assertThrows(
                 DistributionZoneCantBeDroppedValidationException.class,

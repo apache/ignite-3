@@ -3724,6 +3724,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .indexId(request.indexId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())
+                .creationCatalogVersion(request.creationCatalogVersion())
                 .build();
     }
 
