@@ -809,7 +809,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private void waitPartitionAssignmentsSyncedToExpected(String tableName, int partNum, int replicasNum) throws Exception {
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum),
+                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, tableName, partNum).size() == replicasNum),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
@@ -855,9 +855,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, int partNum) {
-        return Optional.ofNullable(getTableId(node, TABLE_NAME))
-                .map(tableId -> partitionAssignments(node.metaStorageManager, tableId, partNum).join())
-                .orElse(Set.of());
+        return getPartitionClusterNodes(node, TABLE_NAME, partNum);
     }
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, String tableName, int partNum) {

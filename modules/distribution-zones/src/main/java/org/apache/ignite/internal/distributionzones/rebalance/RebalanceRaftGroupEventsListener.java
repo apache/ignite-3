@@ -256,7 +256,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             byte[] stableArray = ByteUtils.toBytes(stable);
 
             Update successCase = ops(
-                    put(tablesCounterKey(zoneId, partId), intToBytes(counter - 1)),
+                    put(tablesCounterKey(zoneId, partId), intToBytes(--counter)),
                     put(raftConfigurationAppliedKey(tablePartitionId), stableArray)
             ).yield(PART_COUNTER_DECREMENT_SUCCESS);
 
@@ -274,7 +274,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
                 return;
             } else {
-                LOG.info("Count down of zone's partitions is succeeded [zoneId={}, appliedPeers={}]", zoneId, stable);
+                LOG.info(
+                        "Count down of zone's partitions is succeeded [zoneId={}, appliedPeers={}, counter = {}]",
+                        zoneId,
+                        stable,
+                        counter
+                );
             }
 
             rebalanceAttempts.set(0);
@@ -349,7 +354,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * Implementation of {@link RebalanceRaftGroupEventsListener#onNewPeersConfigurationApplied}.
      */
     public static void doOnNewPeersConfigurationApplied(
-            Set<Assignment> stable,
+            Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
             MetaStorageManager metaStorageMgr,
             CatalogService catalogService,
@@ -384,12 +389,18 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedStable = readAssignments(stableEntry);
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry);
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry);
+            Set<Assignment> retrievedPending = readAssignments(pendingEntry);
+
+            if (!retrievedPending.equals(stableFromRaft)) {
+                System.out.println("!@#$ CONCURRENT UPDATE!!!");
+                return;
+            }
 
             // Were reduced
-            Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stable);
+            Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);
 
             // Were added
-            Set<Assignment> addedNodes = difference(stable, retrievedStable);
+            Set<Assignment> addedNodes = difference(stableFromRaft, retrievedStable);
 
             // For further reduction
             Set<Assignment> calculatedSwitchReduce = difference(retrievedSwitchReduce, reducedNodes);
@@ -399,9 +410,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             calculatedSwitchAppend = difference(calculatedSwitchAppend, addedNodes);
             calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
 
-            Set<Assignment> calculatedPendingReduction = difference(stable, retrievedSwitchReduce);
+            Set<Assignment> calculatedPendingReduction = difference(stableFromRaft, retrievedSwitchReduce);
 
-            Set<Assignment> calculatedPendingAddition = union(stable, reducedNodes);
+            Set<Assignment> calculatedPendingAddition = union(stableFromRaft, reducedNodes);
             calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);
 
             // eq(revision(assignments.stable), retrievedAssignmentsStable.revision)
@@ -426,7 +437,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Update successCase;
             Update failCase;
 
-            byte[] stableByteArray = ByteUtils.toBytes(stable);
+            byte[] stableFromRaftByteArray = ByteUtils.toBytes(stableFromRaft);
             byte[] additionByteArray = ByteUtils.toBytes(calculatedPendingAddition);
             byte[] reductionByteArray = ByteUtils.toBytes(calculatedPendingReduction);
             byte[] switchReduceByteArray = ByteUtils.toBytes(calculatedSwitchReduce);
@@ -434,7 +445,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             if (!calculatedSwitchAppend.isEmpty()) {
                 successCase = ops(
-                        put(stablePartAssignmentsKey, stableByteArray),
+                        put(stablePartAssignmentsKey, stableFromRaftByteArray),
                         put(pendingPartAssignmentsKey, additionByteArray),
                         put(switchReduceKey, switchReduceByteArray),
                         put(switchAppendKey, switchAppendByteArray)
@@ -442,7 +453,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 failCase = ops().yield(SWITCH_APPEND_FAIL);
             } else if (!calculatedSwitchReduce.isEmpty()) {
                 successCase = ops(
-                        put(stablePartAssignmentsKey, stableByteArray),
+                        put(stablePartAssignmentsKey, stableFromRaftByteArray),
                         put(pendingPartAssignmentsKey, reductionByteArray),
                         put(switchReduceKey, switchReduceByteArray),
                         put(switchAppendKey, switchAppendByteArray)
@@ -453,9 +464,13 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 if (plannedEntry.value() != null) {
                     // eq(revision(partition.assignments.planned), plannedEntry.revision)
                     con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
+//                    con5 = and(
+//                            revision(plannedPartAssignmentsKey).eq(plannedEntry.revision()),
+//                            value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray)
+//                    );
 
                     successCase = ops(
-                            put(stablePartAssignmentsKey, ByteUtils.toBytes(stable)),
+                            put(stablePartAssignmentsKey, ByteUtils.toBytes(stableFromRaft)),
                             put(pendingPartAssignmentsKey, plannedEntry.value()),
                             remove(plannedPartAssignmentsKey)
                     ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
@@ -464,9 +479,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 } else {
                     // notExists(partition.assignments.planned)
                     con5 = notExists(plannedPartAssignmentsKey);
+                    //con5 = and(notExists(plannedPartAssignmentsKey), value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray));
 
                     successCase = ops(
-                            put(stablePartAssignmentsKey, ByteUtils.toBytes(stable)),
+                            put(stablePartAssignmentsKey, ByteUtils.toBytes(stableFromRaft)),
                             remove(pendingPartAssignmentsKey)
                     ).yield(FINISH_REBALANCE_SUCCESS);
 
@@ -484,20 +500,20 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     case SWITCH_APPEND_FAIL:
                         LOG.info("Rebalance keys changed while trying to update rebalance pending addition information. "
                                         + "Going to retry [tablePartitionID={}, appliedPeers={}]",
-                                tablePartitionId, stable
+                                tablePartitionId, stableFromRaft
                         );
                         break;
                     case SWITCH_REDUCE_FAIL:
                         LOG.info("Rebalance keys changed while trying to update rebalance pending reduce information. "
                                         + "Going to retry [tablePartitionID={}, appliedPeers={}]",
-                                tablePartitionId, stable
+                                tablePartitionId, stableFromRaft
                         );
                         break;
                     case SCHEDULE_PENDING_REBALANCE_FAIL:
                     case FINISH_REBALANCE_FAIL:
                         LOG.info("Rebalance keys changed while trying to update rebalance information. "
                                         + "Going to retry [tablePartitionId={}, appliedPeers={}]",
-                                tablePartitionId, stable
+                                tablePartitionId, stableFromRaft
                         );
                         break;
                     default:
@@ -506,7 +522,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 }
 
                 doOnNewPeersConfigurationApplied(
-                        stable,
+                        stableFromRaft,
                         tablePartitionId,
                         metaStorageMgr,
                         catalogService,
@@ -520,23 +536,23 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 case SWITCH_APPEND_SUCCESS:
                     LOG.info("Rebalance finished. Going to schedule next rebalance with addition"
                                     + " [tablePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            tablePartitionId, stable, calculatedPendingAddition
+                            tablePartitionId, stableFromRaft, calculatedPendingAddition
                     );
                     break;
                 case SWITCH_REDUCE_SUCCESS:
                     LOG.info("Rebalance finished. Going to schedule next rebalance with reduction"
                                     + " [tablePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            tablePartitionId, stable, calculatedPendingReduction
+                            tablePartitionId, stableFromRaft, calculatedPendingReduction
                     );
                     break;
                 case SCHEDULE_PENDING_REBALANCE_SUCCESS:
                     LOG.info(
                             "Rebalance finished. Going to schedule next rebalance [tablePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            tablePartitionId, stable, ByteUtils.fromBytes(plannedEntry.value())
+                            tablePartitionId, stableFromRaft, ByteUtils.fromBytes(plannedEntry.value())
                     );
                     break;
                 case FINISH_REBALANCE_SUCCESS:
-                    LOG.info("Rebalance finished [tablePartitionId={}, appliedPeers={}]", tablePartitionId, stable);
+                    LOG.info("Rebalance finished [tablePartitionId={}, appliedPeers={}]", tablePartitionId, stableFromRaft);
                     break;
                 default:
                     assert false : res;
