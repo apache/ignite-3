@@ -46,7 +46,7 @@ def tokens = [
 
 task replacePackageScriptVars(type: Copy) {
     onlyIf {
-        project.hasProperty('odbc.enable')
+        project.hasProperty('platforms.enable')
     }
 
     from "$rootDir/packaging/odbc/ignite3-odbc.ini"
@@ -74,7 +74,7 @@ distributions {
 
 distZip {
     onlyIf {
-        project.hasProperty('odbc.enable')
+        project.hasProperty('platforms.enable')
     }
 
     dependsOn replacePackageScriptVars
@@ -82,7 +82,7 @@ distZip {
 
 distTar {
     onlyIf {
-        project.hasProperty('odbc.enable')
+        project.hasProperty('platforms.enable')
     }
 
     dependsOn replacePackageScriptVars
@@ -90,7 +90,7 @@ distTar {
 
 buildRpm {
     onlyIf {
-        project.hasProperty('odbc.enable')
+        project.hasProperty('platforms.enable')
     }
     dependsOn replacePackageScriptVars
     requires("unixODBC")
@@ -103,7 +103,7 @@ buildRpm {
 
 buildDeb {
     onlyIf {
-        project.hasProperty('odbc.enable')
+        project.hasProperty('platforms.enable')
     }
     dependsOn replacePackageScriptVars
     requires("unixodbc")
