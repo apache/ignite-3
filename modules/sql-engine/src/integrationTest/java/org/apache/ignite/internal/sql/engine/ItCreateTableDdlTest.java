@@ -348,6 +348,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         sql("DROP TABLE test");
 
-        sql(tx,"SELECT COUNT(*) FROM test");
+        sql(tx, "SELECT COUNT(*) FROM test");
     }
 }
