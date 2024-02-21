@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
 import org.junit.jupiter.api.Test;
 
 /** For {@link AbstractEventProducer} testing. */
@@ -39,7 +38,7 @@ public class EventProducerTest {
 
         CompletableFuture<Boolean> future = new CompletableFuture<>();
 
-        producer.listen(TestEvent.TEST, (p, e) -> future);
+        producer.listen(TestEvent.TEST, p -> future);
 
         CompletableFuture<?> eventHandleFuture = producer.fireEvent(TestEvent.TEST, new TestEventParameters(0L));
 
@@ -56,11 +55,9 @@ public class EventProducerTest {
 
         final int stopListenAfterCount = 5;
         final int fireEventCount = stopListenAfterCount * 2;
-        AtomicInteger listenConter = new AtomicInteger();
+        AtomicInteger listenCount = new AtomicInteger();
 
-        EventListener<TestEventParameters> listener = createEventListener(
-                (p, e) -> completedFuture(listenConter.incrementAndGet() == stopListenAfterCount)
-        );
+        EventListener<TestEventParameters> listener = p -> completedFuture(listenCount.incrementAndGet() == stopListenAfterCount);
 
         producer.listen(TestEvent.TEST, listener);
 
@@ -68,7 +65,7 @@ public class EventProducerTest {
             producer.fireEvent(TestEvent.TEST, new TestEventParameters(0L));
         }
 
-        assertEquals(stopListenAfterCount, listenConter.get());
+        assertEquals(stopListenAfterCount, listenCount.get());
     }
 
     @Test
@@ -85,15 +82,15 @@ public class EventProducerTest {
             EventListener<TestEventParameters> listener;
 
             if (i == listenerIndexToRemove) {
-                listener = createEventListener((p, e) -> {
+                listener = p -> {
                     toRemoveFuture.complete(null);
 
                     return falseCompletedFuture();
-                });
+                };
 
                 listenerToRemove = listener;
             } else {
-                listener = createEventListener((p, e) -> falseCompletedFuture());
+                listener = p -> falseCompletedFuture();
             }
 
             producer.listen(TestEvent.TEST, listener);
@@ -109,12 +106,6 @@ public class EventProducerTest {
         producer.removeListener(TestEvent.TEST, listenerToRemove);
 
         assertThat(fireFuture, willCompleteSuccessfully());
-    }
-
-    private static <T extends EventParameters> EventListener<T> createEventListener(
-            BiFunction<T, Throwable, CompletableFuture<Boolean>> notify
-    ) {
-        return notify::apply;
     }
 
     private enum TestEvent implements Event {

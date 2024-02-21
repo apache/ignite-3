@@ -267,16 +267,12 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     }
 
     @Override
-    public CompletableFuture<Boolean> notify(EventParameters parameters, @Nullable Throwable exception) {
+    public CompletableFuture<Boolean> notify(EventParameters parameters) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
 
         try {
-            if (exception != null) {
-                return falseCompletedFuture();
-            }
-
             return notifyInternal(parameters);
         } finally {
             busyLock.leaveBusy();

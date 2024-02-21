@@ -174,25 +174,21 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     void testGetMvTableStorageForNewIndexInCatalogListener() {
         CompletableFuture<MvTableStorage> getMvTableStorageInCatalogListenerFuture = new CompletableFuture<>();
 
-        catalogManager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
-            if (exception != null) {
-                getMvTableStorageInCatalogListenerFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    CompletableFuture<MvTableStorage> mvTableStorageFuture = getMvTableStorage(parameters.causalityToken(), tableId());
+        catalogManager.listen(CatalogEvent.INDEX_CREATE, parameters -> {
+            try {
+                CompletableFuture<MvTableStorage> mvTableStorageFuture = getMvTableStorage(parameters.causalityToken(), tableId());
 
-                    assertFalse(mvTableStorageFuture.isDone());
+                assertFalse(mvTableStorageFuture.isDone());
 
-                    mvTableStorageFuture.whenComplete((mvTableStorage, throwable) -> {
-                        if (throwable != null) {
-                            getMvTableStorageInCatalogListenerFuture.completeExceptionally(throwable);
-                        } else {
-                            getMvTableStorageInCatalogListenerFuture.complete(mvTableStorage);
-                        }
-                    });
-                } catch (Throwable t) {
-                    getMvTableStorageInCatalogListenerFuture.completeExceptionally(t);
-                }
+                mvTableStorageFuture.whenComplete((mvTableStorage, throwable) -> {
+                    if (throwable != null) {
+                        getMvTableStorageInCatalogListenerFuture.completeExceptionally(throwable);
+                    } else {
+                        getMvTableStorageInCatalogListenerFuture.complete(mvTableStorage);
+                    }
+                });
+            } catch (Throwable t) {
+                getMvTableStorageInCatalogListenerFuture.completeExceptionally(t);
             }
 
             return falseCompletedFuture();
@@ -225,7 +221,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     void testDestroyIndex() throws Exception {
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(INDEX_NAME, catalogManager.latestCatalogVersion());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(INDEX_NAME, catalogManager.latestCatalogVersion());
         int indexId = indexDescriptor.id();
         int tableId = indexDescriptor.tableId();
 
@@ -243,7 +239,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     void testIndexDestroyedWithTable() throws Exception {
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(INDEX_NAME, catalogManager.latestCatalogVersion());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(INDEX_NAME, catalogManager.latestCatalogVersion());
         int indexId = indexDescriptor.id();
         int tableId = indexDescriptor.tableId();
 

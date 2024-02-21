@@ -61,7 +61,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                Int2ObjectMaps.emptyMap(),
                 1,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
@@ -70,7 +69,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                new TableRaftServiceImpl("test", 1, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class)))
         );
 
         // Let's check the empty table.
@@ -107,7 +107,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                Int2ObjectMaps.emptyMap(),
                 3,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
@@ -116,7 +115,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                new TableRaftServiceImpl("test", 3, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class)))
         );
 
         List<BinaryRowEx> originalRows = List.of(

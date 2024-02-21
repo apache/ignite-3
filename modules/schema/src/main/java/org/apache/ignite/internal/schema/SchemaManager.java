@@ -130,21 +130,13 @@ public class SchemaManager implements IgniteComponent {
         }
     }
 
-    private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
-        if (ex != null) {
-            return failedFuture(ex);
-        }
-
+    private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event) {
         CreateTableEventParameters creationEvent = (CreateTableEventParameters) event;
 
         return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken());
     }
 
-    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
-        if (ex != null) {
-            return failedFuture(ex);
-        }
-
+    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event) {
         assert event instanceof TableEventParameters;
 
         TableEventParameters tableEvent = ((TableEventParameters) event);
@@ -195,11 +187,7 @@ public class SchemaManager implements IgniteComponent {
         }
     }
 
-    private CompletableFuture<Boolean> onTableDestroyed(CatalogEventParameters event, @Nullable Throwable ex) {
-        if (ex != null) {
-            return failedFuture(ex);
-        }
-
+    private CompletableFuture<Boolean> onTableDestroyed(CatalogEventParameters event) {
         DestroyTableEventParameters creationEvent = (DestroyTableEventParameters) event;
 
         return dropRegistry(creationEvent.causalityToken(), creationEvent.tableId()).thenApply(ignored -> false);

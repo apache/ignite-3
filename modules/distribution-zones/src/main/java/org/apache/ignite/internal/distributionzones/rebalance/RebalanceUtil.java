@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -62,32 +63,38 @@ public class RebalanceUtil {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
 
-    /** Return code of metastore multi-invoke which identifies,
+    /**
+     * Return code of metastore multi-invoke which identifies,
      * that pending key was updated to new value (i.e. there is no active rebalance at the moment of call).
      */
     private static final int PENDING_KEY_UPDATED = 0;
 
-    /** Return code of metastore multi-invoke which identifies,
+    /**
+     * Return code of metastore multi-invoke which identifies,
      * that planned key was updated to new value (i.e. there is an active rebalance at the moment of call).
      */
     private static final int PLANNED_KEY_UPDATED = 1;
 
-    /** Return code of metastore multi-invoke which identifies,
+    /**
+     * Return code of metastore multi-invoke which identifies,
      * that planned key was removed, because current rebalance is already have the same target.
      */
     private static final int PLANNED_KEY_REMOVED_EQUALS_PENDING = 2;
 
-    /** Return code of metastore multi-invoke which identifies,
+    /**
+     * Return code of metastore multi-invoke which identifies,
      * that planned key was removed, because current assignment is empty.
      */
     private static final int PLANNED_KEY_REMOVED_EMPTY_PENDING = 3;
 
-    /** Return code of metastore multi-invoke which identifies,
+    /**
+     * Return code of metastore multi-invoke which identifies,
      * that assignments do not need to be updated.
      */
     private static final int ASSIGNMENT_NOT_UPDATED = 4;
 
-    /** Return code of metastore multi-invoke which identifies,
+    /**
+     * Return code of metastore multi-invoke which identifies,
      * that this trigger event was already processed by another node and must be skipped.
      */
     private static final int OUTDATED_UPDATE_RECEIVED = 5;
@@ -127,7 +134,7 @@ public class RebalanceUtil {
 
         boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 
-        byte[] partAssignmentsBytes = ByteUtils.toBytes(partAssignments);
+        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -186,14 +193,14 @@ public class RebalanceUtil {
                     LOG.info(
                             "Update metastore pending partitions key [key={}, partition={}, table={}/{}, newVal={}]",
                             partAssignmentsPendingKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            ByteUtils.fromBytes(partAssignmentsBytes));
+                            partAssignments);
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
                             partAssignmentsPlannedKey, partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            ByteUtils.fromBytes(partAssignmentsBytes)
+                            partAssignments
                     );
 
                     break;
@@ -201,7 +208,7 @@ public class RebalanceUtil {
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            ByteUtils.fromBytes(partAssignmentsBytes)
+                            partAssignments
                     );
 
                     break;
@@ -210,7 +217,7 @@ public class RebalanceUtil {
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            ByteUtils.fromBytes(partAssignmentsBytes)
+                            partAssignments
                     );
 
                     break;
@@ -218,7 +225,7 @@ public class RebalanceUtil {
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, table={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
-                            ByteUtils.fromBytes(partAssignmentsBytes)
+                            partAssignments
                     );
 
                     break;
@@ -255,7 +262,7 @@ public class RebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager
     ) {
-        CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
+        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
                 tableDescriptor.id(),
                 zoneDescriptor.partitions()
@@ -279,7 +286,7 @@ public class RebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             finalPartId,
-                            tableAssignments.get(finalPartId)
+                            tableAssignments.get(finalPartId).nodes()
                     ));
         }
 
@@ -462,7 +469,7 @@ public class RebalanceUtil {
     ) {
         return metaStorageManager
                 .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     /**
@@ -483,7 +490,7 @@ public class RebalanceUtil {
     ) {
         Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)), revision);
 
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : ByteUtils.fromBytes(entry.value());
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
     }
 
     /**
@@ -494,7 +501,7 @@ public class RebalanceUtil {
      * @param numberOfPartitions Number of partitions.
      * @return Future with table assignments as a value.
      */
-    static CompletableFuture<List<Set<Assignment>>> tableAssignments(
+    static CompletableFuture<List<Assignments>> tableAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
             int numberOfPartitions
@@ -511,14 +518,14 @@ public class RebalanceUtil {
                         return emptyList();
                     }
 
-                    Set<Assignment>[] result = new Set[numberOfPartitions];
+                    Assignments[] result = new Assignments[numberOfPartitions];
                     int numberOfMsPartitions = 0;
 
                     for (var mapEntry : entries.entrySet()) {
                         Entry entry = mapEntry.getValue();
 
                         if (!entry.empty() && !entry.tombstone()) {
-                            result[partitionKeysToPartitionNumber.get(mapEntry.getKey())] = ByteUtils.fromBytes(entry.value());
+                            result[partitionKeysToPartitionNumber.get(mapEntry.getKey())] = Assignments.fromBytes(entry.value());
                             numberOfMsPartitions++;
                         }
                     }
@@ -540,7 +547,7 @@ public class RebalanceUtil {
      * @param revision Revision.
      * @return Future with table assignments as a value.
      */
-    public static List<Set<Assignment>> tableAssignmentsGetLocally(
+    public static List<Assignments> tableAssignmentsGetLocally(
             MetaStorageManager metaStorageManager,
             int tableId,
             int numberOfPartitions,
@@ -552,7 +559,7 @@ public class RebalanceUtil {
 
                     assert e != null && !e.empty() && !e.tombstone() : e;
 
-                    return (Set<Assignment>) ByteUtils.fromBytes(e.value());
+                    return Assignments.fromBytes(e.value());
                 })
                 .collect(Collectors.toList());
     }
