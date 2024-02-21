@@ -57,7 +57,7 @@ public class TableUtils {
     }
 
     /**
-     * Returns the catalog version in which the index get status {@link CatalogIndexStatus#BUILDING}.
+     * Returns the catalog version in which the index got status {@link CatalogIndexStatus#BUILDING}.
      *
      * @param catalogService Catalog service.
      * @param indexId Index ID of interest.
