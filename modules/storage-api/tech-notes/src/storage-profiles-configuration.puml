@@ -1,0 +1,63 @@
+@startuml
+top to bottom direction
+
+class StorageConfigurationSchema {
+  @ConfigValue StorageConfigurationSchema engines
+  @NamedConfigValue StorageProfileConfigurationSchema profiles
+}
+
+class PersistentPageMemoryStorageEngineExtensionConfigurationSchema {
+  @ConfigValue PersistentPageMemoryStorageEngineConfigurationSchema aipersist
+}
+
+class VolatilePageMemoryStorageEngineExtensionConfigurationSchema {
+  @ConfigValue VolatilePageMemoryStorageEngineConfigurationSchema aimem
+}
+
+class RocksDbStorageEngineExtensionConfigurationSchema {
+  @ConfigValue RocksDbStorageEngineConfigurationSchema rocksDb
+}
+
+class StorageProfileConfigurationSchema {
+  @PolymorphicId String engine;
+  @InjectedName String name
+}
+
+StorageConfigurationSchema *-- StorageEngineConfigurationSchema : @ConfigValue
+
+StorageConfigurationSchema *-- StorageProfileConfigurationSchema : @NamedConfigValue
+
+StorageProfileConfigurationSchema <|.. PersistentPageMemoryProfileConfigurationSchema : @PolymorphicConfigInstance("aipersist)
+StorageProfileConfigurationSchema<|..  VolatilePageMemoryProfileConfigurationSchema : @PolymorphicConfigInstance("aimem")
+StorageProfileConfigurationSchema <|.. RocksDbProfileConfigurationSchema : @PolymorphicConfigInstance("rocksDb")
+
+StorageEngineConfigurationSchema <|-- PersistentPageMemoryStorageEngineExtensionConfigurationSchema : @ConfigurationExtension
+StorageEngineConfigurationSchema <|-- VolatilePageMemoryStorageEngineExtensionConfigurationSchema : @ConfigurationExtension
+StorageEngineConfigurationSchema <|-- RocksDbStorageEngineExtensionConfigurationSchema : @ConfigurationExtension
+
+PersistentPageMemoryStorageEngineExtensionConfigurationSchema *-- PersistentPageMemoryStorageEngineConfigurationSchema : @ConfigValue
+VolatilePageMemoryStorageEngineExtensionConfigurationSchema *-- VolatilePageMemoryStorageEngineConfigurationSchema : @ConfigValue
+RocksDbStorageEngineExtensionConfigurationSchema *-- RocksDbStorageEngineConfigurationSchema : @ConfigValue
+
+legend
+storage { **StorageConfigurationSchema**
+    engines { **StorageConfigurationSchema.engines**
+        aipersist { **PersistentPageMemoryStorageEngineExtensionConfigurationSchema.aipersist**
+            pageSize = 1024
+        }
+        aimem { **VolatilePageMemoryStorageEngineExtensionConfigurationSchema.aimem**
+            pageSize = 1024
+        }
+        rocksDb { **RocksDbStorageEngineExtensionConfigurationSchema.rocksDb**
+            flushDelayMillis = 100
+        }
+    }
+    profiles { **StorageConfigurationSchema.profiles**
+        "in-memory" {engine: "aimem"} **VolatilePageMemoryProfileConfigurationSchema(name = "in-memory", engine = "aimem")**
+        "persistent" {engine: "aipersist"} **PersistentPageMemoryProfileConfigurationSchema(name = "persistent", engine = "aipersist)**
+        "rocksdb" : {engine: "rocksDb"} **RocksDbProfileConfigurationSchema(name = "rocksDb", engine = "rocksDb")**
+    }
+}
+end legend
+
+@enduml
