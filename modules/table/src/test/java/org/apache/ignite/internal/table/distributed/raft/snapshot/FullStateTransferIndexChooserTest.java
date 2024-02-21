@@ -99,20 +99,16 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         int pkIndexId = indexId(PK_INDEX_NAME);
         assertThat(chooseForAddWriteLatest(), contains(pkIndexId));
 
-        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
-        int registeredIndexId = indexId(REGISTERED_INDEX_NAME);
+        int registeredIndexId = createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
         assertThat(chooseForAddWriteLatest(), contains(pkIndexId, registeredIndexId));
 
-        createSimpleBuildingIndex(BUILDING_INDEX_NAME);
-        int buildingIndexId = indexId(BUILDING_INDEX_NAME);
+        int buildingIndexId = createSimpleBuildingIndex(BUILDING_INDEX_NAME);
         assertThat(chooseForAddWriteLatest(), contains(pkIndexId, registeredIndexId, buildingIndexId));
 
-        createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
-        int availableIndexId = indexId(AVAILABLE_INDEX_NAME);
+        int availableIndexId = createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
         assertThat(chooseForAddWriteLatest(), contains(pkIndexId, registeredIndexId, buildingIndexId, availableIndexId));
 
-        createSimpleStoppingIndex(STOPPING_INDEX_NAME);
-        int stoppingIndexId = indexId(STOPPING_INDEX_NAME);
+        int stoppingIndexId = createSimpleStoppingIndex(STOPPING_INDEX_NAME);
         assertThat(chooseForAddWriteLatest(), contains(pkIndexId, registeredIndexId, buildingIndexId, availableIndexId, stoppingIndexId));
     }
 
@@ -120,10 +116,9 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     void chooseForAddWriteWithSecondaryAndWithoutReadOnlyAndRegisteredIndexes() {
         HybridTimestamp beginTsBeforeCreateRegisteredIndex = clock.now();
 
-        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
+        int registeredIndexId = createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
 
         int pkIndexId = indexId(PK_INDEX_NAME);
-        int registeredIndexId = indexId(REGISTERED_INDEX_NAME);
 
         assertThat(chooseForAddWriteLatest(beginTsBeforeCreateRegisteredIndex), contains(pkIndexId));
 
@@ -145,16 +140,13 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
         assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId));
 
-        createSimpleBuildingIndex(BUILDING_INDEX_NAME);
-        int buildingIndexId = indexId(BUILDING_INDEX_NAME);
+        int buildingIndexId = createSimpleBuildingIndex(BUILDING_INDEX_NAME);
         assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId, buildingIndexId));
 
-        createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
-        int availableIndexId = indexId(AVAILABLE_INDEX_NAME);
+        int availableIndexId = createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
         assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId, buildingIndexId, availableIndexId));
 
-        createSimpleStoppingIndex(STOPPING_INDEX_NAME);
-        int stoppingIndexId = indexId(STOPPING_INDEX_NAME);
+        int stoppingIndexId = createSimpleStoppingIndex(STOPPING_INDEX_NAME);
         assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId, buildingIndexId, availableIndexId, stoppingIndexId));
     }
 
@@ -166,16 +158,15 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp commitTsBeforeStoppingIndex = clock.now();
 
-        createSimpleStoppingIndex(READ_ONLY_INDEX_NAME);
+        int readOnlyIndexId = createSimpleStoppingIndex(READ_ONLY_INDEX_NAME);
 
         HybridTimestamp commitTsOnStoppingIndex = latestCatalogVersionActivationTs();
 
         int pkIndexId = indexId(PK_INDEX_NAME);
-        int readOnlyIndexId = indexId(READ_ONLY_INDEX_NAME);
 
         dropIndex(REGISTERED_INDEX_NAME);
         dropIndex(BUILDING_INDEX_NAME);
-        removeIndex(READ_ONLY_INDEX_NAME);
+        removeIndex(readOnlyIndexId);
 
         if (recovery) {
             recoverIndexChooser();
@@ -194,16 +185,15 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp beginTsBeforeStoppingIndex = clock.now();
 
-        createSimpleStoppingIndex(READ_ONLY_INDEX_NAME);
+        int readOnlyIndexId = createSimpleStoppingIndex(READ_ONLY_INDEX_NAME);
 
         HybridTimestamp beginTsOnStoppingIndex = latestCatalogVersionActivationTs();
 
         int pkIndexId = indexId(PK_INDEX_NAME);
-        int readOnlyIndexId = indexId(READ_ONLY_INDEX_NAME);
 
         dropIndex(REGISTERED_INDEX_NAME);
         dropIndex(BUILDING_INDEX_NAME);
-        removeIndex(READ_ONLY_INDEX_NAME);
+        removeIndex(readOnlyIndexId);
 
         if (recovery) {
             recoverIndexChooser();
@@ -221,12 +211,10 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
         createSimpleBuildingIndex(BUILDING_INDEX_NAME);
-        createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
-        createSimpleStoppingIndex(STOPPING_INDEX_NAME);
+        int availableIndexId = createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
+        int stoppingIndexId = createSimpleStoppingIndex(STOPPING_INDEX_NAME);
 
         int pkIndexId = indexId(PK_INDEX_NAME);
-        int availableIndexId = indexId(AVAILABLE_INDEX_NAME);
-        int stoppingIndexId = indexId(STOPPING_INDEX_NAME);
 
         int tableId = tableId(TABLE_NAME);
 
@@ -258,12 +246,10 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
         createSimpleBuildingIndex(BUILDING_INDEX_NAME);
-        createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
-        createSimpleStoppingIndex(STOPPING_INDEX_NAME);
+        int availableIndexId = createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
+        int stoppingIndexId = createSimpleStoppingIndex(STOPPING_INDEX_NAME);
 
         int pkIndexId = indexId(PK_INDEX_NAME);
-        int availableIndexId = indexId(AVAILABLE_INDEX_NAME);
-        int stoppingIndexId = indexId(STOPPING_INDEX_NAME);
 
         int tableId = tableId(TABLE_NAME);
 
@@ -312,27 +298,38 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         return chooseForAddWriteLatest(HybridTimestamp.MAX_VALUE);
     }
 
-    private void createSimpleRegisteredIndex(String indexName) {
+    private int createSimpleRegisteredIndex(String indexName) {
         createSimpleHashIndex(catalogManager, TABLE_NAME, indexName);
+
+        return indexId(indexName);
     }
 
-    private void createSimpleBuildingIndex(String indexName) {
-        createSimpleHashIndex(catalogManager, TABLE_NAME, indexName);
-        startBuildingIndex(catalogManager, indexId(indexName));
+    private int createSimpleBuildingIndex(String indexName) {
+        int indexId = createSimpleRegisteredIndex(indexName);
+
+        startBuildingIndex(catalogManager, indexId);
+
+        return indexId;
     }
 
-    private void createSimpleAvailableIndex(String indexName) {
-        createSimpleBuildingIndex(indexName);
-        makeIndexAvailable(catalogManager, indexId(indexName));
+    private int createSimpleAvailableIndex(String indexName) {
+        int indexId = createSimpleBuildingIndex(indexName);
+
+        makeIndexAvailable(catalogManager, indexId);
+
+        return indexId;
     }
 
-    private void createSimpleStoppingIndex(String indexName) {
-        createSimpleAvailableIndex(indexName);
+    private int createSimpleStoppingIndex(String indexName) {
+        int indexId = createSimpleAvailableIndex(indexName);
+
         dropIndex(indexName);
+
+        return indexId;
     }
 
-    private void removeIndex(String indexName) {
-        TableTestUtils.removeIndex(catalogManager, indexName);
+    private void removeIndex(int indexId) {
+        TableTestUtils.removeIndex(catalogManager, indexId);
     }
 
     private void dropIndex(String indexName) {

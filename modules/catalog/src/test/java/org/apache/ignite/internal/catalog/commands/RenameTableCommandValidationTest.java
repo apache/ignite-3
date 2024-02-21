@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
-import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -113,10 +112,10 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfTableWithNewNameExists() {
-        Catalog catalog = catalog(List.of(
+        Catalog catalog = catalog(
                 createTableCommand("TEST"),
                 createTableCommand("TEST2")
-        ));
+        );
 
         CatalogCommand command = RenameTableCommand.builder()
                 .schemaName(SCHEMA_NAME)
