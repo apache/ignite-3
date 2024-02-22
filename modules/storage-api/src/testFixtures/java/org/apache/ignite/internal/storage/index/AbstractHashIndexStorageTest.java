@@ -19,9 +19,12 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -34,7 +37,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -69,11 +71,15 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
         return index.indexDescriptor();
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
     @Test
     public void testDestroy() {
         HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
-        var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
+
+        int indexId = index.indexDescriptor().id();
+
+        assertThat(tableStorage.getIndex(TEST_PARTITION, indexId), is(sameInstance(index)));
+
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
@@ -85,23 +91,15 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         CompletableFuture<Void> destroyFuture = tableStorage.destroyIndex(index.indexDescriptor().id());
 
-        waitForDurableCompletion(destroyFuture);
+        assertThat(destroyFuture, willCompleteSuccessfully());
 
-        //TODO IGNITE-17626 Index must be invalid, we should assert that getIndex returns null and that in won't surface upon restart.
-        // "destroy" is not "clear", you know. Maybe "getAndCreateIndex" will do it for the test, idk
+        assertThat(tableStorage.getIndex(TEST_PARTITION, indexId), is(nullValue()));
+
+        index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
+
         assertThat(getAll(index, row1), is(empty()));
         assertThat(getAll(index, row2), is(empty()));
         assertThat(getAll(index, row3), is(empty()));
-    }
-
-    private void waitForDurableCompletion(CompletableFuture<?> future) {
-        while (true) {
-            if (future.isDone()) {
-                return;
-            }
-
-            partitionStorage.flush().join();
-        }
     }
 
     protected IndexRow createIndexRow(BinaryTupleRowSerializer serializer, RowId rowId, Object... values) {
