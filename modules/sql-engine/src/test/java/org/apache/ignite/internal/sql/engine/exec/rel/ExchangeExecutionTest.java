@@ -41,6 +41,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -634,7 +636,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private static QueryTaskExecutor getOrCreateTaskExecutor(String name) {
         return executors.computeIfAbsent(name, name0 -> {
-            var executor = new QueryTaskExecutorImpl(name0, 4);
+            var failureProcessor = new FailureProcessor(name0, new StopNodeFailureHandler());
+            var executor = new QueryTaskExecutorImpl(name0, 4, failureProcessor);
 
             executor.start();
 

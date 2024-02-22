@@ -71,6 +71,8 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -823,7 +825,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
 
-        var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4);
+        var failureProcessor = new FailureProcessor(nodeName, new StopNodeFailureHandler());
+        var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
         executers.add(taskExecutor);
 
         var node = testCluster.addNode(nodeName, taskExecutor);
