@@ -93,8 +93,8 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
@@ -170,7 +170,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 storageUpdateConfiguration,
                 txConfiguration,
-                new CursorRegistry()
+                new RemotelyTriggeredResourceRegistry()
         );
     }
 
@@ -200,7 +200,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 storageUpdateConfiguration,
                 txConfiguration,
-                new CursorRegistry()
+                new RemotelyTriggeredResourceRegistry()
         );
     }
 
@@ -227,14 +227,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             PlacementDriver placementDriver,
             StorageUpdateConfiguration storageUpdateConfiguration,
             TransactionConfiguration txConfiguration,
-            CursorRegistry cursorRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         super(
                 "test",
                 nextTableId.getAndIncrement(),
                 1,
                 new SingleClusterNodeResolver(LOCAL_NODE),
-                txManager(replicaSvc, placementDriver, txConfiguration, cursorRegistry),
+                txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
@@ -393,7 +393,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 catalogService,
                 new TestPlacementDriver(LOCAL_NODE),
                 mock(ClusterNodeResolver.class),
-                cursorRegistry
+                resourcesRegistry
         );
 
         partitionListener = new PartitionListener(
@@ -440,13 +440,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service to use.
      * @param placementDriver Placement driver.
      * @param txConfiguration Transaction configuration.
-     * @param cursorRegistry Cursor registry.
+     * @param resourcesRegistry Resources registry.
      */
     public static TxManagerImpl txManager(
             ReplicaService replicaSvc,
             PlacementDriver placementDriver,
             TransactionConfiguration txConfiguration,
-            CursorRegistry cursorRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         TopologyService topologyService = mock(TopologyService.class);
         when(topologyService.localMember()).thenReturn(LOCAL_NODE);
@@ -466,7 +466,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
-                cursorRegistry
+                resourcesRegistry
         );
 
         txManager.start();

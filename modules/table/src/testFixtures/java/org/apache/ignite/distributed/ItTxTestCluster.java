@@ -129,9 +129,9 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -199,7 +199,7 @@ public class ItTxTestCluster {
 
     protected Map<String, TxManager> txManagers;
 
-    protected Map<String, CursorRegistry> cursorRegistries;
+    protected Map<String, RemotelyTriggeredResourceRegistry> cursorRegistries;
 
     protected TxManager clientTxManager;
 
@@ -390,9 +390,9 @@ public class ItTxTestCluster {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            CursorRegistry cursorRegistry = new CursorRegistry();
+            RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            cursorRegistries.put(node.name(), cursorRegistry);
+            cursorRegistries.put(node.name(), resourcesRegistry);
 
             TxManagerImpl txMgr = newTxManager(
                     cluster.get(i),
@@ -401,7 +401,7 @@ public class ItTxTestCluster {
                     new TransactionIdGenerator(i),
                     node,
                     placementDriver,
-                    cursorRegistry
+                    resourcesRegistry
             );
 
             txMgr.start();
@@ -436,7 +436,7 @@ public class ItTxTestCluster {
             TransactionIdGenerator generator,
             ClusterNode node,
             PlacementDriver placementDriver,
-            CursorRegistry cursorRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         return new TxManagerImpl(
                 txConfiguration,
@@ -449,7 +449,7 @@ public class ItTxTestCluster {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
-                cursorRegistry
+                resourcesRegistry
         );
     }
 
@@ -712,7 +712,7 @@ public class ItTxTestCluster {
             CatalogService catalogService,
             PlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
-            CursorRegistry cursorRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -736,7 +736,7 @@ public class ItTxTestCluster {
                 catalogService,
                 placementDriver,
                 clusterNodeResolver,
-                cursorRegistry
+                resourcesRegistry
         );
     }
 
@@ -902,7 +902,7 @@ public class ItTxTestCluster {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
-                new CursorRegistry()
+                new RemotelyTriggeredResourceRegistry()
         );
 
         clientTxStateResolver = new TransactionStateResolver(

@@ -221,7 +221,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      * @param partitionOperationsExecutor Executor on which partition operations will be executed, if needed.
-     * @param cursorRegistry Cursor registry.
+     * @param resourcesRegistry Resources registry.
      */
     public TxManagerImpl(
             TransactionConfiguration txConfig,
@@ -234,7 +234,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
             StripedThreadPoolExecutor partitionOperationsExecutor,
-            CursorRegistry cursorRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this(
                 txConfig,
@@ -247,7 +247,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
                 new ChooseExecutorForReplicationGroup(partitionOperationsExecutor),
-                cursorRegistry
+                resourcesRegistry
         );
     }
 
@@ -263,7 +263,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
-     * @param cursorRegistry Cursor registry.
+     * @param resourcesRegistry Resources registry.
      */
     @TestOnly
     public TxManagerImpl(
@@ -276,7 +276,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
-            CursorRegistry cursorRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this(
                 txConfig,
@@ -289,7 +289,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
                 groupId -> ForkJoinPool.commonPool(),
-                cursorRegistry
+                resourcesRegistry
         );
     }
 
@@ -306,7 +306,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      * @param partitionOperationsStripeChooser Chooser of an executor on which partition operations will be executed, if needed.
-     * @param cursorRegistry Cursor registry.
+     * @param resourcesRegistry Resources registry.
      */
     private TxManagerImpl(
             TransactionConfiguration txConfig,
@@ -319,7 +319,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
             ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser,
-            CursorRegistry cursorRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -357,7 +357,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 lockManager,
                 clock,
                 writeIntentSwitchProcessor,
-                cursorRegistry
+                resourcesRegistry
         );
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);

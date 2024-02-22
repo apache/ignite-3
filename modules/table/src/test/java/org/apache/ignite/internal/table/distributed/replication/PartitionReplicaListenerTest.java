@@ -180,8 +180,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.impl.CursorRegistry;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -573,7 +573,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 catalogService,
                 placementDriver,
                 new SingleClusterNodeResolver(localNode),
-                new CursorRegistry()
+                new RemotelyTriggeredResourceRegistry()
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
