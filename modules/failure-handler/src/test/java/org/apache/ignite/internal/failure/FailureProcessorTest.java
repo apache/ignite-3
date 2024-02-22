@@ -43,9 +43,9 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
-        assertThat(failureProcessor.start(), willSucceedFast());
-
         try {
+            assertThat(failureProcessor.start(), willSucceedFast());
+
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
             verify(handler, times(1)).onFailure(anyString(), any());
@@ -60,9 +60,9 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
-        assertThat(failureProcessor.start(), willSucceedFast());
-
         try {
+            assertThat(failureProcessor.start(), willSucceedFast());
+
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null)), is(false));
 
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, null)), is(false));

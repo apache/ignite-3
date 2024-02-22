@@ -34,7 +34,7 @@ import org.apache.ignite.internal.tostring.S;
 public abstract class AbstractFailureHandler implements FailureHandler {
     /** List of ignored failure types. */
     @IgniteToStringInclude
-    private Set<FailureType> ignoredFailureTypes =
+    private volatile Set<FailureType> ignoredFailureTypes =
             Collections.unmodifiableSet(EnumSet.of(SYSTEM_WORKER_BLOCKED, SYSTEM_CRITICAL_OPERATION_TIMEOUT));
 
     /**
@@ -67,7 +67,8 @@ public abstract class AbstractFailureHandler implements FailureHandler {
      */
     protected abstract boolean handle(String nodeName, FailureContext failureCtx);
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(AbstractFailureHandler.class, this);
     }
 }

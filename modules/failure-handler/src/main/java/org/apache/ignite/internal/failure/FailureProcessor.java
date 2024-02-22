@@ -36,11 +36,12 @@ public class FailureProcessor implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(FailureProcessor.class);
 
     /** Failure log message. */
-    static final String FAILURE_LOG_MSG = "Critical system error detected. "
-            + "Will be handled accordingly to configured handler ";
+    private static final String FAILURE_LOG_MSG = "Critical system error detected. "
+            + "Will be handled accordingly to configured handler [hnd={}, failureCtx={}]";
 
     /** Ignored failure log message. */
-    static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed accordingly to a configured handler ";
+    private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed accordingly to a configured handler "
+            + "[hnd={}, failureCtx={}]";
 
     /** Handler. */
     private final FailureHandler handler;
@@ -120,9 +121,9 @@ public class FailureProcessor implements IgniteComponent {
         }
 
         if (failureTypeIgnored(failureCtx, handler)) {
-            LOG.warn(IGNORED_FAILURE_LOG_MSG + "[hnd=" + handler + ", failureCtx=" + failureCtx + ']', failureCtx.error());
+            LOG.warn(IGNORED_FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx);
         } else {
-            LOG.error(FAILURE_LOG_MSG + "[hnd=" + handler + ", failureCtx=" + failureCtx + ']', failureCtx.error());
+            LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx);
         }
 
         boolean invalidated = handler.onFailure(nodeName, failureCtx);
