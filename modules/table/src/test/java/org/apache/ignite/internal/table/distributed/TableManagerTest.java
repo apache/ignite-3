@@ -695,13 +695,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         int tablesBeforeCreation = tableManager.tables().size();
 
         if (phaser != null) {
-            catalogManager.listen(TABLE_CREATE, (parameters, exception) -> {
+            catalogManager.listen(TABLE_CREATE, parameters -> {
                 phaser.arriveAndAwaitAdvance();
 
                 return falseCompletedFuture();
             });
 
-            catalogManager.listen(TABLE_DROP, (parameters, exception) -> {
+            catalogManager.listen(TABLE_DROP, parameters -> {
                 phaser.arriveAndAwaitAdvance();
 
                 return falseCompletedFuture();

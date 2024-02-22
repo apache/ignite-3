@@ -72,7 +72,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         leaseTracker.startTrack(0L);
 
         AtomicReference<PrimaryReplicaEventParameters> parametersRef = new AtomicReference<>();
-        leaseTracker.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (p, e) -> {
+        leaseTracker.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, p -> {
             parametersRef.set(p);
             return falseCompletedFuture();
         });

@@ -61,7 +61,8 @@ class HashIndex {
      * Removes all data associated with the index.
      */
     void destroy() {
-        storages.values().forEach(RocksDbHashIndexStorage::destroy);
+        // TODO: implement, see https://issues.apache.org/jira/browse/IGNITE-21574.
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /**

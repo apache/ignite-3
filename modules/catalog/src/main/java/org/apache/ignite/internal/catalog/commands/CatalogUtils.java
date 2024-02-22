@@ -469,7 +469,7 @@ public class CatalogUtils {
      * @throws IndexNotFoundValidationException If index does not exist.
      */
     public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
-        CatalogIndexDescriptor index = schema.index(name);
+        CatalogIndexDescriptor index = schema.aliveIndex(name);
 
         if (index == null) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));

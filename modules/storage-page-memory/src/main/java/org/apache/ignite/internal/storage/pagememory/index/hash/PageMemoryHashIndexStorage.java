@@ -144,12 +144,6 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
         });
     }
 
-    @Override
-    public void destroy() throws StorageException {
-        // TODO: IGNITE-17626 Remove it
-        throw new UnsupportedOperationException();
-    }
-
     /**
      * Starts destruction of the data stored by this index partition.
      *

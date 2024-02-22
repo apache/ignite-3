@@ -125,7 +125,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 List.of(columns)
         );
 
-        when(catalogService.index(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
+        when(catalogService.aliveIndex(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
         when(catalogService.index(eq(catalogSortedIndexDescriptor.id()), anyInt())).thenReturn(catalogSortedIndexDescriptor);
 
         return tableStorage.getOrCreateSortedIndex(

@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
@@ -39,8 +37,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -58,7 +59,6 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
-import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
@@ -72,7 +72,6 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
@@ -521,13 +520,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // It's important to not block any thread while being inside of the "runConsistently" section.
         storageUpdateHandler.getIndexUpdateHandler().waitForIndex(cmd.indexId());
 
+        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(cmd);
+
         storage.runConsistently(locker -> {
             List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
 
             // Natural UUID order matches RowId order within the same partition.
             Collections.sort(rowUuids);
 
-            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker);
+            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker, rowVersionChooser);
 
             RowId nextRowIdToBuild = cmd.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
 
@@ -577,19 +578,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
     }
 
-    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(List<UUID> rowUuids, Locker locker) {
+    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(
+            List<UUID> rowUuids,
+            Locker locker,
+            BuildIndexRowVersionChooser rowVersionChooser
+    ) {
         return rowUuids.stream()
                 .map(this::toRowId)
                 .peek(locker::lock)
-                .map(rowId -> {
-                    try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                        return cursor.stream()
-                                .filter(not(ReadResult::isEmpty))
-                                .map(ReadResult::binaryRow)
-                                .map(binaryRow -> new BinaryRowAndRowId(binaryRow, rowId))
-                                .collect(toList());
-                    }
-                })
+                .map(rowVersionChooser::chooseForBuildIndex)
                 .flatMap(Collection::stream);
     }
 
@@ -613,5 +610,26 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
         ));
+    }
+
+    // TODO: IGNITE-21560 Add schema sync to BuildIndexCommand#startBuildingCatalogVersion
+    // TODO: IGNITE-21560 Skip command if index was removed
+    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(BuildIndexCommand command) {
+        int creationCatalogVersion = command.creationCatalogVersion();
+        Catalog creationIndexCatalog = catalogService.catalog(creationCatalogVersion);
+
+        assert creationIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + creationCatalogVersion;
+
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+        Catalog startBuildingIndexCatalog = IntStream.rangeClosed(creationCatalogVersion, latestCatalogVersion)
+                .mapToObj(catalogService::catalog)
+                .filter(catalog -> catalog.index(command.indexId()).status() == CatalogIndexStatus.BUILDING)
+                .findFirst()
+                .orElse(null);
+
+        assert startBuildingIndexCatalog != null : format("indexId={}, catalogVersionFrom={}, catalogVersionTo={}",
+                command.indexId(), creationCatalogVersion, latestCatalogVersion);
+
+        return new BuildIndexRowVersionChooser(storage, creationIndexCatalog.time(), startBuildingIndexCatalog.time());
     }
 }

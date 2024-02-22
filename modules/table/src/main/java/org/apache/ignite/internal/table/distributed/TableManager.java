@@ -569,21 +569,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
-            catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
-                assert exception == null : parameters;
-
+            catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> {
                 return onTableCreate((CreateTableEventParameters) parameters).thenApply(unused -> false);
             });
 
-            catalogService.listen(CatalogEvent.TABLE_DROP, (parameters, exception) -> {
-                assert exception == null : parameters;
-
+            catalogService.listen(CatalogEvent.TABLE_DROP, parameters -> {
                 return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
             });
 
-            catalogService.listen(CatalogEvent.TABLE_ALTER, (parameters, exception) -> {
-                assert exception == null : parameters;
-
+            catalogService.listen(CatalogEvent.TABLE_ALTER, parameters -> {
                 if (parameters instanceof RenameTableEventParameters) {
                     return onTableRename((RenameTableEventParameters) parameters).thenApply(unused -> false);
                 } else {

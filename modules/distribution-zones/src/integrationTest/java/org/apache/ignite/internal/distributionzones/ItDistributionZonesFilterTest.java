@@ -386,7 +386,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         // We need to be sure, that the first asynchronous catalog change of replica was handled,
         // so we create a listener with a latch, and change replica again and wait for latch, so we can be sure that the first
         // replica was handled.
-        node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, (parameters, exception) -> {
+        node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, parameters -> {
             latch.countDown();
 
             return falseCompletedFuture();
