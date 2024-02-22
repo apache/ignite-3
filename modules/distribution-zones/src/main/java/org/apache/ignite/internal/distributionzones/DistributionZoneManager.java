@@ -196,6 +196,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Catalog manager. */
     private final CatalogManager catalogManager;
 
+    /** Executor for scheduling rebalances. */
     private final ScheduledExecutorService rebalanceScheduler;
 
     /**

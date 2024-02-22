@@ -50,7 +50,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -1877,12 +1877,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Condition condition = or(
                 notExists(tablesCounterKey(zoneId, partId)),
-                value(tablesCounterKey(zoneId, partId)).eq(intToBytes(0))
+                value(tablesCounterKey(zoneId, partId)).eq(toBytes(Set.of()))
         );
 
-        int tablesInZone = findTablesByZoneId(zoneId, catalogVersion, catalogService).size();
+        Set<Integer> tablesInZone = findTablesByZoneId(zoneId, catalogVersion, catalogService).stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(toSet());
 
-        byte[] countersValue = intToBytes(tablesInZone);
+        byte[] countersValue = toBytes(tablesInZone);
 
         return metaStorageMgr.invoke(iif(
                 condition,

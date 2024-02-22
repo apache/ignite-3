@@ -30,7 +30,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterPrefixKey;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -95,6 +95,7 @@ public class DistributionZoneRebalanceEngine {
     /** Catalog service. */
     private final CatalogService catalogService;
 
+    /** Executor for scheduling rebalances. */
     private final ScheduledExecutorService rebalanceScheduler;
 
     /**
@@ -240,13 +241,22 @@ public class DistributionZoneRebalanceEngine {
         };
     }
 
+    /**
+     * Creates watch listener for tables from a zone. This counter is needed for tracking rebalances for a specified partition along all
+     * tables. Once all rebalances for specified partition number are finished (meaning that counter is equal to 0), we can perform stable
+     * switch for all stable keys from meta storage.
+     *
+     * @return Corresponding watch listener.
+     */
     private WatchListener createPartitionsCounterListener() {
         return new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 return IgniteUtils.inBusyLockAsync(busyLock, () -> {
 
-                    int counter = bytesToInt(event.entryEvent().newEntry().value());
+                    int counter = ((Set<Integer>) fromBytes(event.entryEvent().newEntry().value())).size();
+
+                    assert counter >= 0 : "Tables counter for rabalances cannot be negative.";
 
                     if (counter > 0) {
                         return nullCompletedFuture();

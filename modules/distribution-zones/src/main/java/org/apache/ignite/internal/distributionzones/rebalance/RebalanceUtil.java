@@ -308,9 +308,11 @@ public class RebalanceUtil {
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
 
-    public static final String TABLES_COUNTER_PREFIX = "tables.counter.";
+    /** Key prefix for counter of rebalances of tables from a zone that are associated with the specified partition. */
+    private static final String TABLES_COUNTER_PREFIX = "tables.counter.";
 
-    public static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
+    /** Key prefix for a raft configuration that was applied during rebalance of the specified partition form a table. */
+    private static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
 
     /**
      * Key that is needed for the rebalance algorithm.
@@ -378,14 +380,32 @@ public class RebalanceUtil {
         return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
     }
 
+    /**
+     * ByteArray key for a counter of rebalances of tables from a zone that are associated with the specified partition.
+     *
+     * @param zoneId Identifier of a zone.
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     */
     public static ByteArray tablesCounterKey(int zoneId, int partId) {
         return new ByteArray(TABLES_COUNTER_PREFIX + zoneId + "_part_" + partId);
     }
 
+    /**
+     * ByteArray prefix for counter of rebalances of tables from a zone that are associated with the specified partition.
+     *
+     * @return Prefix for a counter of rebalances of tables partition.
+     */
     public static ByteArray tablesCounterPrefixKey() {
         return new ByteArray(TABLES_COUNTER_PREFIX);
     }
 
+    /**
+     * ByteArray key for a raft configuration that was applied during rebalance of the specified partition form a table.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a applied raft configuration.
+     */
     public static ByteArray raftConfigurationAppliedKey(TablePartitionId partId) {
         return new ByteArray(RAFT_CONF_APPLIED_PREFIX + partId);
     }

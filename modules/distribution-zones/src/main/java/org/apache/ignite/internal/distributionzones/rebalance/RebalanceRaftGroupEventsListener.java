@@ -34,8 +34,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
@@ -93,7 +93,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Success code for the MetaStorage stable assignments change. */
     private static final int FINISH_REBALANCE_SUCCESS = 4;
 
-    private static final int PART_COUNTER_DECREMENT_SUCCESS = 5;
+    /** Success code for the MetaStorage tables counter decrement. */
+    private static final int TABLES_COUNTER_DECREMENT_SUCCESS = 5;
 
     /** Failure code for the MetaStorage switch append assignments change. */
     private static final int SWITCH_APPEND_FAIL = -SWITCH_APPEND_SUCCESS;
@@ -107,7 +108,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Failure code for the MetaStorage stable assignments change. */
     private static final int FINISH_REBALANCE_FAIL = -FINISH_REBALANCE_SUCCESS;
 
-    private static final int PART_COUNTER_DECREMENT_FAIL = -PART_COUNTER_DECREMENT_SUCCESS;
+    /** Failure code for the MetaStorage tables counter decrement. */
+    private static final int PART_COUNTER_DECREMENT_FAIL = -TABLES_COUNTER_DECREMENT_SUCCESS;
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
@@ -121,6 +123,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Executor for scheduling rebalance retries. */
     private final ScheduledExecutorService rebalanceScheduler;
 
+    /** Zone id. */
     private final int zoneId;
 
     /** Performs reconfiguration of a Raft group of a partition. */
@@ -234,8 +237,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     }
 
     /**
-     * This method count downs the counter for partition from tables from the corresponding zone when raft configuration
-     * of the partitions raft group has been successfully changed.
+     * This method count downs the counter for tables from the corresponding zone that are associated to the corresponding partition number
+     * when raft configuration of that partition raft group has been successfully changed.
      *
      * @param stable Stable assignments to save to metastore for further stable switch.
      */
@@ -247,25 +250,38 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             assert counterEntry.value() != null;
 
-            int counter = bytesToInt(counterEntry.value());
+            Set<Integer> counter = fromBytes(counterEntry.value());
 
-            assert counter > 0;
+            assert !counter.isEmpty();
+
+            if (!counter.contains(tablePartitionId.tableId())) {
+                // Count down for this table has already been processed, just skip.
+                // For example, this can happen when leader re-election happened during the rebalance process.
+                return;
+            }
 
             Condition condition = value(tablesCounterKey(zoneId, partId)).eq(counterEntry.value());
 
             byte[] stableArray = Assignments.toBytes(stable);
 
+            counter.remove(tablePartitionId.tableId());
+
+            if (counter.isEmpty()) {
+                counter = Set.of();
+            }
+
             Update successCase = ops(
-                    put(tablesCounterKey(zoneId, partId), intToBytes(--counter)),
+                    put(tablesCounterKey(zoneId, partId), toBytes(counter)),
+                    // Todo: change to one key https://issues.apache.org/jira/browse/IGNITE-18991
                     put(raftConfigurationAppliedKey(tablePartitionId), stableArray)
-            ).yield(PART_COUNTER_DECREMENT_SUCCESS);
+            ).yield(TABLES_COUNTER_DECREMENT_SUCCESS);
 
             Update failCase = ops().yield(PART_COUNTER_DECREMENT_FAIL);
 
             int res = metaStorageMgr.invoke(iif(condition, successCase, failCase)).get().getAsInt();
 
             if (res < 0) {
-                LOG.info("Count down of zone's partitions is failed. "
+                LOG.info("Count down of zone's tables counter is failed. "
                                 + "Going to retry [zoneId={}, appliedPeers={}]",
                         zoneId, stable
                 );
@@ -275,7 +291,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 return;
             } else {
                 LOG.info(
-                        "Count down of zone's partitions is succeeded [zoneId={}, appliedPeers={}, counter = {}]",
+                        "Count down of zone's tables counter is succeeded [zoneId={}, appliedPeers={}, counter = {}]",
                         zoneId,
                         stable,
                         counter
@@ -392,7 +408,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
-                System.out.println("!@#$ CONCURRENT UPDATE!!!");
                 return;
             }
 
@@ -463,7 +478,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 Condition con5;
                 if (plannedEntry.value() != null) {
                     // eq(revision(partition.assignments.planned), plannedEntry.revision)
-                    //con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
                     con5 = and(
                             revision(plannedPartAssignmentsKey).eq(plannedEntry.revision()),
                             value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray)
@@ -478,7 +492,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     failCase = ops().yield(SCHEDULE_PENDING_REBALANCE_FAIL);
                 } else {
                     // notExists(partition.assignments.planned)
-                    //con5 = notExists(plannedPartAssignmentsKey);
                     con5 = and(notExists(plannedPartAssignmentsKey), value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray));
 
                     successCase = ops(
