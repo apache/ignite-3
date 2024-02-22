@@ -238,11 +238,6 @@ public class TableImpl implements TableViewInternal {
 
                 return adapters;
             }
-
-            @Override
-            public void addIndexToWaitIfAbsent(int indexId) {
-                addIndexesToWait(indexId);
-            }
         };
     }
 
