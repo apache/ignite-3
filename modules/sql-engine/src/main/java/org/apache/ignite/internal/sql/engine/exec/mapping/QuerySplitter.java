@@ -178,9 +178,7 @@ public class QuerySplitter extends IgniteRelShuttle {
         assert table != null;
         long sourceId = idGenerator.nextId();
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.put(sourceId, table);
-        }
+        curr.tables.put(sourceId, table);
 
         return rel.clone(sourceId);
     }
@@ -193,9 +191,7 @@ public class QuerySplitter extends IgniteRelShuttle {
         assert table != null;
         long sourceId = idGenerator.nextId();
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.put(sourceId, table);
-        }
+        curr.tables.put(sourceId, table);
 
         return rel.clone(sourceId);
     }
@@ -215,9 +211,7 @@ public class QuerySplitter extends IgniteRelShuttle {
 
         long sourceId = idGenerator.nextId();
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.put(sourceId, table);
-        }
+        curr.tables.put(sourceId, table);
 
         IgniteRel cloned = rel.clone(sourceId);
         IgniteRel input = this.visit((IgniteRel) rel.getInput(0));

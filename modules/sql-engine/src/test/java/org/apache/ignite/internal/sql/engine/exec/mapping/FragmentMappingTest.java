@@ -238,6 +238,17 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         testRunner.runTest(this::initSchema, "test_partition_pruning.test");
     }
 
+    @Test
+    public void testPartitionPruning2() {
+        addNodes("N1", "N2", "N3", "N4", "N5");
+
+        addTable("T1", "N1", "N2", "N3");
+        addTable("T2", "N4", "N5");
+        addTable("T3", "N1", "N2", "N3");
+
+        testRunner.runTest(this::initSchema, "test_partition_pruning2.test");
+    }
+
     private void addNodes(String node, String... otherNodes) {
         this.nodeNames.add(node);
         this.nodeNames.addAll(Arrays.asList(otherNodes));
@@ -320,10 +331,10 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
             // To mimic node system views, id column is node name alias.
             if (distribution.function() instanceof IdentityDistribution) {
-                tableBuilder = tableBuilder.addColumn("ID", NativeTypes.stringOf(64));
+                tableBuilder = tableBuilder.addKeyColumn("ID", NativeTypes.stringOf(64));
             } else {
                 // To mimic cluster wide system views
-                tableBuilder = tableBuilder.addColumn("ID", NativeTypes.INT32);
+                tableBuilder = tableBuilder.addKeyColumn("ID", NativeTypes.INT32);
             }
 
             IgniteDistribution distributionToUse;
