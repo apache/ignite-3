@@ -28,6 +28,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class FullyQualifiedResourceId implements Comparable<FullyQualifiedResourceId>, Cloneable, Serializable {
 
+    private static final UUID LOWEST_UUID = new UUID(Long.MIN_VALUE, Long.MIN_VALUE);
+
+    private static final UUID HIGHEST_UUID = new UUID(Long.MAX_VALUE, Long.MAX_VALUE);
+
     /** Returns global order comparator for FullyQualifiedResourceId type, which orders global UUID first then local id. */
     public static Comparator<FullyQualifiedResourceId> globalOrderComparator() {
         return (uuid1, uuid2) -> {
@@ -79,22 +83,12 @@ public class FullyQualifiedResourceId implements Comparable<FullyQualifiedResour
         this.resourceId = resourceId;
     }
 
-    /**
-     * Constructs {@code FullyQualifiedResourceId} from a global and local identifiers.
-     *
-     * @param contextId Context id.
-     * @param resourceId Resource id.
-     */
-    public FullyQualifiedResourceId(@Nullable UUID contextId, long resourceId) {
-        this(contextId, new UUID(0L, resourceId));
-    }
-
     public static FullyQualifiedResourceId lower(UUID contextId) {
-        return new FullyQualifiedResourceId(contextId, Long.MIN_VALUE);
+        return new FullyQualifiedResourceId(contextId, LOWEST_UUID);
     }
 
     public static FullyQualifiedResourceId upper(UUID contextId) {
-        return new FullyQualifiedResourceId(contextId, Long.MAX_VALUE);
+        return new FullyQualifiedResourceId(contextId, HIGHEST_UUID);
     }
 
     /**

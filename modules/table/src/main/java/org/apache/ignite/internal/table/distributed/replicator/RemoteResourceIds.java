@@ -33,6 +33,6 @@ public class RemoteResourceIds {
      * @return Cursor id.
      */
     public static FullyQualifiedResourceId cursorId(UUID txId, long cursorId) {
-        return new FullyQualifiedResourceId(txId, cursorId);
+        return new FullyQualifiedResourceId(txId, new UUID(0L, cursorId));
     }
 }
