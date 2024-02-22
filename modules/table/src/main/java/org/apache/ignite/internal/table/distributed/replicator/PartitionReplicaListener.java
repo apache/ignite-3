@@ -3719,12 +3719,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {
+    private BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {
         return MSG_FACTORY.buildIndexCommand()
                 .indexId(request.indexId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())
                 .creationCatalogVersion(request.creationCatalogVersion())
+                .requiredCatalogVersion(indexStartBuildingCatalogVersion(request))
                 .build();
     }
 
@@ -3816,8 +3817,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         return TableUtils.indexIdsAtRwTxBeginTs(catalogService, txId, tableId());
     }
 
+    private int indexStartBuildingCatalogVersion(BuildIndexReplicaRequest request) {
+        return findStartBuildingIndexCatalogVersion(catalogService, request.indexId(), request.creationCatalogVersion());
+    }
+
     private HybridTimestamp indexStartBuildingActivationTs(BuildIndexReplicaRequest request) {
-        int catalogVersion = findStartBuildingIndexCatalogVersion(catalogService, request.indexId(), request.creationCatalogVersion());
+        int catalogVersion = indexStartBuildingCatalogVersion(request);
 
         Catalog catalog = catalogService.catalog(catalogVersion);
 
