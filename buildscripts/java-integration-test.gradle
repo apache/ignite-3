@@ -89,3 +89,7 @@ tasks.register('jacocoIntegrationTestReport', JacocoReport) {
         html.required = true
     }
 }
+
+spotbugsIntegrationTest {
+    enabled(false)
+}

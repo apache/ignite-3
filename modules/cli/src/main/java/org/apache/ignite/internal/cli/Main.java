@@ -129,30 +129,28 @@ public class Main {
      * SEVERE.
      */
     private static void initJavaLoggerProps() {
-        InputStream propsFile = Main.class.getResourceAsStream("/cli.java.util.logging.properties");
-
-        if (propsFile != null) {
-            try {
-                LogManager.getLogManager().updateConfiguration(propsFile, s -> {
+        try (InputStream propsFile = Main.class.getResourceAsStream("/cli.java.util.logging.properties")) {
+            if (propsFile != null) {
+                LogManager.getLogManager().updateConfiguration(propsFile, configurationKey -> {
                     // Merge default configuration with configuration read from propsFile
                     // and append the path to logs to the file pattern if propsFile have the corresponding key
-                    if (s.equals("java.util.logging.FileHandler.pattern")) {
-                        return (o, n) -> {
-                            if (n == null) {
-                                return o;
+                    if (configurationKey.equals("java.util.logging.FileHandler.pattern")) {
+                        return (oldConfigValue, newConfigValue) -> {
+                            if (newConfigValue == null) {
+                                return oldConfigValue;
                             }
                             try {
-                                return getLogsDir() + "/" + n;
+                                return getLogsDir() + "/" + newConfigValue;
                             } catch (IOException e) {
-                                return n;
+                                return newConfigValue;
                             }
                         };
                     }
                     return (o, n) -> n == null ? o : n;
                 });
-            } catch (IOException ignored) {
-                // No-op.
             }
+        } catch (IOException ignored) {
+            // No-op
         }
     }
 

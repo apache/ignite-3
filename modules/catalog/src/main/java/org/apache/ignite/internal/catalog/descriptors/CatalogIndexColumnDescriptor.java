@@ -28,7 +28,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Indexed column descriptor.
  */
 public class CatalogIndexColumnDescriptor {
-    public static CatalogObjectSerializer<CatalogIndexColumnDescriptor> SERIALIZER = new IndexColumnDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogIndexColumnDescriptor> SERIALIZER = new IndexColumnDescriptorSerializer();
 
     private final String name;
 

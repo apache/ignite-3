@@ -519,9 +519,9 @@ public class PersistentPageMemory implements PageMemory {
 
         seg.writeLock().lock();
 
-        FullPageId fullId = new FullPageId(pageId, grpId);
 
         try {
+            FullPageId fullId = new FullPageId(pageId, grpId);
             long relPtr = seg.loadedPages.get(
                     grpId,
                     effectivePageId(pageId),

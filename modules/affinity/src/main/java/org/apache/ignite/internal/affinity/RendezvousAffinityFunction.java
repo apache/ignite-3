@@ -142,10 +142,6 @@ public class RendezvousAffinityFunction {
                     }
                 } else if (nodeFilter == null || nodeFilter.test(node, res)) {
                     res.add(node);
-
-                    if (exclNeighbors) {
-                        allNeighbors.addAll(neighborhoodCache.get(node));
-                    }
                 }
             }
         }

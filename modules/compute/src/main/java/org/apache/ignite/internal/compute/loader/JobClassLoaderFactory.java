@@ -25,6 +25,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -48,16 +51,21 @@ public class JobClassLoaderFactory {
      * @return The class loader.
      */
     public JobClassLoader createClassLoader(List<DisposableDeploymentUnit> units) {
-        URL[] classpath = units.stream()
-                .map(DisposableDeploymentUnit::path)
-                .flatMap(JobClassLoaderFactory::collectClasspath)
-                .toArray(URL[]::new);
+        return AccessController.doPrivileged(new PrivilegedAction<>() {
+            @Override
+            public JobClassLoader run() {
+                URL[] classpath = units.stream()
+                        .map(DisposableDeploymentUnit::path)
+                        .flatMap(JobClassLoaderFactory::collectClasspath)
+                        .toArray(URL[]::new);
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
-        }
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
+                }
 
-        return new JobClassLoader(units, classpath, getClass().getClassLoader());
+                return new JobClassLoader(units, classpath, getClass().getClassLoader());
+            }
+        });
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {
