@@ -37,19 +37,24 @@ public class Assignments implements Serializable {
     private static final long serialVersionUID = -59553172012153869L;
 
     /** Empty assignments. */
-    public static final Assignments EMPTY = new Assignments(Collections.emptySet());
+    public static final Assignments EMPTY = new Assignments(Collections.emptySet(), false);
 
     /** Set of nodes. */
     @IgniteToStringInclude
     private final Set<Assignment> nodes;
 
+    /** Force flag. */
+    private final boolean force;
+
     /**
      * Constructor.
      *
      * @param nodes Set of nodes.
+     * @param force Force flag.
      */
-    private Assignments(Set<Assignment> nodes) {
+    private Assignments(Set<Assignment> nodes, boolean force) {
         this.nodes = nodes;
+        this.force = force;
     }
 
     /**
@@ -58,7 +63,16 @@ public class Assignments implements Serializable {
      * @param nodes Set of nodes.
      */
     public static Assignments of(Set<Assignment> nodes) {
-        return new Assignments(new HashSet<>(nodes));
+        return new Assignments(new HashSet<>(nodes), false);
+    }
+
+    /**
+     * Creates a new instance with {@code force} flag set on.
+     *
+     * @param nodes Set of nodes.
+     */
+    public static Assignments forced(Set<Assignment> nodes) {
+        return new Assignments(new HashSet<>(nodes), true);
     }
 
     /**
@@ -67,7 +81,7 @@ public class Assignments implements Serializable {
      * @param nodes Array of nodes.
      */
     public static Assignments of(Assignment... nodes) {
-        return new Assignments(Set.of(nodes));
+        return new Assignments(Set.of(nodes), false);
     }
 
     /**
@@ -75,6 +89,13 @@ public class Assignments implements Serializable {
      */
     public Set<Assignment> nodes() {
         return unmodifiableSet(nodes);
+    }
+
+    /**
+     * Force flag that indicates ignoring of current stable assignments.
+     */
+    public boolean force() {
+        return force;
     }
 
     /**
@@ -90,7 +111,7 @@ public class Assignments implements Serializable {
      * @see #toBytes()
      */
     public static byte[] toBytes(Set<Assignment> assignments) {
-        return new Assignments(assignments).toBytes();
+        return new Assignments(new HashSet<>(assignments), false).toBytes();
     }
 
     /**

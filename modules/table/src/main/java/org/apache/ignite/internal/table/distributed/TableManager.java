@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.intersect;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -863,9 +864,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return false;
                 }
 
-                if (((Loza) raftMgr).isStarted(raftNodeId)) {
-                    return true;
-                }
+                assert !((Loza) raftMgr).isStarted(raftNodeId);
 
                 try {
                     startPartitionRaftGroupNode(
@@ -1833,12 +1832,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) {
         ClusterNode localMember = localNode();
 
+        boolean pendingAssignmentsAreForced = pendingAssignments.force();
+        Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
+
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
-        boolean shouldStartLocalGroupNode = pendingAssignments.nodes().stream()
+        boolean shouldStartLocalGroupNode = pendingAssignmentsNodes.stream()
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
         CompletableFuture<Void> localServicesStartFuture;
+
+        Assignments newAssignments = pendingAssignmentsAreForced
+                ? Assignments.forced(intersect(stableAssignments, pendingAssignmentsNodes))
+                : Assignments.of(stableAssignments);
 
         if (shouldStartLocalGroupNode) {
             localServicesStartFuture = localPartsByTableIdVv.get(revision)
@@ -1860,20 +1866,31 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> startPartitionAndStartClient(
                             tbl,
                             replicaGrpId.partitionId(),
-                            pendingAssignments,
+                            newAssignments,
                             isRecovery
                     )), ioExecutor);
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
 
-        return localServicesStartFuture.thenRunAsync(
-                () -> tbl.internalTable()
-                        .tableRaftService()
-                        .partitionRaftGroupService(replicaGrpId.partitionId())
-                        .updateConfiguration(configurationFromAssignments(union(pendingAssignments.nodes(), stableAssignments))),
-                ioExecutor
-        );
+        localServicesStartFuture = localServicesStartFuture.thenRun(() -> {
+            RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode().name()));
+
+            if (!shouldStartLocalGroupNode && ((Loza) raftMgr).isStarted(raftNodeId) && pendingAssignmentsAreForced) {
+                ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(newAssignments.nodes()));
+            }
+        });
+
+        return localServicesStartFuture.thenRunAsync(() -> {
+            Set<Assignment> cfg = pendingAssignmentsAreForced
+                    ? pendingAssignmentsNodes
+                    : union(pendingAssignmentsNodes, stableAssignments);
+
+            tbl.internalTable()
+                    .tableRaftService()
+                    .partitionRaftGroupService(replicaGrpId.partitionId())
+                    .updateConfiguration(configurationFromAssignments(cfg));
+        }, ioExecutor);
     }
 
     private CompletableFuture<Void> changePeersOnRebalance(
@@ -2211,7 +2228,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 ? nullCompletedFuture()
                 : updatePartitionClients(tablePartitionId, stableAssignments, revision);
 
-        boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.nodes().stream())
+        boolean shouldStopLocalServices = (pendingAssignments.force()
+                        ? pendingAssignments.nodes().stream()
+                        : Stream.concat(stableAssignments.stream(), pendingAssignments.nodes().stream())
+                )
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
         if (shouldStopLocalServices) {

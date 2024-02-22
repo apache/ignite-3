@@ -18,6 +18,12 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PLANNED_KEY_REMOVED_EMPTY_PENDING;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PLANNED_KEY_REMOVED_EQUALS_PENDING;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PLANNED_KEY_UPDATED;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -51,6 +57,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -63,41 +71,156 @@ public class RebalanceUtil {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
 
-    /**
-     * Return code of metastore multi-invoke which identifies,
-     * that pending key was updated to new value (i.e. there is no active rebalance at the moment of call).
-     */
-    private static final int PENDING_KEY_UPDATED = 0;
+    public enum UpdateStatus {
+        /**
+         * Return code of metastore multi-invoke which identifies,
+         * that pending key was updated to new value (i.e. there is no active rebalance at the moment of call).
+         */
+        PENDING_KEY_UPDATED,
+
+        /**
+         * Return code of metastore multi-invoke which identifies,
+         * that planned key was updated to new value (i.e. there is an active rebalance at the moment of call).
+         */
+        PLANNED_KEY_UPDATED,
+
+        /**
+         * Return code of metastore multi-invoke which identifies,
+         * that planned key was removed, because current rebalance is already have the same target.
+         */
+        PLANNED_KEY_REMOVED_EQUALS_PENDING,
+
+        /**
+         * Return code of metastore multi-invoke which identifies,
+         * that planned key was removed, because current assignment is empty.
+         */
+        PLANNED_KEY_REMOVED_EMPTY_PENDING,
+
+        /**
+         * Return code of metastore multi-invoke which identifies,
+         * that assignments do not need to be updated.
+         */
+        ASSIGNMENT_NOT_UPDATED,
+
+        /**
+         * Return code of metastore multi-invoke which identifies,
+         * that this trigger event was already processed by another node and must be skipped.
+         */
+        OUTDATED_UPDATE_RECEIVED;
+
+        private static final UpdateStatus[] VALUES = values();
+
+        public static UpdateStatus valueOf(int ordinal) {
+            return VALUES[ordinal];
+        }
+    }
 
     /**
-     * Return code of metastore multi-invoke which identifies,
-     * that planned key was updated to new value (i.e. there is an active rebalance at the moment of call).
+     * TODO Document.
+     *
+     * @param partId
+     * @param dataNodes
+     * @param aliveNodesConsistentIds A set of consistent IDs of current logical topology according to the Distribution Zone manager.
+     * @param replicas
+     * @param revision
+     * @param metaStorageMgr
+     * @param currentAssignments
+     * @return
      */
-    private static final int PLANNED_KEY_UPDATED = 1;
+    public static CompletableFuture<Integer> manualPartitionUpdate(
+            TablePartitionId partId,
+            Collection<String> dataNodes,
+            Set<String> aliveNodesConsistentIds,
+            int replicas,
+            long revision,
+            MetaStorageManager metaStorageMgr,
+            Set<Assignment> currentAssignments
+    ) {
+        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
 
-    /**
-     * Return code of metastore multi-invoke which identifies,
-     * that planned key was removed, because current rebalance is already have the same target.
-     */
-    private static final int PLANNED_KEY_REMOVED_EQUALS_PENDING = 2;
+        //TODO https://issues.apache.org/jira/browse/IGNITE-21303
+        // This is a naive approach that doesn't exclude nodes in error state, if they exist.
+        Set<Assignment> partAssignments = new HashSet<>();
+        for (Assignment currentAssignment : currentAssignments) {
+            if (aliveNodesConsistentIds.contains(currentAssignment.consistentId())) {
+                partAssignments.add(currentAssignment);
+            }
+        }
 
-    /**
-     * Return code of metastore multi-invoke which identifies,
-     * that planned key was removed, because current assignment is empty.
-     */
-    private static final int PLANNED_KEY_REMOVED_EMPTY_PENDING = 3;
+        if (partAssignments.size() >= (replicas / 2 + 1)) {
+            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+        }
 
-    /**
-     * Return code of metastore multi-invoke which identifies,
-     * that assignments do not need to be updated.
-     */
-    private static final int ASSIGNMENT_NOT_UPDATED = 4;
+        for (Assignment calcAssignment : calcAssignments) {
+            if (partAssignments.size() == replicas) {
+                break;
+            }
 
-    /**
-     * Return code of metastore multi-invoke which identifies,
-     * that this trigger event was already processed by another node and must be skipped.
-     */
-    private static final int OUTDATED_UPDATE_RECEIVED = 5;
+            partAssignments.add(calcAssignment);
+        }
+
+        if (currentAssignments.equals(calcAssignments)) {
+            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+        }
+
+        byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
+        byte[] revisionBytes = ByteUtils.longToBytes(revision);
+
+        ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+
+        Iif iif = iif(
+                notExists(partChangeTriggerKey).or(value(partChangeTriggerKey).lt(revisionBytes)),
+                iif(
+                        value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
+                        ops(
+                                put(partAssignmentsPendingKey, partAssignmentsBytes),
+                                put(partChangeTriggerKey, revisionBytes)
+                        ).yield(PENDING_KEY_UPDATED.ordinal()),
+                        ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
+                ),
+                ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
+        );
+
+        return metaStorageMgr.invoke(iif).thenApply(StatementResult::getAsInt);
+    }
+
+    public static CompletableFuture<?>[] forceAssignmentsUpdate(
+            CatalogTableDescriptor tableDescriptor,
+            CatalogZoneDescriptor zoneDescriptor,
+            Set<String> dataNodes,
+            Set<String> nodeConsistentIds,
+            long storageRevision,
+            MetaStorageManager metaStorageManager
+    ) {
+        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
+                metaStorageManager,
+                tableDescriptor.id(),
+                zoneDescriptor.partitions()
+        );
+
+        CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
+
+        for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
+
+            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
+                    tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
+                            replicaGrpId,
+                            dataNodes,
+                            nodeConsistentIds,
+                            zoneDescriptor.replicas(),
+                            storageRevision,
+                            metaStorageManager,
+                            tableAssignments.get(replicaGrpId.partitionId()).nodes()
+                    )).whenComplete((integer, throwable) -> {
+                            LOG.info("Partition {} returned {} status on manual update", replicaGrpId, integer);
+                    }
+            );
+        }
+
+        return futures;
+    }
 
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
@@ -157,38 +280,33 @@ public class RebalanceUtil {
         //    else:
         //        skip
 
-        Condition newAssignmentsCondition;
+        Condition newAssignmentsCondition = and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey));
 
         if (isNewAssignments) {
-            newAssignmentsCondition = or(
-                    notExists(partAssignmentsStableKey),
-                    and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey))
-            );
-        } else {
-            newAssignmentsCondition = and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey));
+            newAssignmentsCondition = newAssignmentsCondition.or(notExists(partAssignmentsStableKey));
         }
 
-        var iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
+        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
                                 put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
-                        ).yield(PENDING_KEY_UPDATED),
+                        ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
                                         put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
-                                ).yield(PLANNED_KEY_UPDATED),
+                                ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
-                                        ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING),
+                                        ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
                                         iif(notExists(partAssignmentsPendingKey),
-                                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING),
-                                                ops().yield(ASSIGNMENT_NOT_UPDATED))
+                                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
+                                                ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal()))
                                 ))),
-                ops().yield(OUTDATED_UPDATE_RECEIVED));
+                ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal()));
 
         return metaStorageMgr.invoke(iif).thenAccept(sr -> {
-            switch (sr.getAsInt()) {
+            switch (UpdateStatus.valueOf(sr.getAsInt())) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
                             "Update metastore pending partitions key [key={}, partition={}, table={}/{}, newVal={}]",

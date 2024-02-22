@@ -480,6 +480,18 @@ public class Loza implements RaftManager {
     }
 
     /**
+     * Performs a {@code resetPeers} operation on raft node.
+     *
+     * @param raftNodeId Raft node ID.
+     * @param peersAndLearners New node configuration.
+     */
+    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+        LOG.warn("Reset pears for raft group {}, new configuration is {}", raftNodeId, peersAndLearners);
+
+        raftServer.resetPeers(raftNodeId, peersAndLearners);
+    }
+
+    /**
      * Returns messaging service.
      *
      * @return Messaging service.
@@ -502,16 +514,6 @@ public class Loza implements RaftManager {
     }
 
     /**
-     * Returns a cluster service.
-     *
-     * @return An underlying network service.
-     */
-    @TestOnly
-    public ClusterService service() {
-        return clusterNetSvc;
-    }
-
-    /**
      * Returns a raft server.
      *
      * @return An underlying raft server.
@@ -519,6 +521,16 @@ public class Loza implements RaftManager {
     @TestOnly
     public RaftServer server() {
         return raftServer;
+    }
+
+    /**
+     * Returns a cluster service.
+     *
+     * @return An underlying network service.
+     */
+    @TestOnly
+    public ClusterService service() {
+        return clusterNetSvc;
     }
 
     /**

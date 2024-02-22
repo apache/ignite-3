@@ -94,6 +94,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
+import org.apache.ignite.internal.distributionzones.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
@@ -191,6 +192,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Causality data nodes engine. */
     private final CausalityDataNodesEngine causalityDataNodesEngine;
 
+    /** Disaster recovery manager. */
+    private final DisasterRecoveryManager disasterRecoveryManager;
+
     /** Catalog manager. */
     private final CatalogManager catalogManager;
 
@@ -240,6 +244,9 @@ public class DistributionZoneManager implements IgniteComponent {
                 this,
                 catalogManager
         );
+
+        //noinspection ThisEscapedInObjectConstruction
+        disasterRecoveryManager = new DisasterRecoveryManager(metaStorageManager, catalogManager, this);
     }
 
     @Override
@@ -261,6 +268,7 @@ public class DistributionZoneManager implements IgniteComponent {
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
             return allOf(
+                    disasterRecoveryManager.start(),
                     createOrRestoreZonesStates(recoveryRevision),
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
             ).thenCompose((notUsed) -> rebalanceEngine.start());
@@ -304,6 +312,19 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
         return causalityDataNodesEngine.dataNodes(causalityToken, catalogVersion, zoneId);
+    }
+
+    /**
+     * Manual zone configuration update.
+     *
+     * @param zoneId Zone ID.
+     * @param tableId Table ID.
+     * @return Operation future.
+     *
+     * @see DisasterRecoveryManager#manualGroupsUpdate(int, int)
+     */
+    public CompletableFuture<?> resetPartitions(int zoneId, int tableId) {
+        return disasterRecoveryManager.manualGroupsUpdate(zoneId, tableId);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
@@ -1372,7 +1393,6 @@ public class DistributionZoneManager implements IgniteComponent {
         return zonesState;
     }
 
-    @TestOnly
     public Set<NodeWithAttributes> logicalTopology() {
         return logicalTopology;
     }
