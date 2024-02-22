@@ -107,11 +107,11 @@ public class RemotelyTriggeredResourceRegistry {
         }
     }
 
-    private Map<FullyQualifiedResourceId, RemotelyTriggeredResource> resources(UUID cursorIdPrefix) {
-        var lowCursorId = new FullyQualifiedResourceId(cursorIdPrefix, Long.MIN_VALUE);
-        var upperCursorId = new FullyQualifiedResourceId(cursorIdPrefix, Long.MAX_VALUE);
+    private Map<FullyQualifiedResourceId, RemotelyTriggeredResource> resources(UUID contextId) {
+        var lowResourceId =  FullyQualifiedResourceId.lower(contextId);
+        var upperResourceId = FullyQualifiedResourceId.upper(contextId);
 
-        return resources.subMap(lowCursorId, true, upperCursorId, true);
+        return resources.subMap(lowResourceId, true, upperResourceId, true);
     }
 
     /**

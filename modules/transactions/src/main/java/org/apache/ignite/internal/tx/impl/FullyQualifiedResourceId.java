@@ -89,6 +89,14 @@ public class FullyQualifiedResourceId implements Comparable<FullyQualifiedResour
         this(contextId, new UUID(0L, resourceId));
     }
 
+    public static FullyQualifiedResourceId lower(UUID contextId) {
+        return new FullyQualifiedResourceId(contextId, Long.MIN_VALUE);
+    }
+
+    public static FullyQualifiedResourceId upper(UUID contextId) {
+        return new FullyQualifiedResourceId(contextId, Long.MAX_VALUE);
+    }
+
     /**
      * Gets global ID portion of this {@code FullyQualifiedResourceId}.
      *
