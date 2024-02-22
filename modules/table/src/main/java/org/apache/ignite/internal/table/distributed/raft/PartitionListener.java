@@ -608,10 +608,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(BuildIndexCommand command) {
-        int creationIndexCatalogVersion = command.creationCatalogVersion();
-        Catalog creationIndexCatalog = catalogService.catalog(creationIndexCatalogVersion);
+        int indexCreationCatalogVersion = command.creationCatalogVersion();
+        Catalog indexCreationCatalog = catalogService.catalog(indexCreationCatalogVersion);
 
-        assert creationIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + creationIndexCatalogVersion;
+        assert indexCreationCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
 
         int startBuildingIndexCatalogVersion = command.requiredCatalogVersion();
 
@@ -619,6 +619,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         assert startBuildingIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
 
-        return new BuildIndexRowVersionChooser(storage, creationIndexCatalog.time(), startBuildingIndexCatalog.time());
+        return new BuildIndexRowVersionChooser(storage, indexCreationCatalog.time(), startBuildingIndexCatalog.time());
     }
 }

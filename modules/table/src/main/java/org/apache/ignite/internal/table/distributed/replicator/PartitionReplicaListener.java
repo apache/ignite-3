@@ -3725,6 +3725,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .rowIds(request.rowIds())
                 .finish(request.finish())
                 .creationCatalogVersion(request.creationCatalogVersion())
+                // We are sure that there will be no error here since the primary replica is sent the request to itself.
                 .requiredCatalogVersion(indexStartBuildingCatalogVersion(request))
                 .build();
     }
