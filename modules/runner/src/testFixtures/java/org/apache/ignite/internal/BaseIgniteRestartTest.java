@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -99,6 +100,9 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "  },\n"
             + "  raft: " + RAFT_CFG + ",\n"
             + "  clientConnector.port: {},\n"
+            + "  storage: {\n"
+            + "    profiles: {" + DEFAULT_AIMEM_PROFILE_NAME + ": { engine: \"aimem\"}}\n"
+            + "  },\n"
             + "  rest: {\n"
             + "    port: {}, \n"
             + "    ssl.port: {} \n"

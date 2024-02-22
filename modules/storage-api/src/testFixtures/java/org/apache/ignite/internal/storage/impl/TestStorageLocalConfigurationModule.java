@@ -22,7 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 
 /**
  * Implementation for {@link TestStorageEngine}.
@@ -38,6 +38,6 @@ public class TestStorageLocalConfigurationModule implements ConfigurationModule 
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(TestDataStorageConfigurationSchema.class);
+        return List.of(TestProfileConfigurationSchema.class);
     }
 }

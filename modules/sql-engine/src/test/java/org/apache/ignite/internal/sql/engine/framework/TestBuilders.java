@@ -563,7 +563,7 @@ public class TestBuilders {
 
             var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(Map.of(), () -> "aipersist"), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
+                    new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                     mock(MetricManager.class));
 
             Map<String, List<String>> owningNodesByTableName = new HashMap<>();
@@ -600,7 +600,7 @@ public class TestBuilders {
                             String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
                             String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
 
-                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), Map.of());
+                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), List.of());
                         }
                     })
                     .collect(Collectors.toList());

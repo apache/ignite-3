@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryTestConstants.DEFAULT_DATA_REGION_NAME;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -26,6 +26,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -49,13 +50,16 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
             @WorkDirectory
             Path workDir,
             @InjectConfiguration
-            PersistentPageMemoryStorageEngineConfiguration engineConfig
+            PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            StorageConfiguration storageConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null, mock(FailureProcessor.class));
+        engine = new PersistentPageMemoryStorageEngine(
+                "test", engineConfig, storageConfiguration, ioRegistry, workDir, null, mock(FailureProcessor.class));
 
         engine.start();
 
@@ -66,7 +70,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
 
         tableStorage.start();
 
-        initialize(tableStorage, engineConfig);
+        initialize(tableStorage, engineConfig.pageSize().value());
     }
 
     @AfterEach

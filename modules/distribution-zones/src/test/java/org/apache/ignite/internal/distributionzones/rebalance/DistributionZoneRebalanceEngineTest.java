@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -137,6 +139,17 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
+
+        Map<String, NodeWithAttributes> nodeWithAttributesMap = Map.of(
+                "node0",  new NodeWithAttributes("node0", "node0", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                "node1",  new NodeWithAttributes("node1", "node1", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                "node2",  new NodeWithAttributes("node2", "node2", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                "node3",  new NodeWithAttributes("node3", "node3", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                "node4",  new NodeWithAttributes("node4", "node4", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                "node5",  new NodeWithAttributes("node5", "node5", Map.of(), List.of(DEFAULT_STORAGE_PROFILE))
+        );
+
+        when(distributionZoneManager.nodesAttributes()).thenReturn(nodeWithAttributesMap);
 
         doAnswer(invocation -> {
             ByteArray key = invocation.getArgument(0);

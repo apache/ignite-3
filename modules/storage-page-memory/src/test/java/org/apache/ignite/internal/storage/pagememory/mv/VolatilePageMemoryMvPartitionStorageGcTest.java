@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryTestConstants.DEFAULT_DATA_REGION_NAME;
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -26,6 +26,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
@@ -42,13 +43,16 @@ class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStor
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig
+            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+            StorageConfiguration storageConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration,
+                ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
         engine.start();
 

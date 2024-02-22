@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,7 +68,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     void testRestartAfterFlush() throws Exception {
         assumeFalse(storageEngine.isVolatile());
 
-        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(1, 1, DEFAULT_DATA_REGION);
+        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(1, 1, DEFAULT_STORAGE_PROFILE);
         StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
 
         MvTableStorage mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);

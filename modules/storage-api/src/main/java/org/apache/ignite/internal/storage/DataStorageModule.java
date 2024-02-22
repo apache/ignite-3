@@ -21,7 +21,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,7 +32,7 @@ public interface DataStorageModule {
     /**
      * Returns the unique name of the data storage.
      *
-     * <p>Used to map {@link DataStorageConfigurationSchema#name} to {@link StorageEngine}.
+     * <p>Used to map {@link StorageProfileConfiguration#engine()} to {@link StorageEngine}.
      */
     String name();
 

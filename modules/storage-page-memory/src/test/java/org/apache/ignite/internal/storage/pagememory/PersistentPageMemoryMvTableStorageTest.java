@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryTestConstants.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
@@ -29,6 +29,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -52,13 +53,16 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig
+            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            StorageConfiguration storageConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null, mock(FailureProcessor.class));
+        engine = new PersistentPageMemoryStorageEngine(
+                "test", engineConfig, storageConfiguration, ioRegistry, workDir, null, mock(FailureProcessor.class));
 
         engine.start();
 

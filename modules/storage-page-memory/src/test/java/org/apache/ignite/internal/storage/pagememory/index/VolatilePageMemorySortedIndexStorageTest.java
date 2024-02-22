@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryTestConstants.DEFAULT_DATA_REGION_NAME;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
@@ -43,13 +44,16 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
     @BeforeEach
     void setUp(
             @InjectConfiguration
-            VolatilePageMemoryStorageEngineConfiguration engineConfig
+            VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+            StorageConfiguration storageConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig,
+                storageConfiguration, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
         engine.start();
 
@@ -60,7 +64,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
 
         tableStorage.start();
 
-        initialize(tableStorage, engineConfig);
+        initialize(tableStorage, engineConfig.pageSize().value());
     }
 
     @AfterEach
