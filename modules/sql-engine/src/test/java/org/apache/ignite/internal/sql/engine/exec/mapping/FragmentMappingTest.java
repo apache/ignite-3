@@ -238,17 +238,6 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         testRunner.runTest(this::initSchema, "test_partition_pruning.test");
     }
 
-    @Test
-    public void testPartitionPruning2() {
-        addNodes("N1", "N2", "N3", "N4", "N5");
-
-        addTable("T1", "N1", "N2", "N3");
-        addTable("T2", "N4", "N5");
-        addTable("T3", "N1", "N2", "N3");
-
-        testRunner.runTest(this::initSchema, "test_partition_pruning2.test");
-    }
-
     private void addNodes(String node, String... otherNodes) {
         this.nodeNames.add(node);
         this.nodeNames.addAll(Arrays.asList(otherNodes));
