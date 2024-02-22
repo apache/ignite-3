@@ -216,7 +216,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         verify(tableViewInternal, never()).unregisterIndex(anyInt());
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21576")
     @Test
     void testDestroyIndex() throws Exception {
         createIndex(TABLE_NAME, INDEX_NAME);
@@ -234,7 +234,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         verify(mvTableStorage).destroyIndex(indexId);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21576")
     @Test
     void testIndexDestroyedWithTable() throws Exception {
         createIndex(TABLE_NAME, INDEX_NAME);

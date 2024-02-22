@@ -127,7 +127,7 @@ public class TestMvTableStorage implements MvTableStorage {
         mvPartitionStorage.destroy();
 
         for (HashIndices hashIndices : hashIndicesById.values()) {
-            HashIndexStorage removedHashIndexStorage = hashIndices.storageByPartitionId.remove(mvPartitionStorage.partitionId);
+            TestHashIndexStorage removedHashIndexStorage = hashIndices.storageByPartitionId.remove(mvPartitionStorage.partitionId);
 
             if (removedHashIndexStorage != null) {
                 removedHashIndexStorage.destroy();
@@ -135,10 +135,10 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         for (SortedIndices sortedIndices : sortedIndicesById.values()) {
-            SortedIndexStorage removedSortedIndexStorage = sortedIndices.storageByPartitionId.remove(mvPartitionStorage.partitionId);
+            TestSortedIndexStorage removedSortedIndexStorage = sortedIndices.storageByPartitionId.remove(mvPartitionStorage.partitionId);
 
             if (removedSortedIndexStorage != null) {
-                ((TestSortedIndexStorage) removedSortedIndexStorage).destroy();
+                removedSortedIndexStorage.destroy();
             }
         }
 
@@ -179,12 +179,16 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyIndex(int indexId) {
-        sortedIndicesById.remove(indexId);
+        HashIndices hashIndices = hashIndicesById.remove(indexId);
 
-        HashIndices hashIndex = hashIndicesById.remove(indexId);
+        if (hashIndices != null) {
+            hashIndices.storageByPartitionId.values().forEach(TestHashIndexStorage::destroy);
+        }
 
-        if (hashIndex != null) {
-            hashIndex.storageByPartitionId.values().forEach(HashIndexStorage::destroy);
+        SortedIndices sortedIndices = sortedIndicesById.remove(indexId);
+
+        if (sortedIndices != null) {
+            sortedIndices.storageByPartitionId.values().forEach(TestSortedIndexStorage::destroy);
         }
 
         return nullCompletedFuture();

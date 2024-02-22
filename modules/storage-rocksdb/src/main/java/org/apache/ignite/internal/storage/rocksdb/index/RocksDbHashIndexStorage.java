@@ -40,7 +40,6 @@ import org.apache.ignite.internal.util.HashUtils;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
-import org.rocksdb.WriteOptions;
 
 /**
  * {@link HashIndexStorage} implementation based on RocksDB.
@@ -144,25 +143,6 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
                 WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
                 writeBatch.delete(indexCf.handle(), rocksKey(row));
-
-                return null;
-            } catch (RocksDBException e) {
-                throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
-            }
-        });
-    }
-
-    @Override
-    public void destroy() {
-        busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-            byte[] rangeEnd = incrementPrefix(constantPrefix);
-
-            assert rangeEnd != null;
-
-            try (WriteOptions writeOptions = new WriteOptions().setDisableWAL(true)) {
-                indexCf.db().deleteRange(indexCf.handle(), writeOptions, constantPrefix, rangeEnd);
 
                 return null;
             } catch (RocksDBException e) {
