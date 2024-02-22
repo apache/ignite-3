@@ -107,11 +107,6 @@ public class ThreadAssertingMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void stop() throws StorageException {
-        tableStorage.stop();
-    }
-
-    @Override
     public CompletableFuture<Void> destroy() {
         assertThreadAllowsToWrite();
 
