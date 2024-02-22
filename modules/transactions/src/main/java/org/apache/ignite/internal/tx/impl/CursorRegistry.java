@@ -91,11 +91,11 @@ public class CursorRegistry {
             }
         }
 
+        txCursors.clear();
+
         if (ex != null) {
             throw ex;
         }
-
-        txCursors.clear();
     }
 
     private Map<IgniteUuid, CursorInfo> cursors(UUID cursorIdPrefix) {
