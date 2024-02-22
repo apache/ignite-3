@@ -158,11 +158,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> rocksDb.flusher.awaitFlush(schedule));
     }
 
-    @Override
-    public void stop() throws StorageException {
-        stop(false);
-    }
-
     private void stop(boolean destroy) {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
@@ -207,7 +202,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public void close() throws StorageException {
-        stop();
+        stop(false);
     }
 
     @Override
