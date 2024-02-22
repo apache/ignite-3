@@ -33,8 +33,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -71,12 +69,5 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
                 tableStorage == null ? null : tableStorage::close,
                 engine == null ? null : engine::stop
         );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21574")
-    @Test
-    @Override
-    public void testDestroy() {
-        super.testDestroy();
     }
 }
