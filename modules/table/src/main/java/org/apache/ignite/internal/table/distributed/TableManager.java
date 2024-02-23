@@ -779,6 +779,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 table,
                                 partId,
                                 assignments.get(partId),
+                                null,
                                 false
                         )
                         .whenComplete((res, ex) -> {
@@ -797,7 +798,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> startPartitionAndStartClient(
             TableImpl table,
             int partId,
-            Assignments newPartAssignment,
+            Assignments realAssignments,
+            @Nullable Assignments newAssignments,
             boolean isRecovery
     ) {
         CompletableFuture<Void> resultFuture = new CompletableFuture<>();
@@ -806,12 +808,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTable internalTbl = table.internalTable();
 
-        Assignment localMemberAssignment = newPartAssignment.nodes().stream()
+        Assignment localMemberAssignment = realAssignments.nodes().stream()
                 .filter(a -> a.consistentId().equals(localNode().name()))
                 .findAny()
                 .orElse(null);
 
-        PeersAndLearners newConfiguration = configurationFromAssignments(newPartAssignment.nodes());
+        PeersAndLearners realConfiguration = configurationFromAssignments(realAssignments.nodes());
+        PeersAndLearners newConfiguration = newAssignments == null ? realConfiguration : configurationFromAssignments(newAssignments.nodes());
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
@@ -835,7 +838,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 storageUpdateConfig
         );
 
-        Peer serverPeer = newConfiguration.peer(localNode().name());
+        Peer serverPeer = realConfiguration.peer(localNode().name());
 
         var raftNodeId = localMemberAssignment == null ? null : new RaftNodeId(replicaGrpId, serverPeer);
 
@@ -1866,6 +1869,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> startPartitionAndStartClient(
                             tbl,
                             replicaGrpId.partitionId(),
+                            pendingAssignments,
                             newAssignments,
                             isRecovery
                     )), ioExecutor);

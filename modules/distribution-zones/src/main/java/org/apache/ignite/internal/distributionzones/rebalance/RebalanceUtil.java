@@ -280,10 +280,10 @@ public class RebalanceUtil {
         //    else:
         //        skip
 
-        Condition newAssignmentsCondition = and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey));
+        Condition newAssignmentsCondition = exists(partAssignmentsStableKey).and(value(partAssignmentsStableKey).ne(partAssignmentsBytes));
 
         if (isNewAssignments) {
-            newAssignmentsCondition = newAssignmentsCondition.or(notExists(partAssignmentsStableKey));
+            newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
         Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
