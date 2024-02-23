@@ -89,6 +89,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -248,7 +249,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         super(
                 "test",
                 nextTableId.getAndIncrement(),
-                Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 new SingleClusterNodeResolver(LOCAL_NODE),
                 txManager,
@@ -257,10 +257,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK,
                 tracker,
-                placementDriver
+                placementDriver,
+                new TableRaftServiceImpl(
+                        "test",
+                        1,
+                        Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
+                        new SingleClusterNodeResolver(LOCAL_NODE)
+                )
         );
         this.storageUpdateConfiguration = storageUpdateConfiguration;
-        RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
+        RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
@@ -384,7 +390,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
-                raftGroupServiceByPartitionId.get(PART_ID),
+                tableRaftService().partitionRaftGroupService(PART_ID),
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
@@ -505,16 +511,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param indexes Index storage by ID.
      */
     public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
-        return new TableIndexStoragesSupplier() {
-            @Override
-            public Map<Integer, TableSchemaAwareIndexStorage> get() {
-                return indexes;
-            }
-
-            @Override
-            public void addIndexToWaitIfAbsent(int indexId) {
-            }
-        };
+        return () -> indexes;
     }
 
     /**

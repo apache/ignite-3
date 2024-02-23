@@ -35,7 +35,9 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -352,6 +354,37 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
+     * Tests create a table through public API right after another table with the same name was dropped.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testReCreateTableWithSameName() throws Exception {
+        mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
+
+        TableManager tableManager = tblManagerFut.join();
+
+        TableViewInternal table = (TableViewInternal) tableManager.table(DYNAMIC_TABLE_NAME);
+
+        assertNotNull(table);
+
+        int oldTableId = table.tableId();
+
+        dropTable(DYNAMIC_TABLE_NAME);
+        createTable(DYNAMIC_TABLE_NAME);
+
+        table = tableManager.tableView(DYNAMIC_TABLE_NAME);
+
+        assertNotNull(table);
+        assertNotEquals(oldTableId, table.tableId());
+
+        // TODO IGNITE-20680 ensure old table is available
+        // assertNotNull(tableManager.getTable(oldTableId));
+        assertNotNull(tableManager.getTable(table.tableId()));
+        assertNotSame(tableManager.getTable(oldTableId), tableManager.getTable(table.tableId()));
+    }
+
+    /**
      * Tests a work of the public API for Table manager {@see org.apache.ignite.table.manager.IgniteTables} when the manager is stopping.
      */
     @Test
@@ -661,13 +694,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         int tablesBeforeCreation = tableManager.tables().size();
 
         if (phaser != null) {
-            catalogManager.listen(TABLE_CREATE, (parameters, exception) -> {
+            catalogManager.listen(TABLE_CREATE, parameters -> {
                 phaser.arriveAndAwaitAdvance();
 
                 return falseCompletedFuture();
             });
 
-            catalogManager.listen(TABLE_DROP, (parameters, exception) -> {
+            catalogManager.listen(TABLE_DROP, parameters -> {
                 phaser.arriveAndAwaitAdvance();
 
                 return falseCompletedFuture();

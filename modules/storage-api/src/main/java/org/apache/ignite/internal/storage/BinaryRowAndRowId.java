@@ -20,9 +20,7 @@ package org.apache.ignite.internal.storage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones.
- */
+/** Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones. */
 public class BinaryRowAndRowId {
     /** Binary row. {@code null} if tombstone. */
     private final @Nullable BinaryRow binaryRow;

@@ -217,7 +217,7 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public ClusterNode leaderAssignment(int partition) {
-        return tbl.leaderAssignment(partition);
+        return tbl.tableRaftService().leaderAssignment(partition);
     }
 
     /** Returns a supplier of index storage wrapper factories for given partition. */
@@ -237,11 +237,6 @@ public class TableImpl implements TableViewInternal {
                 }
 
                 return adapters;
-            }
-
-            @Override
-            public void addIndexToWaitIfAbsent(int indexId) {
-                addIndexesToWait(indexId);
             }
         };
     }

@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
 import static org.apache.ignite.internal.table.TxAbstractTest.startNode;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -120,8 +121,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         clusterService = startNode(testInfo, NODE_NAME, NODE_PORT_BASE + 1, nodeFinder);
 
-        replicaService = new ReplicaService(clusterService.messagingService(), clock);
-
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
         // This test is run without Meta storage.
@@ -133,6 +132,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 false,
                 0
         );
+
+        replicaService = new ReplicaService(clusterService.messagingService(), clock);
 
         replicaManager = new ReplicaManager(
                 NODE_NAME,
@@ -217,25 +218,27 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
-        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
-                (message, sender, correlationId) -> {
-                    try {
-                        log.info("Replica msg " + message.getClass().getSimpleName());
+        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, (message, sender, correlationId) -> {
+            runAsync(() -> {
+                try {
+                    log.info("Replica msg " + message.getClass().getSimpleName());
 
-                        // If we 'stop' a replica before its future even appears, invocation will not get ReplicaStoppingException
-                        // as there was no sign of the replica yet.
-                        waitForCondition(() -> replicaManager.isReplicaStarted(tablePartitionId), TimeUnit.SECONDS.toMillis(10));
+                    // If we 'stop' a replica before its future even appears, invocation will not get ReplicaStoppingException
+                    // as there was no sign of the replica yet.
+                    assertTrue(
+                            waitForCondition(() -> replicaManager.isReplicaStarted(tablePartitionId), TimeUnit.SECONDS.toMillis(10))
+                    );
 
-                        assertThat(replicaManager.stopReplica(tablePartitionId), willSucceedFast());
-                    } catch (NodeStoppingException e) {
-                        throw new RuntimeException(e);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+                    assertThat(replicaManager.stopReplica(tablePartitionId), willSucceedFast());
+                } catch (NodeStoppingException e) {
+                    throw new RuntimeException(e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
 
-                        throw new RuntimeException(e);
-                    }
+                    throw new RuntimeException(e);
                 }
-        );
+            });
+        });
 
         CompletableFuture<ReplicaResponse> respFut = replicaService.invoke(clusterNode, request);
 
@@ -278,25 +281,25 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
-                (message, sender, correlationId) -> {
-                    try {
-                        log.info("Replica msg " + message.getClass().getSimpleName());
+        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, (message, sender, correlationId) -> {
+            runAsync(() -> {
+                try {
+                    log.info("Replica msg " + message.getClass().getSimpleName());
 
-                        replicaManager.startReplica(
-                                tablePartitionId,
-                                new CompletableFuture<>(),
-                                (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                        .result(5)
-                                        .build(), null)),
-                                mock(TopologyAwareRaftGroupService.class),
-                                new PendingComparableValuesTracker<>(0L)
-                        );
-                    } catch (NodeStoppingException e) {
-                        throw new RuntimeException(e);
-                    }
+                    replicaManager.startReplica(
+                            tablePartitionId,
+                            new CompletableFuture<>(),
+                            (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
+                                    .result(5)
+                                    .build(), null)),
+                            mock(TopologyAwareRaftGroupService.class),
+                            new PendingComparableValuesTracker<>(0L)
+                    );
+                } catch (NodeStoppingException e) {
+                    throw new RuntimeException(e);
                 }
-        );
+            });
+        });
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 

@@ -332,7 +332,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         return parentLockManager.isEmpty();
     }
 
-    private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params, Throwable e) {
+    private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params) {
         return fireEvent(LockEvent.LOCK_CONFLICT, params).thenApply(v -> false);
     }
 

@@ -19,9 +19,12 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
@@ -31,6 +34,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -141,5 +146,23 @@ public class CompletableFuturesTest {
         );
 
         assertThat(future, willThrow(RuntimeException.class, "test error"));
+    }
+
+    @Test
+    void completedOrFailedFutureCompletesSuccessfully() {
+        assertThat(completedOrFailedFuture("ok", null), willBe("ok"));
+    }
+
+    @Test
+    void completedOrFailedFutureCompletesWithNull() {
+        assertThat(completedOrFailedFuture(null, null), willBe(nullValue()));
+    }
+
+    @Test
+    void completedOrFailedFutureFails() {
+        RuntimeException ex = new RuntimeException("Oops");
+        RuntimeException caught = assertWillThrowFast(completedOrFailedFuture(null, ex), RuntimeException.class);
+
+        assertThat(caught, is(ex));
     }
 }

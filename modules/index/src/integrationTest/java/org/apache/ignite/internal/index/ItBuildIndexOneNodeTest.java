@@ -246,13 +246,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         CatalogManager catalogManager = ignite.catalogManager();
 
-        catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
-            if (exception != null) {
-                future.completeExceptionally(exception);
-
-                return failedFuture(exception);
-            }
-
+        catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, parameters -> {
             try {
                 int indexId = ((MakeIndexAvailableEventParameters) parameters).indexId();
                 int catalogVersion = parameters.catalogVersion();

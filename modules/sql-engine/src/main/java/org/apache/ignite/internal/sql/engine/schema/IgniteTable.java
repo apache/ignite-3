@@ -19,11 +19,41 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.Map;
 import java.util.function.Supplier;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
  * Table representation as object in SQL schema.
  */
 public interface IgniteTable extends IgniteDataSource {
+    /**
+     * Checks whether it is possible to update a column with a given index.
+     *
+     * @param colIdx Column index.
+     * @return {@code True} if update operation is allowed for a column with a given index.
+     */
+    boolean isUpdateAllowed(int colIdx);
+
+    /**
+     * Returns row type excluding effectively virtual or hidden fields.
+     *
+     * @param factory Type factory.
+     * @return Row type for INSERT operation.
+     */
+    RelDataType rowTypeForInsert(IgniteTypeFactory factory);
+
+    /**
+     * Returns row type containing only key fields.
+     *
+     * @param factory Type factory.
+     * @return Row type for DELETE operation.
+     */
+    RelDataType rowTypeForDelete(IgniteTypeFactory factory);
+
+    /** Return indexes of column representing primary key in the order they are specified in the index. */
+    ImmutableIntList keyColumns();
+
     /**
      * Return partition correspondence calculator.
      */

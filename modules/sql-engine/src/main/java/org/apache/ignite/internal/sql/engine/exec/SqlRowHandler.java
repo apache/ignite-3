@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.Commons.readValue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
@@ -401,29 +401,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         @Override
         RowSchema rowSchema() {
             return rowSchema;
-        }
-
-        private static @Nullable Object readValue(InternalTuple tuple, NativeType nativeType, int fieldIndex) {
-            switch (nativeType.spec()) {
-                case BOOLEAN: return tuple.booleanValueBoxed(fieldIndex);
-                case INT8: return tuple.byteValueBoxed(fieldIndex);
-                case INT16: return tuple.shortValueBoxed(fieldIndex);
-                case INT32: return tuple.intValueBoxed(fieldIndex);
-                case INT64: return tuple.longValueBoxed(fieldIndex);
-                case FLOAT: return tuple.floatValueBoxed(fieldIndex);
-                case DOUBLE: return tuple.doubleValueBoxed(fieldIndex);
-                case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
-                case UUID: return tuple.uuidValue(fieldIndex);
-                case STRING: return tuple.stringValue(fieldIndex);
-                case BYTES: return tuple.bytesValue(fieldIndex);
-                case BITMASK: return tuple.bitmaskValue(fieldIndex);
-                case NUMBER: return tuple.numberValue(fieldIndex);
-                case DATE: return tuple.dateValue(fieldIndex);
-                case TIME: return tuple.timeValue(fieldIndex);
-                case DATETIME: return tuple.dateTimeValue(fieldIndex);
-                case TIMESTAMP: return tuple.timestampValue(fieldIndex);
-                default: throw new InvalidTypeException("Unknown element type: " + nativeType);
-            }
         }
     }
 

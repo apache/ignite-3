@@ -279,8 +279,8 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         CatalogSchemaDescriptor schema = manager.schema(1);
 
         assertNotNull(schema);
-        assertNull(schema.index(INDEX_NAME));
-        assertNull(manager.index(INDEX_NAME, 123L));
+        assertNull(schema.aliveIndex(INDEX_NAME));
+        assertNull(manager.aliveIndex(INDEX_NAME, 123L));
 
         long schemaCausalityToken = schema.updateToken();
 
@@ -289,10 +289,10 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         // Validate actual catalog.
         schema = manager.schema(2);
 
-        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.index(INDEX_NAME);
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
-        assertSame(index, manager.index(INDEX_NAME, clock.nowLong()));
+        assertSame(index, manager.aliveIndex(INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
         assertTrue(schema.updateToken() > schemaCausalityToken);
 
@@ -319,8 +319,8 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         CatalogSchemaDescriptor schema = manager.schema(1);
 
         assertNotNull(schema);
-        assertNull(schema.index(INDEX_NAME));
-        assertNull(manager.index(INDEX_NAME, 123L));
+        assertNull(schema.aliveIndex(INDEX_NAME));
+        assertNull(manager.aliveIndex(INDEX_NAME, 123L));
 
         long schemaCausalityToken = schema.updateToken();
         assertTrue(schemaCausalityToken > INITIAL_CAUSALITY_TOKEN);
@@ -328,10 +328,10 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         // Validate actual catalog.
         schema = manager.schema(2);
 
-        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.index(INDEX_NAME);
+        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
-        assertSame(index, manager.index(INDEX_NAME, clock.nowLong()));
+        assertSame(index, manager.aliveIndex(INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
         assertTrue(schema.updateToken() > schemaCausalityToken);
 
