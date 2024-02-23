@@ -317,8 +317,8 @@ public class CmgRaftService implements ManuallyCloseable {
 
         if (newLearners.isEmpty()) {
             // Methods for working with learners do not support empty peer lists for some reason.
-            return raftService.changePeersAsync(newConfiguration, term).
-                    thenRun(() -> raftService.updateConfiguration(newConfiguration));
+            return raftService.changePeersAsync(newConfiguration, term)
+                    .thenRun(() -> raftService.updateConfiguration(newConfiguration));
         } else {
             return raftService.resetLearners(newConfiguration.learners());
         }
