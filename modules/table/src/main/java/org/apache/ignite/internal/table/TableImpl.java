@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -247,15 +244,6 @@ public class TableImpl implements TableViewInternal {
 
             return lockers;
         };
-    }
-
-    /**
-     * The future completes when the primary key index is ready to use.
-     *
-     * @return Future which complete when a primary index for the table is .
-     */
-    public CompletableFuture<Void> pkIndexesReadyFuture() {
-        return nullCompletedFuture();
     }
 
     @Override
