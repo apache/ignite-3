@@ -24,9 +24,9 @@ namespace Apache.Ignite.Benchmarks.Table
 
     /// <summary>
     /// Results on i9-12900H, .NET SDK 6.0.419, Ubuntu 22.04:
-    /// | Method |     Mean |     Error |    StdDev |
-    /// |------- |---------:|----------:|----------:|
-    /// |    Get | 122.5 us | 2.45 us   | 5.72 us   |.
+    /// | Method |     Mean |   Error |  StdDev |
+    /// |------- |---------:|--------:|--------:|
+    /// |    Get | 113.8 us | 1.74 us | 1.45 us |.
     /// </summary>
     [SimpleJob]
     public class TupleGetBenchmarks
