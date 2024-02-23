@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -44,7 +45,6 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -202,6 +202,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -994,37 +995,7 @@ public class IgniteImpl implements Ignite {
 
                         return cmgMgr.onJoinReady();
                     }, startupExecutor)
-                    .thenComposeAsync(ignored -> {
-                        CompletableFuture<Void> awaitSelfInLogicalTopologyFuture = new CompletableFuture<>();
-
-                        LogicalTopologyEventListener awaitSelfListener = new LogicalTopologyEventListener() {
-                            @Override
-                            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-                                if (newTopology.nodes().stream().map(LogicalNode::id).collect(Collectors.toSet()).contains(id())) {
-                                    awaitSelfInLogicalTopologyFuture.complete(null);
-                                    logicalTopologyService.removeEventListener(this);
-                                }
-                            }
-
-                            @Override
-                            public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-                                if (newTopology.nodes().stream().map(LogicalNode::id).collect(Collectors.toSet()).contains(id())) {
-                                    awaitSelfInLogicalTopologyFuture.complete(null);
-                                    logicalTopologyService.removeEventListener(this);
-                                }
-                            }
-                        };
-
-                        logicalTopologyService.addEventListener(awaitSelfListener);
-
-                        if (logicalTopologyService.getLogicalTopology().nodes().stream().map(LogicalNode::id).collect(Collectors.toSet())
-                                .contains(id())) {
-                            awaitSelfInLogicalTopologyFuture.complete(null);
-                            logicalTopologyService.removeEventListener(awaitSelfListener);
-                        }
-
-                        return awaitSelfInLogicalTopologyFuture;
-                    }, startupExecutor)
+                    .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), startupExecutor)
                     .thenRunAsync(() -> {
                         try {
                             //Enable REST component on start complete.
@@ -1051,6 +1022,39 @@ public class IgniteImpl implements Ignite {
 
             throw handleStartException(e);
         }
+    }
+
+    @NotNull
+    private CompletableFuture<Void> awaitSelfInLocalLogicalTopology() {
+        CompletableFuture<Void> awaitSelfInLogicalTopologyFuture = new CompletableFuture<>();
+
+        LogicalTopologyEventListener awaitSelfListener = new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+                if (newTopology.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
+                    awaitSelfInLogicalTopologyFuture.complete(null);
+                    logicalTopologyService.removeEventListener(this);
+                }
+            }
+
+            @Override
+            public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
+                if (newTopology.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
+                    awaitSelfInLogicalTopologyFuture.complete(null);
+                    logicalTopologyService.removeEventListener(this);
+                }
+            }
+        };
+
+        logicalTopologyService.addEventListener(awaitSelfListener);
+
+        if (logicalTopologyService.localLogicalTopology().nodes().stream().map(LogicalNode::id).collect(toSet())
+                .contains(id())) {
+            awaitSelfInLogicalTopologyFuture.complete(null);
+            logicalTopologyService.removeEventListener(awaitSelfListener);
+        }
+
+        return awaitSelfInLogicalTopologyFuture;
     }
 
     private RuntimeException handleStartException(Throwable e) {

@@ -65,7 +65,7 @@ public interface LogicalTopologyService {
     /**
      * Retrieves the current logical topology snapshot stored in the local storage.
      */
-    LogicalTopologySnapshot getLogicalTopology();
+    LogicalTopologySnapshot localLogicalTopology();
 
     /**
      * Returns a future that, when complete, resolves into a list of validated nodes (including ones present in the Logical Topology).

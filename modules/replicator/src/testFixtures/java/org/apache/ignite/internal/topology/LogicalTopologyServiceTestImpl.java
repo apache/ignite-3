@@ -58,7 +58,7 @@ public class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
     }
 
     @Override
-    public LogicalTopologySnapshot getLogicalTopology() {
+    public LogicalTopologySnapshot localLogicalTopology() {
         return new LogicalTopologySnapshot(
                 1,
                 clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));

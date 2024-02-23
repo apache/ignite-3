@@ -845,7 +845,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         List<IgniteImpl> nodes = startNodes(3);
 
         // Here we check that node sees itself in local logical topology.
-        nodes.forEach(node -> assertTrue(node.logicalTopologyService().getLogicalTopology().nodes().stream().map(LogicalNode::id)
+        nodes.forEach(node -> assertTrue(node.logicalTopologyService().localLogicalTopology().nodes().stream().map(LogicalNode::id)
                 .collect(toSet()).contains(node.id())));
 
         // Actually we have stronger guarantees because of awaiting all nodes to start inside startNodes.
@@ -854,7 +854,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // On the third node we will see all three nodes.
         // All in all that means that in total we will see at least (3 + 2 + 3) nodes.
         Integer sumOfLogicalTopologyProjectionSizes =
-                nodes.stream().map(node -> node.logicalTopologyService().getLogicalTopology().nodes().size())
+                nodes.stream().map(node -> node.logicalTopologyService().localLogicalTopology().nodes().size())
                         .reduce(0, Integer::sum);
 
         assertTrue(sumOfLogicalTopologyProjectionSizes >= 3 + 2 + 3);

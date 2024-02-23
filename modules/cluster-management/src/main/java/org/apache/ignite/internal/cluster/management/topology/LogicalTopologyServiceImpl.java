@@ -54,7 +54,7 @@ public class LogicalTopologyServiceImpl implements LogicalTopologyService {
     }
 
     @Override
-    public LogicalTopologySnapshot getLogicalTopology() {
+    public LogicalTopologySnapshot localLogicalTopology() {
         return logicalTopology.getLogicalTopology();
     }
 
