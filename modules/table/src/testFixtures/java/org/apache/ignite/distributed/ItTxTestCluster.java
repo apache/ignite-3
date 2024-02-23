@@ -560,6 +560,8 @@ public class ItTxTestCluster {
                         new RaftGroupEventsClientListener()
                 );
 
+                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+
                 PartitionListener partitionListener = new PartitionListener(
                         txManagers.get(assignment),
                         partitionDataStorage,
@@ -567,7 +569,8 @@ public class ItTxTestCluster {
                         txStateStorage,
                         safeTime,
                         storageIndexTracker,
-                        catalogService
+                        catalogService,
+                        schemaManager
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -579,8 +582,6 @@ public class ItTxTestCluster {
                 ).thenAccept(
                         raftSvc -> {
                             try {
-                                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
-
                                 PartitionReplicaListener listener = newReplicaListener(
                                         mvPartStorage,
                                         raftSvc,

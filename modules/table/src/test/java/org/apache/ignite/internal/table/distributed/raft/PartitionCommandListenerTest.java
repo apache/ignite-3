@@ -79,6 +79,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCom
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -141,6 +143,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             new Column[]{new Column("key", NativeTypes.INT32, false)},
             new Column[]{new Column("value", NativeTypes.INT32, false)}
     );
+
+    private static final SchemaRegistry SCHEMA_REGISTRY = new DummySchemaManagerImpl(SCHEMA);
 
     private PartitionListener commandListener;
 
@@ -230,7 +234,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 txStateStorage,
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
-                catalogService
+                catalogService,
+                SCHEMA_REGISTRY
         );
     }
 
@@ -330,7 +335,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 txStateStorage,
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
-                catalogService
+                catalogService,
+                SCHEMA_REGISTRY
         );
 
         txStateStorage.lastApplied(3L, 1L);

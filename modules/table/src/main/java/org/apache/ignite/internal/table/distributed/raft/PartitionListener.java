@@ -40,6 +40,8 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -54,6 +56,10 @@ import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowUpdater;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
@@ -108,6 +114,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private final CatalogService catalogService;
 
+    private final SchemaRegistry schemaRegistry;
+
     /**
      * The constructor.
      *
@@ -124,7 +132,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            CatalogService catalogService
+            CatalogService catalogService,
+            SchemaRegistry schemaRegistry
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -133,6 +142,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
+        this.schemaRegistry = schemaRegistry;
     }
 
     @Override
@@ -517,13 +527,20 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(cmd);
 
+        BinaryRowUpdater binaryRowUpdater = createBinaryRowUpdater(cmd);
+
         storage.runConsistently(locker -> {
             List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
 
             // Natural UUID order matches RowId order within the same partition.
             Collections.sort(rowUuids);
 
-            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker, rowVersionChooser);
+            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(
+                    rowUuids,
+                    locker,
+                    rowVersionChooser,
+                    binaryRowUpdater
+            );
 
             RowId nextRowIdToBuild = cmd.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
 
@@ -576,13 +593,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private Stream<BinaryRowAndRowId> createBuildIndexRowStream(
             List<UUID> rowUuids,
             Locker locker,
-            BuildIndexRowVersionChooser rowVersionChooser
+            BuildIndexRowVersionChooser rowVersionChooser,
+            BinaryRowUpdater binaryRowUpdater
     ) {
         return rowUuids.stream()
                 .map(this::toRowId)
                 .peek(locker::lock)
                 .map(rowVersionChooser::chooseForBuildIndex)
-                .flatMap(Collection::stream);
+                .flatMap(Collection::stream)
+                .map(binaryRowAndRowId -> updateBinaryRow(binaryRowUpdater, binaryRowAndRowId));
     }
 
     private RowId toRowId(UUID rowUuid) {
@@ -620,5 +639,28 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         assert startBuildingIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
 
         return new BuildIndexRowVersionChooser(storage, indexCreationCatalog.time(), startBuildingIndexCatalog.time());
+    }
+
+    private BinaryRowUpdater createBinaryRowUpdater(BuildIndexCommand command) {
+        int startBuildingIndexCatalogVersion = command.requiredCatalogVersion();
+
+        CatalogIndexDescriptor indexDescriptor = catalogService.index(command.indexId(), startBuildingIndexCatalogVersion);
+
+        assert indexDescriptor != null : "indexId=" + command.indexId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
+
+        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), startBuildingIndexCatalogVersion);
+
+        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
+
+        SchemaDescriptor schema = schemaRegistry.schema(tableDescriptor.schemaId());
+
+        return new BinaryRowUpdater(schemaRegistry, schema);
+    }
+
+    private static BinaryRowAndRowId updateBinaryRow(BinaryRowUpdater updater, BinaryRowAndRowId source) {
+        BinaryRow sourceBinaryRow = source.binaryRow();
+        BinaryRow updatedBinaryRow = updater.update(sourceBinaryRow);
+
+        return updatedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(updatedBinaryRow, source.rowId());
     }
 }
