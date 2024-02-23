@@ -208,6 +208,12 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
+        // Avoids a race between creating indexes and starting a rebalance.
+        // If an index appears after the rebalance has started, then at the end of the rebalance it will have a status of RUNNABLE instead
+        // of REBALANCE which will lead to errors.
+        // TODO: IGNITE-19513 Fix it, we should have already waited for the indexes to be created
+        indexUpdateHandler.waitIndexes();
+
         TxStateStorage txStateStorage = getTxStateStorage(partitionId());
 
         return mvGc.removeStorage(toTablePartitionId(partitionKey))
