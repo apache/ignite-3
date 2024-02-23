@@ -111,7 +111,6 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
             String zoneName = zone.value().isEmpty() ? zoneRef.getSimpleName() : zone.value();
             createTable.zone(zoneName);
             createZone.name(zoneName);
-            createZone.engine(zone.engine());
             if (zone.partitions() > 0) {
                 createZone.partitions(zone.partitions());
             }
@@ -119,7 +118,29 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
                 createZone.replicas(zone.replicas());
             }
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21428
+            if (!zone.affinityFunction().isEmpty()) {
+                createZone.affinity(zone.affinityFunction());
+            }
+
+            if (zone.dataNodesAutoAdjust() > 0) {
+                createZone.dataNodesAutoAdjust(zone.dataNodesAutoAdjust());
+            }
+            if (zone.dataNodesAutoAdjustScaleUp() > 0) {
+                createZone.dataNodesAutoAdjustScaleUp(zone.dataNodesAutoAdjustScaleUp());
+            }
+            if (zone.dataNodesAutoAdjustScaleDown() > 0) {
+                createZone.dataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
+            }
+
+            if (!zone.filter().isEmpty()) {
+                createZone.filter(zone.filter());
+            }
+
+            createZone.engine(zone.engine());
+
+            if (!zone.dataRegion().isEmpty()) {
+                createZone.dataRegion(zone.dataRegion());
+            }
         }
     }
 
