@@ -36,13 +36,6 @@ public interface TableViewInternal extends Table {
      */
     int tableId();
 
-    /**
-     * Provides current table with notion of a primary index.
-     *
-     * @param pkId An ID of a primary index.
-     */
-    void pkId(int pkId);
-
     /** Returns an ID of a primary index, {@code -1} if not set. */
     int pkId();
 

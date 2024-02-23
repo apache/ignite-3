@@ -673,7 +673,8 @@ public class ItTxTestCluster {
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
                 new ConstantSchemaVersions(SCHEMA_VERSION),
-                mock(IgniteSql.class)
+                mock(IgniteSql.class),
+                pkCatalogIndexDescriptor.id()
         );
     }
 

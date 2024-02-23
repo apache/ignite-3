@@ -74,7 +74,7 @@ public class TableImpl implements TableViewInternal {
 
     private final MarshallersProvider marshallers;
 
-    private volatile int pkId = -1;
+    private final int pkId;
 
     /**
      * Constructor.
@@ -84,19 +84,22 @@ public class TableImpl implements TableViewInternal {
      * @param schemaVersions Schema versions access.
      * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
+     * @param pkId ID of a primary index.
      */
     public TableImpl(
             InternalTable tbl,
             LockManager lockManager,
             SchemaVersions schemaVersions,
             MarshallersProvider marshallers,
-            IgniteSql sql
+            IgniteSql sql,
+            int pkId
     ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.schemaVersions = schemaVersions;
         this.marshallers = marshallers;
         this.sql = sql;
+        this.pkId = pkId;
     }
 
     /**
@@ -107,10 +110,18 @@ public class TableImpl implements TableViewInternal {
      * @param lockManager Lock manager.
      * @param schemaVersions Schema versions access.
      * @param sql Ignite SQL facade.
+     * @param pkId ID of a primary index.
      */
     @TestOnly
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions, IgniteSql sql) {
-        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql);
+    public TableImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaReg,
+            LockManager lockManager,
+            SchemaVersions schemaVersions,
+            IgniteSql sql,
+            int pkId
+    ) {
+        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql, pkId);
 
         this.schemaReg = schemaReg;
     }
@@ -118,11 +129,6 @@ public class TableImpl implements TableViewInternal {
     @Override
     public int tableId() {
         return tbl.tableId();
-    }
-
-    @Override
-    public void pkId(int pkId) {
-        this.pkId = pkId;
     }
 
     @Override

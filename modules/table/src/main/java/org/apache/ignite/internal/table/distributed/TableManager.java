@@ -1243,7 +1243,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableRaftService
         );
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get());
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get(), tableDescriptor.primaryKeyIndexId());
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {

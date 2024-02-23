@@ -214,7 +214,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
                 },
-                new FakeIgniteSql()
+                new FakeIgniteSql(),
+                -1
         );
     }
 

@@ -396,10 +396,6 @@ public class IndexManager implements IgniteComponent {
                     tableRowConverter,
                     partitionSet
             );
-
-            if (unique) {
-                tableView.pkId(index.id());
-            }
         }
     }
 
