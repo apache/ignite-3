@@ -745,6 +745,13 @@ public class ItTxTestCluster {
             }
 
             @Override
+            public LogicalTopologySnapshot localLogicalTopology() {
+                return new LogicalTopologySnapshot(
+                        1,
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));
+            }
+
+            @Override
             public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
                 return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
             }
