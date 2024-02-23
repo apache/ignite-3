@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal tables facade provides low-level methods for table operations.
@@ -73,4 +74,11 @@ public interface IgniteTablesInternal extends IgniteTables {
      *                         </ul>
      */
     CompletableFuture<TableViewInternal> tableViewAsync(String name);
+
+    /**
+     * Returns a cached table instance if it exists, {@code null} otherwise. Can return a table that is being stopped.
+     *
+     * @param tableId Table id.
+     */
+    @Nullable TableViewInternal cachedTable(int tableId);
 }

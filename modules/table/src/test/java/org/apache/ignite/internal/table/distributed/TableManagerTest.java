@@ -384,9 +384,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
         assertNotEquals(oldTableId, table.tableId());
 
-        assertNotNull(tableManager.getTable(oldTableId));
-        assertNotNull(tableManager.getTable(table.tableId()));
-        assertNotSame(tableManager.getTable(oldTableId), tableManager.getTable(table.tableId()));
+        assertNotNull(tableManager.cachedTable(oldTableId));
+        assertNotNull(tableManager.cachedTable(table.tableId()));
+        assertNotSame(tableManager.cachedTable(oldTableId), tableManager.cachedTable(table.tableId()));
     }
 
     /**

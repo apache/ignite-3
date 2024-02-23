@@ -17,26 +17,26 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
+import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -48,7 +48,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
-import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
@@ -56,9 +55,7 @@ import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
-import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.FlushOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -71,7 +68,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     private final SharedRocksDbInstance rocksDb;
 
     /** Partition storages. */
-    private volatile MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages;
+    private final MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages;
 
     /** Hash Index storages by Index IDs. */
     private final ConcurrentMap<Integer, HashIndex> hashIndices = new ConcurrentHashMap<>();
@@ -99,8 +96,8 @@ public class RocksDbTableStorage implements MvTableStorage {
             StorageTableDescriptor tableDescriptor
     ) {
         this.rocksDb = rocksDb;
-
         this.tableDescriptor = tableDescriptor;
+        this.mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
     }
 
     /**
@@ -139,13 +136,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void start() throws StorageException {
-        inBusyLock(busyLock, () -> {
-            MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages =
-                    new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
-
-            this.mvPartitionStorages = mvPartitionStorages;
-        });
+    public void start() {
     }
 
     /**
@@ -158,62 +149,52 @@ public class RocksDbTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> rocksDb.flusher.awaitFlush(schedule));
     }
 
-    private void stop(boolean destroy) {
+    private CompletableFuture<Void> stop(boolean destroy) {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
-        if (destroy) {
-            destroyTableData();
-        }
+        return mvPartitionStorages.getAllForCloseOrDestroy()
+                .thenAccept(partitionStorages -> {
+                    var resources = new ArrayList<AutoCloseable>();
 
-        List<AutoCloseable> resources = new ArrayList<>();
+                    for (HashIndex index : hashIndices.values()) {
+                        resources.add(index::close);
+                    }
 
-        resources.addAll(
-                sortedIndices.values().stream()
-                        .map(index -> (AutoCloseable) index::close)
-                        .collect(toList())
-        );
+                    for (SortedIndex index : sortedIndices.values()) {
+                        resources.add(index::close);
+                    }
 
+                    partitionStorages.forEach(mvPartitionStorage -> resources.add(mvPartitionStorage::close));
+
+                    try {
+                        IgniteUtils.closeAll(resources);
+                    } catch (Exception e) {
+                        throw new StorageException("Failed to stop RocksDB table storage: " + getTableId(), e);
+                    }
+
+                    if (destroy) {
+                        destroyTableData();
+                    }
+                });
+    }
+
+    @Override
+    public void close() throws StorageException {
+        // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
         try {
-            mvPartitionStorages
-                    .getAllForCloseOrDestroy()
-                    // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
-                    .get(10, TimeUnit.SECONDS)
-                    .forEach(mvPartitionStorage -> resources.add(mvPartitionStorage::close));
-
-            for (HashIndex index : hashIndices.values()) {
-                resources.add(index::close);
-            }
-
-            for (SortedIndex index : sortedIndices.values()) {
-                resources.add(index::close);
-            }
-
-            Collections.reverse(resources);
-
-            IgniteUtils.closeAll(resources);
-        } catch (Exception e) {
+            stop(false).get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new StorageException("Failed to stop RocksDB table storage: " + getTableId(), e);
         }
     }
 
     @Override
-    public void close() throws StorageException {
-        stop(false);
-    }
-
-    @Override
     public CompletableFuture<Void> destroy() {
-        try {
-            stop(true);
-
-            return nullCompletedFuture();
-        } catch (Throwable t) {
-            return failedFuture(new StorageException("Failed to destroy RocksDB table storage: " + getTableId(), t));
-        }
+        return stop(true);
     }
 
     private void destroyTableData() {
@@ -222,23 +203,23 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             byte[] tablePrefix = createKey(BYTE_EMPTY_ARRAY, tableId);
 
-            SharedRocksDbInstance.deleteByPrefix(writeBatch, rocksDb.partitionCf, tablePrefix);
-            SharedRocksDbInstance.deleteByPrefix(writeBatch, rocksDb.gcQueueCf, tablePrefix);
+            deleteByPrefix(writeBatch, rocksDb.partitionCf, tablePrefix);
+            deleteByPrefix(writeBatch, rocksDb.gcQueueCf, tablePrefix);
 
-            for (int indexId : hashIndices.keySet()) {
-                SharedRocksDbInstance.deleteByPrefix(writeBatch, rocksDb.hashIndexCf, createKey(BYTE_EMPTY_ARRAY, indexId));
+            for (HashIndex hashIndex : hashIndices.values()) {
+                hashIndex.destroy(writeBatch);
             }
 
-            SharedRocksDbInstance.deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_META_PREFIX, tableId));
-            SharedRocksDbInstance.deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_CONF_PREFIX, tableId));
+            for (SortedIndex sortedIndex : sortedIndices.values()) {
+                sortedIndex.destroy(writeBatch);
+            }
+
+            deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_META_PREFIX, tableId));
+            deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_CONF_PREFIX, tableId));
 
             rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
         } catch (RocksDBException e) {
             throw new StorageException("Failed to destroy table data. [tableId={}]", e, getTableId());
-        }
-
-        for (SortedIndex sortedIndex : sortedIndices.values()) {
-            sortedIndex.destroy();
         }
     }
 
@@ -272,7 +253,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 mvPartitionStorage.close();
 
                 // Operation to delete partition data should be fast, since we will write only the range of keys for deletion, and the
-                // RocksDB itself will then destroy the data on flash.
+                // RocksDB itself will then destroy the data on flush.
                 mvPartitionStorage.destroyData(writeBatch);
 
                 for (HashIndex hashIndex : hashIndices.values()) {
@@ -285,7 +266,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 
-                return awaitFlush(true);
+                return nullCompletedFuture();
             } catch (RocksDBException e) {
                 throw new StorageException("Error when destroying storage: [{}]", e, mvPartitionStorages.createStorageInfo(partitionId));
             }
@@ -337,22 +318,26 @@ public class RocksDbTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> {
             HashIndex hashIdx = hashIndices.remove(indexId);
 
-            if (hashIdx != null) {
-                hashIdx.destroy();
-            }
-
-            // Sorted Indexes have a separate Column Family per index, so we simply destroy it immediately after a flush completes
-            // in order to avoid concurrent access to the CF.
             SortedIndex sortedIdx = sortedIndices.remove(indexId);
 
-            if (sortedIdx != null) {
-                sortedIdx.destroy();
+            if (hashIdx == null && sortedIdx == null) {
+                return nullCompletedFuture();
             }
 
-            if (hashIdx == null) {
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                if (hashIdx != null) {
+                    hashIdx.destroy(writeBatch);
+                }
+
+                if (sortedIdx != null) {
+                    sortedIdx.destroy(writeBatch);
+                }
+
+                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+
                 return nullCompletedFuture();
-            } else {
-                return awaitFlush(false);
+            } catch (RocksDBException e) {
+                throw new StorageException("Error when destroying index: {}", e, indexId);
             }
         });
     }
@@ -360,17 +345,6 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public boolean isVolatile() {
         return false;
-    }
-
-    /**
-     * Creates a Column Family descriptor for a Sorted Index.
-     */
-    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(String cfName, StorageSortedIndexDescriptor descriptor) {
-        var comparator = new RocksDbBinaryTupleComparator(descriptor.columns());
-
-        ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(comparator);
-
-        return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
     }
 
     @Override
@@ -401,8 +375,8 @@ public class RocksDbTableStorage implements MvTableStorage {
             try (WriteBatch writeBatch = new WriteBatch()) {
                 mvPartitionStorage.abortRebalance(writeBatch);
 
-                getHashIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
-                getSortedIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
+                getHashIndexStorages(partitionId).forEach(index -> index.abortRebalance(writeBatch));
+                getSortedIndexStorages(partitionId).forEach(index -> index.abortRebalance(writeBatch));
 
                 rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 

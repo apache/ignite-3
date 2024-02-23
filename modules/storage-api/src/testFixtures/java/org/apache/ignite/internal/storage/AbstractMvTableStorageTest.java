@@ -267,6 +267,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(partitionStorage.flush(), willCompleteSuccessfully());
         assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
         assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+
+        assertThat(tableStorage.getIndex(PARTITION_ID, sortedIdx.id()), is(nullValue()));
+        assertThat(tableStorage.getIndex(PARTITION_ID, hashIdx.id()), is(nullValue()));
     }
 
     @Test

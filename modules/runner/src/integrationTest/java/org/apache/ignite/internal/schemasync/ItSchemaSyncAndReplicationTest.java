@@ -149,8 +149,8 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     }
 
     private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
-        TableViewInternal table = ((TableManager) node.tables()).startedTables()
-                .stream().filter(t -> TABLE_NAME.equals(t.name())).findAny().orElse(null);
+        // We use this api because there is no waiting for schemas to sync.
+        TableViewInternal table = ((TableManager) node.tables()).cachedTable(TABLE_NAME);
 
         assertNotNull(table);
 

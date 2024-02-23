@@ -76,7 +76,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     //TODO https://issues.apache.org/jira/browse/IGNITE-21584 Remove future.
     private CompletableFuture<ExecutableTable> loadTable(IgniteTable sqlTable) {
-        return CompletableFuture.completedFuture(tableManager.getTable(sqlTable.id()))
+        return CompletableFuture.completedFuture(tableManager.cachedTable(sqlTable.id()))
                 .thenApply((table) -> {
                     TableDescriptor tableDescriptor = sqlTable.descriptor();
 
