@@ -102,9 +102,7 @@ class FragmentSplitter extends IgniteRelShuttle {
 
         assert table != null;
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.put(rel.sourceId(), table);
-        }
+        curr.tables.put(rel.sourceId(), table);
 
         return super.visit(rel);
     }
@@ -115,9 +113,7 @@ class FragmentSplitter extends IgniteRelShuttle {
 
         assert table != null;
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.put(rel.sourceId(), table);
-        }
+        curr.tables.put(rel.sourceId(), table);
 
         return super.visit(rel);
     }
@@ -128,9 +124,7 @@ class FragmentSplitter extends IgniteRelShuttle {
 
         assert table != null;
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.put(rel.sourceId(), table);
-        }
+        curr.tables.put(rel.sourceId(), table);
 
         return super.visit(rel);
     }
