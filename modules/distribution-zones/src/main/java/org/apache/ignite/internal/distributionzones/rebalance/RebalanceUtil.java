@@ -71,6 +71,11 @@ public class RebalanceUtil {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
 
+    /**
+     * Status values for methods like
+     * {@link #updatePendingAssignmentsKeys(CatalogTableDescriptor, TablePartitionId, Collection, int, long, MetaStorageManager, int, Set)}
+     * or {@link #manualPartitionUpdate(TablePartitionId, Collection, Set, int, long, MetaStorageManager, Set)}.
+     */
     public enum UpdateStatus {
         /**
          * Return code of metastore multi-invoke which identifies,
@@ -113,114 +118,6 @@ public class RebalanceUtil {
         public static UpdateStatus valueOf(int ordinal) {
             return VALUES[ordinal];
         }
-    }
-
-    private static CompletableFuture<Integer> manualPartitionUpdate(
-            TablePartitionId partId,
-            Collection<String> dataNodes,
-            Set<String> aliveNodesConsistentIds,
-            int replicas,
-            long revision,
-            MetaStorageManager metaStorageMgr,
-            Set<Assignment> currentAssignments
-    ) {
-        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
-
-        //TODO https://issues.apache.org/jira/browse/IGNITE-21303
-        // This is a naive approach that doesn't exclude nodes in error state, if they exist.
-        Set<Assignment> partAssignments = new HashSet<>();
-        for (Assignment currentAssignment : currentAssignments) {
-            if (aliveNodesConsistentIds.contains(currentAssignment.consistentId())) {
-                partAssignments.add(currentAssignment);
-            }
-        }
-
-        if (partAssignments.size() >= (replicas / 2 + 1)) {
-            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-        }
-
-        for (Assignment calcAssignment : calcAssignments) {
-            if (partAssignments.size() == replicas) {
-                break;
-            }
-
-            partAssignments.add(calcAssignment);
-        }
-
-        if (currentAssignments.equals(calcAssignments)) {
-            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-        }
-
-        byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
-        byte[] revisionBytes = ByteUtils.longToBytes(revision);
-
-        ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
-
-        Iif iif = iif(
-                notExists(partChangeTriggerKey).or(value(partChangeTriggerKey).lt(revisionBytes)),
-                iif(
-                        value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
-                        ops(
-                                put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, revisionBytes)
-                        ).yield(PENDING_KEY_UPDATED.ordinal()),
-                        ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
-                ),
-                ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
-        );
-
-        return metaStorageMgr.invoke(iif).thenApply(StatementResult::getAsInt);
-    }
-
-    /**
-     * Sets force assignments for the zone/table if it's required. The condition for force reassignment is the absence of stable
-     * assignments' majority within the set of currently alive nodes. In this case we calculate new assignments that include all alive
-     * stable nodes, and try to save ot with a {@link Assignments#force()} flag enabled.
-     *
-     * @param tableDescriptor Table descriptor.
-     * @param zoneDescriptor Zone descriptor.
-     * @param dataNodes Current DZ data nodes.
-     * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
-     * @param revision Meta-storage revision to be associated with reassignment.
-     * @param metaStorageManager Meta-storage manager.
-     * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
-     */
-    public static CompletableFuture<?>[] forceAssignmentsUpdate(
-            CatalogTableDescriptor tableDescriptor,
-            CatalogZoneDescriptor zoneDescriptor,
-            Set<String> dataNodes,
-            Set<String> aliveNodesConsistentIds,
-            long revision,
-            MetaStorageManager metaStorageManager
-    ) {
-        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
-                metaStorageManager,
-                tableDescriptor.id(),
-                zoneDescriptor.partitions()
-        );
-
-        CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
-
-        for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
-
-            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                    tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
-                            replicaGrpId,
-                            dataNodes,
-                            aliveNodesConsistentIds,
-                            zoneDescriptor.replicas(),
-                            revision,
-                            metaStorageManager,
-                            tableAssignments.get(replicaGrpId.partitionId()).nodes()
-                    )).thenAccept(res -> {
-                            LOG.info("Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res));
-                    }
-            );
-        }
-
-        return futures;
     }
 
     /**
@@ -410,6 +307,115 @@ public class RebalanceUtil {
         }
 
         return futures;
+    }
+
+
+    /**
+     * Sets force assignments for the zone/table if it's required. The condition for force reassignment is the absence of stable
+     * assignments' majority within the set of currently alive nodes. In this case we calculate new assignments that include all alive
+     * stable nodes, and try to save ot with a {@link Assignments#force()} flag enabled.
+     *
+     * @param tableDescriptor Table descriptor.
+     * @param zoneDescriptor Zone descriptor.
+     * @param dataNodes Current DZ data nodes.
+     * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
+     * @param revision Meta-storage revision to be associated with reassignment.
+     * @param metaStorageManager Meta-storage manager.
+     * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
+     */
+    public static CompletableFuture<?>[] forceAssignmentsUpdate(
+            CatalogTableDescriptor tableDescriptor,
+            CatalogZoneDescriptor zoneDescriptor,
+            Set<String> dataNodes,
+            Set<String> aliveNodesConsistentIds,
+            long revision,
+            MetaStorageManager metaStorageManager
+    ) {
+        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
+                metaStorageManager,
+                tableDescriptor.id(),
+                zoneDescriptor.partitions()
+        );
+
+        CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
+
+        for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
+
+            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
+                    tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
+                            replicaGrpId,
+                            dataNodes,
+                            aliveNodesConsistentIds,
+                            zoneDescriptor.replicas(),
+                            revision,
+                            metaStorageManager,
+                            tableAssignments.get(replicaGrpId.partitionId()).nodes()
+                    )).thenAccept(res -> {
+                        LOG.info("Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res));
+                    }
+            );
+        }
+
+        return futures;
+    }
+
+    private static CompletableFuture<Integer> manualPartitionUpdate(
+            TablePartitionId partId,
+            Collection<String> dataNodes,
+            Set<String> aliveNodesConsistentIds,
+            int replicas,
+            long revision,
+            MetaStorageManager metaStorageMgr,
+            Set<Assignment> currentAssignments
+    ) {
+        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
+
+        //TODO https://issues.apache.org/jira/browse/IGNITE-21303
+        // This is a naive approach that doesn't exclude nodes in error state, if they exist.
+        Set<Assignment> partAssignments = new HashSet<>();
+        for (Assignment currentAssignment : currentAssignments) {
+            if (aliveNodesConsistentIds.contains(currentAssignment.consistentId())) {
+                partAssignments.add(currentAssignment);
+            }
+        }
+
+        if (partAssignments.size() >= (replicas / 2 + 1)) {
+            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+        }
+
+        for (Assignment calcAssignment : calcAssignments) {
+            if (partAssignments.size() == replicas) {
+                break;
+            }
+
+            partAssignments.add(calcAssignment);
+        }
+
+        if (currentAssignments.equals(calcAssignments)) {
+            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+        }
+
+        byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
+        byte[] revisionBytes = ByteUtils.longToBytes(revision);
+
+        ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+
+        Iif iif = iif(
+                notExists(partChangeTriggerKey).or(value(partChangeTriggerKey).lt(revisionBytes)),
+                iif(
+                        value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
+                        ops(
+                                put(partAssignmentsPendingKey, partAssignmentsBytes),
+                                put(partChangeTriggerKey, revisionBytes)
+                        ).yield(PENDING_KEY_UPDATED.ordinal()),
+                        ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
+                ),
+                ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
+        );
+
+        return metaStorageMgr.invoke(iif).thenApply(StatementResult::getAsInt);
     }
 
     /** Key prefix for pending assignments. */
