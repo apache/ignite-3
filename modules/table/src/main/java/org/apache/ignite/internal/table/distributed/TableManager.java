@@ -1113,8 +1113,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             futures.add(runAsync(() -> {
                 Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
 
-                stopping.add(table::beforeClose);
-
                 InternalTable internalTable = table.internalTable();
 
                 stopping.add(() -> {
