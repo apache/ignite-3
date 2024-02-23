@@ -42,8 +42,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -294,15 +292,8 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 }
             }
 
-            compactCatalog(CLUSTER_NODES.get(0));
+            forceCleanupAbandonedResources(CLUSTER_NODES.get(0));
         }
-    }
-
-    private static void compactCatalog(Ignite node) {
-        IgniteImpl node0 = (IgniteImpl) node;
-        CatalogManagerImpl catalogManager = (CatalogManagerImpl) node0.catalogManager();
-
-        catalogManager.compactCatalog(Long.MAX_VALUE);
     }
 
     private static void config() {

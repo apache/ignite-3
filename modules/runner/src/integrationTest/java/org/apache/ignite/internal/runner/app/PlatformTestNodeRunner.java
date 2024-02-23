@@ -61,9 +61,9 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
@@ -568,7 +568,7 @@ public class PlatformTestNodeRunner {
                 session.execute(null, "DROP TABLE " + tableName + "");
             }
 
-            ((CatalogManagerImpl) ((IgniteImpl) context.ignite()).catalogManager()).compactCatalog(Long.MAX_VALUE);
+            IgniteIntegrationTest.forceCleanupAbandonedResources(context.ignite());
 
             return tableName;
         }
