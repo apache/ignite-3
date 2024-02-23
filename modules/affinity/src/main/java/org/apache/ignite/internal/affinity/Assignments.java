@@ -67,21 +67,21 @@ public class Assignments implements Serializable {
     }
 
     /**
-     * Creates a new instance with {@code force} flag set on.
-     *
-     * @param nodes Set of nodes.
-     */
-    public static Assignments forced(Set<Assignment> nodes) {
-        return new Assignments(new HashSet<>(nodes), true);
-    }
-
-    /**
      * Creates a new instance.
      *
      * @param nodes Array of nodes.
      */
     public static Assignments of(Assignment... nodes) {
         return new Assignments(Set.of(nodes), false);
+    }
+
+    /**
+     * Creates a new instance with {@code force} flag set on.
+     *
+     * @param nodes Set of nodes.
+     */
+    public static Assignments forced(Set<Assignment> nodes) {
+        return new Assignments(new HashSet<>(nodes), true);
     }
 
     /**
