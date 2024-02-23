@@ -59,6 +59,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -220,12 +221,19 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         Catalog catalog = mock(Catalog.class);
 
+        lenient().when(catalog.index(indexId)).thenReturn(indexDescriptor);
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
+
         indexDescriptor = mock(CatalogIndexDescriptor.class);
 
         lenient().when(indexDescriptor.id()).thenReturn(indexId);
-        lenient().when(catalog.index(indexId)).thenReturn(indexDescriptor);
         lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
-        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        lenient().when(catalogService.index(anyInt(), anyInt())).thenReturn(indexDescriptor);
+
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+
+        lenient().when(tableDescriptor.tableVersion()).thenReturn(SCHEMA.version());
+        lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
 
         commandListener = new PartitionListener(
                 mock(TxManager.class),

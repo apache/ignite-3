@@ -652,7 +652,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
 
-        SchemaDescriptor schema = schemaRegistry.schema(tableDescriptor.schemaId());
+        SchemaDescriptor schema = schemaRegistry.schema(tableDescriptor.tableVersion());
 
         return new BinaryRowUpdater(schemaRegistry, schema);
     }
