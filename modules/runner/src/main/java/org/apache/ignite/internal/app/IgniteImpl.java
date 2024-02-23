@@ -1031,30 +1031,31 @@ public class IgniteImpl implements Ignite {
         LogicalTopologyEventListener awaitSelfListener = new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-                if (newTopology.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
-                    awaitSelfInLogicalTopologyFuture.complete(null);
-                    logicalTopologyService.removeEventListener(this);
-                }
+                checkSelfInTopology(newTopology, awaitSelfInLogicalTopologyFuture, this);
             }
 
             @Override
             public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-                if (newTopology.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
-                    awaitSelfInLogicalTopologyFuture.complete(null);
-                    logicalTopologyService.removeEventListener(this);
-                }
+                checkSelfInTopology(newTopology, awaitSelfInLogicalTopologyFuture, this);
             }
         };
 
         logicalTopologyService.addEventListener(awaitSelfListener);
 
-        if (logicalTopologyService.localLogicalTopology().nodes().stream().map(LogicalNode::id).collect(toSet())
-                .contains(id())) {
+        checkSelfInTopology(logicalTopologyService.localLogicalTopology(), awaitSelfInLogicalTopologyFuture, awaitSelfListener);
+
+        return awaitSelfInLogicalTopologyFuture;
+    }
+
+    private void checkSelfInTopology(
+            LogicalTopologySnapshot logicalTopologySnapshot,
+            CompletableFuture<Void> awaitSelfInLogicalTopologyFuture,
+            LogicalTopologyEventListener awaitSelfListener
+    ) {
+        if (logicalTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
             awaitSelfInLogicalTopologyFuture.complete(null);
             logicalTopologyService.removeEventListener(awaitSelfListener);
         }
-
-        return awaitSelfInLogicalTopologyFuture;
     }
 
     private RuntimeException handleStartException(Throwable e) {
