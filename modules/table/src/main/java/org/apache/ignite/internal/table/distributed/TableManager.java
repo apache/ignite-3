@@ -89,9 +89,7 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -640,7 +638,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
-        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false);
+        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor());
     }
 
     /**
@@ -956,11 +954,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 raftGroupService
         );
 
-        CompletableFuture<Void> whenReplicaReady = table.pkIndexesReadyFuture();
-
         replicaMgr.startReplica(
                 replicaGrpId,
-                whenReplicaReady,
                 listener,
                 raftGroupService,
                 storageIndexTracker
@@ -1115,8 +1110,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             futures.add(runAsync(() -> {
                 Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
 
-                stopping.add(table::beforeClose);
-
                 InternalTable internalTable = table.internalTable();
 
                 stopping.add(() -> {
@@ -1156,15 +1149,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version on which the table was created.
      * @param tableDescriptor Catalog table descriptor.
-     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(
             long causalityToken,
             int catalogVersion,
-            CatalogTableDescriptor tableDescriptor,
-            // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
-            boolean onNodeRecovery
+            CatalogTableDescriptor tableDescriptor
     ) {
         return inBusyLockAsync(busyLock, () -> {
             int tableId = tableDescriptor.id();
@@ -1201,9 +1191,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     causalityToken,
                     tableDescriptor,
                     zoneDescriptor,
-                    assignmentsFutureAfterInvoke,
-                    catalogVersion,
-                    onNodeRecovery
+                    assignmentsFutureAfterInvoke
             );
         });
     }
@@ -1215,18 +1203,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
      * @param assignmentsFuture Future with assignments.
-     * @param catalogVersion Catalog version on which the table was created.
-     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<Void> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            CompletableFuture<List<Assignments>> assignmentsFuture,
-            int catalogVersion,
-            // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
-            boolean onNodeRecovery
+            CompletableFuture<List<Assignments>> assignmentsFuture
     ) {
         String tableName = tableDescriptor.name();
         int tableId = tableDescriptor.id();
@@ -1260,10 +1243,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableRaftService
         );
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get());
-
-        // TODO: IGNITE-19513 We need to do something different to wait for indexes before full rebalancing
-        table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get(), tableDescriptor.primaryKeyIndexId());
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -2290,15 +2270,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return allOf(destroyFutures.toArray(new CompletableFuture[]{}));
     }
 
-    private int[] collectTableIndexIds(int tableId, int catalogVersion, boolean onNodeRecovery) {
-        // If the method is called on CatalogEvent#TABLE_CREATE, then we only need the catalogVersion in which this table created.
-        int catalogVersionFrom = onNodeRecovery ? catalogService.earliestCatalogVersion() : catalogVersion;
-
-        return CatalogUtils.collectIndexes(catalogService, tableId, catalogVersionFrom, catalogVersion).stream()
-                .mapToInt(CatalogObjectDescriptor::id)
-                .toArray();
-    }
-
     private static void closePartitionTrackers(InternalTable internalTable, int partitionId) {
         closeTracker(internalTable.getPartitionSafeTimeTracker(partitionId));
 
@@ -2388,7 +2359,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from volt and metastore
         for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
-            startTableFutures.add(createTableLocally(recoveryRevision, catalogVersion, tableDescriptor, true));
+            startTableFutures.add(createTableLocally(recoveryRevision, catalogVersion, tableDescriptor));
         }
 
         // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
