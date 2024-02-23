@@ -135,7 +135,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         when(mockTableManager.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> completedFuture(mockTable(inv.getArgument(1))));
 
-        when(mockTableManager.getTable(anyInt())).thenAnswer(inv -> mockTable(inv.getArgument(0)));
+        when(mockTableManager.cachedTable(anyInt())).thenAnswer(inv -> mockTable(inv.getArgument(0)));
 
         when(mockTableManager.localPartitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(PartitionSet.EMPTY_SET));
 
