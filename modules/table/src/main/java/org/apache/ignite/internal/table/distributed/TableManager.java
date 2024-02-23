@@ -868,7 +868,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return false;
                 }
 
-                assert !((Loza) raftMgr).isStarted(raftNodeId);
+                if (((Loza) raftMgr).isStarted(raftNodeId)) {
+                    return true;
+                }
 
                 try {
                     startPartitionRaftGroupNode(
