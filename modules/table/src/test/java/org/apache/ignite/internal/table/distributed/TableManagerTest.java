@@ -380,8 +380,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         // TODO IGNITE-20680 ensure old table is available
         // assertNotNull(tableManager.getTable(oldTableId));
-        assertNotNull(tableManager.getTable(table.tableId()));
-        assertNotSame(tableManager.getTable(oldTableId), tableManager.getTable(table.tableId()));
+        assertNotNull(tableManager.cachedTable(table.tableId()));
+        assertNotSame(tableManager.cachedTable(oldTableId), tableManager.cachedTable(table.tableId()));
     }
 
     /**
