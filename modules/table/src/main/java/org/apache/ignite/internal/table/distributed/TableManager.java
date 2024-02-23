@@ -2310,21 +2310,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     /**
-     * Returns a table instance if it exists, {@code null} otherwise.
+     * Returns a cached table instance if it exists, {@code null} otherwise. Can return a table that is being stopped.
      *
      * @param tableId Table id.
      */
-    public @Nullable TableViewInternal getTable(int tableId) {
+    @Override
+    public @Nullable TableViewInternal cachedTable(int tableId) {
         return startedTables.get(tableId);
     }
 
     /**
-     * Returns a table instance if it exists, {@code null} otherwise.
+     * Returns a cached table instance if it exists, {@code null} otherwise. Can return a table that is being stopped.
      *
      * @param name Table name.
      */
     @TestOnly
-    public @Nullable TableViewInternal getTable(String name) {
+    public @Nullable TableViewInternal cachedTable(String name) {
         return findTableImplByName(startedTables.values(), name);
     }
 

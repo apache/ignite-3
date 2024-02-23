@@ -432,7 +432,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     private TableViewInternal getTableViewStrict(int tableId) {
-        TableViewInternal table = tableManager.getTable(tableId);
+        TableViewInternal table = tableManager.cachedTable(tableId);
 
         assert table != null : tableId;
 
