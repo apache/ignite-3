@@ -123,7 +123,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(replicas = 3, partitions = 1)
-    void testInsertFailsIfMajorityIsLost(TestInfo testInfo) throws Exception {
+    void testInsertFailsIfMajorityIsLost() throws Exception {
         IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 
@@ -159,12 +159,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
-     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost(org.junit.jupiter.api.TestInfo)} it is possible to
+     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to
      * recover partition using a disaster recovery API.
      */
     @Test
     @ZoneParams(replicas = 3, partitions = 1)
-    void testManualRebalanceIfMajorityIsLost(TestInfo testInfo) throws Exception {
+    void testManualRebalanceIfMajorityIsLost() throws Exception {
         IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 

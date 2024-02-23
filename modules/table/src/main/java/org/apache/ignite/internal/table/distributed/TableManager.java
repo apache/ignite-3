@@ -1852,6 +1852,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 ? Assignments.forced(intersect(stableAssignments, pendingAssignmentsNodes))
                 : Assignments.of(stableAssignments);
 
+        if (newAssignments.nodes().isEmpty()) {
+            newAssignments = Assignments.forced(pendingAssignmentsNodes);
+        }
+
+        Assignments newAssignmentsFinal = newAssignments;
+
         if (shouldStartLocalGroupNode) {
             localServicesStartFuture = localPartsByTableIdVv.get(revision)
                     .thenComposeAsync(oldMap -> {
@@ -1873,7 +1879,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             tbl,
                             replicaGrpId.partitionId(),
                             pendingAssignments,
-                            newAssignments,
+                            newAssignmentsFinal,
                             isRecovery
                     )), ioExecutor);
         } else {
@@ -1884,7 +1890,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode().name()));
 
             if (!shouldStartLocalGroupNode && ((Loza) raftMgr).isStarted(raftNodeId) && pendingAssignmentsAreForced) {
-                ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(newAssignments.nodes()));
+                ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(newAssignmentsFinal.nodes()));
             }
         });
 
