@@ -151,12 +151,6 @@ public class IndexUpdateHandler {
         index.storage().setNextRowIdToBuild(nextRowIdToBuild);
     }
 
-    /** Waits for indexes to be created. */
-    // TODO: IGNITE-19513 Fix it, we should have already waited for the indexes to be created
-    public void waitIndexes() {
-        indexes.get();
-    }
-
     private Iterable<TableSchemaAwareIndexStorage> indexes(@Nullable List<Integer> indexIds) {
         Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexes.get();
 

@@ -140,7 +140,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             int tableVersion = 10;
 
             TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(tableVersion),
-                    mock(IgniteSql.class));
+                    mock(IgniteSql.class), -1);
 
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
 

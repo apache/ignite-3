@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPL
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -274,10 +273,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                                 .build(),
                                         correlationId);
                             } else {
-                                createdReplica.ready().thenRun(() -> inBusyLock(
-                                        busyLock,
-                                        () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
-                                ));
+                                sendAwaitReplicaResponse(senderConsistentId, correlationId);
                             }
                         });
                     } else {
@@ -293,7 +289,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
-            if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
+            if (replicaFut == null || !replicaFut.isDone()) {
                 sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
 
                 return;
@@ -450,7 +446,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
@@ -460,7 +455,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -470,7 +464,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, whenReplicaReady, listener, raftClient, storageIndexTracker);
+            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
@@ -480,14 +474,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Internal method for starting a replica.
      *
      * @param replicaGrpId Replication group id.
-     * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
      */
     private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
-            CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -496,7 +488,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         Replica newReplica = new Replica(
                 replicaGrpId,
-                whenReplicaReady,
                 listener,
                 storageIndexTracker,
                 raftClient,
