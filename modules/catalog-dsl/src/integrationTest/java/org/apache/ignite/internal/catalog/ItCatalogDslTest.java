@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -24,6 +26,7 @@ import static org.hamcrest.Matchers.is;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.annotations.Column;
@@ -32,13 +35,17 @@ import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.catalog.annotations.Zone;
+import org.apache.ignite.catalog.definitions.TableDefinition;
+import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("ThrowableNotThrown")
 class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     private static final String POJO_KV_TABLE_NAME = "pojo_kv_test";
@@ -60,6 +67,120 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         sql("DROP TABLE IF EXISTS " + POJO_KV_TABLE_NAME);
         sql("DROP TABLE IF EXISTS " + POJO_RECORD_TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
+    }
+
+    @Test
+    void zoneCreateAndDropByDefinition() {
+        // Given zone definition
+        ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME).build();
+
+        // When create zone from definition
+        catalog().createZone(zoneDefinition).execute();
+
+        // Then zone was created
+        assertThrows(
+                SqlException.class,
+                () -> sql("CREATE ZONE " + ZONE_NAME),
+                "Distribution zone with name '" + ZONE_NAME.toUpperCase() + "' already exists"
+        );
+
+        // When drop zone by definition
+        catalog().dropZone(zoneDefinition).execute();
+
+        // Then zone was dropped
+        assertThrows(
+                SqlException.class,
+                () -> sql("DROP ZONE " + ZONE_NAME),
+                "Distribution zone with name '" + ZONE_NAME.toUpperCase() + "' not found"
+        );
+    }
+
+    @Test
+    void zoneCreateAndDropByName() {
+        // Given zone definition
+        ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME).build();
+
+        // When create zone from definition
+        catalog().createZone(zoneDefinition).execute();
+
+        // Then zone was created
+        assertThrows(
+                SqlException.class,
+                () -> sql("CREATE ZONE " + ZONE_NAME),
+                "Distribution zone with name '" + ZONE_NAME.toUpperCase() + "' already exists"
+        );
+
+        // When drop zone by name
+        catalog().dropZone(ZONE_NAME).execute();
+
+        // Then zone was dropped
+        assertThrows(
+                SqlException.class,
+                () -> sql("DROP ZONE " + ZONE_NAME),
+                "Distribution zone with name '" + ZONE_NAME.toUpperCase() + "' not found"
+        );
+    }
+
+    @Test
+    void tableCreateAndDropByDefinition() {
+        // Given table definition
+        TableDefinition tableDefinition = TableDefinition.builder(POJO_KV_TABLE_NAME)
+                .columns(column("id", ColumnType.INTEGER))
+                .primaryKey("id")
+                .build();
+
+        // When create table from definition
+        catalog().createTable(tableDefinition).execute();
+
+        // Then table was created
+        assertThrows(
+                SqlException.class,
+                () -> sql("CREATE TABLE " + POJO_KV_TABLE_NAME + " (id int PRIMARY KEY)"),
+                "Table with name " + toFullTableName(POJO_KV_TABLE_NAME) + " already exists"
+        );
+
+        // When drop table by definition
+        catalog().dropTable(tableDefinition).execute();
+
+        // Then table is dropped
+        assertThrows(
+                SqlException.class,
+                () -> sql("DROP TABLE " + POJO_KV_TABLE_NAME),
+                "Table with name " + toFullTableName(POJO_KV_TABLE_NAME) + " not found"
+        );
+    }
+
+    @Test
+    void tableCreateAndDropByName() {
+        // Given table definition
+        TableDefinition tableDefinition = TableDefinition.builder(POJO_KV_TABLE_NAME)
+                .columns(column("id", ColumnType.INTEGER))
+                .primaryKey("id")
+                .build();
+
+        // When create table from definition
+        catalog().createTable(tableDefinition).execute();
+
+        // Then table was created
+        assertThrows(
+                SqlException.class,
+                () -> sql("CREATE TABLE " + POJO_KV_TABLE_NAME + " (id int PRIMARY KEY)"),
+                "Table with name " + toFullTableName(POJO_KV_TABLE_NAME) + " already exists"
+        );
+
+        // When drop table by name
+        catalog().dropTable(POJO_KV_TABLE_NAME).execute();
+
+        // Then table is dropped
+        assertThrows(
+                SqlException.class,
+                () -> sql("DROP TABLE " + POJO_KV_TABLE_NAME),
+                "Table with name " + toFullTableName(POJO_KV_TABLE_NAME) + " not found"
+        );
+    }
+
+    private static String toFullTableName(String tableName) {
+        return "'PUBLIC." + tableName.toUpperCase() + "'";
     }
 
     @Test
@@ -85,8 +206,48 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    void primitiveKeyKvViewFromDefinition() {
+        TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
+                .keyValueView(Integer.class, PojoValue.class).build();
+
+        catalog().createTable(definition).execute();
+
+        KeyValueView<Integer, PojoValue> keyValueView = tables().table(POJO_KV_TABLE_NAME)
+                .keyValueView(Integer.class, PojoValue.class);
+
+        keyValueView.put(null, KEY, POJO_VALUE);
+        assertThat(keyValueView.get(null, KEY), is(POJO_VALUE));
+    }
+
+    @Test
+    void pojoKeyKvViewFromDefinition() {
+        TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
+                .keyValueView(PojoKey.class, PojoValue.class).build();
+
+        catalog().createTable(definition).execute();
+
+        KeyValueView<PojoKey, PojoValue> keyValueView = tables().table(POJO_KV_TABLE_NAME)
+                .keyValueView(PojoKey.class, PojoValue.class);
+
+        keyValueView.put(null, POJO_KEY, POJO_VALUE);
+        assertThat(keyValueView.get(null, POJO_KEY), is(POJO_VALUE));
+    }
+
+    @Test
     void pojoRecordViewFromAnnotation() {
         catalog().create(Pojo.class).execute();
+
+        RecordView<Pojo> recordView = tables().table(POJO_RECORD_TABLE_NAME).recordView(Pojo.class);
+
+        assertThat(recordView.insert(null, POJO_RECORD), is(true));
+        assertThat(recordView.get(null, POJO_RECORD), is(POJO_RECORD));
+    }
+
+    @Test
+    void pojoRecordViewFromDefinition() {
+        TableDefinition definition = TableDefinition.builder(POJO_RECORD_TABLE_NAME).recordView(Pojo.class).build();
+
+        catalog().createTable(definition).execute();
 
         RecordView<Pojo> recordView = tables().table(POJO_RECORD_TABLE_NAME).recordView(Pojo.class);
 

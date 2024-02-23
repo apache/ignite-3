@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
+import static org.apache.ignite.catalog.ColumnSorted.column;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.instanceOf;
@@ -33,6 +34,8 @@ import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.catalog.annotations.Zone;
+import org.apache.ignite.catalog.definitions.TableDefinition;
+import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
 import org.junit.jupiter.api.Test;
@@ -54,6 +57,29 @@ class CreateFromAnnotationsTest {
         assertThat(m.fieldForColumn("F_NAME"), is("firstName"));
         assertThat(m.fieldForColumn("L_NAME"), is("lastName"));
         assertThat(m.fieldForColumn("STR"), is("str"));
+    }
+
+    @Test
+    void testDefinitionCompatibility() {
+        ZoneDefinition zoneDefinition = ZoneDefinition.builder("zone_test")
+                .ifNotExists()
+                .engine(ZoneEngine.AIMEM)
+                .partitions(1)
+                .replicas(3)
+                .build();
+        String sqlZoneFromDefinition = new CreateFromDefinitionImpl(null, Options.DEFAULT).from(zoneDefinition).toSqlString();
+
+        TableDefinition tableDefinition = TableDefinition.builder("pojo_value_test")
+                .ifNotExists()
+                .keyValueView(PojoKey.class, PojoValue.class)
+                .colocateBy("id", "id_str")
+                .zone(zoneDefinition.zoneName())
+                .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc())
+                .build();
+        String sqlTableFromDefinition = new CreateFromDefinitionImpl(null, Options.DEFAULT).from(tableDefinition).toSqlString();
+
+        String sqlFromAnnotations = createTable().processKeyValueClasses(PojoKey.class, PojoValue.class).toSqlString();
+        assertThat(sqlFromAnnotations, is(sqlZoneFromDefinition + sqlTableFromDefinition));
     }
 
     @Test
