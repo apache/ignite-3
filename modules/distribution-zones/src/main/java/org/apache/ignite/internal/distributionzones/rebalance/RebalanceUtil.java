@@ -214,7 +214,7 @@ public class RebalanceUtil {
                             revision,
                             metaStorageManager,
                             tableAssignments.get(replicaGrpId.partitionId()).nodes()
-                    )).whenComplete((res, throwable) -> {
+                    )).thenAccept(res -> {
                             LOG.info("Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res));
                     }
             );
