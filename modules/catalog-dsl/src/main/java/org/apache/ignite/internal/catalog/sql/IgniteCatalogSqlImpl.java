@@ -20,8 +20,6 @@ package org.apache.ignite.internal.catalog.sql;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.Options;
 import org.apache.ignite.catalog.Query;
-import org.apache.ignite.catalog.definitions.TableDefinition;
-import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.sql.IgniteSql;
 
 /**
@@ -48,28 +46,8 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public Query createTable(TableDefinition definition) {
-        return new CreateFromDefinitionImpl(sql, options).from(definition);
-    }
-
-    @Override
-    public Query createZone(ZoneDefinition definition) {
-        return new CreateFromDefinitionImpl(sql, options).from(definition);
-    }
-
-    @Override
-    public Query dropTable(TableDefinition definition) {
-        return new DropTableImpl(sql, options).name(definition.schemaName(), definition.tableName()).ifExists();
-    }
-
-    @Override
     public Query dropTable(String name) {
         return new DropTableImpl(sql, options).name(name).ifExists();
-    }
-
-    @Override
-    public Query dropZone(ZoneDefinition definition) {
-        return new DropZoneImpl(sql, options).name(definition.zoneName()).ifExists();
     }
 
     @Override

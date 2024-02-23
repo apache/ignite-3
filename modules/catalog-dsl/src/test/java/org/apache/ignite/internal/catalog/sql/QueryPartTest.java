@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
+import static org.apache.ignite.catalog.ColumnSorted.column;
 import static org.apache.ignite.catalog.ColumnType.BIGINT;
 import static org.apache.ignite.catalog.ColumnType.BOOLEAN;
 import static org.apache.ignite.catalog.ColumnType.DATE;
@@ -36,7 +37,6 @@ import static org.apache.ignite.catalog.ColumnType.TINYINT;
 import static org.apache.ignite.catalog.ColumnType.UUID;
 import static org.apache.ignite.catalog.ColumnType.VARBINARY;
 import static org.apache.ignite.catalog.ColumnType.VARCHAR;
-import static org.apache.ignite.catalog.definitions.ColumnSorted.column;
 import static org.apache.ignite.internal.catalog.sql.ColumnTypeImpl.wrap;
 import static org.apache.ignite.internal.catalog.sql.IndexColumnImpl.parseIndexColumnList;
 import static org.hamcrest.MatcherAssert.assertThat;

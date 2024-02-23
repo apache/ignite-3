@@ -17,9 +17,6 @@
 
 package org.apache.ignite.catalog;
 
-import org.apache.ignite.catalog.definitions.TableDefinition;
-import org.apache.ignite.catalog.definitions.ZoneDefinition;
-
 /**
  * Provides the ability to create and execute SQL DDL queries from annotated classes or from fluent-style builders.
  */
@@ -42,44 +39,12 @@ public interface IgniteCatalog {
     Query create(Class<?> key, Class<?> value);
 
     /**
-     * Creates a query object from the table definition.
-     *
-     * @param definition Table definition.
-     * @return query object
-     */
-    Query createTable(TableDefinition definition);
-
-    /**
-     * Creates a query object from the zone definition.
-     *
-     * @param definition Zone definition.
-     * @return query object
-     */
-    Query createZone(ZoneDefinition definition);
-
-    /**
-     * Creates a {@code DROP TABLE} query object from the table definition.
-     *
-     * @param definition Table definition.
-     * @return query object
-     */
-    Query dropTable(TableDefinition definition);
-
-    /**
      * Creates a {@code DROP TABLE} query object from the table name.
      *
      * @param name Table name.
      * @return query object
      */
     Query dropTable(String name);
-
-    /**
-     * Creates a {@code DROP ZONE} query object from the zone definition.
-     *
-     * @param definition Zone definition.
-     * @return query object
-     */
-    Query dropZone(ZoneDefinition definition);
 
     /**
      * Creates a {@code DROP ZONE} query object from the zone name.

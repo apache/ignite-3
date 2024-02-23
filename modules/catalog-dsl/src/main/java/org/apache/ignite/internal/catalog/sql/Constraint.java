@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.catalog.sql.QueryPartCollection.partsLi
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.definitions.ColumnSorted;
 
 class Constraint extends QueryPart {
     private IndexType pkType;

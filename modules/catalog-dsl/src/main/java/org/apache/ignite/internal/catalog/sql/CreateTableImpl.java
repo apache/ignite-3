@@ -24,10 +24,10 @@ import static org.apache.ignite.internal.catalog.sql.QueryPartCollection.partsLi
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.definitions.ColumnSorted;
 import org.apache.ignite.sql.IgniteSql;
 
 class CreateTableImpl extends AbstractCatalogQuery {

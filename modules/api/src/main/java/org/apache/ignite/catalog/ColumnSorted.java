@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.catalog.definitions;
+package org.apache.ignite.catalog;
 
 import java.util.Objects;
-import org.apache.ignite.catalog.SortOrder;
 
 /**
  * Column reference with sort order, used in indexes or primary keys.

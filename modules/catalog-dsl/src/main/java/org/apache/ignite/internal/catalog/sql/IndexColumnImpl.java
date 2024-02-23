@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import static org.apache.ignite.catalog.definitions.ColumnSorted.column;
+import static org.apache.ignite.catalog.ColumnSorted.column;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.SortOrder;
-import org.apache.ignite.catalog.definitions.ColumnSorted;
 
 class IndexColumnImpl extends QueryPart {
     private static final Pattern SPACES = Pattern.compile("\\s+");

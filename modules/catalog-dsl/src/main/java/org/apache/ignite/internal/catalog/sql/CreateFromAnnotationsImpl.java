@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import static org.apache.ignite.catalog.definitions.ColumnSorted.column;
+import static org.apache.ignite.catalog.ColumnSorted.column;
 import static org.apache.ignite.internal.catalog.sql.QueryUtils.mapArrayToList;
 import static org.apache.ignite.table.mapper.Mapper.nativelySupported;
 
@@ -25,6 +25,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.DefaultZone;
 import org.apache.ignite.catalog.IndexType;
@@ -35,7 +36,6 @@ import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.catalog.annotations.Zone;
-import org.apache.ignite.catalog.definitions.ColumnSorted;
 import org.apache.ignite.sql.IgniteSql;
 
 class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
