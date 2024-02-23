@@ -814,7 +814,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .orElse(null);
 
         PeersAndLearners realConfiguration = configurationFromAssignments(realAssignments.nodes());
-        PeersAndLearners newConfiguration = newAssignments == null ? realConfiguration : configurationFromAssignments(newAssignments.nodes());
+        PeersAndLearners newConfiguration = newAssignments == null
+                ? realConfiguration : configurationFromAssignments(newAssignments.nodes());
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
