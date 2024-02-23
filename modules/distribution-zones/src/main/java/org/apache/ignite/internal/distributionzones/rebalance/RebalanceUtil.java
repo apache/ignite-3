@@ -115,19 +115,7 @@ public class RebalanceUtil {
         }
     }
 
-    /**
-     * TODO Document.
-     *
-     * @param partId
-     * @param dataNodes
-     * @param aliveNodesConsistentIds A set of consistent IDs of current logical topology according to the Distribution Zone manager.
-     * @param replicas
-     * @param revision
-     * @param metaStorageMgr
-     * @param currentAssignments
-     * @return
-     */
-    public static CompletableFuture<Integer> manualPartitionUpdate(
+    private static CompletableFuture<Integer> manualPartitionUpdate(
             TablePartitionId partId,
             Collection<String> dataNodes,
             Set<String> aliveNodesConsistentIds,
@@ -185,12 +173,25 @@ public class RebalanceUtil {
         return metaStorageMgr.invoke(iif).thenApply(StatementResult::getAsInt);
     }
 
+    /**
+     * Sets force assignments for the zone/table if it's required. The condition for force reassignment is the absence of stable
+     * assignments' majority within the set of currently alive nodes. In this case we calculate new assignments that include all alive
+     * stable nodes, and try to save ot with a {@link Assignments#force()} flag enabled.
+     *
+     * @param tableDescriptor Table descriptor.
+     * @param zoneDescriptor Zone descriptor.
+     * @param dataNodes Current DZ data nodes.
+     * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
+     * @param revision Meta-storage revision to be associated with reassignment.
+     * @param metaStorageManager Meta-storage manager.
+     * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
+     */
     public static CompletableFuture<?>[] forceAssignmentsUpdate(
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
-            Set<String> nodeConsistentIds,
-            long storageRevision,
+            Set<String> aliveNodesConsistentIds,
+            long revision,
             MetaStorageManager metaStorageManager
     ) {
         CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
@@ -208,13 +209,13 @@ public class RebalanceUtil {
                     tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
                             replicaGrpId,
                             dataNodes,
-                            nodeConsistentIds,
+                            aliveNodesConsistentIds,
                             zoneDescriptor.replicas(),
-                            storageRevision,
+                            revision,
                             metaStorageManager,
                             tableAssignments.get(replicaGrpId.partitionId()).nodes()
-                    )).whenComplete((integer, throwable) -> {
-                            LOG.info("Partition {} returned {} status on manual update", replicaGrpId, integer);
+                    )).whenComplete((res, throwable) -> {
+                            LOG.info("Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res));
                     }
             );
         }
