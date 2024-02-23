@@ -136,10 +136,8 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
-import org.apache.ignite.internal.replicator.ChooseExecutorForReplicationGroup;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -178,10 +176,8 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
-import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
@@ -372,9 +368,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final StorageUpdateConfiguration storageUpdateConfig;
 
     /**
-     * Chooses a stripe to execute partition operations (that might cause I/O and/or be blocked on locks).
+     * Executes partition operations (that might cause I/O and/or be blocked on locks).
      */
-    private final ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser;
+    private final Executor partitionOperationsExecutor;
 
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
@@ -425,7 +421,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             ExecutorService ioExecutor,
-            StripedThreadPoolExecutor partitionOperationsExecutor,
+            Executor partitionOperationsExecutor,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
@@ -449,18 +445,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.ioExecutor = ioExecutor;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.distributionZoneManager = distributionZoneManager;
-        this.schemaSyncService = schemaSyncService;
+        this.schemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
-        this.placementDriver = placementDriver;
+        this.placementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
-
-        partitionOperationsStripeChooser = new ChooseExecutorForReplicationGroup(partitionOperationsExecutor);
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -974,11 +969,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();
 
-        Executor partitionOperationsStripe = partitionOperationsStripeChooser.choose(tablePartitionId);
-
         return new PartitionReplicaListener(
                 mvPartitionStorage,
-                new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsStripe),
+                new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                 txManager,
                 lockMgr,
                 scanRequestExecutor,
@@ -994,9 +987,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionUpdateHandlers.storageUpdateHandler,
                 new CatalogValidationSchemasSource(catalogService, schemaManager),
                 localNode(),
-                new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsStripe),
+                schemaSyncService,
                 catalogService,
-                new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsStripe),
+                placementDriver,
                 clusterService.topologyService()
         );
     }
@@ -1470,7 +1463,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         HybridTimestamp now = clock.now();
 
         return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
-                .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
                     int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
 
                     Collection<CatalogTableDescriptor> tableDescriptors = catalogService.tables(catalogVersion);
@@ -1484,7 +1477,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .toArray(CompletableFuture[]::new);
 
                     return CompletableFutures.allOf(tableImplFutures);
-                }), ioExecutor);
+                }));
     }
 
     /**
@@ -1570,7 +1563,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestamp now = clock.now();
 
             return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
-                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                    .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
                         int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
 
                         // Check if the table has been deleted.
@@ -1579,7 +1572,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
 
                         return tableAsyncInternalBusy(tableId);
-                    }), ioExecutor);
+                    }));
         });
     }
 
@@ -1622,7 +1615,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestamp now = clock.now();
 
             return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
-                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                    .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
                         CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
 
                         // Check if the table has been deleted.
@@ -1631,7 +1624,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
 
                         return tableAsyncInternalBusy(tableDescriptor.id());
-                    }), ioExecutor);
+                    }));
         });
     }
 
