@@ -475,7 +475,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txMessageSender
         );
 
-        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
+        // Using the executor-inclined wrapper around SchemaSyncService.
+        schemaVersions = new SchemaVersionsImpl(this.schemaSyncService, catalogService, clock);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
