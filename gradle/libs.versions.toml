@@ -82,7 +82,7 @@ jna = "5.13.0"
 #Tools
 pmdTool = "6.55.0"
 checkstyleTool = "10.3.3"
-jacocoTool = "0.8.8"
+jacocoTool = "0.8.11"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:5.4.0"
