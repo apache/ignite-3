@@ -42,8 +42,10 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -1792,7 +1794,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 ? emptySet()
                                 : Assignments.fromBytes(stableAssignmentsEntry.value()).nodes();
 
-                        return setTablesPartitionCountersForRebalance(replicaGrpId)
+                        return setTablesPartitionCountersForRebalance(replicaGrpId, revision)
                                 .thenCompose(r ->
                                         handleChangePendingAssignmentEvent(
                                                 replicaGrpId,
@@ -1864,7 +1866,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
-    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId) {
+    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         int tableId = replicaGrpId.tableId();
@@ -1877,7 +1879,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Condition condition = or(
                 notExists(tablesCounterKey(zoneId, partId)),
-                value(tablesCounterKey(zoneId, partId)).eq(toBytes(Set.of()))
+                and(
+                        revision(tablesCounterKey(zoneId, partId)).lt(revision),
+                        value(tablesCounterKey(zoneId, partId)).eq(toBytes(Set.of()))
+                )
         );
 
         Set<Integer> tablesInZone = findTablesByZoneId(zoneId, catalogVersion, catalogService).stream()
@@ -1894,9 +1899,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             if (e != null) {
                 LOG.error("Failed to update counter for the zone [zoneId = {}]", zoneId);
             } else if (res.getAsBoolean()) {
-                LOG.info("Rebalance counter for the zone is updated [zoneId = {}, counter = {}]", zoneId, tablesInZone);
+                LOG.info(
+                        "Rebalance counter for the zone is updated [zoneId = {}, partId = {}, counter = {}, revision = {}]",
+                        zoneId,
+                        partId,
+                        tablesInZone,
+                        revision
+                );
             } else {
-                LOG.info("Rebalance counter for the zone is not updated [zoneId = {}]", zoneId);
+                LOG.debug(
+                        "Rebalance counter for the zone is not updated [zoneId = {}, partId = {}, revision = {}]",
+                        zoneId,
+                        partId,
+                        revision
+                );
             }
         }).thenCompose((ignored) -> nullCompletedFuture());
     }

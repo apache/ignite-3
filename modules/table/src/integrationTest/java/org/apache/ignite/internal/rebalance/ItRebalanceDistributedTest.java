@@ -724,11 +724,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
 
-        AtomicBoolean stopDropping = new AtomicBoolean(true);
+        AtomicBoolean dropMessages = new AtomicBoolean(true);
 
         // Using this hack we pause rebalance on all nodes
         nodes.forEach(n -> ((DefaultMessagingService) n.clusterService.messagingService())
-                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && stopDropping.get())
+                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && dropMessages.get())
         );
 
         node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
@@ -749,7 +749,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
-        stopDropping.set(false);
+        dropMessages.set(false);
     }
 
     private void clearSpyInvocations() {

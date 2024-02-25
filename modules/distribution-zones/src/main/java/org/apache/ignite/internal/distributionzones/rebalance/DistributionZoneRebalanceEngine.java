@@ -49,6 +49,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -271,7 +272,10 @@ public class DistributionZoneRebalanceEngine {
                             return;
                         }
 
-                        LOG.info("Started to update stable keys for tables from the zone [zoneId = {}, tables = [{}]]", zoneId, tables);
+                        LOG.info("Started to update stable keys for tables from the zone [zoneId = {}, tables = [{}]]",
+                                zoneId,
+                                tables.stream().map(CatalogObjectDescriptor::name).collect(Collectors.toSet())
+                        );
 
                         try {
                             Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
@@ -296,7 +300,10 @@ public class DistributionZoneRebalanceEngine {
                             });
 
                         } catch (Exception e) {
-                            LOG.error("Failed to update stable keys for tables [{}]", tables);
+                            LOG.error(
+                                    "Failed to update stable keys for tables [{}]",
+                                    tables.stream().map(CatalogObjectDescriptor::name).collect(Collectors.toSet())
+                            );
                         } finally {
                             busyLock.leaveBusy();
                         }

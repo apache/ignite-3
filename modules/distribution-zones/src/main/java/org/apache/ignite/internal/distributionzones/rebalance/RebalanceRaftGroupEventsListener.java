@@ -283,7 +283,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             if (res < 0) {
                 LOG.info("Count down of zone's tables counter is failed. "
                                 + "Going to retry [zoneId={}, appliedPeers={}]",
-                        zoneId, stable
+                        zoneId, stable.stream().map(Assignment::consistentId).collect(Collectors.toSet())
                 );
 
                 countDownPartitionsFromZone(stable);
@@ -291,10 +291,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 return;
             } else {
                 LOG.info(
-                        "Count down of zone's tables counter is succeeded [zoneId={}, appliedPeers={}, counter = {}]",
+                        "Count down of zone's tables counter is succeeded [zoneId = {}, partId = {}, counter = {}, appliedPeers={}]",
                         zoneId,
-                        stable,
-                        counter
+                        partId,
+                        counter,
+                        stable.stream().map(Assignment::consistentId).collect(Collectors.toSet())
                 );
             }
 
