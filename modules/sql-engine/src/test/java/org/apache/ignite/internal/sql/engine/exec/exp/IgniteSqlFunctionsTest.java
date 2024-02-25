@@ -498,7 +498,7 @@ public class IgniteSqlFunctionsTest {
             "2024-03-31 04:01:01",
             "2024-03-31 05:01:01",
     })
-    public void testTimestampAtTimeZone(String input) throws ParseException {
+    public void testSubtractTimeZoneOffset(String input) throws ParseException {
         TimeZone cyprusTz = TimeZone.getTimeZone("Asia/Nicosia");
         TimeZone utcTz = TimeZone.getTimeZone("UTC");
 

@@ -199,7 +199,7 @@ public class SessionBuilderImpl implements SessionBuilder {
                 .set(QueryProperty.DEFAULT_SCHEMA, schema);
 
         if (timeZoneId != null) {
-            propsBuilder.set(QueryProperty.DEFAULT_TIME_ZONE_ID, timeZoneId);
+            propsBuilder.set(QueryProperty.TIME_ZONE_ID, timeZoneId);
         }
 
         SessionId sessionId = new SessionId(UUID.randomUUID());

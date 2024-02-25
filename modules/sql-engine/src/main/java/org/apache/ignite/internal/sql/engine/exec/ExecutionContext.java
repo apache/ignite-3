@@ -39,6 +39,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
@@ -118,7 +119,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
-        this.timeZoneId = Objects.requireNonNullElseGet(timeZoneId, ZoneId::systemDefault);
+        this.timeZoneId = Objects.requireNonNullElse(timeZoneId, SqlQueryProcessor.DEFAULT_TIME_ZONE_ID);
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,

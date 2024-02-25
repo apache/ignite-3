@@ -615,7 +615,7 @@ void AlterZoneOption(List<SqlNode> list) :
 /**
 * Parse datetime types: date, time, timestamp.
 *
-* TODO Method doesn't recognize 'TIME_WITH_LOCAL_TIME_ZONE' types and should be removed after IGNITE-21555.
+* TODO Method doesn't recognize 'TIME_WITH_LOCAL_TIME_ZONE' type and should be removed after IGNITE-21555.
 */
 SqlTypeNameSpec IgniteDateTimeTypeName() :
 {

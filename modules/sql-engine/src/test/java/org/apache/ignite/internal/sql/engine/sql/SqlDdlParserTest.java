@@ -632,7 +632,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      */
     // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-21555 is implemented.
     @Test
-    public void timestampWithLocalTimeZoneIsNotSupported() {
+    public void timeWithLocalTimeZoneIsNotSupported() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
                 "Encountered \"WITH\"",

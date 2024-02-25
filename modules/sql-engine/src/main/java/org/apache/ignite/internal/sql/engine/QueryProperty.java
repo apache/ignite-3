@@ -33,7 +33,7 @@ public final class QueryProperty {
     public static final Property<Set<SqlQueryType>> ALLOWED_QUERY_TYPES =
             new Property<>("allowed_query_types", cast(Set.class));
     public static final Property<String> DEFAULT_SCHEMA = new Property<>("default_schema", String.class);
-    public static final Property<ZoneId> DEFAULT_TIME_ZONE_ID = new Property<>("default_time_zone_id", ZoneId.class);
+    public static final Property<ZoneId> TIME_ZONE_ID = new Property<>("time_zone_id", ZoneId.class);
 
     private static final Map<String, Property<?>> propsByName = createPropsByNameMap(QueryProperty.class);
 

@@ -135,6 +135,9 @@ import org.jetbrains.annotations.TestOnly;
  *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor {
+    /** Default time zone ID. */
+    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.systemDefault();
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
@@ -152,7 +155,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
             .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-            .set(QueryProperty.DEFAULT_TIME_ZONE_ID, ZoneId.systemDefault())
+            .set(QueryProperty.TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
             .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
@@ -539,7 +542,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = properties0.get(QueryProperty.DEFAULT_TIME_ZONE_ID);
+        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
 
         QueryCancel queryCancel = new QueryCancel();
 
@@ -576,7 +579,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = properties0.get(QueryProperty.DEFAULT_TIME_ZONE_ID);
+        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
 
         CompletableFuture<?> start = new CompletableFuture<>();
 
