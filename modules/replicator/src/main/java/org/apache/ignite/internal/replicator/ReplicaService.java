@@ -26,6 +26,7 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.network.ClusterNode;
 
 /** The service is intended to execute requests on replicas. */
@@ -88,7 +88,7 @@ public class ReplicaService {
             MessagingService messagingService,
             HybridClock clock,
             String localConsistentId,
-            StripedThreadPoolExecutor executor
+            Executor executor
     ) {
         this(
                 wrapMessagingService(messagingService, localConsistentId, executor),
@@ -96,17 +96,11 @@ public class ReplicaService {
         );
     }
 
-    private static JumpToExecutorByConsistentIdAfterSend wrapMessagingService(
-            MessagingService messagingService,
-            String localConsistentId,
-            StripedThreadPoolExecutor executor
-    ) {
-        ChooseExecutorForReplicationGroup chooserByGroupId = new ChooseExecutorForReplicationGroup(executor);
-
+    private static MessagingService wrapMessagingService(MessagingService messagingService, String localConsistentId, Executor executor) {
         return new JumpToExecutorByConsistentIdAfterSend(
                 messagingService,
                 localConsistentId,
-                request -> chooserByGroupId.choose(((ReplicaRequest) request).groupId())
+                request -> executor
         );
     }
 

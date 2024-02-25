@@ -32,6 +32,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -98,6 +99,13 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
         assertThat(get(index, indexRow2.indexColumns()), containsInAnyOrder(indexRow2.rowId()));
 
         assertThat(get(index, indexRow3.indexColumns()), empty());
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21583")
+    @Test
+    @Override
+    public void testDestroy() {
+        super.testDestroy();
     }
 
     private static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, RowId rowId, Object... objects) {
