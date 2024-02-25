@@ -85,7 +85,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -255,7 +254,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /**
      * Tests destroying an index.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
     @Test
     public void testDestroyIndex() {
         MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
@@ -269,6 +267,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(partitionStorage.flush(), willCompleteSuccessfully());
         assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
         assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+
+        assertThat(tableStorage.getIndex(PARTITION_ID, sortedIdx.id()), is(nullValue()));
+        assertThat(tableStorage.getIndex(PARTITION_ID, hashIdx.id()), is(nullValue()));
     }
 
     @Test
@@ -572,7 +573,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testRestartStoragesInTheMiddleOfRebalance() {
+    public void testRestartStoragesInTheMiddleOfRebalance() throws Exception {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
@@ -596,7 +597,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
 
         // Restart storages.
-        tableStorage.stop();
+        tableStorage.close();
 
         tableStorage = createMvTableStorage();
 
@@ -721,7 +722,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testNextRowIdToBuiltAfterRestart() {
+    void testNextRowIdToBuiltAfterRestart() throws Exception {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
@@ -740,7 +741,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
 
         // Restart storages.
-        tableStorage.stop();
+        tableStorage.close();
 
         tableStorage = createMvTableStorage();
 

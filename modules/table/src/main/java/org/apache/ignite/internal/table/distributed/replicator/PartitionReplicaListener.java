@@ -22,8 +22,10 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.table.distributed.TableUtils.findStartBuildingIndexCatalogVersion;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
@@ -70,6 +72,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -3716,12 +3719,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {
+    private BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {
         return MSG_FACTORY.buildIndexCommand()
                 .indexId(request.indexId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())
                 .creationCatalogVersion(request.creationCatalogVersion())
+                // We are sure that there will be no error here since the primary replica is sent the request to itself.
+                .requiredCatalogVersion(indexStartBuildingCatalogVersion(request))
                 .build();
     }
 
@@ -3805,10 +3810,25 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<?> processBuildIndexReplicaRequest(BuildIndexReplicaRequest request) {
         return txRwOperationTracker.awaitCompleteTxRwOperations(request.creationCatalogVersion())
+                .thenCompose(unused -> safeTime.waitFor(indexStartBuildingActivationTs(request)))
                 .thenCompose(unused -> raftClient.run(toBuildIndexCommand(request)));
     }
 
     private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {
         return TableUtils.indexIdsAtRwTxBeginTs(catalogService, txId, tableId());
+    }
+
+    private int indexStartBuildingCatalogVersion(BuildIndexReplicaRequest request) {
+        return findStartBuildingIndexCatalogVersion(catalogService, request.indexId(), request.creationCatalogVersion());
+    }
+
+    private HybridTimestamp indexStartBuildingActivationTs(BuildIndexReplicaRequest request) {
+        int catalogVersion = indexStartBuildingCatalogVersion(request);
+
+        Catalog catalog = catalogService.catalog(catalogVersion);
+
+        assert catalog != null : "indexId=" + request.indexId() + ", catalogVersion=" + catalogVersion;
+
+        return hybridTimestamp(catalog.time());
     }
 }

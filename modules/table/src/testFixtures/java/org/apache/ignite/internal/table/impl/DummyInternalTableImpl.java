@@ -511,16 +511,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param indexes Index storage by ID.
      */
     public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
-        return new TableIndexStoragesSupplier() {
-            @Override
-            public Map<Integer, TableSchemaAwareIndexStorage> get() {
-                return indexes;
-            }
-
-            @Override
-            public void addIndexToWaitIfAbsent(int indexId) {
-            }
-        };
+        return () -> indexes;
     }
 
     /**

@@ -396,10 +396,6 @@ public class IndexManager implements IgniteComponent {
                     tableRowConverter,
                     partitionSet
             );
-
-            if (unique) {
-                tableView.pkId(index.id());
-            }
         }
     }
 
@@ -436,7 +432,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     private TableViewInternal getTableViewStrict(int tableId) {
-        TableViewInternal table = tableManager.getTable(tableId);
+        TableViewInternal table = tableManager.cachedTable(tableId);
 
         assert table != null : tableId;
 

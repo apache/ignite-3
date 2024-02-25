@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -506,7 +505,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         int indexId = pkStorage.id();
 
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
-        when(indexDescriptor.status()).thenReturn(BUILDING);
 
         RowId row0 = new RowId(PARTITION_ID);
         RowId row1 = new RowId(PARTITION_ID);

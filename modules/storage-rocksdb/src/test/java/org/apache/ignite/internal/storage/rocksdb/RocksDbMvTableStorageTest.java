@@ -126,7 +126,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
      * Tests that restarting the storage does not result in data loss.
      */
     @Test
-    void testRestart() {
+    void testRestart() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
@@ -141,7 +141,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
-        tableStorage.stop();
+        tableStorage.close();
 
         tableStorage = createMvTableStorage();
 
