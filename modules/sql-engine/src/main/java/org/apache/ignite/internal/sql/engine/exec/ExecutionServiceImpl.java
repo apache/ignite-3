@@ -29,6 +29,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -271,7 +272,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, ZoneId timeZoneId, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
@@ -280,6 +281,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .defaultSchema(sqlSchemaManager.schema(schemaVersion))
                                 .build()
                 )
+                .timeZoneId(timeZoneId)
                 .build();
     }
 
@@ -343,7 +345,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 DUMMY_DESCRIPTION,
                 handler,
                 Commons.parametersMap(ctx.parameters()),
-                TxAttributes.fromTx(tx)
+                TxAttributes.fromTx(tx),
+                ctx.timeZoneId()
         );
 
         return plan.execute(ectx, tx, tableRegistry, callback);
@@ -510,7 +513,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private DistributedQueryManager getOrCreateQueryManager(String coordinatorNodeName, QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), ZoneId.of(msg.timeZoneId()), msg.parameters());
 
             return new DistributedQueryManager(coordinatorNodeName, ctx);
         });
@@ -712,6 +715,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
+                    .timeZoneId(ctx.timeZoneId().getId())
                     .build();
 
             return messageService.send(targetNodeName, request);
@@ -798,7 +802,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
-                    txAttributes
+                    txAttributes,
+                    ctx.timeZoneId()
             );
         }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -117,6 +118,12 @@ public class ClientSessionBuilder implements SessionBuilder {
         this.pageSize = pageSize;
 
         return this;
+    }
+
+    @Override
+    public SessionBuilder timeZoneId(ZoneId timeZoneId) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException();
     }
 
     @Override

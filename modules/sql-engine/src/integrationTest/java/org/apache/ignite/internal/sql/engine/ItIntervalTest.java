@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -28,12 +29,28 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.Temporal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Interval coverage tests. */
 public class ItIntervalTest extends BaseSqlIntegrationTest {
@@ -227,51 +244,23 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("dateTimeIntervalTestCases")
+    public void testBasicDateTimeIntervalArithmetic(DateTimeIntervalBasicTestCase testCase) {
+        assertQuery(testCase.query())
+                .withTimeZoneId(DateTimeIntervalBasicTestCase.TIME_ZONE_ID)
+                .returns(testCase.expected())
+                .check();
+    }
+
     /**
-     * Test interval arithmetic.
+     * Test date and time interval arithmetic.
      */
     @Test
-    public void testIntervalArithmetic() {
+    public void testDateTimeIntervalArithmetic() {
         // Date +/- interval.
-        assertEquals(LocalDate.parse("2021-01-02"), eval("DATE '2021-01-01' + INTERVAL 1 DAY"));
-        assertEquals(LocalDate.parse("2020-12-31"), eval("DATE '2021-01-01' - INTERVAL 1 DAY"));
         assertEquals(LocalDate.parse("2020-12-31"), eval("DATE '2021-01-01' + INTERVAL -1 DAY"));
-        assertEquals(LocalDate.parse("2021-02-01"), eval("DATE '2021-01-01' + INTERVAL 1 MONTH"));
-        assertEquals(LocalDate.parse("2022-01-01"), eval("DATE '2021-01-01' + INTERVAL 1 YEAR"));
         assertEquals(LocalDate.parse("2022-02-01"), eval("DATE '2021-01-01' + INTERVAL '1-1' YEAR TO MONTH"));
-
-        // Timestamp +/- interval.
-        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 SECOND"));
-        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.123"),
-                eval("TIMESTAMP '2021-01-01 00:00:00.123' + INTERVAL 1 SECOND"));
-        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.123"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL '1.123' SECOND"));
-        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.246"),
-                eval("TIMESTAMP '2021-01-01 00:00:00.123' + INTERVAL '1.123' SECOND"));
-        assertEquals(LocalDateTime.parse("2020-12-31T23:59:59"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' - INTERVAL 1 SECOND"));
-        assertEquals(LocalDateTime.parse("2020-12-31T23:59:59"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL -1 SECOND"));
-        assertEquals(LocalDateTime.parse("2021-01-01T00:01:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 MINUTE"));
-        assertEquals(LocalDateTime.parse("2021-01-01T01:00:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 HOUR"));
-        assertEquals(LocalDateTime.parse("2021-01-02T00:00:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 DAY"));
-        assertEquals(LocalDateTime.parse("2021-02-01T00:00:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 MONTH"));
-        assertEquals(LocalDateTime.parse("2022-01-01T00:00:00"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 YEAR"));
-        assertEquals(LocalDateTime.parse("2021-01-02T01:01:01.123"),
-                eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL '1 1:1:1.123' DAY TO SECOND"));
-        assertEquals(LocalDateTime.parse("2022-02-01T01:01:01.123"),
-                eval("TIMESTAMP '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH"));
-
-        // Time +/- interval.
-        assertEquals(LocalTime.parse("00:00:01"), eval("TIME '00:00:00' + INTERVAL 1 SECOND"));
-        assertEquals(LocalTime.parse("00:01:00"), eval("TIME '00:00:00' + INTERVAL 1 MINUTE"));
-        assertEquals(LocalTime.parse("01:00:00"), eval("TIME '00:00:00' + INTERVAL 1 HOUR"));
 
         // Date - date as interval.
         assertEquals(Duration.ofDays(1), eval("(DATE '2021-01-02' - DATE '2021-01-01') DAYS"));
@@ -282,35 +271,82 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         assertEquals(Period.ofMonths(-1), eval("(DATE '2021-01-01' - DATE '2021-02-01') MONTHS"));
         assertEquals(Period.ofMonths(0), eval("(DATE '2021-01-20' - DATE '2021-01-01') MONTHS"));
 
-        // Timestamp - timestamp as interval.
-        assertEquals(Duration.ofDays(1),
-                eval("(TIMESTAMP '2021-01-02 00:00:00' - TIMESTAMP '2021-01-01 00:00:00') DAYS"));
-        assertEquals(Duration.ofDays(-1),
-                eval("(TIMESTAMP '2021-01-01 00:00:00' - TIMESTAMP '2021-01-02 00:00:00') DAYS"));
-        assertEquals(Duration.ofHours(1),
-                eval("(TIMESTAMP '2021-01-01 01:00:00' - TIMESTAMP '2021-01-01 00:00:00') HOURS"));
-        assertEquals(Duration.ofMinutes(1),
-                eval("(TIMESTAMP '2021-01-01 00:01:00' - TIMESTAMP '2021-01-01 00:00:00') MINUTES"));
-        assertEquals(Duration.ofSeconds(1),
-                eval("(TIMESTAMP '2021-01-01 00:00:01' - TIMESTAMP '2021-01-01 00:00:00') SECONDS"));
-        assertEquals(Duration.ofMillis(123),
-                eval("(TIMESTAMP '2021-01-01 00:00:00.123' - TIMESTAMP '2021-01-01 00:00:00') SECONDS"));
-        assertEquals(Period.ofYears(1),
-                eval("(TIMESTAMP '2022-01-01 00:00:00' - TIMESTAMP '2021-01-01 00:00:00') YEARS"));
-        assertEquals(Period.ofMonths(1),
-                eval("(TIMESTAMP '2021-02-01 00:00:00' - TIMESTAMP '2021-01-01 00:00:00') MONTHS"));
-        assertEquals(Period.ofMonths(-1),
-                eval("(TIMESTAMP '2021-01-01 00:00:00' - TIMESTAMP '2021-02-01 00:00:00') MONTHS"));
-        assertEquals(Period.ofMonths(0),
-                eval("(TIMESTAMP '2021-01-20 00:00:00' - TIMESTAMP '2021-01-01 00:00:00') MONTHS"));
-
         // Time - time as interval.
         assertEquals(Duration.ofHours(1), eval("(TIME '02:00:00' - TIME '01:00:00') HOURS"));
         assertEquals(Duration.ofMinutes(1), eval("(TIME '00:02:00' - TIME '00:01:00') HOURS"));
         assertEquals(Duration.ofMinutes(1), eval("(TIME '00:02:00' - TIME '00:01:00') MINUTES"));
         assertEquals(Duration.ofSeconds(1), eval("(TIME '00:00:02' - TIME '00:00:01') SECONDS"));
         assertEquals(Duration.ofMillis(123), eval("(TIME '00:00:01.123' - TIME '00:00:01') SECONDS"));
+    }
 
+    /** Timestamp [with local time zone] interval arithmetic. */
+    @ParameterizedTest
+    @EnumSource(value = SqlTypeName.class, names = {"TIMESTAMP", "TIMESTAMP_WITH_LOCAL_TIME_ZONE"})
+    public void testTimestampIntervalArithmetic(SqlTypeName sqlTypeName) {
+        String typeName = sqlTypeName.getSpaceName();
+
+        // Timestamp - timestamp as interval.
+        assertEquals(Duration.ofDays(1),
+                eval(format("({} '2021-01-02 00:00:00' - {} '2021-01-01 00:00:00') DAYS", typeName, typeName)));
+        assertEquals(Duration.ofDays(-1),
+                eval(format("({} '2021-01-01 00:00:00' - {} '2021-01-02 00:00:00') DAYS", typeName, typeName)));
+        assertEquals(Duration.ofHours(1),
+                eval(format("({} '2021-01-01 01:00:00' - {} '2021-01-01 00:00:00') HOURS", typeName, typeName)));
+        assertEquals(Duration.ofMinutes(1),
+                eval(format("({} '2021-01-01 00:01:00' - {} '2021-01-01 00:00:00') MINUTES", typeName, typeName)));
+        assertEquals(Duration.ofSeconds(1),
+                eval(format("({} '2021-01-01 00:00:01' - {} '2021-01-01 00:00:00') SECONDS", typeName, typeName)));
+        assertEquals(Duration.ofMillis(123),
+                eval(format("({} '2021-01-01 00:00:00.123' - {} '2021-01-01 00:00:00') SECONDS", typeName, typeName)));
+        assertEquals(Period.ofYears(1),
+                eval(format("({} '2022-01-01 00:00:00' - {} '2021-01-01 00:00:00') YEARS", typeName, typeName)));
+        assertEquals(Period.ofMonths(1),
+                eval(format("({} '2021-02-01 00:00:00' - {} '2021-01-01 00:00:00') MONTHS", typeName, typeName)));
+        assertEquals(Period.ofMonths(-1),
+                eval(format("({} '2021-01-01 00:00:00' - {} '2021-02-01 00:00:00') MONTHS", typeName, typeName)));
+        assertEquals(Period.ofMonths(0),
+                eval(format("({} '2021-01-20 00:00:00' - {} '2021-01-01 00:00:00') MONTHS", typeName, typeName)));
+
+        // Check string representation here, since after timestamp calculation we have '2021-11-07T01:30:00.000-0800'
+        // but Timestamp.valueOf method converts '2021-11-07 01:30:00' in 'America/Los_Angeles' time zone to
+        // '2021-11-07T01:30:00.000-0700' (we pass through '2021-11-07 01:30:00' twice after DST ended).
+        ZoneId zoneId = ZoneId.systemDefault();
+        String tzSuffix = sqlTypeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE ? ' ' + zoneId.getId() : "";
+
+        assertQuery(format("SELECT ({} '2021-11-06 02:30:00' + interval (23) hours)::varchar", typeName))
+                .withTimeZoneId(zoneId)
+                .returns("2021-11-07 01:30:00" + tzSuffix).check();
+
+        assertQuery(format("SELECT ({} '2021-11-06 01:30:00' + interval (24) hours)::varchar", typeName))
+                .withTimeZoneId(zoneId)
+                .returns("2021-11-07 01:30:00" + tzSuffix).check();
+
+        // Timestamp - interval.
+        BiConsumer<String, String> timestampChecker = (expression, expected) -> {
+            ZoneId timeZoneId = ZoneId.systemDefault();
+
+            Function<String, Object> validator = sqlTypeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                    ? ts -> LocalDateTime.parse(ts).atZone(timeZoneId).toInstant()
+                    : LocalDateTime::parse;
+
+            assertQuery(format(expression, sqlTypeName.getSpaceName()))
+                    .withTimeZoneId(timeZoneId)
+                    .returns(validator.apply(expected))
+                    .check();
+        };
+
+        timestampChecker.accept("SELECT {} '2021-01-01 00:00:00' + INTERVAL '1.123' SECOND", "2021-01-01T00:00:01.123");
+        timestampChecker.accept("SELECT {} '2021-01-01 00:00:00.123' + INTERVAL '1.123' SECOND", "2021-01-01T00:00:01.246");
+        timestampChecker.accept("SELECT {} '2021-01-01 00:00:00' + INTERVAL '1 1:1:1.123' DAY TO SECOND", "2021-01-02T01:01:01.123");
+
+        // TODO Enable this case after https://issues.apache.org/jira/browse/IGNITE-21557
+        if (sqlTypeName != SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+            timestampChecker.accept("SELECT {} '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH", "2022-02-01T01:01:01.123");
+        }
+    }
+
+    @Test
+    public void testIntervalArithmetic() {
         // Interval +/- interval.
         assertEquals(Duration.ofSeconds(2), eval("INTERVAL 1 SECONDS + INTERVAL 1 SECONDS"));
         assertEquals(Duration.ofSeconds(1), eval("INTERVAL 2 SECONDS - INTERVAL 1 SECONDS"));
@@ -407,5 +443,175 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         Exception ex = assertThrows(cls, () -> sql(sql));
 
         assertTrue(ex.getMessage().toLowerCase().contains(errMsg.toLowerCase()));
+    }
+
+    private static List<DateTimeIntervalBasicTestCase> dateTimeIntervalTestCases() {
+        SqlTypeName[] types = {
+                SqlTypeName.TIME,
+                SqlTypeName.DATE,
+                SqlTypeName.TIMESTAMP,
+                SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+        };
+
+        Map<ChronoUnit, int[]> timeUnitData = new LinkedHashMap<>();
+
+        timeUnitData.put(ChronoUnit.SECONDS, new int[]{1, 59, 60, 61, 100, 1_000, 10_000});
+        timeUnitData.put(ChronoUnit.MINUTES, new int[]{1, 59, 60, 61, 100, 1_000, 10_000});
+        timeUnitData.put(ChronoUnit.HOURS, new int[]{1, 23, 24, 25, 48, 96, 1_000, 10_000});
+        timeUnitData.put(ChronoUnit.DAYS, new int[]{1, 29, 30, 31, 100, 1_000, 10_000});
+        timeUnitData.put(ChronoUnit.MONTHS, new int[]{1, 11, 12, 13, 100, 1_000});
+        timeUnitData.put(ChronoUnit.YEARS, new int[]{1, 10, 100, 1_000});
+
+        List<DateTimeIntervalBasicTestCase> testCases = new ArrayList<>();
+
+        for (SqlTypeName typeName : types) {
+            for (Entry<ChronoUnit, int[]> entry : timeUnitData.entrySet()) {
+                ChronoUnit unit = entry.getKey();
+                // TODO Remove after https://issues.apache.org/jira/browse/IGNITE-21557
+                if (typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                        && (unit == ChronoUnit.MONTHS || unit == ChronoUnit.YEARS)) {
+                    continue;
+                }
+
+                // TODO Remove after https://issues.apache.org/jira/browse/IGNITE-21589
+                if (typeName == SqlTypeName.TIME && (unit == ChronoUnit.HOURS || unit == ChronoUnit.DAYS)) {
+                    continue;
+                }
+
+                for (int amount : entry.getValue()) {
+                    testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, unit, amount));
+                    testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, unit, -amount));
+                }
+            }
+        }
+
+        return testCases;
+    }
+
+    abstract static class DateTimeIntervalBasicTestCase {
+        private static final ZoneId TIME_ZONE_ID = ZoneId.of("Asia/Nicosia");
+        private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        private static final String dateString = "1992-01-19 00:00:00.123";
+        private static final LocalDateTime testLocalDate = LocalDateTime.parse(dateString, dateTimeFormatter);
+
+        final SqlTypeName type;
+        final ChronoUnit unit;
+        final int amount;
+
+        private String query;
+
+        private DateTimeIntervalBasicTestCase(SqlTypeName type, ChronoUnit unit, int amount) {
+            this.type = type;
+            this.unit = unit;
+            this.amount = amount;
+        }
+
+        public abstract Temporal expected();
+
+        public String query() {
+            if (query == null) {
+                String intervalSubstring = (amount > 0 ? '+' : '-') + " interval (" + Math.abs(amount) + ") " + unit;
+                query = format("SELECT {} '{}'{}", type.getSpaceName(), sqlDateLiteral(), intervalSubstring);
+            }
+
+            return query;
+        }
+
+        String sqlDateLiteral() {
+            return dateString;
+        }
+
+        static DateTimeIntervalBasicTestCase newTestCase(SqlTypeName type, ChronoUnit unit, Integer amount) {
+            switch (type) {
+                case TIMESTAMP:
+                    return new SqlTimestampIntervalIntervalTestCase(unit, amount);
+
+                case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                    return new SqlTimestampTzIntervalIntervalTestCase(unit, amount);
+
+                case DATE:
+                    return new SqlDateIntervalIntervalTestCase(unit, amount);
+
+                case TIME:
+                    return new SqlTimeIntervalIntervalTestCase(unit, amount);
+
+                default:
+                    throw new UnsupportedOperationException("Not implemented: " + type);
+            }
+        }
+
+        @Override
+        public String toString() {
+            return query();
+        }
+
+        private static class SqlTimestampIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
+            private SqlTimestampIntervalIntervalTestCase(ChronoUnit unit, Integer amount) {
+                super(SqlTypeName.TIMESTAMP, unit, amount);
+            }
+
+            @Override
+            public LocalDateTime expected() {
+                return testLocalDate.plus(amount, unit);
+            }
+        }
+
+        private static class SqlTimestampTzIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
+            private SqlTimestampTzIntervalIntervalTestCase(ChronoUnit unit, Integer amount) {
+                super(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, unit, amount);
+            }
+
+            @Override
+            public Temporal expected() {
+                return testLocalDate.atZone(TIME_ZONE_ID).toInstant().plus(amount, unit);
+            }
+        }
+
+        private static class SqlDateIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
+            final LocalDateTime testLocalDateEndOfDay;
+
+            SqlDateIntervalIntervalTestCase(ChronoUnit unit, Integer amount) {
+                super(SqlTypeName.DATE, unit, amount);
+
+                // DateTime + 23:59:59.999
+                testLocalDateEndOfDay = testLocalDate
+                        .plus(1, ChronoUnit.DAYS)
+                        .minus(1 + testLocalDate.get(ChronoField.MILLI_OF_SECOND), ChronoUnit.MILLIS);
+            }
+
+            @Override
+            String sqlDateLiteral() {
+                return dateString.substring(0, 10);
+            }
+
+            @Override
+            public Temporal expected() {
+                return (amount < 0 ? testLocalDateEndOfDay : testLocalDate).plus(amount, unit).toLocalDate();
+            }
+        }
+
+        private static class SqlTimeIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
+            private final LocalTime initTime;
+
+            private SqlTimeIntervalIntervalTestCase(ChronoUnit unit, Integer amount) {
+                super(SqlTypeName.TIME, unit, amount);
+
+                initTime = testLocalDate.toLocalTime();
+            }
+
+            @Override
+            String sqlDateLiteral() {
+                return dateString.substring(11);
+            }
+
+            @Override
+            public LocalTime expected() {
+                if (initTime.isSupported(unit)) {
+                    return initTime.plus(amount, unit);
+                }
+
+                return initTime;
+            }
+        }
     }
 }

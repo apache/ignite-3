@@ -120,6 +120,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         CHAR_AND_TS.addAll(CHAR_NAMES);
         CHAR_AND_TS.add(SqlTypeName.TIMESTAMP.getName());
+        CHAR_AND_TS.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName());
 
         CHAR_AND_DT.addAll(DT_NAMES);
         CHAR_AND_DT.addAll(CHAR_NAMES);
@@ -150,30 +151,28 @@ public class CastResolutionTest extends AbstractPlannerTest {
             String from = makeUsableIntervalFromType(fromInitial);
 
             for (String toType : toTypes) {
-                toType = makeUsableIntervalToType(toType);
-
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-19274
-                if (toType.contains("LOCAL TIME")) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-21555
+                if (toType.equals(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE.getName())) {
                     continue;
                 }
+
+                toType = makeSpaceName(toType);
 
                 testItems.add(checkStatement().sql(format(template, from, toType)).ok(false));
             }
 
-            testItems.add(checkStatement().sql(format(template, from, makeUsableIntervalToType(fromInitial))).ok());
+            testItems.add(checkStatement().sql(format(template, from, makeSpaceName(fromInitial))).ok());
 
-            testItems.add(checkStatement().sql(format(INTERVAL_TEMPLATE, "NULL", makeUsableIntervalToType(fromInitial))).ok());
+            testItems.add(checkStatement().sql(format(INTERVAL_TEMPLATE, "NULL", makeSpaceName(fromInitial))).ok());
 
             String finalFrom = from;
             Set<String> deprecatedCastTypes = allTypes.stream().filter(t -> !toTypes.contains(t) && !t.equals(finalFrom))
                     .collect(Collectors.toSet());
 
             for (String toType : deprecatedCastTypes) {
-                boolean isInterval = toType.toLowerCase().contains("interval");
-
-                toType = isInterval ? makeUsableIntervalToType(toType) : toType;
-
-                testItems.add(checkStatement().sql(format(template, from, toType)).fails(CAST_ERROR_MESSAGE));
+                testItems.add(
+                        checkStatement().sql(format(template, from, makeSpaceName(toType))).fails(CAST_ERROR_MESSAGE)
+                );
             }
         }
 
@@ -299,12 +298,16 @@ public class CastResolutionTest extends AbstractPlannerTest {
         }
     }
 
-    private static String makeUsableIntervalToType(String typeName) {
+    private static String makeSpaceName(String typeName) {
         return typeName.replace("_", " ");
     }
 
     private static String makeUsableIntervalFromType(String typeName) {
-        return typeName.replace("_", " 1 ");
+        if (typeName.toLowerCase().contains("interval")) {
+            return typeName.replace("_", " 1 ");
+        }
+
+        return makeSpaceName(typeName);
     }
 
     private enum CastMatrix {
@@ -342,14 +345,16 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         TIME(SqlTypeName.TIME.getName(), CHAR_AND_TS),
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21555
+        //TIME_TZ(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE.getName(), CHAR_AND_DT);
+
         TIMESTAMP(SqlTypeName.TIMESTAMP.getName(), CHAR_AND_DT),
+
+        TIMESTAMP_TZ(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), CHAR_AND_DT),
 
         INTERVAL_YEAR(SqlTypeName.INTERVAL_YEAR.getName(), CHAR_EXACT_AND_YM_INTERVAL),
 
         INTERVAL_HOUR(SqlTypeName.INTERVAL_HOUR.getName(), CHAR_EXACT_AND_DAY_INTERVAL);
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19274
-        //TIMESTAMP_TS(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), charAndDt);
 
         private String from;
         private Set<String> toTypes;
