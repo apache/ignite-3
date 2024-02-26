@@ -23,12 +23,12 @@ namespace Apache.Ignite.Benchmarks.Table
     using Tests;
 
     /// <summary>
-    /// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
-    /// | Method |     Mean |     Error |    StdDev |
-    /// |------- |---------:|----------:|----------:|
-    /// |    Get | 4.788 ms | 0.3198 ms | 0.0830 ms |.
+    /// Results on i9-12900H, .NET SDK 6.0.419, Ubuntu 22.04:
+    /// | Method |     Mean |   Error |  StdDev |
+    /// |------- |---------:|--------:|--------:|
+    /// |    Get | 113.8 us | 1.74 us | 1.45 us |.
     /// </summary>
-    [SimpleJob(launchCount: 1, warmupCount: 5, targetCount: 5, invocationCount: 10)]
+    [SimpleJob]
     public class TupleGetBenchmarks
     {
         private JavaServer? _javaServer;

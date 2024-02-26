@@ -35,6 +35,9 @@ import static org.mockito.Mockito.when;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
@@ -48,7 +51,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -66,7 +68,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ReplicaManagerTest extends BaseIgniteAbstractTest {
-    private StripedThreadPoolExecutor requestsExecutor;
+    private ExecutorService requestsExecutor;
 
     private ReplicaManager replicaManager;
 
@@ -90,11 +92,11 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var clock = new HybridClockImpl();
 
-        requestsExecutor = new StripedThreadPoolExecutor(
-                5,
-                NamedThreadFactory.create(nodeName, "partition-operations", log),
-                false,
-                0
+        requestsExecutor = new ThreadPoolExecutor(
+                0, 5,
+                0, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
 
         replicaManager = new ReplicaManager(nodeName, clusterService, cmgManager, clock, Set.of(), placementDriver, requestsExecutor);
@@ -143,7 +145,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
                 groupId,
-                nullCompletedFuture(),
                 replicaListener,
                 raftGroupService,
                 new PendingComparableValuesTracker<>(0L)

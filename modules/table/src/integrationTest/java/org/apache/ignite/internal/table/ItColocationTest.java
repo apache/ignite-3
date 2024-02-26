@@ -440,7 +440,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class));
+        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), -1);
 
         marshaller = new TupleMarshallerImpl(schema);
     }

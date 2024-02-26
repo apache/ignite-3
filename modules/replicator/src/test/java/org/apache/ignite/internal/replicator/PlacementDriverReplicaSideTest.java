@@ -113,7 +113,6 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         return new Replica(
                 GRP_ID,
-                nullCompletedFuture(),
                 mock(ReplicaListener.class),
                 storageIndexTracker,
                 raftClient,
