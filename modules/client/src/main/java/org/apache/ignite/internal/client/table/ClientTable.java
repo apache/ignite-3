@@ -249,6 +249,13 @@ public class ClientTable implements Table {
             }
         }
 
+        var keyColumns = new ClientColumn[keyCnt];
+        for (var col : columns) {
+            if (col.key()) {
+                keyColumns[keyColumns.length - keyCnt--] = col;
+            }
+        }
+
         var colocationColumns = colocationColumnCnt > 0 ? new ClientColumn[colocationColumnCnt] : null;
         if (colocationColumns != null) {
             for (ClientColumn col : columns) {
@@ -259,7 +266,7 @@ public class ClientTable implements Table {
             }
         }
 
-        var schema = new ClientSchema(schemaVer, columns, colocationColumns, marshallers);
+        var schema = new ClientSchema(schemaVer, columns, keyColumns, colocationColumns, marshallers);
 
         schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
