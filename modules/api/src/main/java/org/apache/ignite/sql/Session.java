@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql;
 
+import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
@@ -284,6 +285,13 @@ public interface Session extends AutoCloseable {
     int defaultPageSize();
 
     /**
+     * Returns time zone used for this session.
+     *
+     * @return Time zone used for this session.
+     */
+    ZoneId timeZoneId();
+
+    /**
      * Returns a session property.
      *
      * @param name Property name.
@@ -397,6 +405,14 @@ public interface Session extends AutoCloseable {
          * @return {@code this} for chaining.
          */
         SessionBuilder defaultPageSize(int pageSize);
+
+        /**
+         * Sets a default time zone for this session.
+         *
+         * @param timeZoneId Time zone ID.
+         * @return {@code this} for chaining.
+         */
+        SessionBuilder timeZoneId(ZoneId timeZoneId);
 
         /**
          * Returns a session property.

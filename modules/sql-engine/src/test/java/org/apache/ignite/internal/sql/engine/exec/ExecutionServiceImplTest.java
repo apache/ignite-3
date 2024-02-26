@@ -63,7 +63,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -81,6 +80,7 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -643,17 +643,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         AtomicReference<AssertionError> errHolder = new AtomicReference<>();
         ExecutionService execService = executionServices.get(0);
 
-        Function<QueryPrefetchCallback, BaseQueryContext> createCtx = (callback) -> BaseQueryContext.builder()
-                .queryId(UUID.randomUUID())
-                .cancel(new QueryCancel())
-                .prefetchCallback(callback)
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(wrap(schema))
-                                .build()
-                )
-                .build();
-
         QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
             @Override
             public void onPrefetchComplete(@Nullable Throwable err) {
@@ -664,7 +653,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
                     assertThat(sql, notNullValue());
 
-                    BaseQueryContext ctx = createCtx.apply(queriesQueue.isEmpty() ? null : this);
+                    BaseQueryContext ctx = createContext(queriesQueue.isEmpty() ? null : this);
                     InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
                     QueryPlan plan = prepare(sql, ctx);
 
@@ -701,17 +690,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ExecutionService execService = executionServices.get(0);
         CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
         IgniteInternalException expectedException = new IgniteInternalException(Common.INTERNAL_ERR, "Expected exception");
-
-        BaseQueryContext ctx = BaseQueryContext.builder()
-                .queryId(UUID.randomUUID())
-                .cancel(new QueryCancel())
-                .prefetchCallback(prefetchFut::completeExceptionally)
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(wrap(schema))
-                                .build()
-                )
-                .build();
+        BaseQueryContext ctx = createContext(prefetchFut::completeExceptionally);
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
@@ -908,14 +887,20 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private BaseQueryContext createContext() {
+        return createContext(null);
+    }
+
+    private BaseQueryContext createContext(@Nullable QueryPrefetchCallback prefetchCallback) {
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
+                .prefetchCallback(prefetchCallback)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
+                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
                 .build();
     }
 

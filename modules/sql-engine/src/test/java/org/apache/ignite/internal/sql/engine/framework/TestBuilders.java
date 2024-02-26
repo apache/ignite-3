@@ -64,6 +64,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -507,7 +508,8 @@ public class TestBuilders {
                     description,
                     ArrayRowHandler.INSTANCE,
                     Map.of(),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name()))
+                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
+                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
             );
         }
     }
