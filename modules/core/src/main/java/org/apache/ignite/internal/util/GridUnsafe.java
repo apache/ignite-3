@@ -2149,7 +2149,7 @@ public abstract class GridUnsafe {
             try {
                 ByteBuffer buf = (ByteBuffer) newDirectBufMh.invokeExact(javaNioAccessObj, ptr, len, NULL_OBJ);
 
-                assert buf.isDirect();
+                assert buf.isDirect() : "ptr=" + ptr + ", len=" + len;
 
                 buf.order(NATIVE_BYTE_ORDER);
 
