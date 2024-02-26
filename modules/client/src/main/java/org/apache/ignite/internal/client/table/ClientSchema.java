@@ -83,6 +83,9 @@ public class ClientSchema {
             map.put(col.name(), col);
         }
 
+        // TODO:
+        // * Preserve column order from SchemaDescriptor
+        // * Remove logic "key columns come first"
         keyColumnCount = keyCnt;
 
         if (colocationColumns == null) {
