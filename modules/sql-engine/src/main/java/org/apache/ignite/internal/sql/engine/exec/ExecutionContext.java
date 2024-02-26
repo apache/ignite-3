@@ -317,7 +317,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
                 if (e instanceof AssertionError) {
                     //Just print assertion error, prevent to handle by failhandler on higher level.
-                    LOG.warn("Unexpected exception", e);;
+                    LOG.warn("Unexpected exception", e);
                     return;
                 }
 
