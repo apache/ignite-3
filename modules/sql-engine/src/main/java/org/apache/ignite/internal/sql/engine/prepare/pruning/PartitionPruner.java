@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_ALREADY_CLOSED_ERR;
+import java.util.List;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 
-/**
- * Exception is thrown when a data fetch attempt is performed on a closed cursor.
- */
-public class CursorClosedException extends IgniteException {
+/** Applies partition pruning. */
+@FunctionalInterface
+public interface PartitionPruner {
+
     /**
-     * Creates an exception instance.
+     * Applies partition pruning to the given fragments.
+     *
+     * @param mappedFragments List of fragments.
+     * @param dynamicParameters Dynamic parameter values.
+     *
+     * @return New list of mapped fragments, if partition pruning was applied. Otherwise returns `mappedFragments`.
      */
-    public CursorClosedException() {
-        super(CURSOR_ALREADY_CLOSED_ERR, "Cursor is closed");
-    }
+    List<MappedFragment> apply(List<MappedFragment> mappedFragments, Object[] dynamicParameters);
 }

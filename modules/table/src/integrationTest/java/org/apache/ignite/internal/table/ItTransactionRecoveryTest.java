@@ -857,7 +857,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      *
      * @param tbl Scanned table.
      * @param tx Transaction.
-     * @param idxId Index id.
      * @throws Exception If failed.
      */
     private void scanSingleEntryAndLeaveCursorOpen(TableViewInternal tbl, InternalTransaction tx)
@@ -868,7 +867,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
-            publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode);
+            publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
         } else {
             publisher = tbl.internalTable().scan(PART_ID, tx);
         }

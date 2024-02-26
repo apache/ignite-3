@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.internal.table.distributed.replicator;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_ALREADY_CLOSED_ERR;
+import java.util.UUID;
+import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 
 /**
- * Exception is thrown when a data fetch attempt is performed on a closed cursor.
+ * Collection of utils to generate resource ids.
  */
-public class CursorClosedException extends IgniteException {
+public class RemoteResourceIds {
+
     /**
-     * Creates an exception instance.
+     * Generate {@link FullyQualifiedResourceId} for a transaction cursor.
+     *
+     * @param txId Transaction id.
+     * @param cursorId Cursor id.
+     * @return Cursor id.
      */
-    public CursorClosedException() {
-        super(CURSOR_ALREADY_CLOSED_ERR, "Cursor is closed");
+    public static FullyQualifiedResourceId cursorId(UUID txId, long cursorId) {
+        return new FullyQualifiedResourceId(txId, new UUID(0L, cursorId));
     }
 }

@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.internal.table.distributed.replicator;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_ALREADY_CLOSED_ERR;
+import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.util.Cursor;
 
 /**
- * Exception is thrown when a data fetch attempt is performed on a closed cursor.
+ * A resource to be used in {@link RemotelyTriggeredResourceRegistry}.
  */
-public class CursorClosedException extends IgniteException {
-    /**
-     * Creates an exception instance.
-     */
-    public CursorClosedException() {
-        super(CURSOR_ALREADY_CLOSED_ERR, "Cursor is closed");
+public class CursorResource implements ManuallyCloseable {
+
+    private final Cursor<?> cursor;
+
+    public CursorResource(Cursor<?> cursor) {
+        this.cursor = cursor;
+    }
+
+    public <T extends Cursor<?>> T cursor() {
+        return (T) cursor;
+    }
+
+    @Override
+    public void close() throws Exception {
+        cursor.close();
     }
 }

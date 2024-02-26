@@ -97,6 +97,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
@@ -143,7 +144,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private static final SchemaRegistry SCHEMA_REGISTRY = new SchemaRegistryImpl(schemaVersion -> null, SCHEMA);
 
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
-    private final StorageUpdateConfiguration storageUpdateConfiguration;
 
     private PartitionListener partitionListener;
 
@@ -172,8 +172,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             TransactionConfiguration txConfiguration,
             StorageUpdateConfiguration storageUpdateConfiguration
     ) {
-        this(replicaSvc, new TestMvPartitionStorage(0), schema, new TestPlacementDriver(LOCAL_NODE),
-                txConfiguration, storageUpdateConfiguration);
+        this(
+                replicaSvc,
+                new TestMvPartitionStorage(0),
+                false,
+                null,
+                schema,
+                new HybridTimestampTracker(),
+                new TestPlacementDriver(LOCAL_NODE),
+                storageUpdateConfiguration,
+                txConfiguration,
+                new RemotelyTriggeredResourceRegistry()
+        );
     }
 
     /**
@@ -192,36 +202,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             TransactionConfiguration txConfiguration,
             StorageUpdateConfiguration storageUpdateConfiguration
     ) {
-        this(replicaSvc, storage, schema, new TestPlacementDriver(LOCAL_NODE), txConfiguration, storageUpdateConfiguration);
-    }
-
-    /**
-     * Creates a new local table.
-     *
-     * @param replicaSvc Replica service.
-     * @param mvPartStorage Multi version partition storage.
-     * @param schema Schema descriptor.
-     * @param txConfiguration Transaction configuration.
-     * @param storageUpdateConfiguration Configuration for the storage update handler.
-     */
-    public DummyInternalTableImpl(
-            ReplicaService replicaSvc,
-            MvPartitionStorage mvPartStorage,
-            SchemaDescriptor schema,
-            PlacementDriver placementDriver,
-            TransactionConfiguration txConfiguration,
-            StorageUpdateConfiguration storageUpdateConfiguration
-    ) {
         this(
                 replicaSvc,
-                mvPartStorage,
-                txManager(replicaSvc, placementDriver, txConfiguration),
+                storage,
                 false,
                 null,
                 schema,
                 new HybridTimestampTracker(),
-                placementDriver,
-                storageUpdateConfiguration
+                new TestPlacementDriver(LOCAL_NODE),
+                storageUpdateConfiguration,
+                txConfiguration,
+                new RemotelyTriggeredResourceRegistry()
         );
     }
 
@@ -230,7 +221,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
-     * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
      *         ReplicaService by itself.
      * @param transactionStateResolver Transaction state resolver.
@@ -242,20 +232,21 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
-            TxManager txManager,
             boolean crossTableUsage,
             @Nullable TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker,
             PlacementDriver placementDriver,
-            StorageUpdateConfiguration storageUpdateConfiguration
+            StorageUpdateConfiguration storageUpdateConfiguration,
+            TransactionConfiguration txConfiguration,
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         super(
                 "test",
                 nextTableId.getAndIncrement(),
                 1,
                 new SingleClusterNodeResolver(LOCAL_NODE),
-                txManager,
+                txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
@@ -269,7 +260,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         new SingleClusterNodeResolver(LOCAL_NODE)
                 )
         );
-        this.storageUpdateConfiguration = storageUpdateConfiguration;
+
         RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
@@ -413,7 +404,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 new TestPlacementDriver(LOCAL_NODE),
-                mock(ClusterNodeResolver.class)
+                mock(ClusterNodeResolver.class),
+                resourcesRegistry
         );
 
         partitionListener = new PartitionListener(
@@ -461,11 +453,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service to use.
      * @param placementDriver Placement driver.
      * @param txConfiguration Transaction configuration.
+     * @param resourcesRegistry Resources registry.
      */
     public static TxManagerImpl txManager(
             ReplicaService replicaSvc,
             PlacementDriver placementDriver,
-            TransactionConfiguration txConfiguration
+            TransactionConfiguration txConfiguration,
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         TopologyService topologyService = mock(TopologyService.class);
         when(topologyService.localMember()).thenReturn(LOCAL_NODE);
@@ -484,7 +478,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                resourcesRegistry
         );
 
         txManager.start();
