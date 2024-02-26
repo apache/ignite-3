@@ -46,6 +46,8 @@ public class ClientSchema {
     /** Columns. */
     private final ClientColumn[] columns;
 
+    private final ClientColumn[] keyColumns;
+
     /** Colocation columns. */
     private final ClientColumn[] colocationColumns;
 
@@ -87,6 +89,14 @@ public class ClientSchema {
         // * Preserve column order from SchemaDescriptor
         // * Remove logic "key columns come first"
         keyColumnCount = keyCnt;
+        keyColumns = new ClientColumn[keyCnt];
+        keyCnt = 0;
+
+        for (var col : columns) {
+            if (col.key()) {
+                keyColumns[keyCnt++] = col;
+            }
+        }
 
         if (colocationColumns == null) {
             this.colocationColumns = new ClientColumn[keyCnt];
@@ -113,6 +123,15 @@ public class ClientSchema {
      */
     public ClientColumn[] columns() {
         return columns;
+    }
+
+    /**
+     * Returns key columns.
+     *
+     * @return Key columns.
+     */
+    ClientColumn[] keyColumns() {
+        return keyColumns;
     }
 
     /**
@@ -149,15 +168,6 @@ public class ClientSchema {
      */
     public @Nullable ClientColumn columnSafe(String name) {
         return map.get(name);
-    }
-
-    /**
-     * Returns key column count.
-     *
-     * @return Key column count.
-     */
-    public int keyColumnCount() {
-        return keyColumnCount;
     }
 
     public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
