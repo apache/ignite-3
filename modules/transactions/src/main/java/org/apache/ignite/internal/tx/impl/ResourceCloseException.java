@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_CLOSING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.RESOURCE_CLOSING_ERR;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
@@ -35,7 +35,7 @@ public class ResourceCloseException extends IgniteInternalException {
             FullyQualifiedResourceId resourceId,
             Throwable cause
     ) {
-        super(CURSOR_CLOSING_ERR, message, cause);
+        super(RESOURCE_CLOSING_ERR, message, cause);
         this.resourceId = resourceId;
     }
 

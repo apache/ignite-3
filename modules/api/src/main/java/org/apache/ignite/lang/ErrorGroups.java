@@ -136,8 +136,8 @@ public class ErrorGroups {
         /** Cursor is already closed error. */
         public static final int CURSOR_ALREADY_CLOSED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 6);
 
-        /** Cursor closing error. */
-        public static final int CURSOR_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
+        /** Resource closing error. */
+        public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.

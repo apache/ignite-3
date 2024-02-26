@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import java.io.Serializable;
-import java.util.Comparator;
 import java.util.Objects;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -31,23 +30,6 @@ public class FullyQualifiedResourceId implements Comparable<FullyQualifiedResour
     private static final UUID LOWEST_UUID = new UUID(Long.MIN_VALUE, Long.MIN_VALUE);
 
     private static final UUID HIGHEST_UUID = new UUID(Long.MAX_VALUE, Long.MAX_VALUE);
-
-    /** Returns global order comparator for FullyQualifiedResourceId type, which orders global UUID first then local id. */
-    public static Comparator<FullyQualifiedResourceId> globalOrderComparator() {
-        return (uuid1, uuid2) -> {
-            if (uuid1 == uuid2) {
-                return 0;
-            }
-
-            int res = compareNullable(uuid1.contextId(), uuid2.contextId());
-
-            if (res == 0) {
-                res = uuid1.resourceId().compareTo(uuid2.resourceId());
-            }
-
-            return res;
-        };
-    }
 
     private static int compareNullable(@Nullable UUID contextId1, @Nullable UUID contextId2) {
         if (contextId1 == null && contextId2 == null) {

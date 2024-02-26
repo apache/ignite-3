@@ -229,7 +229,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Handler that processes updates writing them to storage. */
     private final StorageUpdateHandler storageUpdateHandler;
 
-    /** Cursors registry. */
+    /** Resources registry. */
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
     /** Tx state storage. */
@@ -307,6 +307,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param localNode Instance of the local node.
      * @param catalogService Catalog service.
      * @param placementDriver Placement driver.
+     * @param clusterNodeResolver Node resolver.
+     * @param remotelyTriggeredResourceRegistry Resource registry.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -610,8 +612,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             ));
 
             // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false,
-                        () -> processScanRetrieveBatchAction(req))
+            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
                     .thenCompose(rows -> {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);

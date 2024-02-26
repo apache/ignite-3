@@ -37,7 +37,7 @@ public class RemotelyTriggeredResourceRegistry {
      * Resources map.
      */
     private final ConcurrentNavigableMap<FullyQualifiedResourceId, RemotelyTriggeredResource> resources =
-            new ConcurrentSkipListMap<>(FullyQualifiedResourceId.globalOrderComparator());
+            new ConcurrentSkipListMap<>();
 
     /**
      * Register a resource.
@@ -75,7 +75,7 @@ public class RemotelyTriggeredResourceRegistry {
     }
 
     /**
-     * Close all cursors created sharing the same prefix.
+     * Close all resources sharing the same context id.
      *
      * @param contextId Context id of the resources.
      */
@@ -115,16 +115,16 @@ public class RemotelyTriggeredResourceRegistry {
     }
 
     /**
-     * Returns all cursors.
+     * Returns all resources.
      *
-     * @return Cursors.
+     * @return Remotely triggered resources.
      */
     public Map<FullyQualifiedResourceId, RemotelyTriggeredResource> resources() {
         return unmodifiableMap(resources);
     }
 
     /**
-     * Cursor information.
+     * Resource information.
      */
     public static class RemotelyTriggeredResource {
         private final ManuallyCloseable resource;
