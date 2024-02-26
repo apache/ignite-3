@@ -47,6 +47,7 @@ namespace Apache.Ignite
             Compute.GroupCode => Compute.GroupName,
             Catalog.GroupCode => Catalog.GroupName,
             PlacementDriver.GroupCode => PlacementDriver.GroupName,
+            CriticalWorkers.GroupCode => CriticalWorkers.GroupName,
 
             _ => UnknownGroupName
         };
@@ -74,6 +75,12 @@ namespace Apache.Ignite
 
             /// <summary> NodeLeft error. </summary>
             public const int NodeLeft = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> CursorAlreadyClosed error. </summary>
+            public const int CursorAlreadyClosed = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> ResourceClosing error. </summary>
+            public const int ResourceClosing = (GroupCode << 16) | (7 & 0xFFFF);
 
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
@@ -159,17 +166,11 @@ namespace Apache.Ignite
             /// <summary> Sql group name. </summary>
             public const String GroupName = "SQL";
 
-            /// <summary> CursorNoMorePages error. </summary>
-            public const int CursorNoMorePages = (GroupCode << 16) | (1 & 0xFFFF);
-
             /// <summary> QueryNoResultSet error. </summary>
             public const int QueryNoResultSet = (GroupCode << 16) | (2 & 0xFFFF);
 
             /// <summary> SchemaNotFound error. </summary>
             public const int SchemaNotFound = (GroupCode << 16) | (3 & 0xFFFF);
-
-            /// <summary> CursorClosed error. </summary>
-            public const int CursorClosed = (GroupCode << 16) | (4 & 0xFFFF);
 
             /// <summary> StmtParse error. </summary>
             public const int StmtParse = (GroupCode << 16) | (5 & 0xFFFF);
@@ -290,6 +291,12 @@ namespace Apache.Ignite
 
             /// <summary> TxPrimaryReplicaExpired error. </summary>
             public const int TxPrimaryReplicaExpired = (GroupCode << 16) | (13 & 0xFFFF);
+
+            /// <summary> TxAlreadyFinished error. </summary>
+            public const int TxAlreadyFinished = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> TxStaleOperation error. </summary>
+            public const int TxStaleOperation = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>
@@ -506,6 +513,9 @@ namespace Apache.Ignite
 
             /// <summary> ChangeJobPriority error. </summary>
             public const int ChangeJobPriority = (GroupCode << 16) | (13 & 0xFFFF);
+
+            /// <summary> NodeNotFound error. </summary>
+            public const int NodeNotFound = (GroupCode << 16) | (14 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
@@ -535,6 +545,22 @@ namespace Apache.Ignite
 
             /// <summary> PrimaryReplicaAwait error. </summary>
             public const int PrimaryReplicaAwait = (GroupCode << 16) | (2 & 0xFFFF);
+        }
+
+        /// <summary> CriticalWorkers errors. </summary>
+        public static class CriticalWorkers
+        {
+            /// <summary> CriticalWorkers group code. </summary>
+            public const short GroupCode = 19;
+
+            /// <summary> CriticalWorkers group name. </summary>
+            public const String GroupName = "WORKERS";
+
+            /// <summary> SystemWorkerBlocked error. </summary>
+            public const int SystemWorkerBlocked = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> SystemCriticalOperationTimeout error. </summary>
+            public const int SystemCriticalOperationTimeout = (GroupCode << 16) | (2 & 0xFFFF);
         }
     }
 }

@@ -17,18 +17,23 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -37,7 +42,16 @@ import org.apache.ignite.internal.util.IgniteUtils;
 public class ThreadPoolsManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadPoolsManager.class);
 
-    private final StripedThreadPoolExecutor partitionOperationsExecutor;
+    /**
+     * Separate executor for IO operations like partition storage initialization, partition raft group meta data persisting,
+     * index storage creation...
+     */
+    private final ExecutorService tableIoExecutor;
+
+    /**
+     * Executor on which partition operations are executed. Might do storage reads and writes (so it's expected to execute disk I/O).
+     */
+    private final ExecutorService partitionOperationsExecutor;
 
     private final ScheduledExecutorService commonScheduler;
 
@@ -45,12 +59,23 @@ public class ThreadPoolsManager implements IgniteComponent {
      * Constructor.
      */
     public ThreadPoolsManager(String nodeName) {
-        partitionOperationsExecutor = new StripedThreadPoolExecutor(
-                Math.min(Runtime.getRuntime().availableProcessors() * 3, 25),
-                NamedThreadFactory.threadPrefix(nodeName, "partition-operations"),
-                new LogUncaughtExceptionHandler(LOG),
-                false,
-                0
+        int cpus = Runtime.getRuntime().availableProcessors();
+
+        tableIoExecutor = new ThreadPoolExecutor(
+                Math.min(cpus * 3, 25),
+                Integer.MAX_VALUE,
+                100,
+                MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
+
+        int partitionsOperationsThreads = Math.min(cpus * 3, 25);
+        partitionOperationsExecutor = new ThreadPoolExecutor(
+                partitionsOperationsThreads,
+                partitionsOperationsThreads,
+                0, SECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create(nodeName, "partition-operations", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));
@@ -64,14 +89,22 @@ public class ThreadPoolsManager implements IgniteComponent {
 
     @Override
     public void stop() throws Exception {
-        IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(tableIoExecutor, 10, SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, SECONDS);
+    }
+
+    /**
+     * Returns executor used to create/destroy storages, start partition Raft groups, create index storages...
+     */
+    public ExecutorService tableIoExecutor() {
+        return tableIoExecutor;
     }
 
     /**
      * Returns the executor of partition operations.
      */
-    public StripedThreadPoolExecutor partitionOperationsExecutor() {
+    public ExecutorService partitionOperationsExecutor() {
         return partitionOperationsExecutor;
     }
 

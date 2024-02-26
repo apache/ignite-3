@@ -72,19 +72,16 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
     /**
      * Updating the minimum available catalog version on which new RW transaction operations can be started.
      *
-     * <p>It is expected that it will be updated when the index transitions to the backfield state and will increase monotonically.</p>
+     * <p>NOTE: Value will only increase.</p>
      *
      * @param catalogVersion Catalog version in which the new index appeared. New operations for RW transactions started on versions
      *      strictly before this one will not be allowed to start.
      */
     void updateMinAllowedCatalogVersionForStartOperation(int catalogVersion) {
         inBusyLock(busyLock, () -> {
-            minAllowedCatalogVersionForStartOperation.updateAndGet(previousCatalogVersion -> {
-                assert catalogVersion > previousCatalogVersion :
-                        "It should only grow: [previous=" + previousCatalogVersion + ", new=" + catalogVersion + "]";
-
-                return catalogVersion;
-            });
+            minAllowedCatalogVersionForStartOperation.updateAndGet(
+                    previousCatalogVersion -> Math.max(catalogVersion, previousCatalogVersion)
+            );
 
             Collection<CompletableFuture<Void>> futures = minAllowedVersionRaiseFutures.headMap(catalogVersion, true)
                     .values();

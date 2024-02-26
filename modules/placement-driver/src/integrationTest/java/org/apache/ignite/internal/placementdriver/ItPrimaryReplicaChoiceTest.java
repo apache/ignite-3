@@ -39,6 +39,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
@@ -61,6 +63,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -130,7 +133,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         AtomicBoolean primaryChanged = new AtomicBoolean();
 
-        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
             primaryChanged.set(true);
 
             return falseCompletedFuture();
@@ -141,6 +144,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertTrue(primaryChanged.get());
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21382")
     @Test
     public void testPrimaryChangeLongHandling() throws Exception {
         TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
@@ -162,7 +166,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<Boolean> primaryChangedHandling = new CompletableFuture<>();
 
-        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> primaryChangedHandling);
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> primaryChangedHandling);
 
         log.info("Primary replica is: " + primary);
 
@@ -188,6 +192,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
     public void testClearingTransactionResourcesWhenPrimaryChange() throws Exception {
         TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
@@ -244,6 +249,12 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         NodeUtils.transferPrimary(tbl, null, this::node);
 
+        assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
+        assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
+
+        rwTx.rollback();
+
+
         assertFalse(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(3, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
     }
@@ -275,11 +286,13 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             if (idxId == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode);
+                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
             } else if (exactKey == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode, idxId, null, null, 0, null);
+                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, null, null, 0, null,
+                        tx.coordinatorId());
             } else {
-                publisher = tbl.internalTable().lookup(PART_ID, tx.readTimestamp(), primaryNode, idxId, exactKey, null);
+                publisher = tbl.internalTable().lookup(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, exactKey, null,
+                        tx.coordinatorId());
             }
         } else if (idxId == null) {
             publisher = tbl.internalTable().scan(PART_ID, tx);
@@ -305,6 +318,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
                     PART_ID,
                     rwTx.id(),
                     rwTx.commitPartition(),
+                    rwTx.coordinatorId(),
                     new PrimaryReplica(primaryNode, primaryReplicaFut.get().getStartTime().longValue()),
                     idxId,
                     exactKey,
@@ -354,9 +368,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws InterruptedException If fail.
      */
     private static void waitingForLeaderCache(TableViewInternal tbl, String primary) throws InterruptedException {
-        RaftGroupService raftSrvc = tbl.internalTable().partitionRaftGroupService(0);
+        RaftGroupService raftSrvc = tbl.internalTable().tableRaftService().partitionRaftGroupService(0);
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+        assertTrue(waitForCondition(() -> {
             raftSrvc.refreshLeader();
 
             Peer leader = raftSrvc.leader();

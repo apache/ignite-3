@@ -123,19 +123,27 @@ public final class InteractiveJobs {
     /**
      * Signals that are sent by test code to the jobs.
      */
-    private enum Signal {
+    public enum Signal {
         /**
          * Signal to the job to continue running and send ACK as a response.
          */
         CONTINUE,
+
         /**
          * Ask job to throw an exception.
          */
         THROW,
+
         /**
          * Ask job to return result.
          */
         RETURN,
+
+        /**
+         * Ask job to complete and return worker name.
+         */
+        RETURN_WORKER_NAME,
+
         /**
          * Signal to the job to continue running and send current worker name to the response channel.
          */
@@ -158,6 +166,8 @@ public final class InteractiveJobs {
         public String execute(JobExecutionContext context, Object... args) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
+            offerArgsAsSignals(args);
+
             try {
                 while (true) {
                     Signal receivedSignal = listenSignal();
@@ -169,6 +179,8 @@ public final class InteractiveJobs {
                             break;
                         case RETURN:
                             return "Done";
+                        case RETURN_WORKER_NAME:
+                            return context.ignite().name();
                         case GET_WORKER_NAME:
                             GLOBAL_CHANNEL.add(context.ignite().name());
                             break;
@@ -178,6 +190,24 @@ public final class InteractiveJobs {
                 }
             } finally {
                 RUNNING_INTERACTIVE_JOBS_CNT.decrementAndGet();
+            }
+        }
+
+        /**
+         * If any of the args are strings, convert them to signals and offer them to the job.
+         *
+         * @param args Job args.
+         */
+        private static void offerArgsAsSignals(Object[] args) {
+            for (Object arg : args) {
+                if (arg instanceof String) {
+                    String signal = (String) arg;
+                    try {
+                        GLOBAL_SIGNALS.offer(Signal.valueOf(signal));
+                    } catch (IllegalArgumentException ignored) {
+                        // Ignore non-signal strings
+                    }
+                }
             }
         }
     }

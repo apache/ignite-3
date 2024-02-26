@@ -26,8 +26,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * Test implementation of {@link LogicalTopologyService}.
@@ -55,6 +55,13 @@ public class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
                 1,
                 clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()))
         );
+    }
+
+    @Override
+    public LogicalTopologySnapshot localLogicalTopology() {
+        return new LogicalTopologySnapshot(
+                1,
+                clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));
     }
 
     @Override

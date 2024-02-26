@@ -17,8 +17,8 @@
 
 package org.apache.ignite.raft.server.counter;
 
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.messages.TestMessageGroup;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 

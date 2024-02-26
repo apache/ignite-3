@@ -133,6 +133,12 @@ public class ErrorGroups {
         /** Operation failed because a node has left the cluster. */
         public static final int NODE_LEFT_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 5);
 
+        /** Cursor is already closed error. */
+        public static final int CURSOR_ALREADY_CLOSED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Resource closing error. */
+        public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
          * In general, this error code should be considered as a non-recoverable error
@@ -211,17 +217,11 @@ public class ErrorGroups {
         /** SQL error group. */
         public static final ErrorGroup SQL_ERR_GROUP = registerGroup("SQL", (short) 4);
 
-        /** No more pages in the cursor error. */
-        public static final int CURSOR_NO_MORE_PAGES_ERR = SQL_ERR_GROUP.registerErrorCode((short) 1);
-
         /** Query without a result set error. */
         public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Schema not found. */
         public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 3);
-
-        /** Cursor is already closed error. */
-        public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Statement parsing error. This error is returned when an SQL statement string is not valid according to syntax rules. */
         public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);
@@ -358,6 +358,12 @@ public class ErrorGroups {
 
         /** Failure due to primary replica expiration. */
         public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Operation failed because the transaction is already finished. */
+        public static final int TX_ALREADY_FINISHED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
+
+        /** Failure due to a stale operation of a completed transaction is detected. */
+        public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Replicator error group. */
@@ -553,6 +559,9 @@ public class ErrorGroups {
 
         /** Cannot change job priority. */
         public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Specified node is not found in the cluster. */
+        public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Catalog error group. */
@@ -576,5 +585,18 @@ public class ErrorGroups {
 
         /** Primary replica await error. */
         public static final int PRIMARY_REPLICA_AWAIT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 2);
+    }
+
+    /** Critical workers error group. */
+    @ErrorCodeGroup
+    public static class CriticalWorkers {
+        /** Critical workers error group. */
+        public static final ErrorGroup CRITICAL_WORKERS_ERR_GROUP = registerGroup("WORKERS", (short) 19);
+
+        /** System worker does not update its heartbeat for a long time. */
+        public static final int SYSTEM_WORKER_BLOCKED_ERR = CRITICAL_WORKERS_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** System-critical operation timed out. */
+        public static final int SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR = CRITICAL_WORKERS_ERR_GROUP.registerErrorCode((short) 2);
     }
 }

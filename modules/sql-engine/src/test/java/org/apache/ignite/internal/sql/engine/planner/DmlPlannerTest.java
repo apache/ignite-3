@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -37,10 +36,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests to verify DML plans.
+ * Tests to verify multi-step versions of DML plans.
  */
 public class DmlPlannerTest extends AbstractPlannerTest {
-
     /**
      * Test for INSERT .. VALUES when table has a single distribution.
      */
@@ -51,7 +49,9 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         // There should be no exchanges and other operations.
         assertPlan("INSERT INTO TEST1 (C1, C2) VALUES(1, 2)", schema,
-                isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteValues.class))));
+                isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteValues.class))),
+                DISABLE_KEY_VALUE_MODIFY_RULES
+        );
     }
 
     /**
@@ -68,7 +68,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
-                                .and(hasChildThat(isInstanceOf(IgniteExchange.class).and(e -> distribution.equals(e.distribution())))))
+                                .and(hasChildThat(isInstanceOf(IgniteExchange.class).and(e -> distribution.equals(e.distribution()))))),
+                DISABLE_KEY_VALUE_MODIFY_RULES
         );
     }
 
@@ -229,7 +230,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("updatePrimaryKey")
     public void testDoNotAllowToModifyPrimaryKeyColumns(String query) {
-        TestTable test = TestBuilders.table()
+        IgniteTable test = TestBuilders.table()
                 .name("TEST")
                 .addKeyColumn("ID", NativeTypes.INT32)
                 .addColumn("VAL", NativeTypes.INT32)
@@ -254,7 +255,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     // Class name is fully-qualified because AbstractPlannerTest defines a class with the same name.
-    private static TestTable newTestTable(String tableName, IgniteDistribution distribution) {
+    private static IgniteTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
                 .addColumn("C1", NativeTypes.INT32)

@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.streamer;
 
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Streamer batch sender.
@@ -33,7 +35,8 @@ public interface StreamerBatchSender<T, P> {
      *
      * @param partition Partition.
      * @param batch Batch.
+     * @param deleted Deleted items (one bit per row in the batch).
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
+    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch, @Nullable BitSet deleted);
 }

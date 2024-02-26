@@ -26,7 +26,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-import org.apache.ignite.sql.CursorClosedException;
+import org.apache.ignite.lang.CursorClosedException;
 
 /**
  * Wrapper that converts a synchronous iterator to an asynchronous one.
@@ -124,7 +124,9 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
         if (!cancelled) {
             synchronized (lock) {
                 if (!cancelled) {
-                    requestChainTail.completeExceptionally(new CursorClosedException());
+                    if (!requestChainTail.isDone()) {
+                        requestChainTail.completeExceptionally(new CursorClosedException());
+                    }
 
                     cursorFut.whenCompleteAsync((cursor, executionError) -> {
                         if (cursor instanceof AutoCloseable) {

@@ -20,18 +20,15 @@ package org.apache.ignite.internal.index;
 import static java.util.Collections.binarySearch;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -39,9 +36,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for various operations, for example for RW transactions. */
@@ -51,8 +49,8 @@ class IndexChooser implements ManuallyCloseable {
     private final CatalogService catalogService;
 
     /**
-     * Map that, for each key, contains a list of all dropped available table indexes (sorted by {@link #INDEX_COMPARATOR}) for all known
-     * catalog versions.
+     * Map that, for each key, contains a list of all indexes that were available, but now are removed (sorted by {@link #INDEX_COMPARATOR})
+     * for all known catalog versions.
      *
      * <p>Examples below will be within the same table ID.</p>
      *
@@ -71,7 +69,7 @@ class IndexChooser implements ManuallyCloseable {
      *     3 -> [I1(A), I3(A)]
      * </pre>
      *
-     * <p>Then, when {@link #getDroppedAvailableIndexes(int, int) getting dropped available indexes}, we will return the following:</p>
+     * <p>Then, when {@link #getRemovedAvailableIndexes(int, int) getting removed available indexes}, we will return the following:</p>
      * <pre>
      *     0 -> []
      *     1 -> [I1(A)]
@@ -83,8 +81,8 @@ class IndexChooser implements ManuallyCloseable {
      * <p>Updated on {@link #recover() node recovery} and a catalog events processing.</p>
      */
     // TODO: IGNITE-20121 We may need to worry about parallel map changes when deleting catalog version
-    // TODO: IGNITE-20934 Worry about cleaning up dropped indexes earlier
-    private final NavigableMap<TableIdCatalogVersion, List<CatalogIndexDescriptor>> droppedAvailableTableIndexes
+    // TODO: IGNITE-20934 Worry about cleaning up removed indexes earlier
+    private final NavigableMap<TableIdCatalogVersion, List<CatalogIndexDescriptor>> removedAvailableTableIndexes
             = new ConcurrentSkipListMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -126,8 +124,8 @@ class IndexChooser implements ManuallyCloseable {
                             : String.format("Table should not be dropped: [catalogVersion=%s, tableId=%s]", nextCatalogVersion, tableId);
 
                     for (CatalogIndexDescriptor tableIndex : tableIndexes) {
-                        if (tableIndex.status() == AVAILABLE && !contains(nextCatalogVersionTableIndexes, tableIndex)) {
-                            addDroppedAvailableIndex(tableIndex, nextCatalogVersion);
+                        if (tableIndex.status() == STOPPING && !contains(nextCatalogVersionTableIndexes, tableIndex)) {
+                            addRemovedAvailableIndex(tableIndex, nextCatalogVersion);
                         }
                     }
                 }
@@ -143,13 +141,13 @@ class IndexChooser implements ManuallyCloseable {
 
         busyLock.block();
 
-        droppedAvailableTableIndexes.clear();
+        removedAvailableTableIndexes.clear();
     }
 
     /**
      * Collects a list of table indexes that will need to be used for an update operation in an RW transaction. The list consists of
-     * registered, building and available indexes on the requested catalog version, as well as all dropped available indexes from previous
-     * catalog versions.
+     * registered, building and available indexes on the requested catalog version, as well as all indexes that were available at
+     * some moment, but then were removed, from previous catalog versions.
      *
      * <p>Returned list is sorted by {@link CatalogObjectDescriptor#id()}. The table is expected to exist in the catalog at the requested
      * version.</p>
@@ -163,110 +161,94 @@ class IndexChooser implements ManuallyCloseable {
 
             assert !tableIndexes.isEmpty() : "catalogVersion=" + catalogVersion + ", tableId=" + tableId;
 
-            List<CatalogIndexDescriptor> droppedAvailableTableIndexes = getDroppedAvailableIndexes(catalogVersion, tableId);
+            List<CatalogIndexDescriptor> removedAvailableTableIndexes = getRemovedAvailableIndexes(catalogVersion, tableId);
 
-            if (droppedAvailableTableIndexes.isEmpty()) {
+            if (removedAvailableTableIndexes.isEmpty()) {
                 return tableIndexes;
             }
 
-            return unmodifiableList(merge(tableIndexes, droppedAvailableTableIndexes));
+            return unmodifiableList(merge(tableIndexes, removedAvailableTableIndexes));
         });
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
-            return onDropIndex((DropIndexEventParameters) parameters).thenApply(unused -> false);
-        });
-
-        catalogService.listen(CatalogEvent.TABLE_DROP, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onDropTable((DropTableEventParameters) parameters).thenApply(unused -> false);
-        });
+        catalogService.listen(CatalogEvent.TABLE_DROP, EventListener.fromConsumer(this::onDropTable));
     }
 
-    private CompletableFuture<?> onDropIndex(DropIndexEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onIndexRemoved(RemoveIndexEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
             int previousCatalogVersion = parameters.catalogVersion() - 1;
 
-            CatalogIndexDescriptor droppedIndexDescriptor = catalogService.index(parameters.indexId(), previousCatalogVersion);
+            CatalogIndexDescriptor removedIndexDescriptor = catalogService.index(parameters.indexId(), previousCatalogVersion);
 
-            assert droppedIndexDescriptor != null : "indexId=" + parameters.indexId() + ", catalogVersion=" + previousCatalogVersion;
+            assert removedIndexDescriptor != null : "indexId=" + parameters.indexId() + ", catalogVersion=" + previousCatalogVersion;
 
-            if (droppedIndexDescriptor.status() != AVAILABLE) {
-                return nullCompletedFuture();
+            if (removedIndexDescriptor.status() != AVAILABLE && removedIndexDescriptor.status() != STOPPING) {
+                return;
             }
 
-            addDroppedAvailableIndex(droppedIndexDescriptor, parameters.catalogVersion());
-
-            return nullCompletedFuture();
+            addRemovedAvailableIndex(removedIndexDescriptor, parameters.catalogVersion());
         });
     }
 
-    private CompletableFuture<?> onDropTable(DropTableEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
-            // We can remove dropped indexes on table drop as we need such indexes only for writing, and write operations will be denied
+    private void onDropTable(DropTableEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            // We can remove removed indexes on table drop as we need such indexes only for writing, and write operations will be denied
             // right after a table drop has been activated.
-            droppedAvailableTableIndexes.entrySet().removeIf(entry -> parameters.tableId() == entry.getKey().tableId);
-
-            return nullCompletedFuture();
+            removedAvailableTableIndexes.entrySet().removeIf(entry -> parameters.tableId() == entry.getKey().tableId);
         });
     }
 
     /**
-     * Returns a list of dropped available indexes (sorted by {@link #INDEX_COMPARATOR}) for the catalog version of interest from
-     * {@link #droppedAvailableTableIndexes}. If there is no list for the requested catalog version, the closest previous catalog version
-     * will be returned.
+     * Returns a list of indexes that are/were available, but then were removed (sorted by {@link #INDEX_COMPARATOR}) for the catalog
+     * version of interest from {@link #removedAvailableTableIndexes}. If there is no list for the requested catalog version, the closest
+     * previous catalog version will be returned.
      */
-    private List<CatalogIndexDescriptor> getDroppedAvailableIndexes(int catalogVersion, int tableId) {
+    private List<CatalogIndexDescriptor> getRemovedAvailableIndexes(int catalogVersion, int tableId) {
         var key = new TableIdCatalogVersion(tableId, catalogVersion);
 
-        Entry<TableIdCatalogVersion, List<CatalogIndexDescriptor>> entry = droppedAvailableTableIndexes.floorEntry(key);
+        Entry<TableIdCatalogVersion, List<CatalogIndexDescriptor>> entry = removedAvailableTableIndexes.floorEntry(key);
 
         return entry != null && tableId == entry.getKey().tableId ? entry.getValue() : List.of();
     }
 
     /**
-     * Adds the dropped available index to {@link #droppedAvailableTableIndexes}.
+     * Adds a removed index that is (or was) available to {@link #removedAvailableTableIndexes}.
      *
      * <p>If the list is missing for the catalog version from the arguments, then we create it by merging the indexes from the previous
      * catalog version and the new index. Otherwise, we simply add to the existing list. Lists are sorted by {@link #INDEX_COMPARATOR}.</p>
      *
-     * @param droppedIndex Drooped index.
-     * @param catalogVersion Catalog version on which the index was dropped.
+     * @param removedIndex Removed index.
+     * @param catalogVersion Catalog version on which the index was removed.
      */
-    private void addDroppedAvailableIndex(CatalogIndexDescriptor droppedIndex, int catalogVersion) {
-        assert droppedIndex.status() == AVAILABLE : droppedIndex.id();
+    private void addRemovedAvailableIndex(CatalogIndexDescriptor removedIndex, int catalogVersion) {
+        assert removedIndex.status() == AVAILABLE || removedIndex.status() == STOPPING : removedIndex.id();
 
-        int tableId = droppedIndex.tableId();
+        int tableId = removedIndex.tableId();
 
         // For now, there is no need to worry about parallel changes to the map, it will change on recovery and in catalog event listeners
         // and won't interfere with each other.
         // TODO: IGNITE-20121 We may need to worry about parallel map changes when deleting catalog version
-        List<CatalogIndexDescriptor> previousCatalogVersionDroppedIndexes = getDroppedAvailableIndexes(catalogVersion - 1, tableId);
+        List<CatalogIndexDescriptor> previousCatalogVersionRemovedIndexes = getRemovedAvailableIndexes(catalogVersion - 1, tableId);
 
-        droppedAvailableTableIndexes.compute(
+        removedAvailableTableIndexes.compute(
                 new TableIdCatalogVersion(tableId, catalogVersion),
-                (tableIdCatalogVersion, droppedAvailableIndexes) -> {
+                (tableIdCatalogVersion, removedAvailableIndexes) -> {
                     List<CatalogIndexDescriptor> res;
 
-                    if (droppedAvailableIndexes == null) {
-                        res = new ArrayList<>(1 + previousCatalogVersionDroppedIndexes.size());
+                    if (removedAvailableIndexes == null) {
+                        res = new ArrayList<>(1 + previousCatalogVersionRemovedIndexes.size());
 
-                        res.addAll(previousCatalogVersionDroppedIndexes);
+                        res.addAll(previousCatalogVersionRemovedIndexes);
                     } else {
-                        res = new ArrayList<>(1 + droppedAvailableIndexes.size());
+                        res = new ArrayList<>(1 + removedAvailableIndexes.size());
 
-                        res.addAll(droppedAvailableIndexes);
+                        res.addAll(removedAvailableIndexes);
                     }
 
-                    res.add(droppedIndex);
+                    res.add(removedIndex);
 
                     res.sort(INDEX_COMPARATOR);
 

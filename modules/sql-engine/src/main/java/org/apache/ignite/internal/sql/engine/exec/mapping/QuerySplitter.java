@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -174,12 +176,11 @@ public class QuerySplitter extends IgniteRelShuttle {
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
         assert table != null;
+        long sourceId = idGenerator.nextId();
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.add(table);
-        }
+        curr.tables.put(sourceId, table);
 
-        return rel.clone(idGenerator.nextId());
+        return rel.clone(sourceId);
     }
 
     /** {@inheritDoc} */
@@ -188,12 +189,11 @@ public class QuerySplitter extends IgniteRelShuttle {
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
         assert table != null;
+        long sourceId = idGenerator.nextId();
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.add(table);
-        }
+        curr.tables.put(sourceId, table);
 
-        return rel.clone(idGenerator.nextId());
+        return rel.clone(sourceId);
     }
 
     /** {@inheritDoc} */
@@ -209,11 +209,16 @@ public class QuerySplitter extends IgniteRelShuttle {
 
         assert table != null;
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.add(table);
-        }
+        long sourceId = idGenerator.nextId();
 
-        return super.visit(rel);
+        curr.tables.put(sourceId, table);
+
+        IgniteRel cloned = rel.clone(sourceId);
+        IgniteRel input = this.visit((IgniteRel) rel.getInput(0));
+
+        cloned.replaceInput(0, input);
+
+        return cloned;
     }
 
     /** {@inheritDoc} */
@@ -239,7 +244,7 @@ public class QuerySplitter extends IgniteRelShuttle {
         private final IntSet seenRelations = new IntOpenHashSet();
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
-        private final List<IgniteTable> tables = new ArrayList<>();
+        private final Long2ObjectMap<IgniteTable> tables = new Long2ObjectOpenHashMap<>();
         private final List<IgniteSystemView> systemViews = new ArrayList<>();
 
         private FragmentProto(long id, boolean correlated, IgniteRel root) {

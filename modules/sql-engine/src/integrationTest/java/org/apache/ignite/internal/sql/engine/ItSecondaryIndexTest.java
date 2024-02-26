@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.not;
 import java.time.LocalDate;
 import java.util.List;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -38,8 +39,6 @@ import org.junit.jupiter.api.Test;
  * Basic index tests.
  */
 public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
-    private static final String PK_SORTED_IDX = "PK_SORTED_IDX";
-
     private static final String DEPID_IDX = "DEPID_IDX";
 
     private static final String NAME_CITY_IDX = "NAME_CITY_IDX";
@@ -98,17 +97,10 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 {23, "Musorgskii", 22, "", -1}
         });
 
-        sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
-        sql("CREATE INDEX " + PK_SORTED_IDX + " ON unwrap_pk(f2, f1)");
+        sql("CREATE TABLE assignments(developer_id INT, project_id INT, primary key(developer_id, project_id))");
 
-        insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
-                {"Petr", 1L, 2L, 3L},
-                {"Ivan", 2L, 2L, 4L},
-                {"Ivan1", 21L, 2L, 4L},
-                {"Ivan2", 22L, 2L, 4L},
-                {"Ivan3", 23L, 2L, 4L},
-                {"Ivan4", 24L, 2L, 4L},
-                {"Ivan5", 25L, 2L, 4L},
+        insertData("ASSIGNMENTS", List.of("DEVELOPER_ID", "PROJECT_ID"), new Object[][]{
+                {1, 1}, {1, 2}, {2, 3}, {4, 1}, {4, 2}, {5, 6},
         });
 
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT)");
@@ -123,14 +115,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 {6, 6},
                 {7, null}
         });
-    }
-
-    @Test
-    public void testEqualsFilterWithUnwrpKey() {
-        assertQuery("SELECT F1 FROM UNWRAP_PK WHERE F2=2")
-                .matches(containsIndexScan("PUBLIC", "UNWRAP_PK", PK_SORTED_IDX))
-                .returns("Ivan")
-                .check();
     }
 
     @Test
@@ -202,7 +186,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
+                .matches(containsSubPlan("IgniteKeyValueGet(table=[[PUBLIC, DEVELOPER]]"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
@@ -1114,5 +1098,19 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         } finally {
             sql("DROP TABLE IF EXISTS t_false");
         }
+    }
+
+    /**
+     * Regression test to ensure predicate by part of the primary key and
+     * trimming of all other fields won't cause optimizer to choose
+     * {@link IgniteKeyValueGet Key Value Lookup node}.
+     */
+    @Test
+    void lookupByPartialKey() {
+        assertQuery("SELECT developer_id FROM ASSIGNMENTS WHERE developer_id = 1")
+                .matches(containsTableScan("PUBLIC", "ASSIGNMENTS"))
+                .returns(1)
+                .returns(1)
+                .check();
     }
 }

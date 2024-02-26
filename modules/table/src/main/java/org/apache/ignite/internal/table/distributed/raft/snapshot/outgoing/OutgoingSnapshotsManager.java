@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -35,17 +37,18 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotRequestMessage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Outgoing snapshots manager. Manages a collection of all outgoing snapshots, currently present on the Ignite node.
@@ -55,6 +58,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      * Logger.
      */
     private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshotsManager.class);
+
+    private final String nodeName;
 
     /**
      * Messaging service.
@@ -74,7 +79,18 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      *
      * @param messagingService Messaging service.
      */
+    @TestOnly
     public OutgoingSnapshotsManager(MessagingService messagingService) {
+        this("test", messagingService);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param messagingService Messaging service.
+     */
+    public OutgoingSnapshotsManager(String nodeName, MessagingService messagingService) {
+        this.nodeName = nodeName;
         this.messagingService = messagingService;
     }
 
@@ -87,8 +103,10 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
     @Override
     public CompletableFuture<Void> start() {
-        executor = new ThreadPoolExecutor(0, 4, 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(), new NamedThreadFactory("outgoing-snapshots", LOG)
+        executor = new ThreadPoolExecutor(
+                0, 4, 0L, MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create(nodeName, "outgoing-snapshots", LOG, STORAGE_READ)
         );
 
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);

@@ -26,12 +26,12 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.ResolverStyle;
+import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
@@ -97,14 +97,6 @@ public class IgniteSqlFunctions {
      * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
      */
     public static long timestampStringToNumeric(String dtStr) {
-        try {
-            return timestampStringToNumeric0(dtStr);
-        } catch (DateTimeException e) {
-            throw new SqlException(RUNTIME_ERR, e.getMessage());
-        }
-    }
-
-    private static long timestampStringToNumeric0(String dtStr) {
         dtStr = dtStr.trim();
         //"YYYY-MM-dd HH:mm:ss.ninenanos"
         if (dtStr.length() > 29) {
@@ -562,6 +554,14 @@ public class IgniteSqlFunctions {
     /** Returns the second argument and ignores the first. */
     public static Object consumeFirstArgument(Object args0, Object args1) {
         return args1;
+    }
+
+    /** Returns the timestamp value minus the offset of the specified timezone. */
+    public static Long subtractTimeZoneOffset(long timestamp, TimeZone timeZone) {
+        // A second offset calculation is required to handle DST transition period correctly.
+        int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
+
+        return timestamp - offset;
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {

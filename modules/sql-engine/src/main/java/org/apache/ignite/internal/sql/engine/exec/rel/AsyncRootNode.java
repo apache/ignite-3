@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.sql.CursorClosedException;
+import org.apache.ignite.lang.CursorClosedException;
 import org.jetbrains.annotations.Nullable;
 
 /**

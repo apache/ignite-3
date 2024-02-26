@@ -88,15 +88,22 @@ public class IgniteIndex {
 
     private final Type type;
 
+    private final boolean primaryKey;
+
     private RelDataType rowType;
 
-    /** Constructor. */
     public IgniteIndex(int id, String name, Type type, IgniteDistribution tableDistribution, RelCollation collation) {
+        this(id, name, type, tableDistribution, collation, false);
+    }
+
+    /** Constructor. */
+    public IgniteIndex(int id, String name, Type type, IgniteDistribution tableDistribution, RelCollation collation, boolean primaryKey) {
         this.id = id;
         this.name = name;
         this.type = type;
         this.tableDistribution = tableDistribution;
         this.collation = collation;
+        this.primaryKey = primaryKey;
     }
 
     /** Returns an id of the index. */
@@ -117,6 +124,11 @@ public class IgniteIndex {
     /** Returns the collation of this index. */
     public RelCollation collation() {
         return collation;
+    }
+
+    /** Returns whether the index is being considered as primary key for a table or not. */
+    public boolean primaryKey() {
+        return primaryKey;
     }
 
     /** Returns index row type. */

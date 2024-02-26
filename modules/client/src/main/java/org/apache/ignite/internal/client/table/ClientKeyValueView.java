@@ -55,6 +55,7 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -521,7 +522,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Entry<K, V>>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new KeyValuePojoStreamerPartitionAwarenessProvider<K, V>(tbl, keySer.mapper());
@@ -529,18 +530,44 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Entry<K, V>, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
+        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
+                ClientOp.STREAMER_BATCH_SEND,
                 (s, w) -> {
-                    writeSchemaAndTx(s, w, null);
+                    w.out().packInt(tbl.tableId());
+                    w.out().packInt(partition);
+                    w.out().packBitSetNullable(deleted);
+                    w.out().packInt(s.version());
                     w.out().packInt(items.size());
 
+                    int i = 0;
+
+                    Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
+                    Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
+                    var noValueSet = new BitSet();
+
                     for (Entry<K, V> e : items) {
-                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                        boolean del = deleted != null && deleted.get(i++);
+                        int colCount = del ? s.keyColumnCount() : s.columns().length;
+
+                        noValueSet.clear();
+                        var builder = new BinaryTupleBuilder(colCount);
+                        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+
+                        try {
+                            keyMarsh.writeObject(e.getKey(), writer);
+
+                            if (!del) {
+                                valMarsh.writeObject(e.getValue(), writer);
+                            }
+                        } catch (MarshallerException ex) {
+                            throw new IgniteException(INTERNAL_ERR, ex.getMessage(), ex);
+                        }
+
+                        w.out().packBinaryTuple(builder, noValueSet);
                     }
                 },
                 r -> null,
-                PartitionAwarenessProvider.of(nodeId),
+                PartitionAwarenessProvider.of(partition),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);

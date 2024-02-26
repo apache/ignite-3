@@ -36,7 +36,6 @@ import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -185,8 +185,21 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        throw new UnsupportedOperationException();
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition) {
+        int i = 0;
+
+        for (var row : rows) {
+            if (deleted != null && deleted.get(i)) {
+                delete(row, null);
+            } else {
+                upsert(row, null);
+            }
+
+            i++;
+        }
+
+        onDataAccess("updateAll", rows);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -370,6 +383,7 @@ public class FakeInternalTable implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -383,21 +397,25 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
-            @Nullable BitSet columnsToInclude) {
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode
+            ClusterNode recipientNode,
+            String txCoordinatorId
     ) {
         return null;
     }
@@ -407,6 +425,7 @@ public class FakeInternalTable implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
+            String txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
@@ -418,24 +437,22 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     @Override
-    public ClusterNode leaderAssignment(int partition) {
+    public TableRaftService tableRaftService() {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    @Override
-    public RaftGroupService partitionRaftGroupService(int partition) {
-        return null;
-    }
 
     @Override public TxStateTableStorage txStateStorage() {
         return null;

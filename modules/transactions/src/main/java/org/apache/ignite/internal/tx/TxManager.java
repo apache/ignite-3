@@ -17,17 +17,18 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -111,14 +112,6 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
 
     /**
-     * Execute transaction cleanup asynchronously.
-     *
-     * @param action Cleanup action.
-     * @return Future that completes once the cleanup action finishes.
-     */
-    CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action);
-
-    /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
      *
      * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
@@ -143,21 +136,21 @@ public interface TxManager extends IgniteComponent {
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, Long> enlistedGroups,
+            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             UUID txId
     );
 
     /**
      * Sends cleanup request to the cluster nodes that hosts primary replicas for the enlisted partitions.
      *
-     * @param partitions Enlisted partition groups.
+     * @param enlistedPartitions Enlisted partition groups.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            Collection<TablePartitionId> partitions,
+            Map<TablePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -212,4 +205,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId The transction id
      */
     void removeInflight(UUID txId);
+
+    /** Returns the node's hybrid clock. */
+    HybridClock clock();
 }

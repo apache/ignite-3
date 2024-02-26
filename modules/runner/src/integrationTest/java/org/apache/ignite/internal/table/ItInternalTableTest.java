@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -62,9 +63,11 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -72,6 +75,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for the internal table API.
@@ -472,6 +477,77 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = true)
+    // TODO IGNITE-21521 Wrong update order in DataStreamer for a new key
+    // @ValueSource(booleans = {true, false})
+    public void updateAllOrderTest(boolean existingKey) {
+        RecordView<Tuple> view = table.recordView();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+        List<BinaryRowEx> rows = new ArrayList<>();
+
+        int count = 100;
+        int lastId = count - 1;
+        long id = existingKey ? 1 : 12345;
+        BitSet deleted = new BitSet(count);
+
+        if (existingKey) {
+            view.upsert(null, Tuple.create().set("key", id).set("valInt", 1).set("valStr", "val1"));
+        }
+
+        for (int i = 0; i < count; i++) {
+            if (i % 2 == 0) {
+                rows.add(createKeyRow(id));
+                deleted.set(i);
+            } else {
+                rows.add(createKeyValueRow(id, i, "row-" + i));
+            }
+        }
+
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        internalTable.updateAll(rows, deleted, partitionId).join();
+
+        Tuple res = view.get(null, Tuple.create().set("key", id));
+        assertEquals(lastId, res.intValue("valInt"));
+        assertEquals("row-" + lastId, res.stringValue("valStr"));
+    }
+
+    @Test
+    public void updateAllWithDeleteTest() {
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+
+        RecordView<Tuple> view = table.recordView();
+        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
+        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
+
+        // Update, insert, delete.
+        List<BinaryRowEx> rows = List.of(
+                createKeyValueRow(1, 11, "val11"),
+                createKeyValueRow(3, 2, "val2"),
+                createKeyRow(5)
+        );
+
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        for (int i = 0; i < rows.size(); i++) {
+            assertEquals(partitionId, internalTable.partitionId(rows.get(i)), "Unexpected partition for row " + i);
+        }
+
+        BitSet deleted = new BitSet(3);
+        deleted.set(2);
+        internalTable.updateAll(rows, deleted, partitionId).join();
+
+        var row1 = view.get(null, Tuple.create().set("key", 1L));
+        assertEquals(11, row1.intValue("valInt"));
+
+        var row2 = view.get(null, Tuple.create().set("key", 3L));
+        assertEquals(2, row2.intValue("valInt"));
+
+        var row3 = view.get(null, Tuple.create().set("key", 5L));
+        assertNull(row3);
+    }
+
     private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
@@ -523,8 +599,11 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         var subscriberAllDataAwaitLatch = new CountDownLatch(parts);
 
+        InternalTransaction roTx =
+                (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
+
         for (int i = 0; i < parts; i++) {
-            Publisher<BinaryRow> res = internalTable.scan(i, node.clock().now(), node.node());
+            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node(), roTx.coordinatorId());
 
             res.subscribe(new Subscriber<>() {
                 @Override
@@ -550,6 +629,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         }
 
         assertTrue(subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS));
+
+        roTx.commit();
 
         return retrievedItems;
     }

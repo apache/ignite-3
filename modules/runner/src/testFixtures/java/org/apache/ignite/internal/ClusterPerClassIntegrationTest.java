@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +36,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -74,7 +76,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  compute.threadPoolSize: 1\n"
             + "}";
 
     /** Cluster nodes. */
@@ -87,7 +90,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
     /** Work directory. */
     @WorkDirectory
-    private static Path WORK_DIR;
+    protected static Path WORK_DIR;
 
     /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
     @BeforeEach
@@ -106,7 +109,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {
-            CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes());
+            CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
         }
     }
 
@@ -124,6 +127,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * This method can be overridden to add custom init parameters during cluster initialization.
+     */
+    protected void configureInitParameters(InitParametersBuilder builder) {
+    }
+
+    /**
      * Returns node bootstrap config template.
      *
      * @return Node bootstrap config template.
@@ -136,7 +145,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * After all.
      */
     @AfterAll
-    void afterAll() throws Exception {
+    void afterAll() {
         CLUSTER.shutdown();
     }
 
@@ -179,7 +188,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param zoneName Zone name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, zero to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
      */
     protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, @Nullable String storageEngine) {
         sql(format(
@@ -198,6 +207,27 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
         createZoneOnlyIfNotExists(zoneName, replicas, partitions, null);
+
+        return createTableOnly(tableName, zoneName);
+    }
+
+    /**
+     * Creates zone and table.
+     *
+     * @param zoneName Zone name.
+     * @param tableName Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     */
+    protected static Table createZoneAndTable(
+            String zoneName,
+            String tableName,
+            int replicas,
+            int partitions,
+            @Nullable String storageEngine
+    ) {
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageEngine);
 
         return createTableOnly(tableName, zoneName);
     }
@@ -327,13 +357,14 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      *
      * @param node Ignite instance to run a query.
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
+     * @param zoneId Client time zone.
      * @param sql Query to be run.
      * @param args Dynamic parameters for a given query.
      * @return List of lists, where outer list represents a rows, internal lists represents a columns.
      */
-    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, String sql, Object... args) {
+    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object... args) {
         try (
-                Session session = node.sql().createSession();
+                Session session = node.sql().sessionBuilder().timeZoneId(zoneId).build();
                 ResultSet<SqlRow> rs = session.execute(tx, sql, args)
         ) {
             return getAllResultSet(rs);
@@ -345,12 +376,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, String sql, Object[] args) {
+        return sql(nodeIndex, tx, null, sql, args);
+    }
+
+    protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object[] args) {
         IgniteImpl node = CLUSTER.node(nodeIndex);
 
         if (!AWAIT_INDEX_AVAILABILITY.get()) {
-            return sql(node, tx, sql, args);
+            return sql(node, tx, zoneId, sql, args);
         } else {
-            return executeAwaitingIndexes(node, (n) -> sql(n, tx, sql, args));
+            return executeAwaitingIndexes(node, (n) -> sql(n, tx, zoneId, sql, args));
         }
     }
 
@@ -482,7 +517,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }
@@ -498,5 +533,20 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
                 10_000L
         ));
+    }
+
+    /**
+     * Inserts data into the table created by {@link #createZoneAndTable(String, String, int, int)} in transaction.
+     *
+     * @param tableName Table name.
+     * @param people People to insert into the table.
+     */
+    protected static void insertPeopleInTransaction(Transaction tx, String tableName, Person... people) {
+        insertDataInTransaction(
+                tx,
+                tableName,
+                List.of("ID", "NAME", "SALARY"),
+                Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
+        );
     }
 }

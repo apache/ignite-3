@@ -25,13 +25,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.AssemblyException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
@@ -55,20 +55,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>Natively supported temporal types are encoded automatically with preserving sort order before writing.
  */
 public class RowAssembler {
-    /** Key columns. */
-    private final Columns keyColumns;
-
-    /** Value columns. */
-    private final Columns valueColumns;
-
-    /** Schema version. */
     private final int schemaVersion;
-
-    /** Binary tuple builder. */
+    private final List<Column> columns;
     private final BinaryTupleBuilder builder;
-
-    /** Current columns chunk. */
-    private Columns curCols;
 
     /** Current field index (the field is unset). */
     private int curCol;
@@ -77,36 +66,24 @@ public class RowAssembler {
      * Creates a builder.
      *
      * @param schema Schema descriptor.
-     */
-    public RowAssembler(SchemaDescriptor schema) {
-        this(schema, -1);
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param schema Schema descriptor.
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
     public RowAssembler(SchemaDescriptor schema, int totalValueSize) {
-        this(schema.keyColumns(), schema.valueColumns(), schema.version(), totalValueSize);
+        this(schema.version(), schema.columns(), totalValueSize);
     }
 
     /**
-     * Creates a builder.
+     * Create a builder.
      *
-     * @param keyColumns Key columns.
-     * @param valueColumns Value columns, {@code null} if only key should be assembled.
-     * @param schemaVersion Schema version.
+     * @param schemaVersion Version of the schema.
+     * @param columns List of columns to serialize. Values must be appended in the same order.
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
-    public RowAssembler(Columns keyColumns, @Nullable Columns valueColumns, int schemaVersion, int totalValueSize) {
-        this.keyColumns = keyColumns;
-        this.valueColumns = valueColumns;
+    public RowAssembler(int schemaVersion, List<Column> columns, int totalValueSize) {
         this.schemaVersion = schemaVersion;
-        int numElements = keyColumns.length() + (valueColumns != null ? valueColumns.length() : 0);
-        builder = new BinaryTupleBuilder(numElements, totalValueSize);
-        curCols = keyColumns;
+        this.columns = columns;
+
+        builder = new BinaryTupleBuilder(columns.size(), totalValueSize);
         curCol = 0;
     }
 
@@ -121,7 +98,7 @@ public class RowAssembler {
             return appendNull();
         }
 
-        NativeType columnType = curCols.column(curCol).type();
+        NativeType columnType = columns.get(curCol).type();
 
         switch (columnType.spec()) {
             case BOOLEAN: {
@@ -187,9 +164,9 @@ public class RowAssembler {
      * @throws SchemaMismatchException If the current column is not nullable.
      */
     public RowAssembler appendNull() throws SchemaMismatchException {
-        if (!curCols.column(curCol).nullable()) {
+        if (!columns.get(curCol).nullable()) {
             throw new SchemaMismatchException(
-                    "Failed to set column (null was passed, but column is not nullable): " + curCols.column(curCol));
+                    "Failed to set column (null was passed, but column is not nullable): " + columns.get(curCol));
         }
 
         builder.appendNull();
@@ -205,7 +182,7 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      */
     public RowAssembler appendDefault() {
-        Column column = curCols.column(curCol);
+        Column column = columns.get(curCol);
 
         return appendValue(column.defaultValue());
     }
@@ -367,7 +344,7 @@ public class RowAssembler {
     public RowAssembler appendNumberNotNull(BigInteger val) throws SchemaMismatchException {
         checkType(NativeTypeSpec.NUMBER);
 
-        Column col = curCols.column(curCol);
+        Column col = columns.get(curCol);
 
         NumberNativeType type = (NumberNativeType) col.type();
 
@@ -399,7 +376,7 @@ public class RowAssembler {
     public RowAssembler appendDecimalNotNull(BigDecimal val) throws SchemaMismatchException {
         checkType(NativeTypeSpec.DECIMAL);
 
-        Column col = curCols.column(curCol);
+        Column col = columns.get(curCol);
 
         DecimalNativeType type = (DecimalNativeType) col.type();
 
@@ -491,7 +468,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendBitmaskNotNull(BitSet bitSet) throws SchemaMismatchException {
-        Column col = curCols.column(curCol);
+        Column col = columns.get(curCol);
 
         checkType(NativeTypeSpec.BITMASK);
 
@@ -603,7 +580,7 @@ public class RowAssembler {
     }
 
     private int normalizeNanos(int nanos) {
-        NativeType type = curCols.column(curCol).type();
+        NativeType type = columns.get(curCol).type();
         return TemporalTypeUtils.normalizeNanos(nanos, ((TemporalNativeType) type).precision());
     }
 
@@ -614,9 +591,7 @@ public class RowAssembler {
      * @return Created {@link BinaryRow}.
      */
     public BinaryRow build() {
-        if (keyColumns == curCols) {
-            throw new AssemblyException("Key column missed: colIdx=" + curCol);
-        } else if (curCol != 0 && valueColumns.length() != curCol) {
+        if (curCol != 0 && columns.size() != curCol) {
             throw new AssemblyException("Value column missed: colIdx=" + curCol);
         }
 
@@ -630,11 +605,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If given type doesn't match the current column type.
      */
     private void checkType(NativeTypeSpec type) {
-        if (curCols == null) {
-            throw new SchemaMismatchException("Failed to set column, expected key only but tried to add " + type.name());
-        }
-
-        Column col = curCols.column(curCol);
+        Column col = columns.get(curCol);
 
         // Column#validate does not work here, because we must tolerate differences in precision, size, etc.
         if (col.type().spec() != type) {
@@ -659,12 +630,6 @@ public class RowAssembler {
      */
     private void shiftColumn() {
         curCol++;
-
-        if (curCol == curCols.length() && curCols == keyColumns) {
-            // Switch key->value columns.
-            curCols = valueColumns;
-            curCol = 0;
-        }
     }
 
     /**
@@ -674,6 +639,6 @@ public class RowAssembler {
      * @return Created assembler.
      */
     public static RowAssembler keyAssembler(SchemaDescriptor schema) {
-        return new RowAssembler(schema.keyColumns(), null, schema.version(), -1);
+        return new RowAssembler(schema.version(), List.of(schema.keyColumns().columns()), -1);
     }
 }

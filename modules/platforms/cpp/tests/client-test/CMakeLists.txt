@@ -30,6 +30,7 @@ set(SOURCES
     main.cpp
     record_binary_view_test.cpp
     record_view_test.cpp
+    schema_synchronization_test.cpp
     sql_test.cpp
     tables_test.cpp
     transactions_test.cpp

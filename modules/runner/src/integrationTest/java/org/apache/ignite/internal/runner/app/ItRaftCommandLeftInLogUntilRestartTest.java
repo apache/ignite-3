@@ -47,7 +47,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
@@ -172,7 +171,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         TableViewInternal table = (TableViewInternal) createTable(DEFAULT_TABLE_NAME, 2, 1);
 
-        ClusterNode leader = table.internalTable().leaderAssignment(0);
+        ClusterNode leader = table.internalTable().tableRaftService().leaderAssignment(0);
 
         boolean isNode0Leader = node0.id().equals(leader.id());
 
@@ -191,7 +190,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> appliedIndexNode0.get() == appliedIndexNode1.get(), 10_000));
 
-            RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
+            RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
 
             raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer), willCompleteSuccessfully()));
 
@@ -244,7 +243,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         var notTunedDisruptor = nodeOptions.getfSMCallerExecutorDisruptor();
 
         nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
-                NamedThreadFactory.threadPrefix(node.name() + "-test", "JRaft-FSMCaller-Disruptor"),
+                node.name() + "-test",
+                "JRaft-FSMCaller-Disruptor",
                 64,
                 () -> new ApplyTask(),
                 1,
@@ -340,7 +340,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     private void transferLeadershipToLocalNode(IgniteImpl ignite) {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
-        RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
+        RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
 
         List<Peer> peers = raftGroupService.peers();
         assertNotNull(peers);

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -343,6 +344,37 @@ public class CatalogUtils {
     }
 
     /**
+     * Replaces the index descriptor that has the same ID as the {@code newIndexDescriptor} in the given {@code schema}.
+     *
+     * @param schema Schema, which index descriptor needs to be replaced.
+     * @param newIndexDescriptor Index descriptor which will replace the descriptor with the same ID in the schema.
+     * @return New schema descriptor with a replaced index descriptor.
+     * @throws CatalogValidationException If the index descriptor with the same ID is not present in the schema.
+     */
+    public static CatalogSchemaDescriptor replaceIndex(CatalogSchemaDescriptor schema, CatalogIndexDescriptor newIndexDescriptor) {
+        CatalogIndexDescriptor[] indexDescriptors = schema.indexes().clone();
+
+        for (int i = 0; i < indexDescriptors.length; i++) {
+            if (indexDescriptors[i].id() == newIndexDescriptor.id()) {
+                indexDescriptors[i] = newIndexDescriptor;
+
+                return new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        schema.tables(),
+                        indexDescriptors,
+                        schema.systemViews(),
+                        newIndexDescriptor.updateToken()
+                );
+            }
+        }
+
+        throw new CatalogValidationException(String.format(
+                "Index with ID %d has not been found in schema with ID %d", newIndexDescriptor.id(), schema.id()
+        ));
+    }
+
+    /**
      * Return default length according to supplied type.
      *
      * @param columnType Column type.
@@ -437,7 +469,7 @@ public class CatalogUtils {
      * @throws IndexNotFoundValidationException If index does not exist.
      */
     public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
-        CatalogIndexDescriptor index = schema.index(name);
+        CatalogIndexDescriptor index = schema.aliveIndex(name);
 
         if (index == null) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
@@ -502,5 +534,20 @@ public class CatalogUtils {
                 : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
 
         return indexByIdMap.values();
+    }
+
+    /**
+     * Returns the timestamp at which the catalog version is guaranteed to be activated on every node of the cluster. This takes into
+     * account possible clock skew between nodes.
+     *
+     * @param catalog Catalog version of interest.
+     */
+    public static HybridTimestamp clusterWideEnsuredActivationTimestamp(Catalog catalog) {
+        HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
+
+        return activationTs.addPhysicalTime(HybridTimestamp.maxClockSkew())
+                // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
+                // logical parts on different nodes of the cluster (see IGNITE-21084).
+                .roundUpToPhysicalTick();
     }
 }

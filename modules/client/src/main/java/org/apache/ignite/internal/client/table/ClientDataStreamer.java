@@ -25,6 +25,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 
 /**
@@ -33,14 +34,14 @@ import org.apache.ignite.table.DataStreamerOptions;
 class ClientDataStreamer {
     @SuppressWarnings("resource")
     static <R> CompletableFuture<Void> streamData(
-            Publisher<R> publisher,
+            Publisher<DataStreamerItem<R>> publisher,
             DataStreamerOptions options,
-            StreamerBatchSender<R, String> batchSender,
-            StreamerPartitionAwarenessProvider<R, String> partitionAwarenessProvider,
+            StreamerBatchSender<R, Integer> batchSender,
+            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<R, String> subscriber = new StreamerSubscriber<>(
+        StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
                 batchSender, partitionAwarenessProvider, streamerOpts, log, tbl.channel().metrics());
 
         publisher.subscribe(subscriber);

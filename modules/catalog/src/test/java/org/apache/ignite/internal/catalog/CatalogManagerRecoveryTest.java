@@ -19,16 +19,35 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.INDEX_NAME;
+import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.INDEX_NAME_2;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NAME;
+import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NAME_2;
+import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NAME_3;
+import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.dropIndexCommand;
+import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.dropTableCommand;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleIndex;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleTable;
+import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.startBuildingIndexCommand;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.CatalogTestUtils.TestUpdateHandlerInterceptor;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -43,6 +62,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 
 /** For {@link CatalogManager} testing on recovery. */
 @ExtendWith(WorkDirectoryExtension.class)
@@ -57,6 +77,8 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private MetaStorageManager metaStorageManager;
 
     private CatalogManager catalogManager;
+
+    private TestUpdateHandlerInterceptor interceptor;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -94,9 +116,83 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         createAndStartComponents();
 
+        // Check recovery events.
+        verify(interceptor, times(2)).handle(any(VersionedUpdate.class), any(), anyLong());
+        verify(interceptor, Mockito.never()).handle(any(SnapshotEntry.class), any(), anyLong());
+
         // Let's check that the versions for the points in time at which they were created are in place.
         assertThat(catalogManager.activeCatalogVersion(time0), equalTo(catalogVersion0));
         assertThat(catalogManager.activeCatalogVersion(time1), equalTo(catalogVersion1));
+    }
+
+    @Test
+    void testRecoveryCatalogAfterCompaction() throws Exception {
+        createAndStartComponents();
+
+        // Let's create a couple of versions of the catalog.
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME_2)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(dropTableCommand(TABLE_NAME_2)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(dropIndexCommand(INDEX_NAME_2)), willCompleteSuccessfully());
+
+        // Save version, which will be earliest version after snapshot.
+        int earliestVersion = catalogManager.latestCatalogVersion();
+        long earliestVersionActivationTime = catalogManager.catalog(earliestVersion).time();
+        long snapshotTime = clock.nowLong();
+
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME_3)), willCompleteSuccessfully());
+
+        int latestVersion = catalogManager.latestCatalogVersion();
+        long latestVersionActivationTime = catalogManager.catalog(latestVersion).time();
+
+        // Compact catalog with ignoring snapshot event, then ensure earliest version wasn't changed
+        clearInvocations(interceptor);
+        interceptor.dropSnapshotEvents();
+
+        assertThat(((CatalogManagerImpl) catalogManager).compactCatalog(snapshotTime), willBe(true));
+
+        verify(interceptor, timeout(2_000)).handle(any(SnapshotEntry.class), any(), anyLong());
+        assertThat(catalogManager.earliestCatalogVersion(), equalTo(0));
+
+        // We will restart and recover the components and also set the clock to the future.
+        stopComponents();
+
+        createAndStartComponents();
+
+        // Check recovery events.
+        verify(interceptor).handle(any(SnapshotEntry.class), any(), anyLong());
+        verify(interceptor).handle(any(VersionedUpdate.class), any(), anyLong());
+
+        // Let's check Catalog was recovered from a snapshot and history starts from the expected version.
+        assertThat(catalogManager.earliestCatalogVersion(), equalTo(earliestVersion));
+        assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(0));
+        assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(earliestVersionActivationTime - 1));
+        assertThat(catalogManager.activeCatalogVersion(earliestVersionActivationTime), equalTo(earliestVersion));
+        assertThat(catalogManager.activeCatalogVersion(snapshotTime), equalTo(earliestVersion));
+        assertThat(catalogManager.activeCatalogVersion(latestVersionActivationTime), equalTo(latestVersion));
+    }
+
+    @Test
+    void testRecoveryIndexCreationCatalogVersion() throws Exception {
+        createAndStartComponents();
+
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
+
+        int expCreationCatalogVersion = catalogManager.latestCatalogVersion();
+
+        int indexId = catalogManager.aliveIndex(INDEX_NAME, clock.nowLong()).id();
+
+        assertThat(catalogManager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(simpleTable(TABLE_NAME + 1)), willCompleteSuccessfully());
+
+        stopComponents();
+
+        createAndStartComponents();
+
+        assertEquals(expCreationCatalogVersion, catalogManager.aliveIndex(INDEX_NAME, clock.nowLong()).txWaitCatalogVersion());
     }
 
     private void createAndStartComponents() {
@@ -110,7 +206,9 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+        interceptor = spy(new TestUpdateHandlerInterceptor());
+
+        catalogManager = CatalogTestUtils.createTestCatalogManagerWithInterceptor(NODE_NAME, clock, metaStorageManager, interceptor);
     }
 
     private void startComponentsAndDeployWatches() {

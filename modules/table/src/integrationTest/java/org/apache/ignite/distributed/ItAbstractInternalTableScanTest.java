@@ -49,6 +49,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -83,6 +85,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
+
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
@@ -95,9 +100,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
-
-        internalTbl = new DummyInternalTableImpl(mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration);
+        internalTbl = new DummyInternalTableImpl(
+                mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration, storageUpdateConfiguration);
     }
 
     /**
@@ -151,7 +155,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      *
      * @throws Exception If any.
      */
-    @Test()
+    @Test
     public void testNegativeRequestedAmountScan() throws Exception {
         invalidRequestNtest(-1);
     }
@@ -162,7 +166,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      *
      * @throws Exception If any.
      */
-    @Test()
+    @Test
     public void testZeroRequestedAmountScan() throws Exception {
         invalidRequestNtest(0);
     }
@@ -227,9 +231,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertEquals(gotException.get().getCause().getClass(), NoSuchElementException.class);
 
-        if (tx != null) {
-            assertEquals(TxState.ABORTED, tx.state());
-        }
+        validateTxAbortedState(tx);
     }
 
     /**
@@ -274,25 +276,13 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertEquals(gotException.get().getCause().getClass(), StorageException.class);
 
+        validateTxAbortedState(tx);
+    }
+
+    protected void validateTxAbortedState(InternalTransaction tx) {
         if (tx != null) {
             assertEquals(TxState.ABORTED, tx.state());
         }
-    }
-
-    /**
-     * Checks that {@link IllegalArgumentException} is thrown in case of invalid partition.
-     */
-    @Test()
-    public void testInvalidPartitionParameterScan() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> scan(-1, null)
-        );
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> scan(1, null)
-        );
     }
 
     /**
@@ -302,7 +292,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      */
     @Test
     public void testSecondSubscriptionFiresIllegalStateException() throws Exception {
-        Flow.Publisher<BinaryRow> scan = scan(0, null);
+        Flow.Publisher<BinaryRow> scan = scan(0, startTx());
 
         scan.subscribe(new Subscriber<>() {
             @Override
@@ -378,7 +368,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * @return {@link BinaryRow} based on given key and value.
      */
     private static BinaryRow prepareRow(String entryKey, String entryVal) {
-        return new RowAssembler(ROW_SCHEMA)
+        return new RowAssembler(ROW_SCHEMA, -1)
                 .appendString(Objects.requireNonNull(entryKey, "entryKey"))
                 .appendString(Objects.requireNonNull(entryVal, "entryVal"))
                 .build();
@@ -492,7 +482,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        scan(0, null).subscribe(new Subscriber<>() {
+        scan(0, startTx()).subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(reqAmount);
@@ -532,5 +522,5 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
-    protected abstract Publisher<BinaryRow> scan(int part, InternalTransaction tx);
+    protected abstract Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx);
 }

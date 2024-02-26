@@ -109,8 +109,6 @@ TEST_F(timeout_test, query_and_connection_timeout_query) {
     insert_test_strings(10);
 }
 
-// TODO: IGNITE-19215 Implement DML data batching
-#ifdef MUTED
 TEST_F(timeout_test, connection_timeout_batch) {
     odbc_connect(get_basic_connection_string());
 
@@ -181,4 +179,3 @@ TEST_F(timeout_test, query_and_connection_timeout_both) {
     insert_test_strings(10);
     insert_test_batch(11, 20, 9);
 }
-#endif // MUTED

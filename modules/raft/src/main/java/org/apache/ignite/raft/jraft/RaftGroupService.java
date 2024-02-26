@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;

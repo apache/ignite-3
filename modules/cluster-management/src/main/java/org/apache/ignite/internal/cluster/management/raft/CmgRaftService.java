@@ -43,12 +43,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
@@ -317,7 +317,8 @@ public class CmgRaftService implements ManuallyCloseable {
 
         if (newLearners.isEmpty()) {
             // Methods for working with learners do not support empty peer lists for some reason.
-            return raftService.changePeersAsync(newConfiguration, term);
+            return raftService.changePeersAsync(newConfiguration, term)
+                    .thenRun(() -> raftService.updateConfiguration(newConfiguration));
         } else {
             return raftService.resetLearners(newConfiguration.learners());
         }

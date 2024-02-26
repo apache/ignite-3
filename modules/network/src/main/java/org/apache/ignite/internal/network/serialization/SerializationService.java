@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * Serialization service implementation.

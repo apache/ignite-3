@@ -25,14 +25,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,6 +54,9 @@ public class TxCleanupRequestHandler {
     /** Cleanup processor. */
     private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
 
+    /** Cursor registry. */
+    private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
+
     /**
      * The constructor.
      *
@@ -61,17 +64,20 @@ public class TxCleanupRequestHandler {
      * @param lockManager Lock manager.
      * @param clock A hybrid logical clock.
      * @param writeIntentSwitchProcessor A cleanup processor.
+     * @param resourcesRegistry Resources registry.
      */
     public TxCleanupRequestHandler(
             MessagingService messagingService,
             LockManager lockManager,
             HybridClock clock,
-            WriteIntentSwitchProcessor writeIntentSwitchProcessor
+            WriteIntentSwitchProcessor writeIntentSwitchProcessor,
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this.messagingService = messagingService;
         this.lockManager = lockManager;
         this.hybridClock = clock;
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
+        this.remotelyTriggeredResourceRegistry = resourcesRegistry;
     }
 
     /**
@@ -112,6 +118,8 @@ public class TxCleanupRequestHandler {
         allOf(writeIntentSwitches.values().toArray(new CompletableFuture<?>[0]))
                 .whenComplete((unused, ex) -> {
                     releaseTxLocks(txCleanupMessage.txId());
+
+                    remotelyTriggeredResourceRegistry.close(txCleanupMessage.txId());
 
                     NetworkMessage msg;
                     if (ex == null) {

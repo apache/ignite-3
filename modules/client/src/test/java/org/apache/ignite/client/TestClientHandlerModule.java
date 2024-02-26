@@ -30,7 +30,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -44,10 +43,13 @@ import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -55,8 +57,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -82,7 +82,7 @@ public class TestClientHandlerModule implements IgniteComponent {
     private final IgniteComputeInternal compute;
 
     /** Cluster id. */
-    private final UUID clusterId;
+    private final ClusterTag clusterTag;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -112,7 +112,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param responseDelay Response delay, in milliseconds.
      * @param clusterService Cluster service.
      * @param compute Compute.
-     * @param clusterId Cluster id.
+     * @param clusterTag Cluster tag.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
      * @param clock Clock.
@@ -126,7 +126,7 @@ public class TestClientHandlerModule implements IgniteComponent {
             @Nullable Function<Integer, Integer> responseDelay,
             ClusterService clusterService,
             IgniteComputeInternal compute,
-            UUID clusterId,
+            ClusterTag clusterTag,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             HybridClock clock,
@@ -142,7 +142,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.responseDelay = responseDelay;
         this.clusterService = clusterService;
         this.compute = compute;
-        this.clusterId = clusterId;
+        this.clusterTag = clusterTag;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clock = clock;
@@ -216,7 +216,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         compute,
                                         clusterService,
                                         ignite.sql(),
-                                        CompletableFuture.completedFuture(clusterId),
+                                        CompletableFuture.completedFuture(clusterTag),
                                         metrics,
                                         authenticationManager,
                                         clock,

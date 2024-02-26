@@ -61,6 +61,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -209,8 +210,13 @@ public class TypeUtils {
     }
 
     private static boolean hasConvertableFields(RelDataType resultType) {
-        return RelOptUtil.getFieldTypeList(resultType).stream()
-                .anyMatch(TypeUtils::isConvertableType);
+        for (RelDataTypeField field : resultType.getFieldList()) {
+            if (isConvertableType(field.getType())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -279,8 +285,7 @@ public class TypeUtils {
         } else if (storageType == LocalTime.class && val instanceof Integer) {
             return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(Long.valueOf((Integer) val)));
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
-            return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
-                    (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli((long) val), ZoneOffset.UTC);
         } else if (storageType == Instant.class && val instanceof Long) {
             return Instant.ofEpochMilli((long) val);
         } else if (storageType == Duration.class && val instanceof Long) {
@@ -412,8 +417,12 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.VARBINARY, varlen.length());
             }
             case BITMASK:
+                assert nativeType instanceof BitmaskNativeType;
+
+                var bitmask = (BitmaskNativeType) nativeType;
+
                 // TODO IGNITE-18431.
-                throw new AssertionError("BITMASK is not supported yet");
+                return factory.createSqlType(SqlTypeName.VARBINARY, bitmask.sizeInBytes());
             case NUMBER:
                 assert nativeType instanceof NumberNativeType;
 

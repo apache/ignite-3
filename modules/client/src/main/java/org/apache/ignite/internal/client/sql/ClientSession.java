@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlException;
@@ -55,6 +57,8 @@ public class ClientSession implements AbstractSession {
 
     private final ReliableChannel ch;
 
+    private final MarshallersProvider marshallers;
+
     @Nullable
     private final Integer defaultPageSize;
 
@@ -74,6 +78,7 @@ public class ClientSession implements AbstractSession {
      * Constructor.
      *
      * @param ch Channel.
+     * @param marshallers Marshallers provider.
      * @param defaultPageSize Default page size.
      * @param defaultSchema Default schema.
      * @param defaultQueryTimeout Default query timeout.
@@ -83,12 +88,14 @@ public class ClientSession implements AbstractSession {
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     ClientSession(
             ReliableChannel ch,
+            MarshallersProvider marshallers,
             @Nullable Integer defaultPageSize,
             @Nullable String defaultSchema,
             @Nullable Long defaultQueryTimeout,
             @Nullable Long defaultSessionTimeout,
             @Nullable Map<String, Object> properties) {
         this.ch = ch;
+        this.marshallers = marshallers;
         this.defaultPageSize = defaultPageSize;
         this.defaultSchema = defaultSchema;
         this.defaultQueryTimeout = defaultQueryTimeout;
@@ -165,7 +172,7 @@ public class ClientSession implements AbstractSession {
             w.out().packLong(ch.observableTimestamp());
         };
 
-        PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), r.in(), mapper);
+        PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), marshallers, r.in(), mapper);
 
         if (transaction != null) {
             try {
@@ -275,6 +282,13 @@ public class ClientSession implements AbstractSession {
     @Override
     public int defaultPageSize() {
         return defaultPageSize == null ? 0 : defaultPageSize;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ZoneId timeZoneId() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

@@ -39,6 +39,8 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -55,7 +57,7 @@ import org.openjdk.jmh.annotations.TearDown;
 @State(Scope.Benchmark)
 public class AbstractMultiNodeBenchmark {
     private static final int BASE_PORT = 3344;
-    private static final int BASE_CLIENT_PORT = 10800;
+    protected static final int BASE_CLIENT_PORT = 10800;
     private static final int BASE_REST_PORT = 10300;
 
     protected static final String FIELD_VAL = "a".repeat(100);
@@ -97,19 +99,36 @@ public class AbstractMultiNodeBenchmark {
     }
 
     protected void createTable(String tableName) {
-        var createTableStatement = "CREATE TABLE " + tableName + "(\n"
-                + "    ycsb_key int PRIMARY KEY,\n"
-                + "    field1   varchar(100),\n"
-                + "    field2   varchar(100),\n"
-                + "    field3   varchar(100),\n"
-                + "    field4   varchar(100),\n"
-                + "    field5   varchar(100),\n"
-                + "    field6   varchar(100),\n"
-                + "    field7   varchar(100),\n"
-                + "    field8   varchar(100),\n"
-                + "    field9   varchar(100),\n"
-                + "    field10  varchar(100)\n"
-                + ") WITH primary_zone='" + ZONE_NAME + "'";
+        createTable(tableName,
+                List.of(
+                        "ycsb_key int",
+                        "field1   varchar(100)",
+                        "field2   varchar(100)",
+                        "field3   varchar(100)",
+                        "field4   varchar(100)",
+                        "field5   varchar(100)",
+                        "field6   varchar(100)",
+                        "field7   varchar(100)",
+                        "field8   varchar(100)",
+                        "field9   varchar(100)",
+                        "field10  varchar(100)"
+                ),
+                List.of("ycsb_key"),
+                List.of()
+        );
+    }
+
+    protected static void createTable(String tableName, List<String> columns, List<String> primaryKeys, List<String> colocationKeys) {
+        var createTableStatement = "CREATE TABLE " + tableName + "(\n";
+
+        createTableStatement += String.join(",\n", columns);
+        createTableStatement += "\n, PRIMARY KEY (" + String.join(", ", primaryKeys) + ")\n)";
+
+        if (!colocationKeys.isEmpty()) {
+            createTableStatement += "\nCOLOCATE BY (" + String.join(", ", colocationKeys) + ")";
+        }
+
+        createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
 
         getAllFromCursor(
                 await(clusterNode.queryEngine().querySingleAsync(
@@ -118,6 +137,32 @@ public class AbstractMultiNodeBenchmark {
         );
     }
 
+    static void populateTable(String tableName, int size, int batchSize) {
+        RecordView<Tuple> view = clusterNode.tables().table(tableName).recordView();
+
+        Tuple payload = Tuple.create();
+        for (int j = 1; j <= 10; j++) {
+            payload.set("field" + j, FIELD_VAL);
+        }
+
+        batchSize = Math.min(size, batchSize);
+        List<Tuple> batch = new ArrayList<>(batchSize);
+        for (int i = 0; i < size; i++) {
+            batch.add(Tuple.create(payload).set("ycsb_key", i));
+
+            if (batch.size() == batchSize) {
+                view.insertAll(null, batch);
+
+                batch.clear();
+            }
+        }
+
+        if (!batch.isEmpty()) {
+            view.insertAll(null, batch);
+
+            batch.clear();
+        }
+    }
 
     /**
      * Stops the cluster.

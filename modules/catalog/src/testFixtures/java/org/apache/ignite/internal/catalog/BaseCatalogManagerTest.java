@@ -38,6 +38,8 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
@@ -60,8 +62,11 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
     protected static final String TABLE_NAME = "test_table";
+    protected static final String TABLE_NAME_2 = "test_table_2";
+    protected static final String TABLE_NAME_3 = "test_table_3";
 
     protected static final String INDEX_NAME = "myIndex";
+    protected static final String INDEX_NAME_2 = "myIndex2";
 
     final HybridClock clock = new HybridClockImpl();
 
@@ -142,9 +147,19 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             @Nullable List<String> indexColumns,
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
+        return createSortedIndexCommand(TABLE_NAME, indexName, unique, indexColumns, columnsCollations);
+    }
+
+    protected static CatalogCommand createSortedIndexCommand(
+            String tableName,
+            String indexName,
+            boolean unique,
+            @Nullable List<String> indexColumns,
+            @Nullable List<CatalogColumnCollation> columnsCollations
+    ) {
         return CreateSortedIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName(TABLE_NAME)
+                .tableName(tableName)
                 .indexName(indexName)
                 .unique(unique)
                 .columns(indexColumns)
@@ -206,5 +221,19 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static CatalogCommand startBuildingIndexCommand(int indexId) {
         return StartBuildingIndexCommand.builder().indexId(indexId).build();
+    }
+
+    protected static CatalogCommand dropTableCommand(String tableName) {
+        return DropTableCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .build();
+    }
+
+    protected static CatalogCommand dropIndexCommand(String indexName) {
+        return DropIndexCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .indexName(indexName)
+                .build();
     }
 }

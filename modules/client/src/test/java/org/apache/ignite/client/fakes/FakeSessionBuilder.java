@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -105,6 +106,12 @@ public class FakeSessionBuilder implements SessionBuilder {
         this.pageSize = pageSize;
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SessionBuilder timeZoneId(ZoneId timeZoneId) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

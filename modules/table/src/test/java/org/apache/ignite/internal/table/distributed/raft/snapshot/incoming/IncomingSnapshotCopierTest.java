@@ -61,6 +61,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -79,6 +80,7 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
@@ -91,6 +93,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -99,7 +102,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
@@ -130,7 +132,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             new Column[]{new Column("value", NativeTypes.stringOf(256), false)}
     );
 
-    private static final HybridClock HYBRID_CLOCK = new HybridClockImpl();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
 
@@ -314,11 +316,13 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                         incomingTxStateTableStorage,
                         mvGc,
                         mock(IndexUpdateHandler.class),
-                        mock(GcUpdateHandler.class)
+                        mock(GcUpdateHandler.class),
+                        mock(FullStateTransferIndexChooser.class)
                 )),
                 catalogService,
                 mock(SnapshotMeta.class),
-                executorService
+                executorService,
+                0
         );
     }
 
@@ -335,10 +339,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             for (int i = 0; i < rowIds.size(); i++) {
                 if (i % 2 == 0) {
                     // Writes committed version.
-                    storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), HYBRID_CLOCK.now());
+                    storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), CLOCK.now());
                 } else {
                     // Writes an intent to write (uncommitted version).
-                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), UUID.randomUUID(), 999, TEST_PARTITION);
+                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), generateTxId(), 999, TEST_PARTITION);
                 }
             }
 
@@ -358,12 +362,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     ) {
         assertEquals(0, txIds.size() % 2, "size=" + txIds.size());
 
-        int tableId = 2;
-
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
+            storage.put(txIds.get(i), new TxMeta(txState, CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -418,7 +420,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private static BinaryRow createRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR)
+        return new RowAssembler(SCHEMA_DESCRIPTOR, -1)
                 .appendStringNotNull(key)
                 .appendStringNotNull(value)
                 .build();
@@ -565,7 +567,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             return null;
         }).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -609,7 +611,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         // Let's add an error on the rebalance.
         doThrow(StorageException.class).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -637,7 +639,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
                 partitionSnapshotStorage,
-                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME))
+                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME)),
+                0
         );
 
         Thread anotherThread = new Thread(copier::cancel);
@@ -658,10 +661,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private static List<UUID> generateTxIds() {
         return List.of(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID()
+                generateTxId(),
+                generateTxId(),
+                generateTxId(),
+                generateTxId()
         );
     }
 
@@ -682,8 +685,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         MessagingService messagingService = mock(MessagingService.class);
 
+        int leaderCatalogVersion = 42;
+        when(catalogService.catalogReadyFuture(leaderCatalogVersion)).thenReturn(new CompletableFuture<>());
         when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong()))
-                .thenReturn(completedFuture(snapshotMetaResponse(42)));
+                .thenReturn(completedFuture(snapshotMetaResponse(leaderCatalogVersion)));
 
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
@@ -697,7 +702,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 mock(SnapshotCopierOptions.class)
         );
 
-        assertThat(runAsync(snapshotCopier::join), willSucceedIn(1, TimeUnit.SECONDS));
+        assertThat(runAsync(snapshotCopier::join), willSucceedIn(10, TimeUnit.SECONDS));
 
         assertEquals(RaftError.EBUSY.getNumber(), snapshotCopier.getCode());
 
@@ -728,5 +733,9 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         assertFalse(incomingMvPartitionStorage.scan(HybridTimestamp.MAX_VALUE).hasNext());
         assertFalse(incomingTxStatePartitionStorage.scan().hasNext());
+    }
+
+    private static UUID generateTxId() {
+        return TransactionIds.transactionId(CLOCK.now(), 1);
     }
 }

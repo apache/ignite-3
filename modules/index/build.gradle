@@ -37,6 +37,7 @@ dependencies {
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-replicator')
+    implementation project(':ignite-cluster-management')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
@@ -47,6 +48,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation project(':ignite-placement-driver')
     testImplementation project(':ignite-replicator')
+    testImplementation project(':ignite-cluster-management')
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
@@ -60,6 +62,7 @@ dependencies {
     integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))

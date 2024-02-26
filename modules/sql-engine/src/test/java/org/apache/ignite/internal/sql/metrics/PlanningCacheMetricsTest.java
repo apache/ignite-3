@@ -24,17 +24,18 @@ import java.util.Collections;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
@@ -47,8 +48,9 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
     @Test
     public void plannerCacheStatisticsTest() throws Exception {
         MetricManager metricManager = new MetricManager();
-        PrepareService prepareService = new PrepareServiceImpl("test", 2, CaffeineCacheFactory.INSTANCE,
-                null, 15_000L, 2, metricManager);
+        // Run clean up tasks in the current thread, so no eviction event is delayed.
+        CacheFactory cacheFactory = CaffeineCacheFactory.create(Runnable::run);
+        PrepareService prepareService = new PrepareServiceImpl("test", 2, cacheFactory, null, 15_000L, 2, metricManager);
 
         prepareService.start();
 
@@ -75,7 +77,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
     }
 
     private void checkCachePlanStatistics(String qry, PrepareService prepareService, MetricSet metricSet, int hits, int misses) {
-        TestTable table = TestBuilders.table()
+        IgniteTable table = TestBuilders.table()
                 .name("T")
                 .addColumn("A", NativeTypes.INT32, false)
                 .addColumn("B", NativeTypes.INT32, false)

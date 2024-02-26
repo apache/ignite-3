@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * QueryStartRequest interface.
@@ -54,4 +54,9 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      * Return last schema version, just a stub, need to be removed after IGNITE-20633.
      */
     int schemaVersion();
+
+    /**
+     * Session time zone ID.
+     */
+    String timeZoneId();
 }

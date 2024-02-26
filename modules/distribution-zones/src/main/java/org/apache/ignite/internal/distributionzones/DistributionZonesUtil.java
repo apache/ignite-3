@@ -33,8 +33,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 
-import com.jayway.jsonpath.InvalidPathException;
+import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.Option;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
@@ -459,26 +460,6 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Check if a passed filter is a valid {@link JsonPath} query.
-     *
-     * @param filter Filter.
-     * @return {@code null} if the passed filter is a valid filter, string with the error message otherwise.
-     */
-    public static @Nullable String validate(String filter) {
-        try {
-            JsonPath.compile(filter);
-        } catch (InvalidPathException e) {
-            if (e.getMessage() != null) {
-                return e.getMessage();
-            } else {
-                return "Unknown JsonPath compilation error.";
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Check if {@code nodeAttributes} satisfy the {@code filter}.
      *
      * <p>Some examples:
@@ -521,7 +502,11 @@ public class DistributionZonesUtil {
                                 })
                 );
 
-        List<Map<String, Object>> res = JsonPath.read(convertedAttributes, filter);
+        Configuration jsonPathCfg = new Configuration.ConfigurationBuilder()
+                .options(Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST)
+                .build();
+
+        List<Map<String, Object>> res = JsonPath.using(jsonPathCfg).parse(convertedAttributes).read(filter);
 
         return !res.isEmpty();
     }

@@ -75,30 +75,22 @@ public final class RowId implements Serializable, Comparable<RowId> {
         this.uuid = uuid;
     }
 
-    /**
-     * Returns a partition ID for current row ID.
-     */
+    /** Returns a partition ID for current row ID. */
     public int partitionId() {
         return partitionId & 0xFFFF;
     }
 
-    /**
-     * Returns the most significant 64 bits of row ID's UUID.
-     */
+    /** Returns the most significant 64 bits of row ID's UUID.*/
     public long mostSignificantBits() {
         return uuid.getMostSignificantBits();
     }
 
-    /**
-     * Returns the least significant 64 bits of row ID's UUID.
-     */
+    /** Returns the least significant 64 bits of row ID's UUID. */
     public long leastSignificantBits() {
         return uuid.getLeastSignificantBits();
     }
 
-    /**
-     * Returns the UUID equivalent of {@link #mostSignificantBits()} and {@link #leastSignificantBits()}.
-     */
+    /** Returns the UUID equivalent of {@link #mostSignificantBits()} and {@link #leastSignificantBits()}. */
     public UUID uuid() {
         return uuid;
     }
@@ -115,11 +107,8 @@ public final class RowId implements Serializable, Comparable<RowId> {
 
         RowId rowId = (RowId) o;
 
-        if (partitionId != rowId.partitionId) {
-            return false;
-        }
+        return partitionId == rowId.partitionId && uuid.equals(rowId.uuid);
 
-        return uuid.equals(rowId.uuid);
     }
 
     @Override
@@ -140,9 +129,7 @@ public final class RowId implements Serializable, Comparable<RowId> {
         return uuid.compareTo(rowId.uuid);
     }
 
-    /**
-     * Returns the next row ID withing a single partition, or {@code null} if current row ID already has maximal possible value.
-     */
+    /** Returns the next row ID withing a single partition, or {@code null} if current row ID already has maximal possible value. */
     public @Nullable RowId increment() {
         long lsb = uuid.getLeastSignificantBits() + 1;
 

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -237,6 +238,13 @@ public class FakeSession implements AbstractSession {
     @Override
     public int defaultPageSize() {
         return defaultPageSize;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ZoneId timeZoneId() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

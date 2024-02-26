@@ -38,7 +38,10 @@ public:
      *
      * @return String to version map.
      */
-    static const version_set &get_supported() { return m_supported; }
+    static const version_set &get_supported() {
+        static protocol_version::version_set supported{protocol_version::VERSION_3_0_0};
+        return supported;
+    }
 
     /**
      * Get current version.
@@ -106,7 +109,7 @@ public:
      *
      * @return True if the version is supported.
      */
-    [[nodiscard]] bool is_supported() const { return m_supported.count(*this) != 0; }
+    [[nodiscard]] bool is_supported() const { return get_supported().count(*this) != 0; }
 
     /**
      * compare to another value.
@@ -117,9 +120,6 @@ public:
     [[nodiscard]] std::int32_t compare(const protocol_version &other) const;
 
 private:
-    /** Set of supported versions. */
-    const static version_set m_supported;
-
     /** Major part. */
     std::int16_t m_major{0};
 

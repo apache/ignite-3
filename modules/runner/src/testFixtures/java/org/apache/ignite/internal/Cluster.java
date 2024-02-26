@@ -54,12 +54,12 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -82,9 +82,9 @@ public class Cluster {
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
-    private static final int BASE_CLIENT_PORT = 10800;
+    public static final int BASE_CLIENT_PORT = 10800;
 
-    private static final int BASE_HTTP_PORT = 10300;
+    public static final int BASE_HTTP_PORT = 10300;
 
     private static final int BASE_HTTPS_PORT = 10400;
 

@@ -56,8 +56,15 @@ public class FileDeployerService {
     private Path unitsFolder;
 
 
-    private final ExecutorService executor = Executors.newFixedThreadPool(
-            DEPLOYMENT_EXECUTOR_SIZE, new NamedThreadFactory("deployment", LOG));
+    private final ExecutorService executor;
+
+    /** Constructor. */
+    public FileDeployerService(String nodeName) {
+        executor = Executors.newFixedThreadPool(
+                DEPLOYMENT_EXECUTOR_SIZE,
+                NamedThreadFactory.create(nodeName, "deployment", LOG)
+        );
+    }
 
     public void initUnitsFolder(Path unitsFolder) {
         this.unitsFolder = unitsFolder;

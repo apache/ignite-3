@@ -20,13 +20,13 @@ package org.apache.ignite.internal.raft.server;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.jetbrains.annotations.TestOnly;
 

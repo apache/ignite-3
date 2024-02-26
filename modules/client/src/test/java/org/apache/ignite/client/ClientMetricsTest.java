@@ -42,6 +42,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -228,12 +229,12 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().build();
 
         assertEquals(15, metrics().bytesSent());
-        assertEquals(50, metrics().bytesReceived());
+        assertEquals(76, metrics().bytesReceived());
 
         client.tables().tables();
 
         assertEquals(21, metrics().bytesSent());
-        assertEquals(71, metrics().bytesReceived());
+        assertEquals(97, metrics().bytesReceived());
     }
 
     @Test
@@ -244,11 +245,11 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         Table table = oneColumnTable();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), 1)) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>(ForkJoinPool.commonPool(), 1)) {
             streamerFut = table.recordView().streamData(publisher, null);
 
-            publisher.submit(Tuple.create().set("ID", "1"));
-            publisher.submit(Tuple.create().set("ID", "2"));
+            publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", "1")));
+            publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", "2")));
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> metrics().streamerItemsQueued() == 2, 1000));
             assertEquals(0, metrics().streamerItemsSent());
@@ -259,7 +260,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         streamerFut.orTimeout(3, TimeUnit.SECONDS).join();
 
         assertEquals(2, metrics().streamerItemsSent());
-        assertEquals(1, metrics().streamerBatchesSent());
+        assertEquals(2, metrics().streamerBatchesSent());
         assertEquals(0, metrics().streamerBatchesActive());
         assertEquals(0, metrics().streamerItemsQueued());
     }

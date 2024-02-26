@@ -19,9 +19,9 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Multiple row replica request involving table's Primary Keys.

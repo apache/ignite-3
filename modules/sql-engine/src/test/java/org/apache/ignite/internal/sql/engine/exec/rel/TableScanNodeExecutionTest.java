@@ -29,6 +29,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
@@ -42,6 +43,9 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -50,7 +54,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
@@ -62,19 +66,18 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.apache.ignite.network.TopologyService;
@@ -106,8 +109,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
-        List<PartitionWithTerm> partsWithTerms = IntStream.range(0, TestInternalTableImpl.PART_CNT)
-                .mapToObj(p -> new PartitionWithTerm(p, -1L))
+        List<PartitionWithConsistencyToken> partsWithConsistencyTokens = IntStream.range(0, TestInternalTableImpl.PART_CNT)
+                .mapToObj(p -> new PartitionWithConsistencyToken(p, -1L))
                 .collect(Collectors.toList());
 
         int probingCnt = 50;
@@ -149,7 +152,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TransactionIdGenerator(0xdeadbeef),
                     new TestPlacementDriver(leaseholder, leaseholder),
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                    new TestLocalRwTxCounter()
+                    new TestLocalRwTxCounter(),
+                    new RemotelyTriggeredResourceRegistry()
             );
 
             txManager.start();
@@ -171,7 +175,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             };
             ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
-                    partsWithTerms, null, null, null);
+                    partsWithConsistencyTokens, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 
@@ -185,7 +189,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             }
 
             internalTable.scanComplete.await();
-            assertEquals(sizes[i++] * partsWithTerms.size(), cnt);
+            assertEquals(sizes[i++] * partsWithConsistencyTokens.size(), cnt);
         }
     }
 
@@ -214,7 +218,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             super(
                     "test",
                     1,
-                    Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
                     new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,
@@ -223,7 +226,13 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     replicaSvc,
                     mock(HybridClock.class),
                     timestampTracker,
-                    mock(PlacementDriver.class)
+                    mock(PlacementDriver.class),
+                    new TableRaftServiceImpl(
+                            "test",
+                            PART_CNT,
+                            Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
+                            new SingleClusterNodeResolver(mock(ClusterNode.class))
+                    )
             );
             this.dataAmount = dataAmount;
 
@@ -233,13 +242,15 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         @Override
         public Publisher<BinaryRow> scan(
                 int partId,
+                UUID txId,
                 HybridTimestamp readTime,
                 ClusterNode recipient,
                 @Nullable Integer indexId,
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,
-                @Nullable BitSet columnsToInclude
+                @Nullable BitSet columnsToInclude,
+                String txCoordinatorId
         ) {
             return s -> {
                 s.onSubscribe(new Subscription() {

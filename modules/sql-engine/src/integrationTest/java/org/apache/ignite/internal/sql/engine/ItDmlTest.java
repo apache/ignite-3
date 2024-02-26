@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,6 +46,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -496,12 +500,12 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     public void testInsertDefaultValue() {
         checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
-        checkWrongDefault("VARCHAR", "10");
+        checkWrongDefault("VARCHAR(1)", "10");
         checkWrongDefault("INT", "'10'");
         checkWrongDefault("INT", "TRUE");
         checkWrongDefault("DATE", "10");
         checkWrongDefault("DATE", "TIME '01:01:01'");
-        checkWrongDefault("TIME", "TIMESTAMP '2021-01-01 01:01:01'");
+        checkWrongDefault("TIMESTAMP", "TIME '01:01:01'");
         checkWrongDefault("BOOLEAN", "1");
 
         // TODO: IGNITE-17373
@@ -579,7 +583,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         try {
             assertThrowsSqlException(
                     Sql.STMT_VALIDATION_ERR,
-                    "Unable convert literal",
+                    "Invalid default value for column 'VAL'",
                     () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val " + sqlType + " DEFAULT " + sqlVal + ")")
             );
         } finally {
@@ -705,6 +709,86 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             sql("DROP TABLE " + type);
             sql("DROP TABLE T_HELPER");
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "id1,id2; id1",
+            "id1,id2; id2",
+            "id1,id2; id1,id2",
+            "id1,id2; id2,id1",
+            "id2,id1; id1",
+            "id2,id1; id2",
+            "id2,id1; id1,id2",
+            "id2,id1; id2,id1",
+    }, delimiter = ';')
+    void insertGetDeleteComplexKey(String pkDefinition, String colocateByDefinition) {
+        sql(format(
+                "CREATE TABLE test1 (id1 INT, id2 INT, val INT, PRIMARY KEY ({})) COLOCATE BY ({})",
+                pkDefinition, colocateByDefinition
+        ));
+        sql(format(
+                "CREATE TABLE test2 (id1 INT, id2 INT, val INT, PRIMARY KEY ({})) COLOCATE BY ({})",
+                pkDefinition, colocateByDefinition
+        ));
+
+        int tableSize = 10;
+
+        // kv put
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("INSERT INTO test1 VALUES (?, ?, ?)")
+                    .withParams(i, i, i)
+                    .matches(containsSubPlan("IgniteKeyValueModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        // multistep insert
+        assertQuery("INSERT INTO test2 SELECT * FROM test1")
+                .matches(containsSubPlan("IgniteTableModify"))
+                .returns((long) tableSize)
+                .check();
+
+        // multistep get
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("SELECT * FROM test2 WHERE id1=?")
+                    .matches(containsTableScan("PUBLIC", "TEST2"))
+                    .withParams(i)
+                    .returns(i, i, i)
+                    .check();
+        }
+
+        // multistep delete
+        assertQuery("DELETE FROM test2")
+                .matches(containsSubPlan("IgniteTableModify"))
+                .returns((long) tableSize)
+                .check();
+
+        // kv get
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("SELECT * FROM test1 WHERE id1=? AND id2=?")
+                    .withParams(i, i)
+                    .matches(containsSubPlan("IgniteKeyValueGet"))
+                    .returns(i, i, i)
+                    .check();
+        }
+
+        // although it's basically kv delete, such optimization is not supported
+        // at the moment, thus expected plan should contain IgniteTableModify
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("DELETE FROM test1 WHERE id1=? AND id2=?")
+                    .withParams(i, i)
+                    .matches(containsSubPlan("IgniteTableModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        assertQuery("SELECT count(*) FROM test1")
+                .returns(0L)
+                .check();
+        assertQuery("SELECT count(*) FROM test2")
+                .returns(0L)
+                .check();
     }
 
     private static Stream<Arguments> decimalLimits() {

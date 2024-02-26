@@ -67,6 +67,9 @@ public final class IgniteSystemProperties {
      */
     public static final String IGNITE_TO_STRING_MAX_LENGTH = "IGNITE_TO_STRING_MAX_LENGTH";
 
+    /** Name of the property controlling whether thread assertions are enabled. */
+    public static final String THREAD_ASSERTIONS_ENABLED = "IGNITE_THREAD_ASSERTIONS_ENABLED";
+
     /**
      * Enforces singleton.
      */

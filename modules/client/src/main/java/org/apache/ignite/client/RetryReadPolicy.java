@@ -55,8 +55,10 @@ public class RetryReadPolicy extends RetryLimitPolicy {
             case TUPLE_GET_AND_UPSERT:
             case TUPLE_UPSERT_ALL:
             case SQL_EXECUTE:
+            case SQL_EXECUTE_BATCH:
             case SQL_CURSOR_NEXT_PAGE:
             case SQL_EXECUTE_SCRIPT:
+            case STREAMER_BATCH_SEND:
                 return false;
 
             default:

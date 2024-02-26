@@ -30,7 +30,6 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
 import java.net.InetSocketAddress;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,6 +39,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -48,6 +48,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
@@ -57,8 +59,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -87,7 +87,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final IgniteSql sql;
 
     /** Cluster ID supplier. */
-    private final Supplier<CompletableFuture<UUID>> clusterIdSupplier;
+    private final Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -140,7 +140,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param clusterService Cluster.
      * @param bootstrapFactory Bootstrap factory.
      * @param sql SQL.
-     * @param clusterIdSupplier ClusterId supplier.
+     * @param clusterTagSupplier ClusterTag supplier.
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
      * @param clock Hybrid clock.
@@ -154,7 +154,7 @@ public class ClientHandlerModule implements IgniteComponent {
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,
-            Supplier<CompletableFuture<UUID>> clusterIdSupplier,
+            Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier,
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
@@ -170,7 +170,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert clusterService != null;
         assert bootstrapFactory != null;
         assert sql != null;
-        assert clusterIdSupplier != null;
+        assert clusterTagSupplier != null;
         assert metricManager != null;
         assert metrics != null;
         assert authenticationManager != null;
@@ -187,7 +187,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.sql = sql;
-        this.clusterIdSupplier = clusterIdSupplier;
+        this.clusterTagSupplier = clusterTagSupplier;
         this.metricManager = metricManager;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
@@ -259,7 +259,7 @@ public class ClientHandlerModule implements IgniteComponent {
      */
     private CompletableFuture<Channel> startEndpoint(ClientConnectorView configuration) {
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
-        CompletableFuture<UUID> clusterId = clusterIdSupplier.get();
+        CompletableFuture<ClusterTag> clusterTag = clusterTagSupplier.get();
         CompletableFuture<Channel> result = new CompletableFuture<>();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
@@ -294,7 +294,7 @@ public class ClientHandlerModule implements IgniteComponent {
                             }
 
                             ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
-                                    configuration, clusterId, connectionId);
+                                    configuration, clusterTag, connectionId);
 
                             //noinspection TestOnlyProblems
                             handler = messageHandler;
@@ -346,7 +346,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private ClientInboundMessageHandler createInboundMessageHandler(
             ClientConnectorView configuration,
-            CompletableFuture<UUID> clusterId,
+            CompletableFuture<ClusterTag> clusterTag,
             long connectionId) {
         return new ClientInboundMessageHandler(
                 igniteTables,
@@ -356,7 +356,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 igniteCompute,
                 clusterService,
                 sql,
-                clusterId,
+                clusterTag,
                 metrics,
                 authenticationManager,
                 clock,

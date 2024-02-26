@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "nuget"
+    directory: "/modules/platforms/dotnet"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 5

@@ -20,13 +20,17 @@ package org.apache.ignite.internal.compute;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
+import org.apache.ignite.internal.compute.message.JobCancelRequest;
+import org.apache.ignite.internal.compute.message.JobCancelResponse;
 import org.apache.ignite.internal.compute.message.JobChangePriorityRequest;
 import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.compute.message.JobStatusesRequest;
+import org.apache.ignite.internal.compute.message.JobStatusesResponse;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Message types for the Compute module.
@@ -71,4 +75,10 @@ public class ComputeMessageTypes {
 
     /** Type for {@link JobChangePriorityResponse}. */
     public static final short JOB_CHANGE_PRIORITY_RESPONSE = 10;
+
+    /** Type for {@link JobStatusesRequest}. */
+    public static final short JOB_STATUSES_REQUEST = 11;
+
+    /** Type for {@link JobStatusesResponse}. */
+    public static final short JOB_STATUSES_RESPONSE = 12;
 }

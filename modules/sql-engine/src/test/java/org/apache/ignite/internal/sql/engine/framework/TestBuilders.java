@@ -27,6 +27,7 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -37,13 +38,17 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
@@ -59,11 +64,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -78,6 +84,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
@@ -85,6 +92,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -96,6 +105,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -116,6 +126,8 @@ import org.jetbrains.annotations.Nullable;
  * A collection of builders to create test objects.
  */
 public class TestBuilders {
+    private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
+
     /** Returns a builder of the test cluster object. */
     public static ClusterBuilder cluster() {
         return new ClusterBuilderImpl();
@@ -143,8 +155,12 @@ public class TestBuilders {
     public static ScannableTable tableScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
 
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
@@ -158,15 +174,21 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
         };
@@ -179,13 +201,17 @@ public class TestBuilders {
     public static ScannableTable indexRangeScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
@@ -200,8 +226,14 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
         };
@@ -214,20 +246,24 @@ public class TestBuilders {
     public static ScannableTable indexLookup(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns) {
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
                     @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
@@ -238,6 +274,12 @@ public class TestBuilders {
                         ),
                         rowFactory::create
                 );
+            }
+
+            @Override
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
             }
         };
     }
@@ -303,8 +345,6 @@ public class TestBuilders {
 
     /**
      * A builder to create a test table object.
-     *
-     * @see TestTable
      */
     public interface TableBuilder extends TableBuilderBase<TableBuilder> {
         /** Returns a builder of the test sorted-index object. */
@@ -322,12 +362,15 @@ public class TestBuilders {
         /** Sets id for the table. The caller must guarantee that provided id is unique. */
         TableBuilder tableId(int id);
 
+        /** Sets the number of partitions fot this table. Default value is equal to {@link CatalogUtils#DEFAULT_PARTITION_COUNT}. */
+        TableBuilder partitions(int num);
+
         /**
          * Builds a table.
          *
          * @return Created table object.
          */
-        TestTable build();
+        IgniteTable build();
     }
 
     /**
@@ -349,7 +392,6 @@ public class TestBuilders {
     /**
      * A builder to create a test table as nested object of the cluster.
      *
-     * @see TestTable
      * @see TestCluster
      */
     public interface ClusterTableBuilder extends TableBuilderBase<ClusterTableBuilder>,
@@ -466,7 +508,8 @@ public class TestBuilders {
                     description,
                     ArrayRowHandler.INSTANCE,
                     Map.of(),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name()))
+                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
+                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
             );
         }
     }
@@ -524,8 +567,7 @@ public class TestBuilders {
 
             var clusterName = "test_cluster";
 
-            CatalogManagerImpl catalogManager = (CatalogManagerImpl)
-                    CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, new HybridClockImpl());
+            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, new HybridClockImpl());
 
             var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
@@ -574,8 +616,20 @@ public class TestBuilders {
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
-                        var targetProvider = new TestNodeExecutionTargetProvider(systemViewManager::owningNodes, owningNodesByTableName);
-                        var mappingService = new MappingServiceImpl(name, targetProvider, EmptyCacheFactory.INSTANCE, 0, Runnable::run);
+                        var targetProvider = new TestNodeExecutionTargetProvider(
+                                systemViewManager::owningNodes,
+                                owningNodesByTableName,
+                                false
+                        );
+                        var partitionPruner = new PartitionPrunerImpl();
+                        var mappingService = new MappingServiceImpl(
+                                name,
+                                targetProvider,
+                                EmptyCacheFactory.INSTANCE,
+                                0,
+                                partitionPruner,
+                                Runnable::run
+                        );
 
                         systemViewManager.register(() -> systemViews);
 
@@ -673,6 +727,7 @@ public class TestBuilders {
         private IgniteDistribution distribution;
         private int size = 100_000;
         private Integer tableId;
+        private int partitions = CatalogUtils.DEFAULT_PARTITION_COUNT;
 
         /** {@inheritDoc} */
         @Override
@@ -706,7 +761,7 @@ public class TestBuilders {
         @Override
         public TableBuilder addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return this;
@@ -725,7 +780,7 @@ public class TestBuilders {
                 return addColumn(name, type);
             } else {
                 ColumnDescriptorImpl desc = new ColumnDescriptorImpl(
-                        name, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
+                        name, false, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
                 );
                 columns.add(desc);
             }
@@ -737,7 +792,7 @@ public class TestBuilders {
         @Override
         public TableBuilder addKeyColumn(String name, NativeType type) {
             columns.add(new ColumnDescriptorImpl(
-                    name, true, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, true, false, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return this;
@@ -761,7 +816,14 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public TestTable build() {
+        public TableBuilder partitions(int num) {
+            this.partitions = num;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IgniteTable build() {
             if (distribution == null) {
                 throw new IllegalArgumentException("Distribution is not specified");
             }
@@ -776,18 +838,41 @@ public class TestBuilders {
 
             TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
-            List<IgniteIndex> indexes = indexBuilders.stream()
+            Map<String, IgniteIndex> indexes = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity()));
 
-            return new TestTable(
-                    tableId != null ? tableId : TestTable.ID.incrementAndGet(),
-                    tableDescriptor,
+            return new IgniteTableImpl(
                     Objects.requireNonNull(name),
-                    size,
-                    indexes
+                    tableId != null ? tableId : TABLE_ID_GEN.incrementAndGet(),
+                    1,
+                    tableDescriptor,
+                    findPrimaryKey(tableDescriptor, indexes.values()),
+                    new TestStatistic(size),
+                    indexes,
+                    partitions
             );
         }
+    }
+
+    private static ImmutableIntList findPrimaryKey(TableDescriptor descriptor, Collection<IgniteIndex> indexList) {
+        IgniteIndex primaryKey = indexList.stream()
+                .filter(IgniteIndex::primaryKey)
+                .findFirst()
+                .orElse(null);
+
+        if (primaryKey != null) {
+            return primaryKey.collation().getKeys();
+        }
+
+        List<Integer> list = new ArrayList<>();
+        for (ColumnDescriptor column : descriptor) {
+            if (column.key()) {
+                list.add(column.logicalIndex());
+            }
+        }
+
+        return ImmutableIntList.copyOf(list);
     }
 
     private static class ClusterTableBuilderImpl implements ClusterTableBuilder {
@@ -1208,6 +1293,11 @@ public class TestBuilders {
                 public TableDescriptor tableDescriptor() {
                     return table.descriptor();
                 }
+
+                @Override
+                public Supplier<PartitionCalculator> partitionCalculator() {
+                    throw new UnsupportedOperationException();
+                }
             });
         }
     }
@@ -1295,6 +1385,8 @@ public class TestBuilders {
 
         private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
 
+        private boolean useTablePartitions;
+
         private ExecutionTargetProviderBuilder() {
 
         }
@@ -1314,9 +1406,19 @@ public class TestBuilders {
             return this;
         }
 
+        /** Use table partitions to build mapping targets. Default is {@code false}. */
+        public ExecutionTargetProviderBuilder useTablePartitions(boolean value) {
+            useTablePartitions = value;
+            return this;
+        }
+
         /** Creates an instance of {@link ExecutionTargetProvider}. */
         public ExecutionTargetProvider build() {
-            return new TestNodeExecutionTargetProvider(owningNodesBySystemViewName, Map.copyOf(owningNodesByTableName));
+            return new TestNodeExecutionTargetProvider(
+                    owningNodesBySystemViewName,
+                    Map.copyOf(owningNodesByTableName),
+                    useTablePartitions
+            );
         }
     }
 
@@ -1326,12 +1428,16 @@ public class TestBuilders {
 
         final Map<String, List<String>> owningNodesByTableName;
 
+        final boolean useTablePartitions;
+
         private TestNodeExecutionTargetProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
-                Map<String, List<String>> owningNodesByTableName) {
-
+                Map<String, List<String>> owningNodesByTableName,
+                boolean useTablePartitions
+        ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
             this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
+            this.useTablePartitions = useTablePartitions;
         }
 
         @Override
@@ -1342,9 +1448,22 @@ public class TestBuilders {
                 throw new AssertionError("DataProvider is not configured for table " + table.name());
             }
 
-            ExecutionTarget target = factory.partitioned(owningNodes.stream()
-                    .map(name -> new NodeWithTerm(name, 1))
-                    .collect(Collectors.toList()));
+            List<NodeWithConsistencyToken> nodes;
+
+            if (useTablePartitions) {
+                int p = table.partitions();
+
+                nodes = IntStream.range(0, p).mapToObj(n -> {
+                    String nodeName = owningNodes.get(n % owningNodes.size());
+                    return new NodeWithConsistencyToken(nodeName, p);
+                }).collect(Collectors.toList());
+            } else {
+                nodes = owningNodes.stream()
+                        .map(name -> new NodeWithConsistencyToken(name, 1))
+                        .collect(Collectors.toList());
+            }
+
+            ExecutionTarget target = factory.partitioned(nodes);
 
             return CompletableFuture.completedFuture(target);
         }

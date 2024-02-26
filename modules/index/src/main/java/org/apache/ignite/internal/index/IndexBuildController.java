@@ -19,9 +19,10 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -36,11 +37,12 @@ import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -53,7 +55,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -62,7 +63,7 @@ import org.apache.ignite.network.ClusterService;
  * {@link TablePartitionId#tableId()}): </p>
  * <ul>
  *     <li>{@link CatalogEvent#INDEX_BUILDING} - starts building indexes for the corresponding local primary replicas.</li>
- *     <li>{@link CatalogEvent#INDEX_DROP} - stops building indexes for the corresponding local primary replicas.</li>
+ *     <li>{@link CatalogEvent#INDEX_REMOVED} - stops building indexes for the corresponding local primary replicas.</li>
  *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - for a new local primary replica, starts the building of all corresponding
  *     indexes, for an expired primary replica, stops the building of all corresponding indexes.</li>
  * </ul>
@@ -72,8 +73,6 @@ import org.apache.ignite.network.ClusterService;
  * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
 class IndexBuildController implements ManuallyCloseable {
-    private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
-
     private final IndexBuilder indexBuilder;
 
     private final IndexManager indexManager;
@@ -123,27 +122,15 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_BUILDING, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onIndexBuilding(((StartBuildingIndexEventParameters) parameters)).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_BUILDING, (StartBuildingIndexEventParameters parameters) -> {
+            return onIndexBuilding(parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onIndexDrop(((DropIndexEventParameters) parameters)).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, (RemoveIndexEventParameters parameters) -> {
+            return onIndexRemoved(parameters).thenApply(unused -> false);
         });
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters -> {
             return onPrimaryReplicaElected(parameters).thenApply(unused -> false);
         });
     }
@@ -174,7 +161,7 @@ class IndexBuildController implements ManuallyCloseable {
         });
     }
 
-    private CompletableFuture<?> onIndexDrop(DropIndexEventParameters parameters) {
+    private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             indexBuilder.stopBuildingIndexes(parameters.indexId());
 
@@ -186,7 +173,7 @@ class IndexBuildController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
 
-            if (isLocalNode(parameters.leaseholderId())) {
+            if (isLocalNode(clusterService, parameters.leaseholderId())) {
                 primaryReplicaIds.add(primaryReplicaId);
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
@@ -311,16 +298,13 @@ class IndexBuildController implements ManuallyCloseable {
                 indexStorage,
                 mvPartition,
                 localNode(),
-                enlistmentConsistencyToken
+                enlistmentConsistencyToken,
+                indexDescriptor.txWaitCatalogVersion()
         );
     }
 
-    private boolean isLocalNode(String nodeId) {
-        return nodeId.equals(localNode().id());
-    }
-
     private ClusterNode localNode() {
-        return clusterService.topologyService().localMember();
+        return IndexManagementUtils.localNode(clusterService);
     }
 
     private boolean isLeaseExpire(ReplicaMeta replicaMeta) {

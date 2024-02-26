@@ -73,6 +73,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
@@ -97,14 +98,14 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundExc
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -130,6 +131,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Mock(answer = RETURNS_DEEP_STUBS)
     private TopologyService topologyService;
+
+    @Mock
+    private LogicalTopologyService logicalTopologyService;
 
     @InjectConfiguration
     private ComputeConfiguration computeConfiguration;
@@ -201,8 +205,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration);
 
         computeComponent = new ComputeComponentImpl(
+                INSTANCE_NAME,
                 messagingService,
                 topologyService,
+                logicalTopologyService,
                 jobContextManager,
                 computeExecutor,
                 computeConfiguration
@@ -703,8 +709,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully());
 
         computeComponent = new ComputeComponentImpl(
+                INSTANCE_NAME,
                 messagingService,
                 topologyService,
+                logicalTopologyService,
                 jobContextManager,
                 computeExecutor,
                 computeConfiguration

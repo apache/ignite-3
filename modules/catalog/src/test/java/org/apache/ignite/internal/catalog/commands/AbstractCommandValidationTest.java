@@ -18,18 +18,26 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -67,7 +75,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog emptyCatalog() {
-        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
+        return catalog(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithTable(String name) {
@@ -92,15 +100,16 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
     static Catalog catalogWithZones(String zone1, String zone2) {
         return catalog(
-                List.of(createZoneCommand(zone1), createZoneCommand(zone2))
+                createZoneCommand(zone1),
+                createZoneCommand(zone2)
         );
     }
 
     static Catalog catalogWithIndex(String name) {
-        return catalog(List.of(
+        return catalog(
                 createTableCommand(TABLE_NAME),
                 createIndexCommand(TABLE_NAME, name)
-        ));
+        );
     }
 
     static CatalogCommand createIndexCommand(String tableName, String indexName) {
@@ -135,13 +144,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    static Catalog catalog(CatalogCommand commandToApply) {
-        return catalog(List.of(commandToApply));
-    }
-
-    static Catalog catalog(List<CatalogCommand> commandsToApply) {
-        Catalog catalog = emptyCatalog();
-
+    static Catalog applyCommandsToCatalog(Catalog catalog, CatalogCommand... commandsToApply) {
         for (CatalogCommand command : commandsToApply) {
             for (UpdateEntry updates : command.get(catalog)) {
                 catalog = updates.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
@@ -151,13 +154,18 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return catalog;
     }
 
+    static Catalog catalog(CatalogCommand... commandsToApply) {
+        return applyCommandsToCatalog(emptyCatalog(), commandsToApply);
+    }
+
     static Catalog catalog(
+            int version,
             CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
             CatalogSystemViewDescriptor[] systemViews
     ) {
         return new Catalog(
-                1,
+                version,
                 0L,
                 1,
                 List.of(DEFAULT_ZONE),
@@ -170,5 +178,57 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         INITIAL_CAUSALITY_TOKEN
                 ))
         );
+    }
+
+    static CatalogTableDescriptor table(int tableId, int schemaId, int zoneId, int pkIndexId, String columnName) {
+        return new CatalogTableDescriptor(
+                tableId,
+                schemaId,
+                pkIndexId,
+                "TEST_TABLE",
+                zoneId,
+                List.of(tableColumn(columnName)),
+                List.of(columnName),
+                null
+        );
+    }
+
+    static CatalogTableColumnDescriptor tableColumn(String columnName) {
+        return new CatalogTableColumnDescriptor(columnName, INT32, false, DEFAULT_PRECISION, DEFAULT_SCALE, DEFAULT_LENGTH, null);
+    }
+
+    /**
+     * Transitions a given index from {@link CatalogIndexStatus#REGISTERED} to {@link CatalogIndexStatus#STOPPING} state.
+     *
+     * @throws NoSuchElementException if the given index does not exist.
+     */
+    static Catalog transitionIndexToStoppingState(Catalog catalog, String indexName) {
+        int indexId = findIndex(catalog, indexName).id();
+
+        CatalogCommand startIndexBuildingCommand = StartBuildingIndexCommand.builder()
+                .indexId(indexId)
+                .build();
+
+        CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder()
+                .indexId(indexId)
+                .build();
+
+        CatalogCommand dropIndexCommand = DropIndexCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .indexName(indexName)
+                .build();
+
+        catalog = applyCommandsToCatalog(catalog, startIndexBuildingCommand, makeIndexAvailableCommand, dropIndexCommand);
+
+        assertThat(findIndex(catalog, indexName).status(), is(CatalogIndexStatus.STOPPING));
+
+        return catalog;
+    }
+
+    private static CatalogIndexDescriptor findIndex(Catalog catalog, String indexName) {
+        return catalog.indexes().stream()
+                .filter(index -> index.name().equals(indexName))
+                .findAny()
+                .orElseThrow();
     }
 }

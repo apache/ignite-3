@@ -23,14 +23,17 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_O
 
 import java.util.BitSet;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
@@ -52,7 +55,7 @@ public class ScannableTableImpl implements ScannableTable {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+    public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns) {
 
         Publisher<BinaryRow> pub;
@@ -63,14 +66,16 @@ public class ScannableTableImpl implements ScannableTable {
 
             assert readTime != null;
 
-            pub = internalTable.scan(partWithTerm.partId(), readTime, ctx.localNode());
+            pub = internalTable.scan(partWithConsistencyToken.partId(), txAttributes.id(), readTime, ctx.localNode(),
+                    txAttributes.coordinatorId());
         } else {
-            PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithTerm.term());
+            PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken());
 
             pub = internalTable.scan(
-                    partWithTerm.partId(),
+                    partWithConsistencyToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
+                    txAttributes.coordinatorId(),
                     recipient,
                     null,
                     null,
@@ -89,7 +94,7 @@ public class ScannableTableImpl implements ScannableTable {
     @Override
     public <RowT> Publisher<RowT> indexRangeScan(
             ExecutionContext<RowT> ctx,
-            PartitionWithTerm partWithTerm,
+            PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory,
             int indexId,
             List<String> columns,
@@ -123,21 +128,24 @@ public class ScannableTableImpl implements ScannableTable {
             assert readTime != null;
 
             pub = internalTable.scan(
-                    partWithTerm.partId(),
+                    partWithConsistencyToken.partId(),
+                    txAttributes.id(),
                     readTime,
                     ctx.localNode(),
                     indexId,
                     lower,
                     upper,
                     flags,
-                    requiredColumns
+                    requiredColumns,
+                    txAttributes.coordinatorId()
             );
         } else {
             pub = internalTable.scan(
-                    partWithTerm.partId(),
+                    partWithConsistencyToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
-                    new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
+                    txAttributes.coordinatorId(),
+                    new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken()),
                     indexId,
                     lower,
                     upper,
@@ -155,7 +163,7 @@ public class ScannableTableImpl implements ScannableTable {
     @Override
     public <RowT> Publisher<RowT> indexLookup(
             ExecutionContext<RowT> ctx,
-            PartitionWithTerm partWithTerm,
+            PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory,
             int indexId,
             List<String> columns,
@@ -177,19 +185,22 @@ public class ScannableTableImpl implements ScannableTable {
             assert readTime != null;
 
             pub = internalTable.lookup(
-                    partWithTerm.partId(),
+                    partWithConsistencyToken.partId(),
+                    txAttributes.id(),
                     readTime,
                     ctx.localNode(),
                     indexId,
                     keyTuple,
-                    null
+                    null,
+                    txAttributes.coordinatorId()
             );
         } else {
             pub = internalTable.lookup(
-                    partWithTerm.partId(),
+                    partWithConsistencyToken.partId(),
                     txAttributes.id(),
                     txAttributes.commitPartition(),
-                    new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
+                    txAttributes.coordinatorId(),
+                    new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken()),
                     indexId,
                     keyTuple,
                     null
@@ -199,6 +210,28 @@ public class ScannableTableImpl implements ScannableTable {
         TableRowConverter rowConverter = converterFactory.create(requiredColumns);
 
         return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
+    }
+
+    @Override
+    public <RowT> CompletableFuture<RowT> primaryKeyLookup(
+            ExecutionContext<RowT> ctx,
+            InternalTransaction tx,
+            RowFactory<RowT> rowFactory,
+            RowT key,
+            @Nullable BitSet requiredColumns
+    ) {
+        TableRowConverter converter = converterFactory.create(requiredColumns);
+
+        BinaryRowEx keyRow = converter.toBinaryRow(ctx, key, true);
+
+        return internalTable.get(keyRow, tx)
+                .thenApply(tableRow -> {
+                    if (tableRow == null) {
+                        return null;
+                    }
+
+                    return converter.toRow(ctx, tableRow, rowFactory);
+                });
     }
 
     private static <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(

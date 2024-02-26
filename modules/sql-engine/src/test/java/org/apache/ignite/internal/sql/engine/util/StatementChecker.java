@@ -42,7 +42,6 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
@@ -120,9 +119,11 @@ public class StatementChecker {
 
     private final SqlPrepare sqlPrepare;
 
-    private final Map<String, Function<TestBuilders.TableBuilder, TestTable>> testTables = new HashMap<>();
+    private final Map<String, Function<TestBuilders.TableBuilder, IgniteTable>> testTables = new HashMap<>();
 
     private boolean dumpPlan;
+
+    private String[] rulesToDisable = new String[0];
 
     private Consumer<StatementChecker> setup = (checker) -> {};
 
@@ -148,13 +149,23 @@ public class StatementChecker {
          * @param schema A schema.
          * @param sql An SQL statement.
          * @param params A list of dynamic parameters.
+         * @param rulesToDisable A list of rules to exclude from optimisation.
          */
-        Pair<IgniteRel, IgnitePlanner> prepare(IgniteSchema schema, String sql, List<Object> params) throws Exception;
+        Pair<IgniteRel, IgnitePlanner> prepare(
+                IgniteSchema schema, String sql, List<Object> params, String... rulesToDisable
+        ) throws Exception;
     }
 
     /** Sets a function that is going to be called prior to test run. */
     public StatementChecker setup(Consumer<StatementChecker> setup) {
         this.setup = setup;
+        return this;
+    }
+
+    /** Sets rules to exclude from optimisation. */
+    public StatementChecker disableRules(String... rulesToDisable) {
+        this.rulesToDisable = rulesToDisable;
+
         return this;
     }
 
@@ -175,7 +186,7 @@ public class StatementChecker {
     /**
      * Updates schema to include a table with 1 column.
      */
-    public StatementChecker table(String tableName, Function<TestBuilders.TableBuilder, TestTable> table) {
+    public StatementChecker table(String tableName, Function<TestBuilders.TableBuilder, IgniteTable> table) {
         testTables.put(tableName, table);
 
         return this;
@@ -400,11 +411,11 @@ public class StatementChecker {
 
     private IgniteSchema createSchema() {
         List<IgniteTable> tables = new ArrayList<>();
-        for (Map.Entry<String, Function<TestBuilders.TableBuilder, TestTable>> entry : testTables.entrySet()) {
+        for (Map.Entry<String, Function<TestBuilders.TableBuilder, IgniteTable>> entry : testTables.entrySet()) {
             String tableName = entry.getKey();
-            Function<TableBuilder, TestTable> addTable = entry.getValue();
+            Function<TableBuilder, IgniteTable> addTable = entry.getValue();
 
-            TestTable table = addTable.apply(TestBuilders.table().name(tableName));
+            IgniteTable table = addTable.apply(TestBuilders.table().name(tableName));
 
             tables.add(table);
         }
@@ -419,7 +430,7 @@ public class StatementChecker {
             IgnitePlanner planner;
 
             try {
-                Pair<IgniteRel, IgnitePlanner> result = sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
+                Pair<IgniteRel, IgnitePlanner> result = sqlPrepare.prepare(schema, sqlStatement, dynamicParams, rulesToDisable);
                 root = result.getFirst();
                 planner = result.getSecond();
 
@@ -478,7 +489,7 @@ public class StatementChecker {
             Throwable err = null;
             IgniteRel unexpectedPlan = null;
             try {
-                Pair<IgniteRel, ?> unexpected = sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
+                Pair<IgniteRel, ?> unexpected = sqlPrepare.prepare(schema, sqlStatement, dynamicParams, rulesToDisable);
                 unexpectedPlan = unexpected.getFirst();
             } catch (Throwable t) {
                 err = t;

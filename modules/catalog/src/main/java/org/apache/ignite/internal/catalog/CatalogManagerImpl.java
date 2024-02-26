@@ -20,16 +20,20 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
@@ -44,10 +48,14 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyIndexEvent;
+import org.apache.ignite.internal.catalog.events.DestroyTableEvent;
 import org.apache.ignite.internal.catalog.storage.Fireable;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
+import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -79,7 +87,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
 
-    /** Initial update token for a catalog descriptor, this token is valid only before the first call of
+    /**
+     * Initial update token for a catalog descriptor, this token is valid only before the first call of
      * {@link UpdateEntry#applyUpdate(Catalog, long)}.
      *
      * <p>After that {@link CatalogObjectDescriptor#updateToken()} will be initialised with a causality token from
@@ -204,8 +213,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogIndexDescriptor index(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
+    public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
+        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).aliveIndex(indexName);
     }
 
     @Override
@@ -330,9 +339,27 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
+    /**
+     * Cleanup outdated catalog versions, which can't be observed after given timestamp (inclusively), and compact underlying update log.
+     *
+     * @param timestamp Earliest observable timestamp.
+     * @return Operation future, which is completing with {@code true} if a new snapshot has been successfully written, {@code false}
+     *         otherwise if a snapshot with the same or greater version already exists.
+     */
+    public CompletableFuture<Boolean> compactCatalog(long timestamp) {
+        Catalog catalog = catalogAt(timestamp);
+
+        return updateLog.saveSnapshot(new SnapshotEntry(catalog));
+    }
+
     private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);
+    }
+
+    private void truncateUpTo(Catalog catalog) {
+        catalogByVer.headMap(catalog.version(), false).clear();
+        catalogByTs.headMap(catalog.time(), false).clear();
     }
 
     private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
@@ -340,11 +367,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .thenCompose(newVersion -> {
                     Catalog catalog = catalogByVer.get(newVersion);
 
-                    HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
-                    HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(HybridTimestamp.maxClockSkew())
-                            // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
-                            // logical parts on different nodes of the cluster (see IGNITE-21084).
-                            .roundUpToPhysicalTick();
+                    HybridTimestamp clusterWideEnsuredActivationTs = clusterWideEnsuredActivationTimestamp(catalog);
                     // TODO: this addition has to be removed when IGNITE-20378 is implemented.
                     HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTs.addPhysicalTime(
                             partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.maxClockSkew()
@@ -417,7 +440,62 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+        public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+            if (event instanceof SnapshotEntry) {
+                return handle((SnapshotEntry) event, causalityToken);
+            }
+
+            return handle((VersionedUpdate) event, metaStorageUpdateTimestamp, causalityToken);
+        }
+
+        private CompletableFuture<Void> handle(SnapshotEntry event, long causalityToken) {
+            Catalog catalog = event.snapshot();
+
+            // Use reverse order to find latest descriptors.
+            Collection<Catalog> droppedCatalogVersions = catalogByVer.headMap(catalog.version(), false).descendingMap().values();
+
+            // Collect destroy events for dropped tables/indexes.
+            IntSet droppedObjects = new IntOpenHashSet();
+            List<Fireable> events = new ArrayList<>();
+
+            droppedCatalogVersions.forEach(oldCatalog -> oldCatalog.indexes().stream()
+                    .filter(idx -> catalog.index(idx.id()) == null)
+                    .filter(idx -> droppedObjects.add(idx.id()))
+                    .forEach(idx -> events.add(
+                            new DestroyIndexEvent(idx.id(), idx.tableId(), tableZoneDescriptor(oldCatalog, idx.tableId()).partitions()))
+                    ));
+
+            droppedObjects.clear();
+            droppedCatalogVersions.forEach(oldCatalog -> oldCatalog.tables().stream()
+                    .filter(tbl -> catalog.table(tbl.id()) == null)
+                    .filter(tbl -> droppedObjects.add(tbl.id()))
+                    .forEach(tbl -> events.add(new DestroyTableEvent(tbl.id(), tableZoneDescriptor(oldCatalog, tbl.id()).partitions()))));
+
+            // On recovery phase, we must register catalog from the snapshot.
+            // In other cases, it is ok to rewrite an existed version, because it's exactly the same.
+            registerCatalog(catalog);
+
+            List<CompletableFuture<?>> eventFutures = new ArrayList<>(events.size());
+
+            for (Fireable fireEvent : events) {
+                eventFutures.add(fireEvent(
+                        fireEvent.eventType(),
+                        fireEvent.createEventParameters(causalityToken, catalog.version())
+                ));
+            }
+
+            return allOf(eventFutures.toArray(CompletableFuture[]::new))
+                    .whenComplete((ignore, err) -> {
+                        if (err != null) {
+                            LOG.warn("Failed to compact catalog.", err);
+                            //TODO: IGNITE-14611 Pass exception to an error handler?
+                        } else {
+                            truncateUpTo(catalog);
+                        }
+                    });
+        }
+
+        private CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             int version = update.version();
             Catalog catalog = catalogByVer.get(version - 1);
 
@@ -459,6 +537,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         versionTracker.update(version, null);
                     });
         }
+    }
+
+    private static CatalogZoneDescriptor tableZoneDescriptor(Catalog catalog, int tableId) {
+        return Objects.requireNonNull(catalog.zone(Objects.requireNonNull(catalog.table(tableId), "table").zoneId()), "zone");
     }
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
@@ -602,10 +684,5 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             this.descriptor = descriptor;
             this.id = id;
         }
-    }
-
-    @Override
-    public List<Catalog> catalogVersionsSnapshot() {
-        return List.copyOf(catalogByVer.values());
     }
 }

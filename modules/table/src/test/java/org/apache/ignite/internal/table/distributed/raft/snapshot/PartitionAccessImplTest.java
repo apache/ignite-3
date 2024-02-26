@@ -18,15 +18,21 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
+import static org.apache.ignite.internal.tx.TransactionIds.transactionId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -40,12 +46,11 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.junit.jupiter.api.Test;
 
-/**
- * For {@link PartitionAccessImpl} testing.
- */
+/** For {@link PartitionAccessImpl} testing. */
 public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
@@ -59,14 +64,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
         TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
 
-        PartitionAccess partitionAccess = new PartitionAccessImpl(
-                testPartitionKey(),
-                mvTableStorage,
-                txStateTableStorage,
-                mock(MvGc.class),
-                mock(IndexUpdateHandler.class),
-                mock(GcUpdateHandler.class)
-        );
+        PartitionAccess partitionAccess = createPartitionAccessImpl(mvTableStorage, txStateTableStorage);
 
         assertEquals(0, partitionAccess.minLastAppliedIndex());
         assertEquals(0, partitionAccess.maxLastAppliedIndex());
@@ -105,14 +103,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
         TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
 
-        PartitionAccess partitionAccess = new PartitionAccessImpl(
-                testPartitionKey(),
-                mvTableStorage,
-                txStateTableStorage,
-                mock(MvGc.class),
-                mock(IndexUpdateHandler.class),
-                mock(GcUpdateHandler.class)
-        );
+        PartitionAccess partitionAccess = createPartitionAccessImpl(mvTableStorage, txStateTableStorage);
 
         assertEquals(0, partitionAccess.minLastAppliedTerm());
         assertEquals(0, partitionAccess.maxLastAppliedTerm());
@@ -147,36 +138,41 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         IndexUpdateHandler indexUpdateHandler = mock(IndexUpdateHandler.class);
 
-        PartitionAccess partitionAccess = new PartitionAccessImpl(
-                testPartitionKey(),
-                mvTableStorage,
-                new TestTxStateTableStorage(),
-                mock(MvGc.class),
-                indexUpdateHandler,
-                mock(GcUpdateHandler.class)
-        );
+        FullStateTransferIndexChooser fullStateTransferIndexChooser = mock(FullStateTransferIndexChooser.class);
+
+        PartitionAccess partitionAccess = createPartitionAccessImpl(mvTableStorage, indexUpdateHandler, fullStateTransferIndexChooser);
+
+        List<Integer> indexIds = List.of(1);
+
+        when(fullStateTransferIndexChooser.chooseForAddWrite(anyInt(), anyInt(), any())).thenReturn(indexIds);
 
         RowId rowId = new RowId(TEST_PARTITION_ID);
         BinaryRow binaryRow = mock(BinaryRow.class);
-        UUID txId = UUID.randomUUID();
+        UUID txId = transactionId(hybridTimestamp(System.currentTimeMillis()), 1);
         int commitTableId = 999;
+        int snapshotCatalogVersion = 666;
+        HybridTimestamp beginTs = beginTimestamp(txId);
 
-        partitionAccess.addWrite(rowId, binaryRow, txId, commitTableId, TEST_PARTITION_ID);
+        partitionAccess.addWrite(rowId, binaryRow, txId, commitTableId, TEST_PARTITION_ID, snapshotCatalogVersion);
 
-        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+        verify(mvPartitionStorage).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(fullStateTransferIndexChooser).chooseForAddWrite(eq(snapshotCatalogVersion), eq(TABLE_ID), eq(beginTs));
+
+        verify(indexUpdateHandler).addToIndexes(eq(binaryRow), eq(rowId), eq(indexIds));
 
         // Let's check with a null binaryRow.
         binaryRow = null;
 
-        reset(mvPartitionStorage, indexUpdateHandler);
+        clearInvocations(mvPartitionStorage, indexUpdateHandler, fullStateTransferIndexChooser);
 
-        partitionAccess.addWrite(rowId, binaryRow, txId, commitTableId, TEST_PARTITION_ID);
+        partitionAccess.addWrite(rowId, binaryRow, txId, commitTableId, TEST_PARTITION_ID, snapshotCatalogVersion);
 
-        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+        verify(mvPartitionStorage).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(fullStateTransferIndexChooser).chooseForAddWrite(eq(snapshotCatalogVersion), eq(TABLE_ID), eq(beginTs));
+
+        verify(indexUpdateHandler).addToIndexes(eq(binaryRow), eq(rowId), eq(indexIds));
     }
 
     @Test
@@ -187,34 +183,39 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         IndexUpdateHandler indexUpdateHandler = mock(IndexUpdateHandler.class);
 
-        PartitionAccess partitionAccess = new PartitionAccessImpl(
-                testPartitionKey(),
-                mvTableStorage,
-                new TestTxStateTableStorage(),
-                mock(MvGc.class),
-                indexUpdateHandler,
-                mock(GcUpdateHandler.class)
-        );
+        FullStateTransferIndexChooser fullStateTransferIndexChooser = mock(FullStateTransferIndexChooser.class);
+
+        PartitionAccess partitionAccess = createPartitionAccessImpl(mvTableStorage, indexUpdateHandler, fullStateTransferIndexChooser);
+
+        List<Integer> indexIds = List.of(1);
+
+        when(fullStateTransferIndexChooser.chooseForAddWriteCommitted(anyInt(), anyInt(), any())).thenReturn(indexIds);
 
         RowId rowId = new RowId(TEST_PARTITION_ID);
         BinaryRow binaryRow = mock(BinaryRow.class);
+        HybridTimestamp commitTimestamp = HybridTimestamp.MIN_VALUE.addPhysicalTime(100500);
+        int snapshotCatalogVersion = 666;
 
-        partitionAccess.addWriteCommitted(rowId, binaryRow, HybridTimestamp.MAX_VALUE);
+        partitionAccess.addWriteCommitted(rowId, binaryRow, commitTimestamp, snapshotCatalogVersion);
 
-        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
+        verify(mvPartitionStorage).addWriteCommitted(eq(rowId), eq(binaryRow), eq(commitTimestamp));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(fullStateTransferIndexChooser).chooseForAddWriteCommitted(eq(snapshotCatalogVersion), eq(TABLE_ID), eq(commitTimestamp));
+
+        verify(indexUpdateHandler).addToIndexes(eq(binaryRow), eq(rowId), eq(indexIds));
 
         // Let's check with a null binaryRow.
         binaryRow = null;
 
-        reset(mvPartitionStorage, indexUpdateHandler);
+        clearInvocations(mvPartitionStorage, indexUpdateHandler, fullStateTransferIndexChooser);
 
-        partitionAccess.addWriteCommitted(rowId, binaryRow, HybridTimestamp.MAX_VALUE);
+        partitionAccess.addWriteCommitted(rowId, binaryRow, commitTimestamp, snapshotCatalogVersion);
 
-        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
+        verify(mvPartitionStorage).addWriteCommitted(eq(rowId), eq(binaryRow), eq(commitTimestamp));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(fullStateTransferIndexChooser).chooseForAddWriteCommitted(eq(snapshotCatalogVersion), eq(TABLE_ID), eq(commitTimestamp));
+
+        verify(indexUpdateHandler).addToIndexes(eq(binaryRow), eq(rowId), eq(indexIds));
     }
 
     private static MvPartitionStorage createMvPartition(MvTableStorage tableStorage, int partitionId) {
@@ -223,5 +224,36 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         assertThat(createMvPartitionFuture, willCompleteSuccessfully());
 
         return createMvPartitionFuture.join();
+    }
+
+    private static PartitionAccessImpl createPartitionAccessImpl(
+            MvTableStorage mvTableStorage,
+            TxStateTableStorage txStateTableStorage
+    ) {
+        return new PartitionAccessImpl(
+                testPartitionKey(),
+                mvTableStorage,
+                txStateTableStorage,
+                mock(MvGc.class),
+                mock(IndexUpdateHandler.class),
+                mock(GcUpdateHandler.class),
+                mock(FullStateTransferIndexChooser.class)
+        );
+    }
+
+    private static PartitionAccessImpl createPartitionAccessImpl(
+            MvTableStorage mvTableStorage,
+            IndexUpdateHandler indexUpdateHandler,
+            FullStateTransferIndexChooser fullStateTransferIndexChooser
+    ) {
+        return new PartitionAccessImpl(
+                testPartitionKey(),
+                mvTableStorage,
+                new TestTxStateTableStorage(),
+                mock(MvGc.class),
+                indexUpdateHandler,
+                mock(GcUpdateHandler.class),
+                fullStateTransferIndexChooser
+        );
     }
 }

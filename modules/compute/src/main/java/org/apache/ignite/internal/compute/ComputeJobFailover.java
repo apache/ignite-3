@@ -91,6 +91,7 @@ class ComputeJobFailover<T> {
      * @param logicalTopologyService logical topology service.
      * @param topologyService physical topology service.
      * @param workerNode the node to execute the job on.
+     * @param nextWorkerSelector the selector that returns the next worker to execute job on.
      * @param executor the thread pool where the failover should run on.
      * @param units deployment units.
      * @param jobClassName the name of the job class.
@@ -152,7 +153,12 @@ class ComputeJobFailover<T> {
                 return;
             }
 
-            executor.execute(() -> nextWorkerSelector.next()
+            LOG.info("Worker node {} has left the cluster.", leftNode.name());
+            executor.execute(this::selectNewWorker);
+        }
+
+        private void selectNewWorker() {
+            nextWorkerSelector.next()
                     .thenAccept(nextWorker -> {
                         if (nextWorker == null) {
                             LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
@@ -164,15 +170,19 @@ class ComputeJobFailover<T> {
                             return;
                         }
 
-                        LOG.warn(
-                                "Worker node {} has left the cluster. Restarting the job {} on node {}.",
-                                leftNode, jobContext.jobClassName(), nextWorker
-                        );
+                        if (topologyService.getByConsistentId(nextWorker.name()) == null) {
+                            LOG.warn("Worker node {} is not found in the cluster", nextWorker.name());
+                            // Restart next worker selection
+                            executor.execute(this::selectNewWorker);
+                            return;
+                        }
+
+                        LOG.info("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
                         JobExecution<T> jobExecution = launchJobOn(runningWorkerNode.get());
                         jobContext.updateJobExecution(jobExecution);
-                    }));
+                    });
         }
     }
 }

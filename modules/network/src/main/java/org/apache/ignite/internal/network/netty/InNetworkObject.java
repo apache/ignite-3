@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Wrapper for the received network message.

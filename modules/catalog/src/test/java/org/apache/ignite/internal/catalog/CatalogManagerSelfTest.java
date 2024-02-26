@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
@@ -28,7 +27,6 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessary
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropTableCommand;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
@@ -46,6 +44,7 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollat
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -53,7 +52,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -62,10 +60,9 @@ import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -78,8 +75,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -96,8 +93,9 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -110,11 +108,14 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
@@ -127,13 +128,16 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -146,8 +150,11 @@ import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 /**
@@ -156,7 +163,6 @@ import org.mockito.ArgumentCaptor;
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
-    private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
     private static final int DFLT_TEST_PRECISION = 11;
@@ -252,12 +258,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(manager.table(TABLE_NAME, 123L));
-        assertNull(manager.index(pkIndexName(TABLE_NAME), 123L));
+        assertNull(manager.aliveIndex(pkIndexName(TABLE_NAME), 123L));
 
         // Validate actual catalog
         schema = manager.schema(SCHEMA_NAME, 1);
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
-        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.index(pkIndexName(TABLE_NAME));
+        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.aliveIndex(pkIndexName(TABLE_NAME));
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
@@ -266,7 +272,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(table, manager.table(TABLE_NAME, clock.nowLong()));
         assertSame(table, manager.table(table.id(), clock.nowLong()));
 
-        assertSame(pkIndex, manager.index(pkIndexName(TABLE_NAME), clock.nowLong()));
+        assertSame(pkIndex, manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()));
         assertSame(pkIndex, manager.index(pkIndex.id(), clock.nowLong()));
 
         // Validate newly created table
@@ -279,6 +285,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
         assertEquals(AVAILABLE, pkIndex.status());
+        assertEquals(manager.latestCatalogVersion(), pkIndex.txWaitCatalogVersion());
 
         CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
         assertNotNull(desc);
@@ -291,9 +298,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // Validate actual catalog has both tables.
         schema = manager.schema(2);
         table = schema.table(TABLE_NAME);
-        pkIndex = (CatalogHashIndexDescriptor) schema.index(pkIndexName(TABLE_NAME));
+        pkIndex = (CatalogHashIndexDescriptor) schema.aliveIndex(pkIndexName(TABLE_NAME));
         CatalogTableDescriptor table2 = schema.table(TABLE_NAME_2);
-        CatalogHashIndexDescriptor pkIndex2 = (CatalogHashIndexDescriptor) schema.index(pkIndexName(TABLE_NAME_2));
+        CatalogHashIndexDescriptor pkIndex2 = (CatalogHashIndexDescriptor) schema.aliveIndex(pkIndexName(TABLE_NAME_2));
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
@@ -302,13 +309,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(table, manager.table(TABLE_NAME, clock.nowLong()));
         assertSame(table, manager.table(table.id(), clock.nowLong()));
 
-        assertSame(pkIndex, manager.index(pkIndexName(TABLE_NAME), clock.nowLong()));
+        assertSame(pkIndex, manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()));
         assertSame(pkIndex, manager.index(pkIndex.id(), clock.nowLong()));
 
         assertSame(table2, manager.table(TABLE_NAME_2, clock.nowLong()));
         assertSame(table2, manager.table(table2.id(), clock.nowLong()));
 
-        assertSame(pkIndex2, manager.index(pkIndexName(TABLE_NAME_2), clock.nowLong()));
+        assertSame(pkIndex2, manager.aliveIndex(pkIndexName(TABLE_NAME_2), clock.nowLong()));
         assertSame(pkIndex2, manager.index(pkIndex2.id(), clock.nowLong()));
 
         assertNotSame(table, table2);
@@ -337,8 +344,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogSchemaDescriptor schema = manager.schema(2);
         CatalogTableDescriptor table1 = schema.table(TABLE_NAME);
         CatalogTableDescriptor table2 = schema.table(TABLE_NAME_2);
-        CatalogIndexDescriptor pkIndex1 = schema.index(pkIndexName(TABLE_NAME));
-        CatalogIndexDescriptor pkIndex2 = schema.index(pkIndexName(TABLE_NAME_2));
+        CatalogIndexDescriptor pkIndex1 = schema.aliveIndex(pkIndexName(TABLE_NAME));
+        CatalogIndexDescriptor pkIndex2 = schema.aliveIndex(pkIndexName(TABLE_NAME_2));
 
         assertNotEquals(table1.id(), table2.id());
         assertNotEquals(pkIndex1.id(), pkIndex2.id());
@@ -350,13 +357,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(table1, manager.table(TABLE_NAME, beforeDropTimestamp));
         assertSame(table1, manager.table(table1.id(), beforeDropTimestamp));
 
-        assertSame(pkIndex1, manager.index(pkIndexName(TABLE_NAME), beforeDropTimestamp));
+        assertSame(pkIndex1, manager.aliveIndex(pkIndexName(TABLE_NAME), beforeDropTimestamp));
         assertSame(pkIndex1, manager.index(pkIndex1.id(), beforeDropTimestamp));
 
         assertSame(table2, manager.table(TABLE_NAME_2, beforeDropTimestamp));
         assertSame(table2, manager.table(table2.id(), beforeDropTimestamp));
 
-        assertSame(pkIndex2, manager.index(pkIndexName(TABLE_NAME_2), beforeDropTimestamp));
+        assertSame(pkIndex2, manager.aliveIndex(pkIndexName(TABLE_NAME_2), beforeDropTimestamp));
         assertSame(pkIndex2, manager.index(pkIndex2.id(), beforeDropTimestamp));
 
         // Validate actual catalog
@@ -370,18 +377,43 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.table(TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table1.id(), clock.nowLong()));
 
-        assertNull(schema.index(pkIndexName(TABLE_NAME)));
-        assertNull(manager.index(pkIndexName(TABLE_NAME), clock.nowLong()));
-        assertNull(manager.index(pkIndex1.id(), clock.nowLong()));
+        assertThat(schema.aliveIndex(pkIndexName(TABLE_NAME)), is(nullValue()));
+        assertThat(manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()), is(nullValue()));
+        assertThat(manager.index(pkIndex1.id(), clock.nowLong()), is(nullValue()));
 
         assertSame(table2, manager.table(TABLE_NAME_2, clock.nowLong()));
         assertSame(table2, manager.table(table2.id(), clock.nowLong()));
 
-        assertSame(pkIndex2, manager.index(pkIndexName(TABLE_NAME_2), clock.nowLong()));
+        assertSame(pkIndex2, manager.aliveIndex(pkIndexName(TABLE_NAME_2), clock.nowLong()));
         assertSame(pkIndex2, manager.index(pkIndex2.id(), clock.nowLong()));
 
         // Validate schema wasn't changed.
         assertSame(schema, manager.activeSchema(clock.nowLong()));
+    }
+
+    @Test
+    void testReCreateTableWithSameName() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+
+        int catalogVersion = manager.latestCatalogVersion();
+        CatalogTableDescriptor table1 = manager.table(TABLE_NAME, clock.nowLong());
+        assertNotNull(table1);
+
+        // Drop table.
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
+        assertNull(manager.table(TABLE_NAME, clock.nowLong()));
+
+        // Re-create table with same name.
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+
+        CatalogTableDescriptor table2 = manager.table(TABLE_NAME, clock.nowLong());
+        assertNotNull(table2);
+
+        // Ensure these are different tables.
+        assertNotEquals(table1.id(), table2.id());
+
+        // Ensure table is available for historical queries.
+        assertNotNull(manager.table(table1.id(), catalogVersion));
     }
 
     @Test
@@ -935,16 +967,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testDropTableWithIndex() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.execute(simpleIndex()), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
+        startBuildingIndex(indexId(INDEX_NAME));
+        makeIndexAvailable(indexId(INDEX_NAME));
 
         long beforeDropTimestamp = clock.nowLong();
+        int beforeDropVersion = manager.latestCatalogVersion();
 
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Validate catalog version from the past.
-        CatalogSchemaDescriptor schema = manager.schema(2);
+        CatalogSchemaDescriptor schema = manager.schema(beforeDropVersion);
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
-        CatalogIndexDescriptor index = schema.index(INDEX_NAME);
+        CatalogIndexDescriptor index = schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
@@ -953,11 +988,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(table, manager.table(TABLE_NAME, beforeDropTimestamp));
         assertSame(table, manager.table(table.id(), beforeDropTimestamp));
 
-        assertSame(index, manager.index(INDEX_NAME, beforeDropTimestamp));
+        assertSame(index, manager.aliveIndex(INDEX_NAME, beforeDropTimestamp));
         assertSame(index, manager.index(index.id(), beforeDropTimestamp));
 
         // Validate actual catalog
-        schema = manager.schema(3);
+        schema = manager.schema(manager.latestCatalogVersion());
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
@@ -967,9 +1002,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.table(TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table.id(), clock.nowLong()));
 
-        assertNull(schema.index(INDEX_NAME));
-        assertNull(manager.index(INDEX_NAME, clock.nowLong()));
-        assertNull(manager.index(index.id(), clock.nowLong()));
+        assertThat(schema.aliveIndex(INDEX_NAME), is(nullValue()));
+        assertThat(manager.aliveIndex(INDEX_NAME, clock.nowLong()), is(nullValue()));
+        assertThat(manager.index(index.id(), clock.nowLong()), is(nullValue()));
     }
 
     @Test
@@ -982,16 +1017,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogSchemaDescriptor schema = manager.schema(1);
 
         assertNotNull(schema);
-        assertNull(schema.index(INDEX_NAME));
-        assertNull(manager.index(INDEX_NAME, 123L));
+        assertNull(schema.aliveIndex(INDEX_NAME));
+        assertNull(manager.aliveIndex(INDEX_NAME, 123L));
 
         // Validate actual catalog
         schema = manager.schema(2);
 
-        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.index(INDEX_NAME);
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
-        assertSame(index, manager.index(INDEX_NAME, clock.nowLong()));
+        assertSame(index, manager.aliveIndex(INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created hash index
@@ -1000,6 +1035,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
         assertEquals(REGISTERED, index.status());
+        assertEquals(manager.latestCatalogVersion(), index.txWaitCatalogVersion());
     }
 
     @Test
@@ -1019,17 +1055,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogSchemaDescriptor schema = manager.schema(1);
 
         assertNotNull(schema);
-        assertNull(schema.index(INDEX_NAME));
-        assertNull(manager.index(INDEX_NAME, 123L));
+        assertNull(schema.aliveIndex(INDEX_NAME));
+        assertNull(manager.aliveIndex(INDEX_NAME, 123L));
         assertNull(manager.index(4, 123L));
 
         // Validate actual catalog
         schema = manager.schema(2);
 
-        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.index(INDEX_NAME);
+        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
-        assertSame(index, manager.index(INDEX_NAME, clock.nowLong()));
+        assertSame(index, manager.aliveIndex(INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created sorted index
@@ -1041,6 +1077,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
         assertEquals(REGISTERED, index.status());
+        assertEquals(manager.latestCatalogVersion(), index.txWaitCatalogVersion());
     }
 
     @Test
@@ -1128,31 +1165,52 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testTableEvents() {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.TABLE_CREATE, eventListener);
         manager.listen(CatalogEvent.TABLE_DROP, eventListener);
+        manager.listen(CatalogEvent.TABLE_DESTROY, eventListener);
 
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        verify(eventListener).notify(any(CreateTableEventParameters.class), isNull());
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_3)), willBe(nullValue()));
+        verify(eventListener, times(3)).notify(any(CreateTableEventParameters.class));
 
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
-        verify(eventListener).notify(any(DropTableEventParameters.class), isNull());
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME_2)), willBe(nullValue()));
+        verify(eventListener, times(2)).notify(any(DropTableEventParameters.class));
 
+        verifyNoMoreInteractions(eventListener);
+        clearInvocations(eventListener);
+
+        // Got 'destroy' event only after Catalog compaction.
+        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(true));
+        verify(eventListener, times(2)).notify(any(DestroyTableEventParameters.class));
+
+        verifyNoMoreInteractions(eventListener);
+        clearInvocations();
+
+        // Expect no events if Catalog wasn't compacted.
+        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(false));
         verifyNoMoreInteractions(eventListener);
     }
 
+    //TODO IGNITE-20121 check correct events fired when dropping index in various states.
     @Test
-    public void testCreateIndexEvents() {
+    public void testIndexEvents() {
         CatalogCommand createIndexCmd = createHashIndexCommand(INDEX_NAME, List.of("ID"));
 
         CatalogCommand dropIndexCmd = DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.INDEX_CREATE, eventListener);
-        manager.listen(CatalogEvent.INDEX_DROP, eventListener);
+        manager.listen(CatalogEvent.INDEX_BUILDING, eventListener);
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, eventListener);
+        manager.listen(CatalogEvent.INDEX_STOPPING, eventListener);
+        manager.listen(CatalogEvent.INDEX_REMOVED, eventListener);
+        manager.listen(CatalogEvent.INDEX_DESTROY, eventListener);
 
         // Try to create index without table.
         assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundValidationException.class));
@@ -1160,20 +1218,36 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Create table with PK index.
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(CreateIndexEventParameters.class));
+        verify(eventListener).notify(any(MakeIndexAvailableEventParameters.class));
 
+        verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
 
         // Create index.
         assertThat(manager.execute(createIndexCmd), willCompleteSuccessfully());
-        verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(CreateIndexEventParameters.class));
 
+        int indexId = indexId(INDEX_NAME);
+
+        startBuildingIndex(indexId);
+        verify(eventListener).notify(any(StartBuildingIndexEventParameters.class));
+
+        makeIndexAvailable(indexId);
+        verify(eventListener).notify(any(MakeIndexAvailableEventParameters.class));
+
+        verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
 
         // Drop index.
         assertThat(manager.execute(dropIndexCmd), willBe(nullValue()));
-        verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(StoppingIndexEventParameters.class));
 
+        // Remove index.
+        removeIndex(indexId);
+        verify(eventListener).notify(any(RemoveIndexEventParameters.class));
+
+        verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
 
         // Drop table with pk index.
@@ -1182,7 +1256,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // Try drop index once again.
         assertThat(manager.execute(dropIndexCmd), willThrow(IndexNotFoundValidationException.class));
 
-        verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
+        verify(eventListener).notify(any(RemoveIndexEventParameters.class));
+        verifyNoMoreInteractions(eventListener);
+        clearInvocations(eventListener);
+
+        // Got 'destroy' event only after Catalog compaction.
+        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(true));
+        verify(eventListener, times(2 /* PK + secondary index */)).notify(any(DestroyIndexEventParameters.class));
+
+        clearInvocations();
+
+        // Expect no events if Catalog wasn't compacted.
+        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(false));
+        verifyNoMoreInteractions(eventListener);
     }
 
     @Test
@@ -1402,7 +1488,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.ZONE_CREATE, eventListener);
         manager.listen(CatalogEvent.ZONE_DROP, eventListener);
@@ -1411,7 +1497,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(fut, willCompleteSuccessfully());
 
-        verify(eventListener).notify(any(CreateZoneEventParameters.class), isNull());
+        verify(eventListener).notify(any(CreateZoneEventParameters.class));
 
         CatalogCommand dropCommand = DropZoneCommand.builder()
                 .zoneName(zoneName)
@@ -1421,14 +1507,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(fut, willCompleteSuccessfully());
 
-        verify(eventListener).notify(any(DropZoneEventParameters.class), isNull());
+        verify(eventListener).notify(any(DropZoneEventParameters.class));
         verifyNoMoreInteractions(eventListener);
     }
 
     @Test
     public void testColumnEvents() {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(eventListener.notify(any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
@@ -1442,11 +1528,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Add column.
         assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32))), willBe(nullValue()));
-        verify(eventListener).notify(any(AddColumnEventParameters.class), isNull());
+        verify(eventListener).notify(any(AddColumnEventParameters.class));
 
         // Drop column.
         assertThat(manager.execute(dropColumnParams(TABLE_NAME, NEW_COLUMN_NAME)), willBe(nullValue()));
-        verify(eventListener).notify(any(DropColumnEventParameters.class), isNull());
+        verify(eventListener).notify(any(DropColumnEventParameters.class));
 
         verifyNoMoreInteractions(eventListener);
     }
@@ -1514,24 +1600,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testGetCatalogEntityInCatalogEvent() {
-        CompletableFuture<Void> result = new CompletableFuture<>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
-            try {
-                assertNotNull(manager.schema(parameters.catalogVersion()));
-
-                result.complete(null);
-
-                return trueCompletedFuture();
-            } catch (Throwable t) {
-                result.completeExceptionally(t);
-
-                return failedFuture(t);
-            }
-        });
+        manager.listen(CatalogEvent.TABLE_CREATE, fromConsumer(fireEventFuture, parameters -> {
+            assertNotNull(manager.schema(parameters.catalogVersion()));
+        }));
 
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(result, willCompleteSuccessfully());
+        assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -1550,39 +1626,81 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))), willBe(nullValue()));
 
+        int indexId = manager.aliveIndex(INDEX_NAME, clock.nowLong()).id();
+
+        startBuildingIndex(indexId);
+        makeIndexAvailable(indexId);
+
         int tableId = manager.table(TABLE_NAME, clock.nowLong()).id();
-        int pkIndexId = manager.index(pkIndexName(TABLE_NAME), clock.nowLong()).id();
-        int indexId = manager.index(INDEX_NAME, clock.nowLong()).id();
+        int pkIndexId = manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()).id();
 
         assertNotEquals(tableId, indexId);
 
-        EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
+        EventListener<StoppingIndexEventParameters> stoppingListener = mock(EventListener.class);
+        EventListener<RemoveIndexEventParameters> removedListener = mock(EventListener.class);
 
-        ArgumentCaptor<DropIndexEventParameters> captor = ArgumentCaptor.forClass(DropIndexEventParameters.class);
+        ArgumentCaptor<StoppingIndexEventParameters> stoppingCaptor = ArgumentCaptor.forClass(StoppingIndexEventParameters.class);
+        ArgumentCaptor<RemoveIndexEventParameters> removingCaptor = ArgumentCaptor.forClass(RemoveIndexEventParameters.class);
 
-        doReturn(falseCompletedFuture()).when(eventListener).notify(captor.capture(), any());
+        doReturn(falseCompletedFuture()).when(stoppingListener).notify(stoppingCaptor.capture());
+        doReturn(falseCompletedFuture()).when(removedListener).notify(removingCaptor.capture());
 
-        manager.listen(CatalogEvent.INDEX_DROP, eventListener);
+        manager.listen(CatalogEvent.INDEX_STOPPING, stoppingListener);
+        manager.listen(CatalogEvent.INDEX_REMOVED, removedListener);
 
-        // Let's remove the index.
+        // Let's drop the index.
         assertThat(
                 manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
                 willBe(nullValue())
         );
 
-        DropIndexEventParameters eventParameters = captor.getValue();
+        StoppingIndexEventParameters stoppingEventParameters = stoppingCaptor.getValue();
 
-        assertEquals(indexId, eventParameters.indexId());
-        assertEquals(tableId, eventParameters.tableId());
+        assertEquals(indexId, stoppingEventParameters.indexId());
+        assertEquals(tableId, stoppingEventParameters.tableId());
 
-        // Let's delete the table.
+        // Let's drop the table.
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
-        // Let's make sure that the PK index has been deleted.
-        eventParameters = captor.getValue();
+        // Let's make sure that the PK index has been removed.
+        RemoveIndexEventParameters pkRemovedEventParameters = removingCaptor.getAllValues().get(0);
 
-        assertEquals(pkIndexId, eventParameters.indexId());
-        assertEquals(tableId, eventParameters.tableId());
+        assertEquals(pkIndexId, pkRemovedEventParameters.indexId());
+    }
+
+    @Test
+    void testReCreateIndexWithSameName() {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        int catalogVersion = manager.latestCatalogVersion();
+        CatalogIndexDescriptor index1 = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        assertNotNull(index1);
+
+        int indexId1 = index1.id();
+        startBuildingIndex(indexId1);
+        makeIndexAvailable(indexId1);
+
+        // Drop index.
+        dropIndex(INDEX_NAME);
+        removeIndex(indexId1);
+        assertNull(manager.aliveIndex(INDEX_NAME, clock.nowLong()));
+
+        // Re-create index with same name.
+        createSomeSortedIndex(TABLE_NAME, INDEX_NAME);
+
+        CatalogIndexDescriptor index2 = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        assertNotNull(index2);
+        assertThat(index2.indexType(), equalTo(CatalogIndexDescriptorType.SORTED));
+
+        // Ensure these are different indexes.
+        int indexId2 = index2.id();
+        assertNotEquals(indexId1, indexId2);
+
+        // Ensure dropped index is available for historical queries.
+        assertNotNull(manager.index(indexId1, catalogVersion));
+        assertThat(manager.index(indexId1, catalogVersion).indexType(), equalTo(CatalogIndexDescriptorType.HASH));
+        assertNull(manager.index(indexId2, catalogVersion));
     }
 
     @Test
@@ -1792,6 +1910,112 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    void droppingAnAvailableIndexMovesItToStoppingState() {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        int indexId = indexId(INDEX_NAME);
+
+        startBuildingIndex(indexId);
+        makeIndexAvailable(indexId);
+
+        dropIndex(INDEX_NAME);
+
+        CatalogIndexDescriptor index = manager.index(indexId, manager.latestCatalogVersion());
+
+        assertThat(index, is(notNullValue()));
+        assertThat(index.status(), is(STOPPING));
+    }
+
+    @ParameterizedTest
+    @MethodSource("notYetAvailableIndexStatuses")
+    void droppingNotAvailableIndexRemovesIt(CatalogIndexStatus status) {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        rollIndexStatusTo(status, indexId(INDEX_NAME));
+
+        dropIndex(INDEX_NAME);
+
+        CatalogIndexDescriptor index = index(manager.latestCatalogVersion(), INDEX_NAME);
+
+        assertThat(index, is(nullValue()));
+    }
+
+    private void startBuildingIndex(int indexId) {
+        assertThat(manager.execute(StartBuildingIndexCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+    }
+
+    private static Stream<Arguments> notYetAvailableIndexStatuses() {
+        return Stream.of(REGISTERED, BUILDING).map(Arguments::of);
+    }
+
+    @Test
+    void removingStoppedIndexRemovesItFromCatalog() {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        int indexId = indexId(INDEX_NAME);
+
+        rollIndexStatusTo(STOPPING, indexId);
+
+        assertThat(manager.index(indexId, manager.latestCatalogVersion()).status(), is(STOPPING));
+
+        removeIndex(indexId);
+
+        CatalogIndexDescriptor index = manager.index(indexId, manager.latestCatalogVersion());
+
+        assertThat(index, is(nullValue()));
+    }
+
+    private void rollIndexStatusTo(CatalogIndexStatus status, int indexId) {
+        for (CatalogIndexStatus currentStatus : List.of(REGISTERED, BUILDING, AVAILABLE, STOPPING)) {
+            if (currentStatus == status) {
+                break;
+            }
+
+            switch (currentStatus) {
+                case REGISTERED:
+                    startBuildingIndex(indexId);
+                    break;
+                case BUILDING:
+                    makeIndexAvailable(indexId);
+                    break;
+                case AVAILABLE:
+                    dropIndex(indexId);
+                    break;
+                case STOPPING:
+                    removeIndex(indexId);
+                    break;
+                default:
+                    fail("Unsupported state: " + currentStatus);
+                    break;
+            }
+        }
+    }
+
+    private void removeIndex(int indexId) {
+        assertThat(
+                manager.execute(RemoveIndexCommand.builder().indexId(indexId).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void dropIndex(String indexName) {
+        assertThat(
+                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(DEFAULT_SCHEMA_NAME).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void dropIndex(int indexId) {
+        CatalogIndexDescriptor index = manager.index(indexId, Long.MAX_VALUE);
+        assertThat(index, is(notNullValue()));
+
+        dropIndex(index.name());
+    }
+
+    @Test
     void testDropNotExistingIndex() {
         assertThat(
                 manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
@@ -1936,19 +2160,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        assertThat(
-                manager.execute(startBuildingIndexCommand(indexId)),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
-                willBe(nullValue())
-        );
+        startBuildingIndex(indexId);
+        makeIndexAvailable(indexId);
 
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
         assertEquals(AVAILABLE, index.status());
+    }
+
+    private void makeIndexAvailable(int indexId) {
+        assertThat(
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
+                willBe(nullValue())
+        );
     }
 
     @Test
@@ -1967,10 +2191,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 willBe(nullValue())
         );
 
-        assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
-                willBe(nullValue())
-        );
+        makeIndexAvailable(indexId);
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
@@ -1988,85 +2209,44 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int indexId = index(manager.latestCatalogVersion(), INDEX_NAME).id();
 
-        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
-            if (exception != null) {
-                fireEventFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    assertEquals(indexId, ((MakeIndexAvailableEventParameters) parameters).indexId());
-
-                    fireEventFuture.complete(null);
-                } catch (Throwable t) {
-                    fireEventFuture.completeExceptionally(t);
-                }
-            }
-
-            return falseCompletedFuture();
-        });
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, fromConsumer(fireEventFuture, (MakeIndexAvailableEventParameters parameters) -> {
+            assertEquals(indexId, parameters.indexId());
+        }));
 
         assertThat(
                 manager.execute(startBuildingIndexCommand(indexId)),
                 willBe(nullValue())
         );
 
-        assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()),
-                willBe(nullValue())
-        );
+        makeIndexAvailable(indexId);
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     @Test
     void testPkAvailableIndexEvent() {
-        CompletableFuture<Integer> fireEventFuture = new CompletableFuture<>();
-
-        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
-            if (exception != null) {
-                fireEventFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    fireEventFuture.complete(((MakeIndexAvailableEventParameters) parameters).indexId());
-                } catch (Throwable t) {
-                    fireEventFuture.completeExceptionally(t);
-                }
-            }
-
-            return falseCompletedFuture();
-        });
-
         String tableName = TABLE_NAME + "_new";
+
+        var fireEventFuture = new CompletableFuture<Void>();
+
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, fromConsumer(fireEventFuture, (MakeIndexAvailableEventParameters parameters) -> {
+            assertEquals(indexId(pkIndexName(tableName)), parameters.indexId());
+        }));
 
         createSomeTable(tableName);
 
-        assertThat(fireEventFuture, willBe(notNullValue()));
-
-        assertEquals(indexId(pkIndexName(tableName)), fireEventFuture.join());
+        assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     @Test
     void testPkAvailableOnCreateIndexEvent() {
-        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
-            if (exception != null) {
-                fireEventFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    CreateIndexEventParameters createIndexEventParameters = (CreateIndexEventParameters) parameters;
-
-                    assertEquals(AVAILABLE, createIndexEventParameters.indexDescriptor().status());
-
-                    fireEventFuture.complete(null);
-                } catch (Throwable t) {
-                    fireEventFuture.completeExceptionally(t);
-                }
-            }
-
-            return falseCompletedFuture();
-        });
+        manager.listen(CatalogEvent.INDEX_CREATE, fromConsumer(fireEventFuture, (CreateIndexEventParameters parameters) -> {
+            assertEquals(AVAILABLE, parameters.indexDescriptor().status());
+        }));
 
         createSomeTable(TABLE_NAME);
 
@@ -2159,17 +2339,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testTableRenameFiresEvent() {
         createSomeTable(TABLE_NAME);
 
-        var eventFuture = new CompletableFuture<CatalogEventParameters>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.TABLE_ALTER, (parameters, e) -> {
-            if (e != null) {
-                eventFuture.completeExceptionally(e);
-            } else {
-                eventFuture.complete(parameters);
-            }
+        manager.listen(CatalogEvent.TABLE_ALTER, fromConsumer(fireEventFuture, (RenameTableEventParameters parameters) -> {
+            CatalogTableDescriptor tableDescriptor = table(manager.latestCatalogVersion(), TABLE_NAME_2);
 
-            return trueCompletedFuture();
-        });
+            assertThat(parameters.tableId(), is(tableDescriptor.id()));
+            assertThat(parameters.newTableName(), is(tableDescriptor.name()));
+        }));
 
         CatalogCommand command = RenameTableCommand.builder()
                 .schemaName(SCHEMA_NAME)
@@ -2178,17 +2355,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .build();
 
         assertThat(manager.execute(command), willCompleteSuccessfully());
-        assertThat(eventFuture, willCompleteSuccessfully());
-
-        CatalogTableDescriptor tableDescriptor = table(manager.latestCatalogVersion(), TABLE_NAME_2);
-
-        assertThat(tableDescriptor, is(notNullValue()));
-
-        CatalogEventParameters eventParameters = eventFuture.join();
-
-        assertThat(eventParameters, is(instanceOf(RenameTableEventParameters.class)));
-        assertThat(((RenameTableEventParameters) eventParameters).tableId(), is(tableDescriptor.id()));
-        assertThat(((RenameTableEventParameters) eventParameters).newTableName(), is(tableDescriptor.name()));
+        assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -2240,23 +2407,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int indexId = index(manager.latestCatalogVersion(), INDEX_NAME).id();
 
-        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+        var fireEventFuture = new CompletableFuture<Void>();
 
-        manager.listen(CatalogEvent.INDEX_BUILDING, (parameters, exception) -> {
-            if (exception != null) {
-                fireEventFuture.completeExceptionally(exception);
-            } else {
-                try {
-                    assertEquals(indexId, ((StartBuildingIndexEventParameters) parameters).indexId());
-
-                    fireEventFuture.complete(null);
-                } catch (Throwable t) {
-                    fireEventFuture.completeExceptionally(t);
-                }
-            }
-
-            return falseCompletedFuture();
-        });
+        manager.listen(CatalogEvent.INDEX_BUILDING, fromConsumer(fireEventFuture, (StartBuildingIndexEventParameters parameters) -> {
+            assertEquals(indexId, parameters.indexId());
+        }));
 
         assertThat(
                 manager.execute(startBuildingIndexCommand(indexId)),
@@ -2266,17 +2421,111 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
-    @Test
-    void testCatalogVersionsSnapshot() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testIndexCreationCatalogVersionAfterUpdateIndex(boolean hashIndex) {
         createSomeTable(TABLE_NAME);
-        createSomeIndex(TABLE_NAME, INDEX_NAME);
 
-        List<Catalog> expCatalogs = IntStream.rangeClosed(manager.earliestCatalogVersion(), manager.latestCatalogVersion())
-                .mapToObj(manager::catalog)
-                .collect(toList());
+        if (hashIndex) {
+            createSomeIndex(TABLE_NAME, INDEX_NAME);
+        } else {
+            createSomeSortedIndex(TABLE_NAME, INDEX_NAME);
+        }
 
-        assertThat(expCatalogs, hasSize(greaterThanOrEqualTo(2)));
-        assertThat(manager.catalogVersionsSnapshot(), equalTo(expCatalogs));
+        int expCreationVersion = manager.latestCatalogVersion();
+
+        int indexId = indexId(INDEX_NAME);
+
+        assertThat(manager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
+
+        Catalog latestCatalog = manager.catalog(manager.latestCatalogVersion());
+
+        assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
+
+        assertEquals(expCreationVersion, latestCatalog.index(indexId).txWaitCatalogVersion());
+    }
+
+    @ParameterizedTest(name = "hashIndex={0}, updateIndex={1}")
+    @MethodSource("argumentsForCheckIndexCreationCatalogVersion")
+    void testIndexCreationCatalogVersionAfterUpdateCatalog(boolean hashIndex, boolean updateIndex) {
+        createSomeTable(TABLE_NAME);
+
+        if (hashIndex) {
+            createSomeIndex(TABLE_NAME, INDEX_NAME);
+        } else {
+            createSomeSortedIndex(TABLE_NAME, INDEX_NAME);
+        }
+
+        int expCreationVersion = manager.latestCatalogVersion();
+
+        int indexId = indexId(INDEX_NAME);
+
+        if (updateIndex) {
+            assertThat(manager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
+        } else {
+            createSomeTable(TABLE_NAME + 1);
+        }
+
+        Catalog latestCatalog = manager.catalog(manager.latestCatalogVersion());
+
+        assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
+
+        assertEquals(expCreationVersion, latestCatalog.index(indexId).txWaitCatalogVersion());
+    }
+
+    private static Stream<Arguments> argumentsForCheckIndexCreationCatalogVersion() {
+        return Stream.of(
+                Arguments.of(true, true), // Create hash index and update index status..
+                Arguments.of(true, false), // Create hash index and update catalog (create table).
+                Arguments.of(false, true), // Create sorted index and update index status..
+                Arguments.of(false, false) // Create sorted index and update catalog (create table).
+        );
+    }
+
+    @Test
+    public void testCatalogCompaction() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+
+        long timestamp = clock.nowLong();
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+
+        // Add more updates
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willBe(nullValue()));
+
+        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, timestamp), equalTo(true));
+
+        assertEquals(catalog.version(), manager.earliestCatalogVersion());
+
+        assertNull(manager.catalog(0));
+        assertNull(manager.catalog(catalog.version() - 1));
+        assertNotNull(manager.catalog(catalog.version()));
+
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(0));
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
+        assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
+        assertSame(catalog.version(), manager.activeCatalogVersion(timestamp));
+
+        assertThat(manager.compactCatalog(timestamp), willBe(false));
+        assertEquals(catalog.version(), manager.earliestCatalogVersion());
+    }
+
+    @Test
+    public void testEmptyCatalogCompaction() {
+        assertEquals(0, manager.latestCatalogVersion());
+
+        long timestamp = clock.nowLong();
+
+        assertThat(manager.compactCatalog(timestamp), willBe(false));
+
+        assertEquals(0, manager.earliestCatalogVersion());
+        assertEquals(0, manager.latestCatalogVersion());
+
+        assertNotNull(manager.catalog(0));
+
+        assertEquals(0, manager.activeCatalogVersion(0));
+        assertEquals(0, manager.activeCatalogVersion(timestamp));
     }
 
     private CompletableFuture<Void> changeColumn(
@@ -2345,7 +2594,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     private @Nullable CatalogIndexDescriptor index(int catalogVersion, String indexName) {
-        return manager.schema(catalogVersion).index(indexName);
+        return manager.schema(catalogVersion).aliveIndex(indexName);
     }
 
     private int tableId(String tableName) {
@@ -2357,7 +2606,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     private int indexId(String indexName) {
-        CatalogIndexDescriptor index = manager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor index = manager.aliveIndex(indexName, clock.nowLong());
 
         assertNotNull(index, indexName);
 
@@ -2383,7 +2632,31 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
     }
 
+    private void createSomeSortedIndex(String tableName, String indexName) {
+        assertThat(
+                manager.execute(createSortedIndexCommand(tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST))),
+                willCompleteSuccessfully()
+        );
+    }
+
     private List<Integer> tableIndexIds(int catalogVersion, int tableId) {
         return manager.indexes(catalogVersion, tableId).stream().map(CatalogObjectDescriptor::id).collect(toList());
+    }
+
+    private static <T extends CatalogEventParameters> EventListener<T> fromConsumer(
+            CompletableFuture<Void> fireEventFuture,
+            Consumer<T> consumer
+    ) {
+        return parameters -> {
+            try {
+                consumer.accept(parameters);
+
+                fireEventFuture.complete(null);
+            } catch (Throwable t) {
+                fireEventFuture.completeExceptionally(t);
+            }
+
+            return falseCompletedFuture();
+        };
     }
 }

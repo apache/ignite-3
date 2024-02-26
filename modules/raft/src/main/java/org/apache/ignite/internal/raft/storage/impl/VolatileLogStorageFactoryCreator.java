@@ -78,12 +78,12 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
      *
      * @param spillOutPath Path at which to put spill-out data.
      */
-    public VolatileLogStorageFactoryCreator(Path spillOutPath) {
+    public VolatileLogStorageFactoryCreator(String nodeName, Path spillOutPath) {
         this.spillOutPath = Objects.requireNonNull(spillOutPath);
 
         executorService = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors() * 2,
-                new NamedThreadFactory("raft-volatile-log-rocksdb-spillout-pool", LOG)
+                NamedThreadFactory.create(nodeName, "raft-volatile-log-rocksdb-spillout-pool", LOG)
         );
     }
 

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.channel.ChannelHandler.Sharable;
@@ -26,8 +29,8 @@ import io.netty.channel.ChannelPromise;
 import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
-import org.apache.ignite.network.OutNetworkObject;
 
 /**
  * {@link io.netty.channel.ChannelOutboundHandler} that drops outgoing {@link AcknowledgementMessage}s.
@@ -50,6 +53,8 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
      */
     public static OutgoingAcknowledgementSilencer installOn(Collection<NettySender> senders)
             throws InterruptedException {
+        assertThat(senders, not(empty()));
+
         OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer(senders.size());
 
         for (NettySender sender : senders) {

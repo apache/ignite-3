@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +38,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class MappedFragment {
     private final Fragment fragment;
+    private final List<ColocationGroup> groups;
     private final List<String> nodes;
     private final Long2ObjectMap<ColocationGroup> groupsBySourceId;
     private final @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId;
@@ -48,6 +52,7 @@ public class MappedFragment {
             @Nullable ColocationGroup target
     ) {
         this.fragment = fragment;
+        this.groups = groups;
 
         Set<String> nodes = new HashSet<>();
 
@@ -66,8 +71,28 @@ public class MappedFragment {
         this.target = target;
     }
 
+    /** Constructor. */
+    private MappedFragment(
+            Fragment fragment,
+            List<ColocationGroup> groups, List<String> nodes,
+            Long2ObjectMap<ColocationGroup> groupsBySourceId,
+            @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId,
+            @Nullable ColocationGroup target
+    ) {
+        this.fragment = fragment;
+        this.nodes = List.copyOf(nodes);
+        this.groupsBySourceId = groupsBySourceId;
+        this.sourcesByExchangeId = sourcesByExchangeId;
+        this.target = target;
+        this.groups = groups;
+    }
+
     public Fragment fragment() {
         return fragment;
+    }
+
+    public List<ColocationGroup> groups() {
+        return groups;
     }
 
     public List<String> nodes() {
@@ -84,5 +109,46 @@ public class MappedFragment {
 
     public @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId() {
         return sourcesByExchangeId;
+    }
+
+    /**
+     * Creates a fragment by replacing the given colocation groups.
+     *
+     * @param replacedGroups Groups to replace.
+     *
+     * @return New mapped fragment.
+     */
+    public MappedFragment replaceColocationGroups(Long2ObjectMap<ColocationGroup> replacedGroups) {
+        List<ColocationGroup> newGroups = new ArrayList<>(groupsBySourceId.size());
+
+        for (Entry<ColocationGroup> e : groupsBySourceId.long2ObjectEntrySet()) {
+            ColocationGroup newGroup = replacedGroups.get(e.getLongKey());
+            if (newGroup != null) {
+                newGroups.add(newGroup);
+            } else {
+                newGroups.add(e.getValue());
+            }
+        }
+
+        return new MappedFragment(fragment, newGroups, sourcesByExchangeId, target);
+    }
+
+    /**
+     * Replaces nodes for the given exchangeId.
+     *
+     * @param exchangeId Exchange id.
+     * @param newNodes New nodes.
+     *
+     * @return New mapped fragment.
+     */
+    public MappedFragment replaceExchangeSources(long exchangeId, List<String> newNodes) {
+        assert sourcesByExchangeId != null : "No sourcesByExchangeId";
+        assert !newNodes.isEmpty() : "New nodes are empty for exchange#" + exchangeId;
+
+        Long2ObjectMap<List<String>> newSourcesByExchangeId = new Long2ObjectArrayMap<>(sourcesByExchangeId);
+        newSourcesByExchangeId.put(exchangeId, newNodes);
+
+        // The nodes should remain the same in order to preserve connectivity between fragments.
+        return new MappedFragment(fragment, groups, nodes, groupsBySourceId, newSourcesByExchangeId, target);
     }
 }

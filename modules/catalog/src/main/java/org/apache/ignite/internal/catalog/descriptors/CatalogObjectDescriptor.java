@@ -19,17 +19,14 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 
-import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Base class for catalog objects.
- * TODO: IGNITE-19082 Implement custom effective serialization instead.
  */
-public abstract class CatalogObjectDescriptor implements Serializable {
-    private static final long serialVersionUID = -6525237234280004860L;
+public abstract class CatalogObjectDescriptor {
     private final int id;
     private final String name;
     private final Type type;
@@ -85,7 +82,7 @@ public abstract class CatalogObjectDescriptor implements Serializable {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogObjectDescriptor.class, this);
     }
 
     /** Catalog object type. */

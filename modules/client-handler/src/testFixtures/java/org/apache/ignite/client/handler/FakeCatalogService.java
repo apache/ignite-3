@@ -70,7 +70,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogIndexDescriptor index(String indexName, long timestamp) {
+    public CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
         return null;
     }
 
@@ -167,10 +167,5 @@ public class FakeCatalogService implements CatalogService {
     @Override
     public void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> listener) {
 
-    }
-
-    @Override
-    public List<Catalog> catalogVersionsSnapshot() {
-        return null;
     }
 }

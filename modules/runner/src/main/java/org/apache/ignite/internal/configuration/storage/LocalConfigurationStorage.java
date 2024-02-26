@@ -113,11 +113,15 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Serializable> readLatest(String key) {
-        return vaultMgr.get(new ByteArray(LOC_PREFIX + key))
-                .thenApply(entry -> entry == null ? null : fromBytes(entry.value()))
-                .exceptionally(e -> {
-                    throw new StorageException("Exception while reading vault entry", e);
-                });
+        return registerFuture(supplyAsync(() -> {
+            try {
+                VaultEntry entry = vaultMgr.get(new ByteArray(LOC_PREFIX + key));
+
+                return entry == null ? null : fromBytes(entry.value());
+            } catch (Exception e) {
+                throw new StorageException("Exception while reading vault entry", e);
+            }
+        }, threadPool));
     }
 
     /** {@inheritDoc} */
@@ -189,9 +193,9 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
                         Data entries = new Data(newValues, version + 1);
 
-                        return vaultMgr.putAll(data)
-                                .thenCompose(v -> lsnr.onEntriesChanged(entries))
-                                .thenApply(v -> true);
+                        vaultMgr.putAll(data);
+
+                        return lsnr.onEntriesChanged(entries).thenApply(v -> true);
                     }, threadPool));
 
             // ignore any errors on the write future, because we are only interested in its completion
@@ -222,8 +226,11 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Long> lastRevision() {
-        return vaultMgr.get(VERSION_KEY)
-                .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
+        return registerFuture(supplyAsync(() -> {
+            VaultEntry entry = vaultMgr.get(VERSION_KEY);
+
+            return entry == null ? 0 : (Long) fromBytes(entry.value());
+        }, threadPool));
     }
 
     @Override

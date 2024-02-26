@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 
 import java.util.List;
 import java.util.UUID;
@@ -60,6 +61,8 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private final GcUpdateHandler gcUpdateHandler;
 
+    private final FullStateTransferIndexChooser fullStateTransferIndexChooser;
+
     /**
      * Constructor.
      *
@@ -69,6 +72,7 @@ public class PartitionAccessImpl implements PartitionAccess {
      * @param mvGc Garbage collector for multi-versioned storages and their indexes in the background.
      * @param indexUpdateHandler Index update handler.
      * @param gcUpdateHandler Gc update handler.
+     * @param fullStateTransferIndexChooser Index chooser for full state transfer.
      */
     public PartitionAccessImpl(
             PartitionKey partitionKey,
@@ -76,7 +80,8 @@ public class PartitionAccessImpl implements PartitionAccess {
             TxStateTableStorage txStateTableStorage,
             MvGc mvGc,
             IndexUpdateHandler indexUpdateHandler,
-            GcUpdateHandler gcUpdateHandler
+            GcUpdateHandler gcUpdateHandler,
+            FullStateTransferIndexChooser fullStateTransferIndexChooser
     ) {
         this.partitionKey = partitionKey;
         this.mvTableStorage = mvTableStorage;
@@ -84,6 +89,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         this.mvGc = mvGc;
         this.indexUpdateHandler = indexUpdateHandler;
         this.gcUpdateHandler = gcUpdateHandler;
+        this.fullStateTransferIndexChooser = fullStateTransferIndexChooser;
     }
 
     @Override
@@ -135,30 +141,34 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId) {
+    public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
+
+        List<Integer> indexIds = fullStateTransferIndexChooser.chooseForAddWrite(catalogVersion, tableId(), beginTimestamp(txId));
 
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
             mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
 
-            indexUpdateHandler.addToIndexes(row, rowId);
+            indexUpdateHandler.addToIndexes(row, rowId, indexIds);
 
             return null;
         });
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp, int catalogVersion) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
+
+        List<Integer> indexIds = fullStateTransferIndexChooser.chooseForAddWriteCommitted(catalogVersion, tableId(), commitTimestamp);
 
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
             mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
 
-            indexUpdateHandler.addToIndexes(row, rowId);
+            indexUpdateHandler.addToIndexes(row, rowId, indexIds);
 
             return null;
         });
@@ -198,12 +208,6 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        // Avoids a race between creating indexes and starting a rebalance.
-        // If an index appears after the rebalance has started, then at the end of the rebalance it will have a status of RUNNABLE instead
-        // of REBALANCE which will lead to errors.
-        // TODO: IGNITE-19513 Fix it, we should have already waited for the indexes to be created
-        indexUpdateHandler.waitIndexes();
-
         TxStateStorage txStateStorage = getTxStateStorage(partitionId());
 
         return mvGc.removeStorage(toTablePartitionId(partitionKey))

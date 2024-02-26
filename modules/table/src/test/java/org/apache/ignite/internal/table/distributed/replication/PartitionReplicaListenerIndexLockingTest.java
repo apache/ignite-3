@@ -46,7 +46,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -62,6 +65,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.storage.RowId;
@@ -96,6 +100,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -108,10 +113,12 @@ import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** There are tests for partition replica listener. */
+@ExtendWith(ConfigurationExtension.class)
 public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
     private static final int TABLE_ID = 1;
@@ -132,12 +139,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static ColumnsExtractor row2HashKeyConverter;
     private static ColumnsExtractor row2SortKeyConverter;
 
+    @InjectConfiguration
+    private static StorageUpdateConfiguration storageUpdateConfiguration;
+
     @BeforeAll
     public static void beforeAll() {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
-                .thenAnswer(invocationOnMock -> completedFuture(new LeaderWithTerm(null, 1L)));
+                .thenAnswer(invocationOnMock -> completedFuture(LeaderWithTerm.NO_LEADER));
         when(mockRaftClient.run(any()))
                 .thenAnswer(invocationOnMock -> nullCompletedFuture());
 
@@ -205,10 +215,12 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
-        ClusterNode localNode = mock(ClusterNode.class);
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+        when(indexDescriptor.id()).thenReturn(PK_INDEX_ID);
 
-        when(localNode.name()).thenReturn("localNode");
-        when(localNode.id()).thenReturn("localNode");
+        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
+
+        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
@@ -235,14 +247,16 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new StorageUpdateHandler(
                         PART_ID,
                         partitionDataStorage,
-                        indexUpdateHandler
+                        indexUpdateHandler,
+                        storageUpdateConfiguration
                 ),
                 new DummyValidationSchemasSource(schemaManager),
                 localNode,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 new TestPlacementDriver(localNode),
-                mock(ClusterNodeResolver.class)
+                mock(ClusterNodeResolver.class),
+                new RemotelyTriggeredResourceRegistry()
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
@@ -296,6 +310,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             insertRows(List.of(new Pair<>(testBinaryRow, rowId)), TestTransactionIds.newTransactionId());
         }
 
+        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+
         ReplicaRequest request;
 
         switch (arg.type) {
@@ -309,6 +325,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
                         .requestType(arg.type)
+                        .coordinatorId(localNode.id())
                         .build();
 
                 break;
@@ -327,6 +344,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .schemaVersion(testBinaryRow.schemaVersion())
                         .binaryTuple(testBinaryRow.tupleSlice())
                         .requestType(arg.type)
+                        .coordinatorId(localNode.id())
                         .build();
                 break;
 
@@ -379,6 +397,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             }
         }
 
+        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+
         ReplicaRequest request;
 
         switch (arg.type) {
@@ -391,6 +411,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
                         .requestType(arg.type)
+                        .coordinatorId(localNode.id())
                         .build();
 
                 break;
@@ -406,6 +427,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(rows))
                         .requestType(arg.type)
+                        .coordinatorId(localNode.id())
                         .build();
 
                 break;

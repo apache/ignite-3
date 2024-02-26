@@ -17,24 +17,25 @@
 
 package org.apache.ignite.internal.thread;
 
-import java.util.concurrent.atomic.AtomicLong;
+import static java.util.Collections.unmodifiableSet;
+
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class adds some necessary plumbing on top of the {@link Thread} class. Specifically, it adds:
  * <ul>
- *      <li>Consistent naming of threads</li>;
- *      <li>Name of the ignite node this thread belongs to</li>.
+ *      <li>Consistent naming of threads;</li>
+ *      <li>Name of the ignite node this thread belongs to.</li>
  * </ul>
  * <b>Note</b>: this class is intended for internal use only.
  */
-public class IgniteThread extends Thread {
-    /** Number of all ignite threads in the system. */
-    private static final AtomicLong THREAD_COUNTER = new AtomicLong();
-
-    /** The name of the Ignite instance this thread belongs to. */
-    protected final String igniteInstanceName;
+public class IgniteThread extends Thread implements ThreadAttributes {
+    private final Set<ThreadOperation> allowedOperations;
 
     /**
      * Creates thread with given worker.
@@ -49,32 +50,27 @@ public class IgniteThread extends Thread {
      * Creates ignite thread with given name for a given Ignite instance.
      *
      * @param nodeName   Name of the Ignite instance this thread is created for.
-     * @param threadName Name of thread.
-     */
-    public IgniteThread(String nodeName, String threadName) {
-        this(nodeName, threadName, null);
-    }
-
-    /**
-     * Creates ignite thread with given name for a given Ignite instance.
-     *
-     * @param nodeName   Name of the Ignite instance this thread is created for.
-     * @param threadName Name of thread.
+     * @param threadName Name of thread (will be added to the node name to form final name).
      * @param r          Runnable to execute.
+     * @param allowedOperations Operations which this thread allows to execute.
      */
-    public IgniteThread(String nodeName, String threadName, Runnable r) {
-        super(r, createName(THREAD_COUNTER.incrementAndGet(), threadName, nodeName));
-
-        this.igniteInstanceName = nodeName;
+    public IgniteThread(String nodeName, String threadName, Runnable r, ThreadOperation... allowedOperations) {
+        this(prefixWithNodeName(nodeName, threadName), r, allowedOperations);
     }
 
     /**
-     * Gets name of the Ignite instance this thread belongs to.
+     * Creates ignite thread with given name.
      *
-     * @return Name of the Ignite instance this thread belongs to.
+     * @param finalName Name of thread.
+     * @param r Runnable to execute.
+     * @param allowedOperations Operations which this thread allows to execute.
      */
-    public String getIgniteInstanceName() {
-        return igniteInstanceName;
+    IgniteThread(String finalName, Runnable r, ThreadOperation... allowedOperations) {
+        super(r, finalName);
+
+        Set<ThreadOperation> operations = EnumSet.noneOf(ThreadOperation.class);
+        Collections.addAll(operations, allowedOperations);
+        this.allowedOperations = unmodifiableSet(operations);
     }
 
     /**
@@ -82,6 +78,7 @@ public class IgniteThread extends Thread {
      *
      * @return IgniteThread or {@code null} if current thread is not an instance of IgniteThread.
      */
+    @Nullable
     public static IgniteThread current() {
         Thread thread = Thread.currentThread();
 
@@ -93,24 +90,20 @@ public class IgniteThread extends Thread {
      * Create prefix for thread name.
      */
     public static String threadPrefix(String nodeName, String threadName) {
-        return "%" + nodeName + "%" + threadName + "-";
+        return prefixWithNodeName(nodeName, threadName) + "-";
     }
 
-    /**
-     * Creates new thread name.
-     *
-     * @param num        Thread number.
-     * @param threadName Thread name.
-     * @param nodeName   Ignite instance name.
-     * @return New thread name.
-     */
-    protected static String createName(long num, String threadName, String nodeName) {
-        return threadPrefix(nodeName, threadName) + num;
+    private static String prefixWithNodeName(String nodeName, String threadName) {
+        return "%" + nodeName + "%" + threadName;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(IgniteThread.class, this, "name", getName());
+    }
+
+    @Override
+    public Set<ThreadOperation> allowedOperations() {
+        return allowedOperations;
     }
 }

@@ -41,9 +41,11 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -465,7 +467,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Tuple> publisher = new SimplePublisher<>()) {
                 fut = recordView.streamData(publisher, null);
                 publisher.submit(t);
             }
@@ -473,10 +475,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -486,7 +488,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<PersonPojo> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<PersonPojo> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
                 fut = pojoView.streamData(publisher, null);
                 publisher.submit(t);
             }
@@ -494,10 +496,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(new PersonPojo(0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(new PersonPojo(1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(new PersonPojo(2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(new PersonPojo(3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(new PersonPojo(0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(new PersonPojo(1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(new PersonPojo(2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(new PersonPojo(3L)));
     }
 
     @Test
@@ -507,7 +509,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<Entry<Tuple, Tuple>> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Entry<Tuple, Tuple>> publisher = new SimplePublisher<>()) {
                 fut = recordView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, Tuple.create()));
             }
@@ -515,10 +517,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -528,7 +530,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Long> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<Entry<Long, String>> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Entry<Long, String>> publisher = new SimplePublisher<>()) {
                 fut = kvView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, t.toString()));
             }
@@ -536,10 +538,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(0L));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(1L));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(2L));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(3L));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(0L));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(1L));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(2L));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(3L));
     }
 
     @Test
@@ -553,21 +555,21 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         CompletableFuture<Void> fut;
 
         RecordView<Tuple> recordView = defaultTable().recordView();
-        try (SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>()) {
+        try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
             fut = recordView.streamData(publisher, options);
 
             Consumer<Long> submit = id -> {
                 try {
                     lastOpServerName = null;
-                    publisher.submit(Tuple.create().set("ID", id));
+                    publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", id)));
                     assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
             };
 
-            assertOpOnNode(nodeKey1, "upsertAll", x -> submit.accept(1L));
-            assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(2L));
+            assertOpOnNode(nodeKey1, "updateAll", x -> submit.accept(1L));
+            assertOpOnNode(nodeKey2, "updateAll", x -> submit.accept(2L));
 
             // Update partition assignment.
             initPrimaryReplicas(reversedReplicas());
@@ -578,8 +580,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             }
 
             // Check updated assignment.
-            assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(1L));
-            assertOpOnNode(nodeKey1, "upsertAll", x -> submit.accept(2L));
+            assertOpOnNode(nodeKey2, "updateAll", x -> submit.accept(1L));
+            assertOpOnNode(nodeKey1, "updateAll", x -> submit.accept(2L));
         }
 
         fut.join();

@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.table;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -36,6 +38,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -54,10 +57,17 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param tbl The table.
      * @param schemaRegistry Table schema registry.
      * @param schemaVersions Schema versions access.
+     * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
      */
-    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, IgniteSql sql) {
-        super(tbl, schemaVersions, schemaRegistry, sql);
+    public RecordBinaryViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaRegistry,
+            SchemaVersions schemaVersions,
+            MarshallersProvider marshallers,
+            IgniteSql sql
+    ) {
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
         marshallerCache = new TupleMarshallerCache(schemaRegistry);
     }
@@ -365,6 +375,19 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     private Row marshal(Tuple tuple, int schemaVersion, boolean keyOnly) throws IgniteException {
         TupleMarshaller marshaller = marshaller(schemaVersion);
 
+        return marshal(tuple, marshaller, keyOnly);
+    }
+
+    /**
+     * Marshal a tuple to a row.
+     *
+     * @param tuple The tuple.
+     * @param marshaller Marshaller.
+     * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
+     * @return Row.
+     * @throws IgniteException If failed to marshal tuple.
+     */
+    private static Row marshal(Tuple tuple, TupleMarshaller marshaller, boolean keyOnly) {
         try {
             if (keyOnly) {
                 return marshaller.marshalKey(tuple);
@@ -443,15 +466,39 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         return mapped;
     }
 
+    private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, int schemaVersion, @Nullable BitSet deleted) {
+        Collection<BinaryRowEx> mapped = new ArrayList<>(rows.size());
+        TupleMarshaller marshaller = marshaller(schemaVersion);
+
+        for (Tuple row : rows) {
+            boolean key = deleted != null && deleted.get(mapped.size());
+            mapped.add(marshal(row, marshaller, key));
+        }
+
+        return mapped;
+    }
+
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null,
-                (schemaVersion) -> this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId));
+        StreamerBatchSender<Tuple, Integer> batchSender = this::updateAll;
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+    }
+
+    /**
+     * Asynchronously updates records in the table (insert, update, delete).
+     *
+     * @param partitionId partition.
+     * @param rows Rows.
+     * @param deleted Bit set indicating deleted rows (one bit per item in {@param rows}). When null, no rows are deleted.
+     * @return Future that will be completed when the stream is finished.
+     */
+    public CompletableFuture<Void> updateAll(int partitionId, Collection<Tuple> rows, @Nullable BitSet deleted) {
+        return withSchemaSync(null,
+                schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId));
     }
 }

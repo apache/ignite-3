@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.OutNetworkObject;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -145,7 +145,9 @@ public class RecoveryDescriptor {
     public void add(OutNetworkObject msg) {
         msg.shouldBeSavedForRecovery(false);
         sentCount++;
-        unacknowledgedMessages.add(msg);
+
+        boolean added = unacknowledgedMessages.add(msg);
+        assert added : "Wasn't added as the queue is full: " + msg.networkMessage();
     }
 
     /**
@@ -227,7 +229,7 @@ public class RecoveryDescriptor {
         return channelHolder.get();
     }
 
-    @Nullable Channel holderChannel() {
+    @Nullable public Channel holderChannel() {
         DescriptorAcquiry acquiry = holder();
         return acquiry == null ? null : acquiry.channel();
     }
