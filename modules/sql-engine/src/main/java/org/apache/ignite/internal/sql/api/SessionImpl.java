@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -170,6 +171,12 @@ public class SessionImpl implements AbstractSession {
     @Override
     public int defaultPageSize() {
         return pageSize;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ZoneId timeZoneId() {
+        return props.get(QueryProperty.TIME_ZONE_ID);
     }
 
     /** {@inheritDoc} */

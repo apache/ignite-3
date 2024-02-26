@@ -285,6 +285,13 @@ public interface Session extends AutoCloseable {
     int defaultPageSize();
 
     /**
+     * Returns time zone used for this session.
+     *
+     * @return Time zone used for this session.
+     */
+    ZoneId timeZoneId();
+
+    /**
      * Returns a session property.
      *
      * @param name Property name.
