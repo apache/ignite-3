@@ -322,7 +322,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final DistributionZoneManager distributionZoneManager;
 
-    private final SchemaSyncService schemaSyncService;
+    private final SchemaSyncService executorInclinedSchemaSyncService;
 
     private final CatalogService catalogService;
 
@@ -350,7 +350,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final HybridTimestampTracker observableTimestampTracker;
 
     /** Placement driver. */
-    private final PlacementDriver placementDriver;
+    private final PlacementDriver executorInclinedPlacementDriver;
 
     /** A supplier function that returns {@link IgniteSql}. */
     private final Supplier<IgniteSql> sql;
@@ -454,13 +454,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.distributionZoneManager = distributionZoneManager;
-        this.schemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
-        this.placementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
+
+        this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
+        this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -471,11 +472,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 clock,
                 topologyService,
                 clusterService.messagingService(),
-                placementDriver,
+                executorInclinedPlacementDriver,
                 txMessageSender
         );
 
-        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
+        schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clock);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -992,9 +993,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionUpdateHandlers.storageUpdateHandler,
                 new CatalogValidationSchemasSource(catalogService, schemaManager),
                 localNode(),
-                schemaSyncService,
+                executorInclinedSchemaSyncService,
                 catalogService,
-                placementDriver,
+                executorInclinedPlacementDriver,
                 clusterService.topologyService(),
                 remotelyTriggeredResourceRegistry
         );
@@ -1238,7 +1239,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 replicaSvc,
                 clock,
                 observableTimestampTracker,
-                placementDriver,
+                executorInclinedPlacementDriver,
                 tableRaftService
         );
 
@@ -1468,7 +1469,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<List<Table>> tablesAsyncInternalBusy() {
         HybridTimestamp now = clock.now();
 
-        return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
+        return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                 .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
                     int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
 
@@ -1568,7 +1569,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
-            return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
+            return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
                         int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
 
@@ -1620,7 +1621,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
-            return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
+            return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
                         CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
 
