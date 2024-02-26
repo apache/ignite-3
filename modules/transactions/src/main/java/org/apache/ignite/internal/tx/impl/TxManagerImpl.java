@@ -60,7 +60,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -218,6 +217,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     * @param resourcesRegistry Resources registry.
      */
     @TestOnly
     public TxManagerImpl(
@@ -229,7 +229,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            LocalRwTxCounter localRwTxCounter
+            LocalRwTxCounter localRwTxCounter,
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this(
                 txConfig,
@@ -241,7 +242,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 placementDriver,
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                resourcesRegistry
         );
     }
 
@@ -258,6 +260,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      * @param partitionOperationsExecutor Executor on which partition operations will be executed, if needed.
+     * @param resourcesRegistry Resources registry.
      */
     public TxManagerImpl(
             TransactionConfiguration txConfig,
@@ -269,7 +272,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -302,7 +306,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
-        txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
+        txCleanupRequestHandler = new TxCleanupRequestHandler(
+                messagingService,
+                lockManager,
+                clock,
+                writeIntentSwitchProcessor,
+                resourcesRegistry
+        );
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
     }
@@ -777,11 +787,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
         return runAsync(runnable, cleanupExecutor);
-    }
-
-    @Override
-    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
-        return supplyAsync(action, cleanupExecutor).thenCompose(f -> f);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {

@@ -435,12 +435,14 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
         assertNotNull(ars1);
         await(ars1.closeAsync());
-        assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_CLOSED_ERR, () -> await(ars1.fetchNextPage()), "Cursor is closed");
+        assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_ALREADY_CLOSED_ERR,
+                () -> await(ars1.fetchNextPage()), "Cursor is closed");
 
         AsyncCursor<TestObject> ars2 = await(view.queryAsync(null, null, null, builder().pageSize(3).build()));
 
         assertNotNull(ars2);
-        assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_CLOSED_ERR, () -> await(ars2.fetchNextPage()), "Cursor is closed");
+        assertThrowsWithCode(CursorClosedException.class, Common.CURSOR_ALREADY_CLOSED_ERR,
+                () -> await(ars2.fetchNextPage()), "Cursor is closed");
     }
 
     @ParameterizedTest

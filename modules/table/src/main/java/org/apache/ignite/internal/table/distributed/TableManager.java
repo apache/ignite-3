@@ -183,6 +183,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -379,6 +380,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Index chooser for full state transfer. */
     private final FullStateTransferIndexChooser fullStateTransferIndexChooser;
 
+    private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
+
     /**
      * Creates a new table manager.
      *
@@ -433,7 +436,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -457,6 +461,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.placementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
+        this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -983,7 +988,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 schemaSyncService,
                 catalogService,
                 placementDriver,
-                clusterService.topologyService()
+                clusterService.topologyService(),
+                remotelyTriggeredResourceRegistry
         );
     }
 

@@ -230,9 +230,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         Set<NativeTypeSpec> unsupportedTypes = Set.of(
                 // TODO https://issues.apache.org/jira/browse/IGNITE-18431
-                NativeTypeSpec.BITMASK,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-19274
-                NativeTypeSpec.TIMESTAMP
+                NativeTypeSpec.BITMASK
         );
 
         // List of columns for 'ADD COLUMN' statement.
@@ -254,7 +252,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 dropColumnsList.app(',');
             }
 
-            addColumnsList.app("c").app(i).app(' ').app(relDataType.getSqlTypeName());
+            addColumnsList.app("c").app(i).app(' ').app(relDataType.getSqlTypeName().getSpaceName());
             dropColumnsList.app("c").app(i);
         }
 

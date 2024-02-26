@@ -42,11 +42,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -81,6 +84,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
@@ -358,6 +362,9 @@ public class TestBuilders {
         /** Sets id for the table. The caller must guarantee that provided id is unique. */
         TableBuilder tableId(int id);
 
+        /** Sets the number of partitions fot this table. Default value is equal to {@link CatalogUtils#DEFAULT_PARTITION_COUNT}. */
+        TableBuilder partitions(int num);
+
         /**
          * Builds a table.
          *
@@ -501,7 +508,8 @@ public class TestBuilders {
                     description,
                     ArrayRowHandler.INSTANCE,
                     Map.of(),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name()))
+                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
+                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
             );
         }
     }
@@ -608,8 +616,20 @@ public class TestBuilders {
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
-                        var targetProvider = new TestNodeExecutionTargetProvider(systemViewManager::owningNodes, owningNodesByTableName);
-                        var mappingService = new MappingServiceImpl(name, targetProvider, EmptyCacheFactory.INSTANCE, 0, Runnable::run);
+                        var targetProvider = new TestNodeExecutionTargetProvider(
+                                systemViewManager::owningNodes,
+                                owningNodesByTableName,
+                                false
+                        );
+                        var partitionPruner = new PartitionPrunerImpl();
+                        var mappingService = new MappingServiceImpl(
+                                name,
+                                targetProvider,
+                                EmptyCacheFactory.INSTANCE,
+                                0,
+                                partitionPruner,
+                                Runnable::run
+                        );
 
                         systemViewManager.register(() -> systemViews);
 
@@ -707,6 +727,7 @@ public class TestBuilders {
         private IgniteDistribution distribution;
         private int size = 100_000;
         private Integer tableId;
+        private int partitions = CatalogUtils.DEFAULT_PARTITION_COUNT;
 
         /** {@inheritDoc} */
         @Override
@@ -795,6 +816,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public TableBuilder partitions(int num) {
+            this.partitions = num;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public IgniteTable build() {
             if (distribution == null) {
                 throw new IllegalArgumentException("Distribution is not specified");
@@ -822,7 +850,7 @@ public class TestBuilders {
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),
                     indexes,
-                    1
+                    partitions
             );
         }
     }
@@ -1357,6 +1385,8 @@ public class TestBuilders {
 
         private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
 
+        private boolean useTablePartitions;
+
         private ExecutionTargetProviderBuilder() {
 
         }
@@ -1376,9 +1406,19 @@ public class TestBuilders {
             return this;
         }
 
+        /** Use table partitions to build mapping targets. Default is {@code false}. */
+        public ExecutionTargetProviderBuilder useTablePartitions(boolean value) {
+            useTablePartitions = value;
+            return this;
+        }
+
         /** Creates an instance of {@link ExecutionTargetProvider}. */
         public ExecutionTargetProvider build() {
-            return new TestNodeExecutionTargetProvider(owningNodesBySystemViewName, Map.copyOf(owningNodesByTableName));
+            return new TestNodeExecutionTargetProvider(
+                    owningNodesBySystemViewName,
+                    Map.copyOf(owningNodesByTableName),
+                    useTablePartitions
+            );
         }
     }
 
@@ -1388,12 +1428,16 @@ public class TestBuilders {
 
         final Map<String, List<String>> owningNodesByTableName;
 
+        final boolean useTablePartitions;
+
         private TestNodeExecutionTargetProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
-                Map<String, List<String>> owningNodesByTableName) {
-
+                Map<String, List<String>> owningNodesByTableName,
+                boolean useTablePartitions
+        ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
             this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
+            this.useTablePartitions = useTablePartitions;
         }
 
         @Override
@@ -1404,9 +1448,22 @@ public class TestBuilders {
                 throw new AssertionError("DataProvider is not configured for table " + table.name());
             }
 
-            ExecutionTarget target = factory.partitioned(owningNodes.stream()
-                    .map(name -> new NodeWithConsistencyToken(name, 1))
-                    .collect(Collectors.toList()));
+            List<NodeWithConsistencyToken> nodes;
+
+            if (useTablePartitions) {
+                int p = table.partitions();
+
+                nodes = IntStream.range(0, p).mapToObj(n -> {
+                    String nodeName = owningNodes.get(n % owningNodes.size());
+                    return new NodeWithConsistencyToken(nodeName, p);
+                }).collect(Collectors.toList());
+            } else {
+                nodes = owningNodes.stream()
+                        .map(name -> new NodeWithConsistencyToken(name, 1))
+                        .collect(Collectors.toList());
+            }
+
+            ExecutionTarget target = factory.partitioned(nodes);
 
             return CompletableFuture.completedFuture(target);
         }
