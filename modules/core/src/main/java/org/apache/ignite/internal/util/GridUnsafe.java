@@ -107,9 +107,6 @@ public abstract class GridUnsafe {
     /** {@link java.nio.Buffer#address} field offset. */
     private static final long DIRECT_BUF_ADDR_OFF = bufferAddressOffset();
 
-    /** Null object. */
-    private static final Object NULL_OBJ = null;
-
     /**
      * Implementation used to wrap a region if an unmanaged memory in a {@link ByteBuffer}.
      */
@@ -209,7 +206,7 @@ public abstract class GridUnsafe {
      * @param constructor Constructor to use. Should create an instance of a direct ByteBuffer.
      * @return Byte buffer wrapping the given memory.
      */
-    private static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, int len, MethodHandle constructor) {
+    static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, int len, MethodHandle constructor) {
         try {
             ByteBuffer newDirectBuf = (ByteBuffer) constructor.invokeExact(ptr, len);
 
@@ -228,7 +225,7 @@ public abstract class GridUnsafe {
      * @param constructor Constructor to use. Should create an instance of a direct ByteBuffer.
      * @return Byte buffer wrapping the given memory.
      */
-    private static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, long len, MethodHandle constructor) {
+    static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, long len, MethodHandle constructor) {
         try {
             ByteBuffer newDirectBuf = (ByteBuffer) constructor.invokeExact(ptr, len);
 
@@ -2115,94 +2112,5 @@ public abstract class GridUnsafe {
         }
 
         return true;
-    }
-
-    /**
-     * Wraps a pointer to unmanaged memory into a direct byte buffer.
-     */
-    @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-    private interface PointerWrapping {
-        /**
-         * Wraps a pointer to unmanaged memory into a direct byte buffer.
-         *
-         * @param ptr Pointer to wrap.
-         * @param len Memory location length.
-         * @return Byte buffer wrapping the given memory.
-         */
-        ByteBuffer wrapPointer(long ptr, int len);
-    }
-
-    /**
-     * Uses the JavaNioAccess object to wraps a pointer to unmanaged memory into a direct byte buffer.
-     */
-    private static class JavaNioPointerWrapping implements PointerWrapping {
-        private final MethodHandle newDirectBufMh;
-        private final Object javaNioAccessObj;
-
-        private JavaNioPointerWrapping(MethodHandle newDirectBufMh, Object javaNioAccessObj) {
-            this.newDirectBufMh = newDirectBufMh;
-            this.javaNioAccessObj = javaNioAccessObj;
-        }
-
-        @Override
-        public ByteBuffer wrapPointer(long ptr, int len) {
-            try {
-                ByteBuffer buf = (ByteBuffer) newDirectBufMh.invokeExact(javaNioAccessObj, ptr, len, NULL_OBJ);
-
-                assert buf.isDirect() : "ptr=" + ptr + ", len=" + len;
-
-                buf.order(NATIVE_BYTE_ORDER);
-
-                return buf;
-            } catch (Throwable e) {
-                throw new RuntimeException("JavaNioAccess#newDirectByteBuffer() method is unavailable."
-                        + FeatureChecker.JAVA_VER_SPECIFIC_WARN, e);
-            }
-        }
-    }
-
-    /**
-     * Uses constructor of the direct byte buffer with 'length' parameter of type {@code int} to wrap a pointer to unmanaged memory into
-     * a direct byte buffer.
-     */
-    private static class WrapWithIntDirectBufferConstructor implements PointerWrapping {
-        private final MethodHandle constructor;
-
-        private WrapWithIntDirectBufferConstructor(MethodHandle constructor) {
-            this.constructor = constructor;
-        }
-
-        @Override
-        public ByteBuffer wrapPointer(long ptr, int len) {
-            return wrapPointerDirectBufferConstructor(ptr, len, constructor);
-        }
-    }
-
-    /**
-     * Uses constructor of the direct byte buffer with 'length' parameter of type {@code long} to wrap a pointer to unmanaged memory into
-     * a direct byte buffer.
-     */
-    private static class WrapWithLongDirectBufferConstructor implements PointerWrapping {
-        private final MethodHandle constructor;
-
-        private WrapWithLongDirectBufferConstructor(MethodHandle constructor) {
-            this.constructor = constructor;
-        }
-
-        @Override
-        public ByteBuffer wrapPointer(long ptr, int len) {
-            return wrapPointerDirectBufferConstructor(ptr, (long) len, constructor);
-        }
-    }
-
-    /**
-     * Always fails with an exception.
-     */
-    private static class BrokenPointerWrapping implements PointerWrapping {
-        @Override
-        public ByteBuffer wrapPointer(long ptr, int len) {
-            throw new RuntimeException(
-                    "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_VER_SPECIFIC_WARN);
-        }
     }
 }
