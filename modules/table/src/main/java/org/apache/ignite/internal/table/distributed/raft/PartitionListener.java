@@ -57,7 +57,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowUpdater;
+import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
@@ -527,7 +527,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(cmd);
 
-        BinaryRowUpdater binaryRowUpdater = createBinaryRowUpdater(cmd);
+        BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(cmd);
 
         storage.runConsistently(locker -> {
             List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
@@ -539,7 +539,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     rowUuids,
                     locker,
                     rowVersionChooser,
-                    binaryRowUpdater
+                    binaryRowUpgrader
             );
 
             RowId nextRowIdToBuild = cmd.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
@@ -594,14 +594,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             List<UUID> rowUuids,
             Locker locker,
             BuildIndexRowVersionChooser rowVersionChooser,
-            BinaryRowUpdater binaryRowUpdater
+            BinaryRowUpgrader binaryRowUpgrader
     ) {
         return rowUuids.stream()
                 .map(this::toRowId)
                 .peek(locker::lock)
                 .map(rowVersionChooser::chooseForBuildIndex)
                 .flatMap(Collection::stream)
-                .map(binaryRowAndRowId -> updateBinaryRow(binaryRowUpdater, binaryRowAndRowId));
+                .map(binaryRowAndRowId -> upgradeBinaryRow(binaryRowUpgrader, binaryRowAndRowId));
     }
 
     private RowId toRowId(UUID rowUuid) {
@@ -641,26 +641,26 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         return new BuildIndexRowVersionChooser(storage, indexCreationCatalog.time(), startBuildingIndexCatalog.time());
     }
 
-    private BinaryRowUpdater createBinaryRowUpdater(BuildIndexCommand command) {
-        int startBuildingIndexCatalogVersion = command.requiredCatalogVersion();
+    private BinaryRowUpgrader createBinaryRowUpgrader(BuildIndexCommand command) {
+        int indexCreationCatalogVersion = command.creationCatalogVersion();
 
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(command.indexId(), startBuildingIndexCatalogVersion);
+        CatalogIndexDescriptor indexDescriptor = catalogService.index(command.indexId(), indexCreationCatalogVersion);
 
-        assert indexDescriptor != null : "indexId=" + command.indexId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
+        assert indexDescriptor != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
 
-        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), startBuildingIndexCatalogVersion);
+        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), indexCreationCatalogVersion);
 
-        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
+        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + indexCreationCatalogVersion;
 
         SchemaDescriptor schema = schemaRegistry.schema(tableDescriptor.tableVersion());
 
-        return new BinaryRowUpdater(schemaRegistry, schema);
+        return new BinaryRowUpgrader(schemaRegistry, schema);
     }
 
-    private static BinaryRowAndRowId updateBinaryRow(BinaryRowUpdater updater, BinaryRowAndRowId source) {
+    private static BinaryRowAndRowId upgradeBinaryRow(BinaryRowUpgrader upgrader, BinaryRowAndRowId source) {
         BinaryRow sourceBinaryRow = source.binaryRow();
-        BinaryRow updatedBinaryRow = updater.update(sourceBinaryRow);
+        BinaryRow upgradedBinaryRow = upgrader.upgrade(sourceBinaryRow);
 
-        return updatedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(updatedBinaryRow, source.rowId());
+        return upgradedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(upgradedBinaryRow, source.rowId());
     }
 }

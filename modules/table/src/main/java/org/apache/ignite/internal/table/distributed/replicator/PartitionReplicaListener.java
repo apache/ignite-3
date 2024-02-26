@@ -1355,7 +1355,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return {@code true} if index row matches the binary row, {@code false} otherwise.
      */
     private static boolean indexRowMatches(IndexRow indexRow, BinaryRow binaryRow, TableSchemaAwareIndexStorage schemaAwareIndexStorage) {
-        // TODO: IGNITE-21606 It is necessary to update the tuple to the required schema version
+        // TODO: IGNITE-21606 It is necessary to upgrade the tuple to the required schema version
         BinaryTuple actualIndexRow = schemaAwareIndexStorage.indexRowResolver().extractColumns(binaryRow);
 
         return indexRow.indexColumns().byteBuffer().equals(actualIndexRow.byteBuffer());

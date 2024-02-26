@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -42,6 +43,8 @@ import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParamete
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -114,7 +117,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0)
                 .check();
     }
@@ -147,7 +150,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get())
                 .check();
     }
@@ -187,7 +190,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         QueryChecker queryChecker = assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0 ORDER BY ID ASC", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .ordered();
 
         int updatedRowCount = updateIntoTableFuture.join();
@@ -233,7 +236,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get() - deleteFromTableFuture.join())
                 .check();
     }
@@ -260,12 +263,47 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         waitForReadTimestampThatObservesMostRecentCatalog();
 
         assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME, indexName0))
+                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName0))
                 .returns(0, "0", 10.0, "foo")
                 .check();
 
         assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME, indexName1))
+                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName1))
+                .returns(0, "0", 10.0, "foo")
+                .check();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21606")
+    @Test
+    void testBuildingIndexWithUpdateSchemaAfterCreateIndex() throws Exception {
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
+
+        insertPeople(TABLE_NAME, new Person(0, "0", 10.0));
+
+        String columName = "SURNAME";
+
+        sql(format("ALTER TABLE {} ADD COLUMN {} VARCHAR DEFAULT 'foo'", TABLE_NAME, columName));
+
+        // Hack to prevent the index from going into status BUILDING until we update the default value for the column.
+        Transaction rwTx = node().transactions().begin(new TransactionOptions().readOnly(false));
+
+        try {
+            setAwaitIndexAvailability(false);
+
+            createIndex(TABLE_NAME, INDEX_NAME, columName);
+
+            sql(format("ALTER TABLE {} ALTER COLUMN {} SET DEFAULT 'bar'", TABLE_NAME, columName));
+        } finally {
+            setAwaitIndexAvailability(true);
+            rwTx.commit();
+        }
+
+        // Hack so that we can wait for the index to be added to the sql planner.
+        awaitIndexesBecomeAvailable(node(), INDEX_NAME);
+        waitForReadTimestampThatObservesMostRecentCatalog();
+
+        assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
+                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0, "foo")
                 .check();
     }
@@ -312,10 +350,14 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     private static void createIndexForSalaryFieldAndWaitBecomeAvailable() throws Exception {
-        createIndex(TABLE_NAME, INDEX_NAME, "SALARY");
+        createIndexAndWaitBecomeAvailable(INDEX_NAME, "SALARY");
+    }
+
+    private static void createIndexAndWaitBecomeAvailable(String indexName, String columnName) throws Exception {
+        createIndex(TABLE_NAME, indexName, columnName);
 
         // Hack so that we can wait for the index to be added to the sql planner.
-        awaitIndexesBecomeAvailable(node(), INDEX_NAME);
+        awaitIndexesBecomeAvailable(node(), indexName);
         waitForReadTimestampThatObservesMostRecentCatalog();
     }
 

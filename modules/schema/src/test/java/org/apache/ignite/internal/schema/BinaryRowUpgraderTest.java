@@ -29,15 +29,15 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** For {@link BinaryRowUpdater} testing. */
-public class BinaryRowUpdaterTest {
-    private static final SchemaDescriptor SCHEMA_V_1 = new SchemaDescriptor(
+/** For {@link BinaryRowUpgrader} testing. */
+public class BinaryRowUpgraderTest {
+    private static final SchemaDescriptor ORIGINAL_SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("k", INT32, false)},
             new Column[]{new Column("v", INT32, true)}
     );
 
-    private static final SchemaDescriptor SCHEMA_V_2 = new SchemaDescriptor(
+    private static final SchemaDescriptor NULLABLE_COLUMN_ADDED = new SchemaDescriptor(
             2,
             new Column[]{new Column("k", INT32, false)},
             new Column[]{
@@ -46,7 +46,7 @@ public class BinaryRowUpdaterTest {
             }
     );
 
-    private static final SchemaDescriptor SCHEMA_V_3 = new SchemaDescriptor(
+    private static final SchemaDescriptor DEFAULTED_COLUMN_ADDED = new SchemaDescriptor(
             3,
             new Column[]{new Column("k", INT32, false)},
             new Column[]{
@@ -57,44 +57,44 @@ public class BinaryRowUpdaterTest {
     );
 
     private static final SchemaRegistry SCHEMA_REGISTRY = new SchemaRegistryImpl(schemaVersion -> {
-        if (SCHEMA_V_1.version() == schemaVersion) {
-            return SCHEMA_V_1;
-        } else if (SCHEMA_V_2.version() == schemaVersion) {
-            return SCHEMA_V_2;
-        } else if (SCHEMA_V_3.version() == schemaVersion) {
-            return SCHEMA_V_3;
+        if (ORIGINAL_SCHEMA.version() == schemaVersion) {
+            return ORIGINAL_SCHEMA;
+        } else if (NULLABLE_COLUMN_ADDED.version() == schemaVersion) {
+            return NULLABLE_COLUMN_ADDED;
+        } else if (DEFAULTED_COLUMN_ADDED.version() == schemaVersion) {
+            return DEFAULTED_COLUMN_ADDED;
         }
 
         return null;
-    }, SCHEMA_V_1);
+    }, ORIGINAL_SCHEMA);
 
     @BeforeAll
     static void beforeAll() {
-        SCHEMA_V_2.columnMapping(SchemaUtils.columnMapper(SCHEMA_V_1, SCHEMA_V_2));
-        SCHEMA_V_3.columnMapping(SchemaUtils.columnMapper(SCHEMA_V_2, SCHEMA_V_3));
+        NULLABLE_COLUMN_ADDED.columnMapping(SchemaUtils.columnMapper(ORIGINAL_SCHEMA, NULLABLE_COLUMN_ADDED));
+        DEFAULTED_COLUMN_ADDED.columnMapping(SchemaUtils.columnMapper(NULLABLE_COLUMN_ADDED, DEFAULTED_COLUMN_ADDED));
     }
 
     @Test
-    void testNoUpdateRow() {
-        BinaryRow source = binaryRow(SCHEMA_V_1, 1, 2);
+    void testNoUpgradeRow() {
+        BinaryRow source = binaryRow(ORIGINAL_SCHEMA, 1, 2);
 
-        assertThat(updateRow(SCHEMA_V_1, source), sameInstance(source));
+        assertThat(upgradeRow(ORIGINAL_SCHEMA, source), sameInstance(source));
     }
 
     @Test
-    void testUpdateRow() {
-        BinaryRow source = binaryRow(SCHEMA_V_1, 1, 2);
-        BinaryRow expected = binaryRow(SCHEMA_V_2, 1, 2, null);
+    void testUpgradeRow() {
+        BinaryRow source = binaryRow(ORIGINAL_SCHEMA, 1, 2);
+        BinaryRow expected = binaryRow(NULLABLE_COLUMN_ADDED, 1, 2, null);
 
-        assertThat(updateRow(SCHEMA_V_2, source), equalToRow(expected));
+        assertThat(upgradeRow(NULLABLE_COLUMN_ADDED, source), equalToRow(expected));
     }
 
     @Test
-    void testUpdateRowWithStringDefault() {
-        BinaryRow source = binaryRow(SCHEMA_V_2, 1, 2, 10L);
-        BinaryRow expected = binaryRow(SCHEMA_V_3, 1, 2, 10L, "foo");
+    void testUpgradeRowWithStringDefault() {
+        BinaryRow source = binaryRow(NULLABLE_COLUMN_ADDED, 1, 2, 10L);
+        BinaryRow expected = binaryRow(DEFAULTED_COLUMN_ADDED, 1, 2, 10L, "foo");
 
-        assertThat(updateRow(SCHEMA_V_3, source), equalToRow(expected));
+        assertThat(upgradeRow(DEFAULTED_COLUMN_ADDED, source), equalToRow(expected));
     }
 
     private static BinaryRow binaryRow(SchemaDescriptor schema, Object... values) {
@@ -107,7 +107,7 @@ public class BinaryRowUpdaterTest {
         return new BinaryRowImpl(schema.version(), rowAssembler.build().tupleSlice());
     }
 
-    private static BinaryRow updateRow(SchemaDescriptor targetSchema, BinaryRow source) {
-        return new BinaryRowUpdater(SCHEMA_REGISTRY, targetSchema).update(source);
+    private static BinaryRow upgradeRow(SchemaDescriptor targetSchema, BinaryRow source) {
+        return new BinaryRowUpgrader(SCHEMA_REGISTRY, targetSchema).upgrade(source);
     }
 }

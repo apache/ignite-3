@@ -20,30 +20,30 @@ package org.apache.ignite.internal.schema;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 
-/** {@link BinaryRowUpdater} updater to the required schema version. */
-public class BinaryRowUpdater {
+/** {@link BinaryRow} upgrader to the required schema version. */
+public class BinaryRowUpgrader {
     private final SchemaRegistry schemaRegistry;
 
     private final SchemaDescriptor targetSchema;
 
     /** Constructor. */
-    public BinaryRowUpdater(SchemaRegistry schemaRegistry, int targetSchemaVersion) {
+    public BinaryRowUpgrader(SchemaRegistry schemaRegistry, int targetSchemaVersion) {
         this(schemaRegistry, schemaRegistry.schema(targetSchemaVersion));
     }
 
     /** Constructor. */
-    public BinaryRowUpdater(SchemaRegistry schemaRegistry, SchemaDescriptor targetSchema) {
+    public BinaryRowUpgrader(SchemaRegistry schemaRegistry, SchemaDescriptor targetSchema) {
         this.schemaRegistry = schemaRegistry;
         this.targetSchema = targetSchema;
     }
 
     /**
-     * Returns an updated {@link BinaryRow} to the required schema version, or the {@code source} if its schema version is equal to the
+     * Returns an upgraded {@link BinaryRow} to the required schema version, or the {@code source} if its schema version is equal to the
      * required schema version.
      *
      * @param source Source binary row.
      */
-    public BinaryRow update(BinaryRow source) {
+    public BinaryRow upgrade(BinaryRow source) {
         if (source.schemaVersion() == targetSchema.version()) {
             return source;
         }
