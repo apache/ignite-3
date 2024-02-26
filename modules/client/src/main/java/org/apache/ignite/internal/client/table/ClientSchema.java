@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client schema.
  */
-@SuppressWarnings({"rawtypes", "AssignmentOrReturnOfFieldWithMutableType", "unchecked"})
+@SuppressWarnings({"rawtypes", "AssignmentOrReturnOfFieldWithMutableType"})
 public class ClientSchema {
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
