@@ -199,25 +199,6 @@ public class ClientSchema {
         }
 
         return res;
-
-
-//        int colCount = columns.length;
-//
-//        if (part == TuplePart.KEY) {
-//            colCount = keyColumns.length;
-//        } else if (part == TuplePart.VAL) {
-//            colCount = columns.length - keyColumns.length;
-//        }
-//
-//        MarshallerColumn[] cols = new MarshallerColumn[colCount];
-//
-//        for (int i = 0; i < colCount; i++) {
-//            var col = columns[i  + firstColIdx];
-//
-//            cols[i] = marshallerColumn(col);
-//        }
-//
-//        return cols;
     }
 
     @NotNull
