@@ -30,6 +30,7 @@ import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -177,25 +178,51 @@ public class ClientSchema {
     }
 
     private MarshallerColumn[] toMarshallerColumns(TuplePart part) {
-        int colCount = columns.length;
-        int firstColIdx = 0;
+        if (part == TuplePart.VAL) {
+            var res = new MarshallerColumn[columns.length - keyColumns.length];
+            int idx = 0;
 
-        if (part == TuplePart.KEY) {
-            colCount = keyColumnCount;
-        } else if (part == TuplePart.VAL) {
-            colCount = columns.length - keyColumnCount;
-            firstColIdx = keyColumnCount;
+            for (var col : columns) {
+                if (!col.key()) {
+                    res[idx++] = marshallerColumn(col);
+                }
+            }
+
+            return res;
         }
 
-        MarshallerColumn[] cols = new MarshallerColumn[colCount];
+        ClientColumn[] cols = part == TuplePart.KEY_AND_VAL ? columns : keyColumns;
+        var res = new MarshallerColumn[cols.length];
 
-        for (int i = 0; i < colCount; i++) {
-            var col = columns[i  + firstColIdx];
-
-            cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
+        for (int i = 0; i < cols.length; i++) {
+            res[i] = marshallerColumn(cols[i]);
         }
 
-        return cols;
+        return res;
+
+
+//        int colCount = columns.length;
+//
+//        if (part == TuplePart.KEY) {
+//            colCount = keyColumns.length;
+//        } else if (part == TuplePart.VAL) {
+//            colCount = columns.length - keyColumns.length;
+//        }
+//
+//        MarshallerColumn[] cols = new MarshallerColumn[colCount];
+//
+//        for (int i = 0; i < colCount; i++) {
+//            var col = columns[i  + firstColIdx];
+//
+//            cols[i] = marshallerColumn(col);
+//        }
+//
+//        return cols;
+    }
+
+    @NotNull
+    private static MarshallerColumn marshallerColumn(ClientColumn col) {
+        return new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
     }
 
     private static BinaryMode mode(ColumnType dataType) {
