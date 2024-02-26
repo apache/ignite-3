@@ -878,7 +878,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         startTransactionWithCursorAndStopNode(txCrdNode, targetNode, tx);
 
         // Checking that just one cursor is remaining.
-        assertTrue(waitForCondition(() -> targetNode.cursorManager().cursors().size() == 1, 3000));
+        assertTrue(waitForCondition(() -> targetNode.resourcesRegistry().resources().size() == 1, 3000));
     }
 
     private static void preloadData(Table table, int entries) {
@@ -928,7 +928,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      */
     private void scanSingleEntryAndLeaveCursorOpen(IgniteImpl targetNode, TableViewInternal tbl, InternalTransaction tx)
             throws Exception {
-        int initialCursorsCount = targetNode.cursorManager().cursors().size();
+        int initialCursorsCount = targetNode.resourcesRegistry().resources().size();
 
         Publisher<BinaryRow> publisher;
         if (tx.isReadOnly()) {
@@ -936,7 +936,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.name().equals(primary)).findAny().get();
 
-            publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode);
+            publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
         } else {
             publisher = tbl.internalTable().scan(PART_ID, tx);
         }
@@ -952,7 +952,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        assertEquals(initialCursorsCount + 1, targetNode.cursorManager().cursors().size());
+        assertEquals(initialCursorsCount + 1, targetNode.resourcesRegistry().resources().size());
     }
 
     private DefaultMessagingService messaging(IgniteImpl node) {

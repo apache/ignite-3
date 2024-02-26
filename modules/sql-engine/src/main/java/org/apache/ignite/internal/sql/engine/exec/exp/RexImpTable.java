@@ -420,6 +420,7 @@ import org.apache.calcite.sql.fun.SqlJsonArrayAggAggFunction;
 import org.apache.calcite.sql.fun.SqlJsonObjectAggAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlUserDefinedAggFunction;
@@ -3542,6 +3543,7 @@ public class RexImpTable {
       case DATE:
         switch (typeName) {
         case TIMESTAMP:
+        case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
           trop0 =
               Expressions.convert_(
                   IgniteExpressions.multiplyExact(trop0,

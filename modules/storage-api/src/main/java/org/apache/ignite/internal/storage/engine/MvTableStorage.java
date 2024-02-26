@@ -116,9 +116,9 @@ public interface MvTableStorage extends ManuallyCloseable {
     HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor);
 
     /**
-     * Destroys the index under the given name and all data in it.
+     * Destroys the index with the given ID and all data in it.
      *
-     * <p>This method is a no-op if the index under the given name does not exist.
+     * <p>This method is a no-op if the index with the given ID does not exist.
      *
      * @param indexId Index ID.
      */
@@ -135,13 +135,6 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @throws StorageException If an error has occurred during the start of the storage.
      */
     void start() throws StorageException;
-
-    /**
-     * Stops the storage.
-     *
-     * @throws StorageException If an error has occurred during the stop of the storage.
-     */
-    void stop() throws StorageException;
 
     /**
      * Stops and destroys the storage and cleans all allocated resources.

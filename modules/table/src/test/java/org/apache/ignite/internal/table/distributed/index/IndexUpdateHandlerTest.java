@@ -33,9 +33,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
-/**
- * For {@link IndexUpdateHandler} testing.
- */
+/** For {@link IndexUpdateHandler} testing. */
 public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 0;
 
@@ -56,8 +54,6 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         indexUpdateHandler.buildIndex(indexId, Stream.of(row0, row1), row1.rowId().increment());
 
-        verify(indexes).addIndexToWaitIfAbsent(indexId);
-
         verify(indexStorage).put(row0.binaryRow(), row0.rowId());
         verify(indexStorage).put(row1.binaryRow(), row1.rowId());
 
@@ -69,8 +65,6 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         BinaryRowAndRowId row2 = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
 
         indexUpdateHandler.buildIndex(indexId, Stream.of(row2), null);
-
-        verify(indexes).addIndexToWaitIfAbsent(indexId);
 
         verify(indexStorage).put(row2.binaryRow(), row2.rowId());
 

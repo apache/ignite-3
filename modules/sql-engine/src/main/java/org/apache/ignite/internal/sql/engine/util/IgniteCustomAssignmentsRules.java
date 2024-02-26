@@ -64,18 +64,18 @@ import org.apache.calcite.util.Util;
  * Calcite native rules {@link SqlTypeCoercionRule} and {@link SqlTypeAssignmentRule} are not satisfy SQL standard rules,
  * thus custom implementation is implemented.
  */
-public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
+public class IgniteCustomAssignmentsRules implements SqlTypeMappingRule {
     private final Map<SqlTypeName, ImmutableSet<SqlTypeName>> map;
 
-    private static final IgniteCustomAssigmentsRules INSTANCE;
+    private static final IgniteCustomAssignmentsRules INSTANCE;
 
-    private IgniteCustomAssigmentsRules(
+    private IgniteCustomAssignmentsRules(
             Map<SqlTypeName, ImmutableSet<SqlTypeName>> map) {
         this.map = ImmutableMap.copyOf(map);
     }
 
     static {
-        IgniteCustomAssigmentsRules.Builder rules = builder();
+        IgniteCustomAssignmentsRules.Builder rules = builder();
 
         Set<SqlTypeName> rule = EnumSet.noneOf(SqlTypeName.class);
 
@@ -129,6 +129,7 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         rule.add(SqlTypeName.DATE);
         rule.add(SqlTypeName.TIME);
         rule.add(SqlTypeName.TIMESTAMP);
+        rule.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
 
         rules.add(SqlTypeName.CHAR, rule);
         rules.add(SqlTypeName.VARCHAR, rule);
@@ -141,6 +142,7 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         rule.add(SqlTypeName.DATE);
         rule.addAll(CHAR_TYPES);
         rule.add(SqlTypeName.TIMESTAMP);
+        rule.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
         rules.add(SqlTypeName.DATE, rule);
 
         // TIME is assignable from...
@@ -148,6 +150,7 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         rule.add(SqlTypeName.TIME);
         rule.addAll(CHAR_TYPES);
         rule.add(SqlTypeName.TIMESTAMP);
+        rule.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
         rules.add(SqlTypeName.TIME, rule);
 
         // TIME WITH LOCAL TIME ZONE is assignable from...
@@ -157,14 +160,20 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         // TIMESTAMP is assignable from ...
         rule.clear();
         rule.add(SqlTypeName.TIMESTAMP);
+        rule.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
         rule.addAll(CHAR_TYPES);
         rule.add(SqlTypeName.TIME);
         rule.add(SqlTypeName.DATE);
         rules.add(SqlTypeName.TIMESTAMP, rule);
 
         // TIMESTAMP WITH LOCAL TIME ZONE is assignable from...
-        rules.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE,
-                EnumSet.of(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE));
+        rule.clear();
+        rule.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+        rule.add(SqlTypeName.TIMESTAMP);
+        rule.addAll(CHAR_TYPES);
+        rule.add(SqlTypeName.TIME);
+        rule.add(SqlTypeName.DATE);
+        rules.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, rule);
 
         // GEOMETRY is assignable from ...
         rule.clear();
@@ -233,21 +242,22 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         rule.add(SqlTypeName.TIME);
         rule.add(SqlTypeName.DATE);
         rule.add(SqlTypeName.TIMESTAMP);
+        rule.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
         rules.add(SqlTypeName.ANY, rule);
 
-        INSTANCE = new IgniteCustomAssigmentsRules(rules.map);
+        INSTANCE = new IgniteCustomAssignmentsRules(rules.map);
     }
 
     @Override public Map<SqlTypeName, ImmutableSet<SqlTypeName>> getTypeMapping() {
         return this.map;
     }
 
-    public static IgniteCustomAssigmentsRules instance() {
+    public static IgniteCustomAssignmentsRules instance() {
         return INSTANCE;
     }
 
-    public static IgniteCustomAssigmentsRules.Builder builder() {
-        return new IgniteCustomAssigmentsRules.Builder();
+    public static IgniteCustomAssignmentsRules.Builder builder() {
+        return new IgniteCustomAssignmentsRules.Builder();
     }
 
     /** Keeps state while building the type mappings. */

@@ -179,14 +179,29 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public void TestUnknownNodeThrows()
+        public void TestUnknownNodeExecuteAsyncThrows()
         {
             var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
 
-            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+            var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () =>
                 await Client.Compute.ExecuteAsync<string>(new[] { unknownNode }, Units, EchoJob, "unused"));
 
-            StringAssert.Contains("Specified node is not present in the cluster: y", ex!.Message);
+            StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
+            Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
+        }
+
+        [Test]
+        public void TestUnknownNodeBroadcastAsyncThrows()
+        {
+            var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
+
+            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap =
+                Client.Compute.BroadcastAsync<string>(new[] { unknownNode }, Units, EchoJob, "unused");
+
+            var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () => await taskMap[unknownNode]);
+
+            StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
+            Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
         }
 
         [Test]
@@ -347,15 +362,13 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
         {
             var jobExecution = await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, ExceptionJob, "foo-bar");
-            var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExecution.GetResultAsync());
+            var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
 
-            Assert.AreEqual("Test exception: foo-bar", ex!.Message);
+            Assert.AreEqual("Job execution failed: java.lang.RuntimeException: Test exception: foo-bar", ex!.Message);
             Assert.IsNotNull(ex.InnerException);
 
             var str = ex.ToString();
 
-            // TODO IGNITE-20858: Fix once user errors are handled properly
-            StringAssert.Contains("Apache.Ignite.IgniteException: Test exception: foo-bar", str);
             StringAssert.Contains(
                 "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
                 str);

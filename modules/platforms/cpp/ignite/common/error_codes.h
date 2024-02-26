@@ -65,7 +65,7 @@ enum class code : underlying_t {
     SSL_CONFIGURATION = 0x10004,
     NODE_LEFT = 0x10005,
     CURSOR_ALREADY_CLOSED = 0x10006,
-    CURSOR_CLOSING = 0x10007,
+    RESOURCE_CLOSING = 0x10007,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -190,6 +190,7 @@ enum class code : underlying_t {
     CHANGE_JOB_PRIORITY_JOB_EXECUTING = 0x10000b,
     PRIMARY_REPLICA_RESOLVE = 0x10000c,
     CHANGE_JOB_PRIORITY = 0x10000d,
+    NODE_NOT_FOUND = 0x10000e,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,

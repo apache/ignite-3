@@ -35,15 +35,14 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestSetup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ExecutionTargetProviderBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -110,6 +109,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         addNodes("N1", "N2");
 
         addTable("T1", "N1");
+        addTable("T2", "N1", "N2");
 
         testRunner.runTest(this::initSchema, "table_affinity.test");
     }
@@ -227,6 +227,17 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         testRunner.runTest(this::initSchema, "table_functions.test");
     }
 
+    @Test
+    public void testPartitionPruning() {
+        addNodes("N1", "N2", "N3", "N4", "N5");
+
+        addTable("T1", "N1", "N2", "N3");
+        addTable("T2", "N4", "N5");
+        addTable("T3", "N1", "N2", "N3");
+
+        testRunner.runTest(this::initSchema, "test_partition_pruning.test");
+    }
+
     private void addNodes(String node, String... otherNodes) {
         this.nodeNames.add(node);
         this.nodeNames.addAll(Arrays.asList(otherNodes));
@@ -279,7 +290,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
     }
 
     private TestSetup initSchema() {
-        ExecutionTargetProviderBuilder executionTargetProviderBuilder = TestBuilders.executionTargetProviderBuilder();
+
         List<IgniteDataSource> dataSources = new ArrayList<>();
         int objectId = 1;
 
@@ -291,7 +302,9 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             // Generate distinct row counts for each table to ensure that the optimizer produces the same results.
             int tableSize = tableRows.getOrDefault(tableShortName, 100 + objectId);
 
-            for (String tableNodeName : e.getValue().getSecond()) {
+            List<String> tableNodeNames = e.getValue().getSecond();
+
+            for (String tableNodeName : tableNodeNames) {
                 if (!nodeNames.contains(tableNodeName)) {
                     String message = format(
                             "Expected node {} for table {}. Registered nodes: {}",
@@ -307,10 +320,10 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
             // To mimic node system views, id column is node name alias.
             if (distribution.function() instanceof IdentityDistribution) {
-                tableBuilder = tableBuilder.addColumn("ID", NativeTypes.stringOf(64));
+                tableBuilder = tableBuilder.addKeyColumn("ID", NativeTypes.stringOf(64));
             } else {
                 // To mimic cluster wide system views
-                tableBuilder = tableBuilder.addColumn("ID", NativeTypes.INT32);
+                tableBuilder = tableBuilder.addKeyColumn("ID", NativeTypes.INT32);
             }
 
             IgniteDistribution distributionToUse;
@@ -320,25 +333,27 @@ public class FragmentMappingTest extends AbstractPlannerTest {
                 distributionToUse = distribution;
             }
 
-            TestTable testTable = tableBuilder
+            IgniteTable testTable = tableBuilder
                     .addColumn("C1", NativeTypes.INT32)
                     .addColumn("C2", NativeTypes.INT32)
                     .size(tableSize)
                     .tableId(objectId)
                     .distribution(distributionToUse)
+                    .partitions(tableNodeNames.size())
                     .build();
 
             dataSources.add(testTable);
 
-            table2NodeNames.put(tableName, e.getValue().getSecond());
+            table2NodeNames.put(tableName, tableNodeNames);
 
             objectId += 1;
         }
 
-        executionTargetProviderBuilder.addTables(table2NodeNames);
-
         IgniteSchema schema = new IgniteSchema(CatalogManager.DEFAULT_SCHEMA_NAME, 1, dataSources);
-        ExecutionTargetProvider executionTargetProvider = executionTargetProviderBuilder.build();
+        ExecutionTargetProvider executionTargetProvider = TestBuilders.executionTargetProviderBuilder()
+                .useTablePartitions(true)
+                .addTables(table2NodeNames)
+                .build();
         LogicalTopologySnapshot logicalTopologySnapshot = newLogicalTopology();
 
         return new TestSetup(executionTargetProvider, schema, logicalTopologySnapshot);

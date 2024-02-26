@@ -19,9 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.nio.ByteBuffer;
 
-/**
- * Binary row interface. Data layout is described in packages' {@code README.md}.
- */
+/** Binary row interface. Data layout is described in packages' {@code README.md}. */
 public interface BinaryRow {
     /** Get row schema version. */
     int schemaVersion();

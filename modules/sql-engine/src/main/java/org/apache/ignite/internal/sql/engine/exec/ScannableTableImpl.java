@@ -66,7 +66,8 @@ public class ScannableTableImpl implements ScannableTable {
 
             assert readTime != null;
 
-            pub = internalTable.scan(partWithConsistencyToken.partId(), readTime, ctx.localNode());
+            pub = internalTable.scan(partWithConsistencyToken.partId(), txAttributes.id(), readTime, ctx.localNode(),
+                    txAttributes.coordinatorId());
         } else {
             PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken());
 
@@ -128,13 +129,15 @@ public class ScannableTableImpl implements ScannableTable {
 
             pub = internalTable.scan(
                     partWithConsistencyToken.partId(),
+                    txAttributes.id(),
                     readTime,
                     ctx.localNode(),
                     indexId,
                     lower,
                     upper,
                     flags,
-                    requiredColumns
+                    requiredColumns,
+                    txAttributes.coordinatorId()
             );
         } else {
             pub = internalTable.scan(
@@ -183,11 +186,13 @@ public class ScannableTableImpl implements ScannableTable {
 
             pub = internalTable.lookup(
                     partWithConsistencyToken.partId(),
+                    txAttributes.id(),
                     readTime,
                     ctx.localNode(),
                     indexId,
                     keyTuple,
-                    null
+                    null,
+                    txAttributes.coordinatorId()
             );
         } else {
             pub = internalTable.lookup(

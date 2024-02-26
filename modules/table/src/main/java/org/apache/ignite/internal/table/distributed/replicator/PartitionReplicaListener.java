@@ -22,8 +22,11 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.table.distributed.TableUtils.findStartBuildingIndexCatalogVersion;
+import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
@@ -69,6 +72,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -80,7 +84,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
-import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -165,7 +168,8 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
-import org.apache.ignite.internal.tx.impl.CursorManager;
+import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
@@ -225,8 +229,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Handler that processes updates writing them to storage. */
     private final StorageUpdateHandler storageUpdateHandler;
 
-    /** Cursors manager. */
-    private final CursorManager cursorManager;
+    /** Resources registry. */
+    private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
     /** Tx state storage. */
     private final TxStateStorage txStateStorage;
@@ -303,6 +307,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param localNode Instance of the local node.
      * @param catalogService Catalog service.
      * @param placementDriver Placement driver.
+     * @param clusterNodeResolver Node resolver.
+     * @param remotelyTriggeredResourceRegistry Resource registry.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -326,7 +332,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             CatalogService catalogService,
             PlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
-            CursorManager cursorManager
+            RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -346,7 +352,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.catalogService = catalogService;
         this.placementDriver = placementDriver;
         this.clusterNodeResolver = clusterNodeResolver;
-        this.cursorManager = cursorManager;
+        this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -396,7 +402,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return validateTableExistence(request, opTsIfDirectRo)
                 .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
-                .thenCompose(unused -> processOperationRequestWithTxRwCounter(request, senderId, isPrimary, opTsIfDirectRo));
+                .thenCompose(unused -> processOperationRequestWithTxRwCounter(request, isPrimary, opTsIfDirectRo));
     }
 
     /**
@@ -567,7 +573,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<?> processOperationRequest(
             ReplicaRequest request,
-            String txCoordinatorId,
             @Nullable Boolean isPrimary,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
@@ -607,8 +612,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             ));
 
             // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false,
-                        () -> processScanRetrieveBatchAction(req, txCoordinatorId))
+            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
                     .thenCompose(rows -> {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
@@ -641,7 +645,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
             return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, isPrimary);
         } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
-            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, txCoordinatorId, isPrimary);
+            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
         } else if (request instanceof BuildIndexReplicaRequest) {
@@ -760,13 +764,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes retrieve batch for read only transaction.
      *
      * @param request Read only retrieve batch request.
-     * @param txCoordinatorId Transaction coordinator id.
      * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
     private CompletableFuture<List<BinaryRow>> processReadOnlyScanRetrieveBatchAction(
             ReadOnlyScanRetrieveBatchReplicaRequest request,
-            String txCoordinatorId,
             Boolean isPrimary
     ) {
         requireNonNull(isPrimary);
@@ -775,7 +777,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         int batchCount = request.batchSize();
         HybridTimestamp readTimestamp = request.readTimestamp();
 
-        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
         CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? nullCompletedFuture()
                 : safeTime.waitFor(readTimestamp);
@@ -790,16 +792,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
-                return safeReadFuture.thenCompose(unused -> lookupIndex(request, indexStorage, txCoordinatorId));
+                return safeReadFuture.thenCompose(unused -> lookupIndex(request, indexStorage));
             }
 
             assert indexStorage.storage() instanceof SortedIndexStorage;
 
-            return safeReadFuture.thenCompose(unused -> scanSortedIndex(request, indexStorage, txCoordinatorId));
+            return safeReadFuture.thenCompose(unused -> scanSortedIndex(request, indexStorage));
         }
 
         return safeReadFuture
-                .thenCompose(unused -> retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, readTimestamp, cursorId, batchCount));
+                .thenCompose(
+                        unused -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), readTimestamp, cursorId, batchCount)
+                );
     }
 
     /**
@@ -816,11 +820,17 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             String txCoordinatorId,
             @Nullable HybridTimestamp readTimestamp,
-            IgniteUuid cursorId,
+            FullyQualifiedResourceId cursorId,
             int count
     ) {
-        @SuppressWarnings("resource") PartitionTimestampCursor cursor = (PartitionTimestampCursor) cursorManager.getOrCreateCursor(cursorId,
-                txCoordinatorId, () -> mvDataStorage.scan(readTimestamp == null ? HybridTimestamp.MAX_VALUE : readTimestamp));
+        PartitionTimestampCursor cursor =
+                remotelyTriggeredResourceRegistry.<CursorResource>register(
+                        cursorId,
+                        txCoordinatorId,
+                        () -> new CursorResource(
+                                mvDataStorage.scan(readTimestamp == null ? HybridTimestamp.MAX_VALUE : readTimestamp)
+                        )
+                ).cursor();
 
         var resolutionFuts = new ArrayList<CompletableFuture<TimedBinaryRow>>(count);
 
@@ -874,7 +884,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<List<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(
             UUID txId,
             String txCoordinatorId,
-            IgniteUuid cursorId,
+            FullyQualifiedResourceId cursorId,
             int count
     ) {
         return retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, null, cursorId, count).thenCompose(rows -> {
@@ -1001,10 +1011,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private void processScanCloseAction(ScanCloseReplicaRequest request) {
         UUID txId = request.transactionId();
 
-        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
         try {
-            cursorManager.closeCursor(cursorId);
+            remotelyTriggeredResourceRegistry.close(cursorId);
         } catch (IgniteException e) {
             throw wrapCursorCloseException(e);
         }
@@ -1017,10 +1027,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param rows List of retrieved rows.
      * @param cursorId Cursor id.
      */
-    private ArrayList<BinaryRow> closeCursorIfBatchNotFull(ArrayList<BinaryRow> rows, int batchSize, IgniteUuid cursorId) {
+    private ArrayList<BinaryRow> closeCursorIfBatchNotFull(ArrayList<BinaryRow> rows, int batchSize, FullyQualifiedResourceId cursorId) {
         if (rows.size() < batchSize) {
             try {
-                cursorManager.closeCursor(cursorId);
+                remotelyTriggeredResourceRegistry.close(cursorId);
             } catch (IgniteException e) {
                 throw wrapCursorCloseException(e);
             }
@@ -1040,10 +1050,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Scan retrieve batch request operation.
      * @return Listener response.
      */
-    private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(
-            ReadWriteScanRetrieveBatchReplicaRequest request,
-            String txCoordinatorId
-    ) {
+    private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(ReadWriteScanRetrieveBatchReplicaRequest request) {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
@@ -1054,21 +1061,21 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
-                return lookupIndex(request, indexStorage.storage(), txCoordinatorId);
+                return lookupIndex(request, indexStorage.storage(), request.coordinatorId());
             }
 
             assert indexStorage.storage() instanceof SortedIndexStorage;
 
-            return scanSortedIndex(request, indexStorage, txCoordinatorId);
+            return scanSortedIndex(request, indexStorage);
         }
 
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
 
-        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
         return lockManager.acquire(txId, new LockKey(tableId()), LockMode.S)
-                .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, cursorId, batchCount));
+                .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), cursorId, batchCount));
     }
 
     /**
@@ -1080,20 +1087,22 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<List<BinaryRow>> lookupIndex(
             ReadOnlyScanRetrieveBatchReplicaRequest request,
-            TableSchemaAwareIndexStorage schemaAwareIndexStorage,
-            String txCoordinatorId
+            TableSchemaAwareIndexStorage schemaAwareIndexStorage
     ) {
         IndexStorage indexStorage = schemaAwareIndexStorage.storage();
 
         int batchCount = request.batchSize();
         HybridTimestamp timestamp = request.readTimestamp();
 
-        IgniteUuid cursorId = new IgniteUuid(request.transactionId(), request.scanId());
+        FullyQualifiedResourceId cursorId = cursorId(request.transactionId(), request.scanId());
 
         BinaryTuple key = request.exactKey().asBinaryTuple();
 
-        Cursor<RowId> cursor = (Cursor<RowId>) cursorManager.getOrCreateCursor(cursorId,
-                txCoordinatorId, () -> indexStorage.get(key));
+        Cursor<RowId> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(
+                cursorId,
+                request.coordinatorId(),
+                () -> new CursorResource(indexStorage.get(key))
+        ).cursor();
 
         var result = new ArrayList<BinaryRow>(batchCount);
 
@@ -1111,7 +1120,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
 
-        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
         Integer indexId = request.indexToUse();
 
@@ -1122,8 +1131,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .thenCompose(tblLock -> {
                         return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
                                 .thenCompose(indRowLock -> { // Hash index bucket S lock
-                                    Cursor<RowId> cursor = (Cursor<RowId>) cursorManager.getOrCreateCursor(cursorId,
-                                            txCoordinatorId, () -> indexStorage.get(exactKey));
+
+                                    Cursor<RowId> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(
+                                            cursorId,
+                                            txCoordinatorId,
+                                            () -> new CursorResource(indexStorage.get(exactKey))
+                                    ).cursor();
 
                                     var result = new ArrayList<BinaryRow>(batchCount);
 
@@ -1143,15 +1156,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<List<BinaryRow>> scanSortedIndex(
             ReadWriteScanRetrieveBatchReplicaRequest request,
-            TableSchemaAwareIndexStorage schemaAwareIndexStorage,
-            String txCoordinatorId
+            TableSchemaAwareIndexStorage schemaAwareIndexStorage
     ) {
         var indexStorage = (SortedIndexStorage) schemaAwareIndexStorage.storage();
 
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
 
-        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
         Integer indexId = request.indexToUse();
 
@@ -1188,14 +1200,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                             return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
                         };
 
-                        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursorManager.getOrCreateCursor(cursorId, txCoordinatorId,
-                                () -> indexStorage.scan(
+                        Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(
+                                cursorId,
+                                request.coordinatorId(),
+                                () -> new CursorResource(indexStorage.scan(
                                         lowerBound,
                                         // We have to handle upperBound on a level of replication listener,
                                         // for correctness of taking of a range lock.
                                         null,
                                         flags
-                                ));
+                                ))
+                        ).cursor();
 
                         SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
 
@@ -1217,8 +1232,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<List<BinaryRow>> scanSortedIndex(
             ReadOnlyScanRetrieveBatchReplicaRequest request,
-            TableSchemaAwareIndexStorage schemaAwareIndexStorage,
-            String txCoordinatorId
+            TableSchemaAwareIndexStorage schemaAwareIndexStorage
     ) {
         var indexStorage = (SortedIndexStorage) schemaAwareIndexStorage.storage();
 
@@ -1226,7 +1240,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         int batchCount = request.batchSize();
         HybridTimestamp timestamp = request.readTimestamp();
 
-        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
         BinaryTupleMessage lowerBoundMessage = request.lowerBoundPrefix();
         BinaryTupleMessage upperBoundMessage = request.upperBoundPrefix();
@@ -1236,12 +1250,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursorManager.getOrCreateCursor(cursorId, txCoordinatorId,
-                () -> indexStorage.scan(
+        Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(cursorId, request.coordinatorId(),
+                () -> new CursorResource(indexStorage.scan(
                         lowerBound,
                         upperBound,
                         flags
-                ));
+                ))).cursor();
 
         var result = new ArrayList<BinaryRow>(batchCount);
 
@@ -3687,11 +3701,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {
+    private BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {
         return MSG_FACTORY.buildIndexCommand()
                 .indexId(request.indexId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())
+                .creationCatalogVersion(request.creationCatalogVersion())
+                // We are sure that there will be no error here since the primary replica is sent the request to itself.
+                .requiredCatalogVersion(indexStartBuildingCatalogVersion(request))
                 .build();
     }
 
@@ -3715,7 +3732,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<?> processOperationRequestWithTxRwCounter(
             ReplicaRequest request,
-            String txCoordinatorId,
             @Nullable Boolean isPrimary,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
@@ -3729,7 +3745,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        return processOperationRequest(request, txCoordinatorId, isPrimary, opStartTsIfDirectRo)
+        return processOperationRequest(request, isPrimary, opStartTsIfDirectRo)
                 .whenComplete((unused, throwable) -> {
                     if (request instanceof ReadWriteReplicaRequest) {
                         txRwOperationTracker.decrementOperationCount(
@@ -3744,17 +3760,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         CatalogIndexDescriptor indexDescriptor = latestIndexDescriptorInBuildingStatus(catalogService, tableId());
 
         if (indexDescriptor != null) {
-            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+            txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.txWaitCatalogVersion());
         }
 
         catalogService.listen(CatalogEvent.INDEX_BUILDING, indexBuildingCatalogEventListener);
     }
 
-    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters, @Nullable Throwable exception) {
-        if (exception != null) {
-            return failedFuture(exception);
-        }
-
+    private CompletableFuture<Boolean> onIndexBuilding(CatalogEventParameters parameters) {
         if (!busyLock.enterBusy()) {
             return trueCompletedFuture();
         }
@@ -3767,7 +3779,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + parameters.catalogVersion();
 
             if (indexDescriptor.tableId() == tableId()) {
-                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.creationCatalogVersion());
+                txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexDescriptor.txWaitCatalogVersion());
             }
 
             return falseCompletedFuture();
@@ -3780,10 +3792,25 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<?> processBuildIndexReplicaRequest(BuildIndexReplicaRequest request) {
         return txRwOperationTracker.awaitCompleteTxRwOperations(request.creationCatalogVersion())
+                .thenCompose(unused -> safeTime.waitFor(indexStartBuildingActivationTs(request)))
                 .thenCompose(unused -> raftClient.run(toBuildIndexCommand(request)));
     }
 
     private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {
         return TableUtils.indexIdsAtRwTxBeginTs(catalogService, txId, tableId());
+    }
+
+    private int indexStartBuildingCatalogVersion(BuildIndexReplicaRequest request) {
+        return findStartBuildingIndexCatalogVersion(catalogService, request.indexId(), request.creationCatalogVersion());
+    }
+
+    private HybridTimestamp indexStartBuildingActivationTs(BuildIndexReplicaRequest request) {
+        int catalogVersion = indexStartBuildingCatalogVersion(request);
+
+        Catalog catalog = catalogService.catalog(catalogVersion);
+
+        assert catalog != null : "indexId=" + request.indexId() + ", catalogVersion=" + catalogVersion;
+
+        return hybridTimestamp(catalog.time());
     }
 }

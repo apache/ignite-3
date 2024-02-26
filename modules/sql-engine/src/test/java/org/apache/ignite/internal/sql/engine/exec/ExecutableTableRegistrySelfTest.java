@@ -22,8 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -138,16 +140,17 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             int tableVersion = 10;
 
             TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(tableVersion),
-                    mock(IgniteSql.class));
+                    mock(IgniteSql.class), -1);
 
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
+            when(descriptor.iterator()).thenReturn(Collections.emptyIterator());
 
             IgniteTable sqlTable = new IgniteTableImpl(
-                    table.name(), tableId, tableVersion, descriptor, new TestStatistic(1_000.0), Map.of(), 1
+                    table.name(), tableId, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1
             );
 
             when(sqlSchemaManager.table(schemaVersion, tableId)).thenReturn(sqlTable);

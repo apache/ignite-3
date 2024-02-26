@@ -85,32 +85,34 @@ public interface PartitionAccess {
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
     /**
-     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id. In details: - if there is no
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID. In details: - if there is no
      * uncommitted version, a new uncommitted version is added - if there is an uncommitted version belonging to the same transaction, it
      * gets replaced by the given version - if there is an uncommitted version belonging to a different transaction,
      * {@link TxIdMismatchException} is thrown
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
-     * @param txId Transaction id.
-     * @param commitTableId Commit table id.
+     * @param txId Transaction ID.
+     * @param commitTableId Commit table ID.
      * @param commitPartitionId Commit partitionId.
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @param catalogVersion Catalog version of the incoming partition snapshot.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction ID.
      * @throws StorageException If failed to write data.
      */
-    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId);
+    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion);
 
     /**
      * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
      * uncommitted version, this method may fail with a system exception (this method should not be called if there is already something
      * uncommitted for the given row).
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
+     * @param catalogVersion Catalog version of the incoming partition snapshot.
      * @throws StorageException If failed to write data.
      */
-    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp);
+    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp, int catalogVersion);
 
     /**
      * Returns the minimum applied index of the partition storages.
@@ -147,8 +149,8 @@ public interface PartitionAccess {
      *         <li>{@link #maxLastAppliedTerm()};</li>
      *         <li>{@link #committedGroupConfiguration()};</li>
      *         <li>{@link #addTxMeta(UUID, TxMeta)};</li>
-     *         <li>{@link #addWrite(RowId, BinaryRow, UUID, int, int)};</li>
-     *         <li>{@link #addWriteCommitted(RowId, BinaryRow, HybridTimestamp)}.</li>
+     *         <li>{@link #addWrite(RowId, BinaryRow, UUID, int, int, int)};</li>
+     *         <li>{@link #addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)}.</li>
      *     </ul></li>
      * </ul>
      *

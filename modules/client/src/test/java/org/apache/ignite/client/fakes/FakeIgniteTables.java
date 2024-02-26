@@ -39,6 +39,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake tables.
@@ -162,6 +163,11 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         return completedFuture(tableView(name));
     }
 
+    @Override
+    public @Nullable TableViewInternal cachedTable(int tableId) {
+        return table(tableId);
+    }
+
     private TableViewInternal getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 
@@ -214,7 +220,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
                 },
-                new FakeIgniteSql()
+                new FakeIgniteSql(),
+                -1
         );
     }
 

@@ -182,10 +182,22 @@ public class ClientRecordSerializer<R> {
         w.packInt(recs.size());
 
         Marshaller marshaller = schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
-        int columnCount = columnCount(schema, TuplePart.KEY_AND_VAL);
+        Marshaller keyMarshaller = deleted == null || deleted.cardinality() == 0
+                ? null
+                : schema.getMarshaller(mapper, TuplePart.KEY);
+
+        int columnCount = schema.columns().length;
+        int keyColumnCount = schema.keyColumnCount();
+
+        int i = 0;
 
         for (R rec : recs) {
-            writeRecRaw(rec, w, marshaller, columnCount);
+            boolean del = deleted != null && deleted.get(i++);
+            int colCount = del ? keyColumnCount : columnCount;
+            Marshaller marsh = del ? keyMarshaller : marshaller;
+
+            //noinspection DataFlowIssue (reviewed).
+            writeRecRaw(rec, w, marsh, colCount);
         }
     }
 

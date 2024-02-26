@@ -29,6 +29,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
@@ -65,11 +66,12 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -151,7 +153,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestPlacementDriver(leaseholder, leaseholder),
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new TestLocalRwTxCounter(),
-                    new CursorManager()
+                    new RemotelyTriggeredResourceRegistry()
             );
 
             txManager.start();
@@ -216,7 +218,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             super(
                     "test",
                     1,
-                    Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
                     new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,
@@ -225,7 +226,13 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     replicaSvc,
                     mock(HybridClock.class),
                     timestampTracker,
-                    mock(PlacementDriver.class)
+                    mock(PlacementDriver.class),
+                    new TableRaftServiceImpl(
+                            "test",
+                            PART_CNT,
+                            Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
+                            new SingleClusterNodeResolver(mock(ClusterNode.class))
+                    )
             );
             this.dataAmount = dataAmount;
 
@@ -235,13 +242,15 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         @Override
         public Publisher<BinaryRow> scan(
                 int partId,
+                UUID txId,
                 HybridTimestamp readTime,
                 ClusterNode recipient,
                 @Nullable Integer indexId,
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,
-                @Nullable BitSet columnsToInclude
+                @Nullable BitSet columnsToInclude,
+                String txCoordinatorId
         ) {
             return s -> {
                 s.onSubscribe(new Subscription() {

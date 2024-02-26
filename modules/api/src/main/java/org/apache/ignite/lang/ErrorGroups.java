@@ -136,8 +136,8 @@ public class ErrorGroups {
         /** Cursor is already closed error. */
         public static final int CURSOR_ALREADY_CLOSED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 6);
 
-        /** Cursor closing error. */
-        public static final int CURSOR_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
+        /** Resource closing error. */
+        public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
@@ -559,6 +559,9 @@ public class ErrorGroups {
 
         /** Cannot change job priority. */
         public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Specified node is not found in the cluster. */
+        public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Catalog error group. */

@@ -63,6 +63,7 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataReq
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteScriptRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlQueryMetadataRequest;
@@ -774,6 +775,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
 
+            case ClientOp.SQL_EXEC_BATCH:
+                return ClientSqlExecuteBatchRequest.process(in, out, sql, resources, metrics, igniteTransactions);
+
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
 
@@ -906,7 +910,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     @Override
-    public CompletableFuture<Boolean> notify(AuthenticationEventParameters parameters, @Nullable Throwable exception) {
+    public CompletableFuture<Boolean> notify(AuthenticationEventParameters parameters) {
         if (shouldCloseConnection(parameters)) {
             LOG.warn("Closing connection due to authentication event [connectionId=" + connectionId + ", remoteAddress="
                     + channelHandlerContext.channel().remoteAddress() + ", event=" + parameters.type() + ']');

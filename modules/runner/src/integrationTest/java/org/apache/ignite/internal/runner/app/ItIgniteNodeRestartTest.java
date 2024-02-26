@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
@@ -72,6 +71,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -94,6 +94,7 @@ import org.apache.ignite.internal.cluster.management.configuration.StorageProfil
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -164,9 +165,9 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.impl.CursorManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -350,11 +351,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
                 = () -> TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
 
-        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+        var replicaService = new ReplicaService(
+                clusterSvc.messagingService(),
+                hybridClock,
+                name,
+                threadPools.partitionOperationsExecutor()
+        );
 
         var lockManager = new HeapLockManager();
-
-        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -431,7 +435,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        var cursorManager = new CursorManager();
+        var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         var txManager = new TxManagerImpl(
                 txConfiguration,
@@ -443,7 +447,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new TestLocalRwTxCounter(),
-                cursorManager
+                threadPools.partitionOperationsExecutor(),
+                resourcesRegistry
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -531,7 +536,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
                 failureProcessor,
-                cursorManager
+                resourcesRegistry
         );
 
         var indexManager = new IndexManager(
@@ -553,7 +558,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaManager,
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
-                replicaSvc,
+                replicaService,
                 hybridClock,
                 schemaSyncService,
                 catalogManager,
@@ -838,6 +843,26 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         ignite = startNode(0);
 
         checkTableWithData(ignite, TABLE_NAME);
+    }
+
+    @Test
+    public void testNodeSeesItselfInLocalLogicalTopology() {
+        List<IgniteImpl> nodes = startNodes(3);
+
+        // Here we check that node sees itself in local logical topology.
+        nodes.forEach(node -> assertTrue(node.logicalTopologyService().localLogicalTopology().nodes().stream().map(LogicalNode::id)
+                .collect(toSet()).contains(node.id())));
+
+        // Actually we have stronger guarantees because of awaiting all nodes to start inside startNodes.
+        // On one node (cmg leader) we will see all three nodes in local logical topology.
+        // On the node that started second we will see at least two nodes.
+        // On the third node we will see all three nodes.
+        // All in all that means that in total we will see at least (3 + 2 + 3) nodes.
+        Integer sumOfLogicalTopologyProjectionSizes =
+                nodes.stream().map(node -> node.logicalTopologyService().localLogicalTopology().nodes().size())
+                        .reduce(0, Integer::sum);
+
+        assertTrue(sumOfLogicalTopologyProjectionSizes >= 3 + 2 + 3);
     }
 
     /**
@@ -1316,7 +1341,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             Entry e = restartedNode.metaStorageManager().getLocally(stablePartAssignmentsKey(tablePartitionId), recoveryRevision);
 
-            Set<Assignment> assignment = ByteUtils.fromBytes(e.value());
+            Set<Assignment> assignment = Assignments.fromBytes(e.value()).nodes();
 
             boolean shouldBe = assignment.stream().anyMatch(n -> n.consistentId().equals(restartedNode.name()));
 
@@ -1382,7 +1407,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Populate the stable assignments before calling table create, if needed.
         if (populateStableAssignmentsBeforeTableCreation) {
-            node.metaStorageManager().put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(Set.of(Assignment.forPeer(node.name()))));
+            node.metaStorageManager().put(stablePartAssignmentsKey(partId), Assignments.toBytes(Set.of(Assignment.forPeer(node.name()))));
 
             waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
 
@@ -1702,8 +1727,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var e = metaStorageManager.getLocally(new ByteArray(assignmentsKey), metaStorageManager.appliedRevision());
 
         return e == null || e.tombstone() || e.empty()
-            ? emptySet()
-            : ByteUtils.fromBytes(e.value());
+                ? emptySet()
+                : Assignments.fromBytes(e.value()).nodes();
     }
 
     private int tableId(Ignite node, String tableName) {
@@ -1783,11 +1808,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private void waitForIndexToBecomeAvailable(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(nodes.size());
 
-        nodes.forEach(node -> node.catalogManager().listen(CatalogEvent.INDEX_AVAILABLE, (event, ex) -> {
-            if (ex != null) {
-                return failedFuture(ex);
-            }
-
+        nodes.forEach(node -> node.catalogManager().listen(CatalogEvent.INDEX_AVAILABLE, event -> {
             MakeIndexAvailableEventParameters availableEvent = (MakeIndexAvailableEventParameters) event;
 
             CatalogIndexDescriptor index = node.catalogManager().index(availableEvent.indexId(), event.catalogVersion());

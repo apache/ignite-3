@@ -133,7 +133,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         AtomicBoolean primaryChanged = new AtomicBoolean();
 
-        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
             primaryChanged.set(true);
 
             return falseCompletedFuture();
@@ -166,7 +166,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<Boolean> primaryChangedHandling = new CompletableFuture<>();
 
-        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> primaryChangedHandling);
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> primaryChangedHandling);
 
         log.info("Primary replica is: " + primary);
 
@@ -286,11 +286,13 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             if (idxId == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode);
+                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
             } else if (exactKey == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.readTimestamp(), primaryNode, idxId, null, null, 0, null);
+                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, null, null, 0, null,
+                        tx.coordinatorId());
             } else {
-                publisher = tbl.internalTable().lookup(PART_ID, tx.readTimestamp(), primaryNode, idxId, exactKey, null);
+                publisher = tbl.internalTable().lookup(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, exactKey, null,
+                        tx.coordinatorId());
             }
         } else if (idxId == null) {
             publisher = tbl.internalTable().scan(PART_ID, tx);
@@ -366,9 +368,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws InterruptedException If fail.
      */
     private static void waitingForLeaderCache(TableViewInternal tbl, String primary) throws InterruptedException {
-        RaftGroupService raftSrvc = tbl.internalTable().partitionRaftGroupService(0);
+        RaftGroupService raftSrvc = tbl.internalTable().tableRaftService().partitionRaftGroupService(0);
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+        assertTrue(waitForCondition(() -> {
             raftSrvc.refreshLeader();
 
             Peer leader = raftSrvc.leader();

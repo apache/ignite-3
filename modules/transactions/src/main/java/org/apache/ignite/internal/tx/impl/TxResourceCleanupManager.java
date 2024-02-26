@@ -26,12 +26,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.impl.CursorManager.CursorInfo;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry.RemotelyTriggeredResource;
 import org.apache.ignite.network.ClusterNodeResolver;
 
 /**
@@ -51,7 +50,7 @@ public class TxResourceCleanupManager implements IgniteComponent {
 
     private final ScheduledExecutorService resourceCleanupExecutor;
 
-    private final CursorManager cursorManager;
+    private final RemotelyTriggeredResourceRegistry resourceRegistry;
 
     private final ClusterNodeResolver clusterNodeResolver;
 
@@ -59,19 +58,19 @@ public class TxResourceCleanupManager implements IgniteComponent {
      * Constructor.
      *
      * @param nodeName Name of the Ignite node.
-     * @param cursorManager Cursor manager.
+     * @param resourceRegistry Remote triggered resource registry.
      * @param clusterNodeResolver Cluster node resolver.
      */
     public TxResourceCleanupManager(
             String nodeName,
-            CursorManager cursorManager,
+            RemotelyTriggeredResourceRegistry resourceRegistry,
             ClusterNodeResolver clusterNodeResolver
     ) {
         resourceCleanupExecutor = Executors.newScheduledThreadPool(
                 RESOURCE_CLEANUP_EXECUTOR_SIZE,
                 NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
         );
-        this.cursorManager = cursorManager;
+        this.resourceRegistry = resourceRegistry;
         this.clusterNodeResolver = clusterNodeResolver;
     }
 
@@ -93,17 +92,17 @@ public class TxResourceCleanupManager implements IgniteComponent {
     }
 
     private void cleanupOrphanTxResources() {
-        Map<IgniteUuid, CursorInfo> cursorInfos = cursorManager.cursors();
+        Map<FullyQualifiedResourceId, RemotelyTriggeredResource> cursorInfos = resourceRegistry.resources();
 
         try {
-            for (Map.Entry<IgniteUuid, CursorInfo> cursorInfoEntry : cursorInfos.entrySet()) {
-                CursorInfo cursorInfo = cursorInfoEntry.getValue();
+            for (Map.Entry<FullyQualifiedResourceId, RemotelyTriggeredResource> cursorInfoEntry : cursorInfos.entrySet()) {
+                RemotelyTriggeredResource cursorInfo = cursorInfoEntry.getValue();
 
-                if (clusterNodeResolver.getById(cursorInfo.txCoordinatorId()) == null) {
+                if (clusterNodeResolver.getById(cursorInfo.remoteHostId()) == null) {
                     try {
-                        cursorManager.closeCursor(cursorInfoEntry.getKey());
+                        resourceRegistry.close(cursorInfoEntry.getKey());
                     } catch (Exception e) {
-                        LOG.warn("Error occured during the orphan cursor closing [txCoordinatorId={}]", e, cursorInfo.txCoordinatorId());
+                        LOG.warn("Error occured during the orphan cursor closing [txCoordinatorId={}]", e, cursorInfo.remoteHostId());
                     }
                 }
             }

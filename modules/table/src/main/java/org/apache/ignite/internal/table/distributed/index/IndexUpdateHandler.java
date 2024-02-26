@@ -140,9 +140,6 @@ public class IndexUpdateHandler {
      * @param nextRowIdToBuild Row ID for which the index needs to be build next, {@code null} means that the index is build.
      */
     public void buildIndex(int indexId, Stream<BinaryRowAndRowId> rowStream, @Nullable RowId nextRowIdToBuild) {
-        // TODO: IGNITE-19082 Need another way to wait for index creation
-        indexes.addIndexToWaitIfAbsent(indexId);
-
         TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
 
         rowStream.forEach(binaryRowAndRowId -> {
@@ -152,19 +149,6 @@ public class IndexUpdateHandler {
         });
 
         index.storage().setNextRowIdToBuild(nextRowIdToBuild);
-    }
-
-    /** Waits for indexes to be created. */
-    // TODO: IGNITE-19513 Fix it, we should have already waited for the indexes to be created
-    public void waitIndexes() {
-        indexes.get();
-    }
-
-    /** Waits for the specific index to be created. */
-    public void waitForIndex(int indexId) {
-        indexes.addIndexToWaitIfAbsent(indexId);
-
-        waitIndexes();
     }
 
     private Iterable<TableSchemaAwareIndexStorage> indexes(@Nullable List<Integer> indexIds) {

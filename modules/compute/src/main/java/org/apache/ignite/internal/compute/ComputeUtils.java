@@ -19,13 +19,16 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
@@ -39,6 +42,8 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.apache.ignite.internal.compute.message.JobStatusesResponse;
+import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -215,5 +220,31 @@ public class ComputeUtils {
         return unitMsgs.stream()
                 .map(it -> new DeploymentUnit(it.name(), Version.parseVersion(it.version())))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns a new CompletableFuture that, when the given {@code origin} future completes exceptionally, maps the origin's exception to a
+     * public Compute exception if it is needed.
+     *
+     * @param origin The future to use to create a new stage.
+     * @param <R> Type os result.
+     * @return New CompletableFuture.
+     */
+    public static <R> CompletableFuture<R> convertToComputeFuture(CompletableFuture<R> origin) {
+        return origin.handle((res, err) -> {
+            if (err != null) {
+                throw new CompletionException(mapToComputeException(unwrapCause(err)));
+            }
+
+            return res;
+        });
+    }
+
+    private static Throwable mapToComputeException(Throwable origin) {
+        if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
+            return origin;
+        } else {
+            return new ComputeException(COMPUTE_JOB_FAILED_ERR, "Job execution failed: " + origin, origin);
+        }
     }
 }

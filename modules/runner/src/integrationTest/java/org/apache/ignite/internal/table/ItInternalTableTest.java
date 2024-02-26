@@ -67,6 +67,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -74,6 +75,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for the internal table API.
@@ -474,6 +477,42 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = true)
+    // TODO IGNITE-21521 Wrong update order in DataStreamer for a new key
+    // @ValueSource(booleans = {true, false})
+    public void updateAllOrderTest(boolean existingKey) {
+        RecordView<Tuple> view = table.recordView();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+        List<BinaryRowEx> rows = new ArrayList<>();
+
+        int count = 100;
+        int lastId = count - 1;
+        long id = existingKey ? 1 : 12345;
+        BitSet deleted = new BitSet(count);
+
+        if (existingKey) {
+            view.upsert(null, Tuple.create().set("key", id).set("valInt", 1).set("valStr", "val1"));
+        }
+
+        for (int i = 0; i < count; i++) {
+            if (i % 2 == 0) {
+                rows.add(createKeyRow(id));
+                deleted.set(i);
+            } else {
+                rows.add(createKeyValueRow(id, i, "row-" + i));
+            }
+        }
+
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        internalTable.updateAll(rows, deleted, partitionId).join();
+
+        Tuple res = view.get(null, Tuple.create().set("key", id));
+        assertEquals(lastId, res.intValue("valInt"));
+        assertEquals("row-" + lastId, res.stringValue("valStr"));
+    }
+
     @Test
     public void updateAllWithDeleteTest() {
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
@@ -560,8 +599,11 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         var subscriberAllDataAwaitLatch = new CountDownLatch(parts);
 
+        InternalTransaction roTx =
+                (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
+
         for (int i = 0; i < parts; i++) {
-            Publisher<BinaryRow> res = internalTable.scan(i, node.clock().now(), node.node());
+            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node(), roTx.coordinatorId());
 
             res.subscribe(new Subscriber<>() {
                 @Override
@@ -587,6 +629,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         }
 
         assertTrue(subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS));
+
+        roTx.commit();
 
         return retrievedItems;
     }

@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -35,6 +36,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -51,6 +53,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -70,6 +73,7 @@ import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.sql.ColumnType;
+import org.hamcrest.Matchers;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
@@ -125,7 +129,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 List.of(columns)
         );
 
-        when(catalogService.index(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
+        when(catalogService.aliveIndex(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
         when(catalogService.index(eq(catalogSortedIndexDescriptor.id()), anyInt())).thenReturn(catalogSortedIndexDescriptor);
 
         return tableStorage.getOrCreateSortedIndex(
@@ -1339,6 +1343,37 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         // But, "hasNext" must return "false" to be consistent with the result of last "peek" operation. This is crucial for RW scans.
         assertFalse(scan.hasNext());
         assertThrows(NoSuchElementException.class, scan::next);
+    }
+
+    @Test
+    public void testDestroy() {
+        SortedIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
+
+        int indexId = index.indexDescriptor().id();
+
+        assertThat(tableStorage.getIndex(TEST_PARTITION, indexId), is(sameInstance(index)));
+
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
+
+        IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
+        IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
+        IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(TEST_PARTITION));
+
+        put(index, row1);
+        put(index, row2);
+        put(index, row3);
+
+        CompletableFuture<Void> destroyFuture = tableStorage.destroyIndex(index.indexDescriptor().id());
+
+        assertThat(destroyFuture, willCompleteSuccessfully());
+
+        assertThat(tableStorage.getIndex(TEST_PARTITION, indexId), is(Matchers.nullValue()));
+
+        index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
+
+        assertThat(getAll(index, row1), is(empty()));
+        assertThat(getAll(index, row2), is(empty()));
+        assertThat(getAll(index, row3), is(empty()));
     }
 
     private List<ColumnParams> shuffledRandomColumnParams() {

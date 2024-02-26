@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPL
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -33,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -73,7 +73,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -131,14 +130,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
-    /**
-     * On this pool, a stripe is chosen using {@link ReplicationGroupStripes#stripeFor(ReplicationGroupId, StripedThreadPoolExecutor)}
-     * so that requests concerning the same {@link ReplicationGroupId} are executed on the same thread.
-     */
-    private final StripedThreadPoolExecutor requestsExecutor;
-
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
+
+    private final Executor requestsExecutor;
 
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
@@ -167,7 +162,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             HybridClock clock,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
-            StripedThreadPoolExecutor requestsExecutor
+            Executor requestsExecutor
     ) {
         this(
                 nodeName,
@@ -200,7 +195,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             HybridClock clock,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
-            StripedThreadPoolExecutor requestsExecutor,
+            Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
@@ -239,8 +234,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaRequest request = (ReplicaRequest) message;
 
-        ExecutorService stripeExecutor = ReplicationGroupStripes.stripeFor(request.groupId(), requestsExecutor);
-        stripeExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
+        requestsExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
     }
 
     private void handleReplicaRequest(ReplicaRequest request, String senderConsistentId, @Nullable Long correlationId) {
@@ -271,10 +265,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                                 .build(),
                                         correlationId);
                             } else {
-                                createdReplica.ready().thenRun(() -> inBusyLock(
-                                        busyLock,
-                                        () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
-                                ));
+                                sendAwaitReplicaResponse(senderConsistentId, correlationId);
                             }
                         });
                     } else {
@@ -290,7 +281,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
-            if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
+            if (replicaFut == null || !replicaFut.isDone()) {
                 sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
 
                 return;
@@ -447,7 +438,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
@@ -457,7 +447,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -467,7 +456,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, whenReplicaReady, listener, raftClient, storageIndexTracker);
+            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
@@ -477,14 +466,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Internal method for starting a replica.
      *
      * @param replicaGrpId Replication group id.
-     * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
      */
     private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
-            CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -493,7 +480,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         Replica newReplica = new Replica(
                 replicaGrpId,
-                whenReplicaReady,
                 listener,
                 storageIndexTracker,
                 raftClient,

@@ -35,10 +35,10 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -76,8 +76,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testTableScan() {
-        TestTable testTable1 = createTestTable("TEST1");
-        TestTable testTable2 = createTestTable("TEST2");
+        IgniteTable testTable1 = createTestTable("TEST1");
+        IgniteTable testTable2 = createTestTable("TEST2");
 
         int t1Id = testTable1.id();
         int t2Id = testTable2.id();
@@ -102,7 +102,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testIndexScan() {
-        TestTable table = createTestTable("TEST1", addHashIndex("ID"));
+        IgniteTable table = createTestTable("TEST1", addHashIndex("ID"));
 
         int t1Id = table.id();
 
@@ -120,8 +120,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testModify() {
-        TestTable testTable1 = createTestTable("TEST1");
-        TestTable testTable2 = createTestTable("TEST2");
+        IgniteTable testTable1 = createTestTable("TEST1");
+        IgniteTable testTable2 = createTestTable("TEST2");
 
         int t1Id = testTable1.id();
         int t2Id = testTable2.id();
@@ -147,7 +147,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testCached() {
-        TestTable table = createTestTable("TEST1");
+        IgniteTable table = createTestTable("TEST1");
 
         int t1Id = table.id();
 
@@ -168,7 +168,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testResolutionErrorIsReturned() {
-        TestTable table = createTestTable("TEST1");
+        IgniteTable table = createTestTable("TEST1");
 
         int t1Id = table.id();
 
@@ -262,11 +262,11 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         }
     }
 
-    private static TestTable createTestTable(String tableName) {
+    private static IgniteTable createTestTable(String tableName) {
         return createTestTable(tableName, null);
     }
 
-    private static TestTable createTestTable(String tableName, @Nullable UnaryOperator<TableBuilder> changer) {
+    private static IgniteTable createTestTable(String tableName, @Nullable UnaryOperator<TableBuilder> changer) {
         TableBuilder testTable = TestBuilders.table()
                 .name(tableName)
                 .addColumn("ID", NativeTypes.INT32)

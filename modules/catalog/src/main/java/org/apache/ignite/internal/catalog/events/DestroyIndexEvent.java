@@ -15,52 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index;
+package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.catalog.storage.Fireable;
 
-/** {@link IndexBuildingStarterTask} ID. */
-class IndexBuildingStarterTaskId {
+/** {@link CatalogEvent#INDEX_DESTROY} event. */
+public class DestroyIndexEvent implements Fireable {
     private final int tableId;
-
     private final int indexId;
+    private final int partitions;
 
-    IndexBuildingStarterTaskId(int tableId, int indexId) {
-        this.tableId = tableId;
+    /**
+     * Constructor.
+     *
+     * @param indexId An id of dropped index.
+     * @param tableId An id of table the index belongs to.
+     * @param partitions Table partitions.
+     */
+    public DestroyIndexEvent(int indexId, int tableId, int partitions) {
         this.indexId = indexId;
-    }
-
-    public int tableId() {
-        return tableId;
-    }
-
-    public int indexId() {
-        return indexId;
+        this.tableId = tableId;
+        this.partitions = partitions;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        IndexBuildingStarterTaskId that = (IndexBuildingStarterTaskId) o;
-
-        return tableId == that.tableId && indexId == that.indexId;
+    public CatalogEvent eventType() {
+        return CatalogEvent.INDEX_DESTROY;
     }
 
     @Override
-    public int hashCode() {
-        int result = tableId;
-        result = 31 * result + indexId;
-        return result;
-    }
-
-    @Override
-    public String toString() {
-        return S.toString(IndexBuildingStarterTaskId.class, this);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DestroyIndexEventParameters(causalityToken, catalogVersion, indexId, tableId, partitions);
     }
 }
