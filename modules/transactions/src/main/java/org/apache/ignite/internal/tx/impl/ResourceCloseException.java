@@ -15,18 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.CURSOR_ALREADY_CLOSED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.RESOURCE_CLOSING_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Exception is thrown when a data fetch attempt is performed on a closed cursor.
+ * The exception is thrown when a resource fails to close.
  */
-public class CursorClosedException extends IgniteException {
-    /**
-     * Creates an exception instance.
-     */
-    public CursorClosedException() {
-        super(CURSOR_ALREADY_CLOSED_ERR, "Cursor is closed");
+public class ResourceCloseException extends IgniteInternalException {
+
+    private static final long serialVersionUID = 3883849202706660395L;
+
+    private final FullyQualifiedResourceId resourceId;
+
+    public ResourceCloseException(
+            String message,
+            FullyQualifiedResourceId resourceId,
+            Throwable cause
+    ) {
+        super(RESOURCE_CLOSING_ERR, message, cause);
+        this.resourceId = resourceId;
+    }
+
+    public FullyQualifiedResourceId resourceId() {
+        return resourceId;
     }
 }
