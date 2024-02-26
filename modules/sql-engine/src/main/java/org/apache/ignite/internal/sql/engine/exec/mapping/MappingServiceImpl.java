@@ -46,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.Log
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
@@ -71,6 +72,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Cache<PlanId, MappingsCacheValue> mappingsCache;
     private final Executor taskExecutor;
+    private final PartitionPruner partitionPruner;
 
     /**
      * Constructor.
@@ -79,6 +81,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
      * @param targetProvider Execution target provider.
      * @param cacheFactory A factory to create cache of fragments.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param partitionPruner Partition pruner.
      * @param taskExecutor Mapper service task executor.
      */
     public MappingServiceImpl(
@@ -86,6 +89,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             ExecutionTargetProvider targetProvider,
             CacheFactory cacheFactory,
             int cacheSize,
+            PartitionPruner partitionPruner,
             Executor taskExecutor
     ) {
         this.localNodeName = localNodeName;
@@ -93,15 +97,16 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.templatesCache = cacheFactory.create(cacheSize);
         this.mappingsCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
+        this.partitionPruner = partitionPruner;
     }
 
     @Override
-    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan) {
+    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
         if (initialTopologyFuture.isDone()) {
-            return map0(multiStepPlan);
+            return map0(multiStepPlan, parameters);
         }
 
-        return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan), taskExecutor);
+        return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan, parameters), taskExecutor);
     }
 
     /** Called when the primary replica has expired. */
@@ -117,7 +122,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         return CompletableFutures.falseCompletedFuture();
     }
 
-    private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
+    private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan, MappingParameters parameters) {
         TopologySnapshot topology = topologyHolder.topology();
         MappingContext context = new MappingContext(localNodeName, topology.nodes());
 
@@ -130,7 +135,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
                 for (Fragment fragment : template.fragments) {
                     topologyAware = topologyAware || !fragment.systemViews().isEmpty();
-                    for (IgniteDataSource source : fragment.tables()) {
+                    for (IgniteDataSource source : fragment.tables().values()) {
                         tableIds.add(source.id());
                     }
                 }
@@ -147,7 +152,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             return val;
         });
 
-        return cacheValue.mappedFragments;
+        return cacheValue.mappedFragments.thenApply(mappedFragments -> applyPartitionPruning(mappedFragments, parameters));
     }
 
     private CompletableFuture<List<MappedFragment>> mapFragments(MappingContext context, FragmentsTemplate template) {
@@ -156,7 +161,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
         List<CompletableFuture<IntObjectPair<ExecutionTarget>>> targets =
                 fragments.stream().flatMap(fragment -> Stream.concat(
-                        fragment.tables().stream()
+                        fragment.tables().values().stream()
                                 .map(table -> targetProvider.forTable(context.targetFactory(), table)
                                         .thenApply(target -> IntObjectPair.of(table.id(), target))
                                 ),
@@ -326,6 +331,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         newFragments.addAll(replacement.subList(1, replacement.size()));
 
         return newFragments;
+    }
+
+    private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {
+        return partitionPruner.apply(mappedFragments, parameters.dynamicParameters());
     }
 
     /**

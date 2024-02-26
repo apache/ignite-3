@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -100,9 +102,7 @@ class FragmentSplitter extends IgniteRelShuttle {
 
         assert table != null;
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.add(table);
-        }
+        curr.tables.put(rel.sourceId(), table);
 
         return super.visit(rel);
     }
@@ -113,9 +113,7 @@ class FragmentSplitter extends IgniteRelShuttle {
 
         assert table != null;
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.add(table);
-        }
+        curr.tables.put(rel.sourceId(), table);
 
         return super.visit(rel);
     }
@@ -126,9 +124,7 @@ class FragmentSplitter extends IgniteRelShuttle {
 
         assert table != null;
 
-        if (curr.seenRelations.add(table.id())) {
-            curr.tables.add(table);
-        }
+        curr.tables.put(rel.sourceId(), table);
 
         return super.visit(rel);
     }
@@ -220,7 +216,7 @@ class FragmentSplitter extends IgniteRelShuttle {
         private final IntSet seenRelations = new IntOpenHashSet();
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
-        private final List<IgniteTable> tables = new ArrayList<>();
+        private final Long2ObjectMap<IgniteTable> tables = new Long2ObjectArrayMap<>();
         private final List<IgniteSystemView> systemViews = new ArrayList<>();
 
         private FragmentProto(long id, boolean correlated, IgniteRel root) {
