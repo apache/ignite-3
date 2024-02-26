@@ -328,10 +328,10 @@ public class ClientTupleSerializer {
     }
 
     static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
-        var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
-        var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
+        var columns = keyOnly ? schema.keyColumns() : schema.columns();
+        var binTuple = new BinaryTupleReader(columns.length, in.readBinary());
 
-        return new ClientTuple(schema, binTuple, 0, colCnt);
+        return new ClientTuple(schema, columns, binTuple);
     }
 
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
