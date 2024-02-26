@@ -328,6 +328,9 @@ public class ClientTupleSerializer {
     }
 
     static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
+        // TODO: How do we represent a key-only BinaryTuple?
+        // 1. Null non-key columns
+        // 2. Only key columns (different schema basically)
         var columns = keyOnly ? schema.keyColumns() : schema.columns();
         var binTuple = new BinaryTupleReader(columns.length, in.readBinary());
 
