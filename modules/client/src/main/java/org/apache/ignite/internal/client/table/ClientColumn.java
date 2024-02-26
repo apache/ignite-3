@@ -32,8 +32,8 @@ public class ClientColumn {
     /** Nullable flag. */
     private final boolean nullable;
 
-    /** Key column flag. */
-    private final boolean isKey;
+    /** Key index (-1 for non-key). */
+    private final int keyIndex;
 
     /** Colocation index. */
     private final int colocationIndex;
@@ -76,7 +76,7 @@ public class ClientColumn {
             String name,
             ColumnType type,
             boolean nullable,
-            boolean isKey,
+            int keyIndex,
             int colocationIndex,
             int schemaIndex,
             int scale,
@@ -87,7 +87,7 @@ public class ClientColumn {
         this.name = name;
         this.type = type;
         this.nullable = nullable;
-        this.isKey = isKey;
+        this.keyIndex = keyIndex;
         this.colocationIndex = colocationIndex;
         this.schemaIndex = schemaIndex;
         this.scale = scale;
@@ -122,7 +122,7 @@ public class ClientColumn {
      * @return Value indicating whether this column is a part of key.a part of key
      */
     public boolean key() {
-        return isKey;
+        return keyIndex >= 0;
     }
 
     /**
@@ -132,6 +132,15 @@ public class ClientColumn {
      */
     public int colocationIndex() {
         return colocationIndex;
+    }
+
+    /**
+     * Gets the key index, or -1 when not part of the key.
+     *
+     * @return Index within the key, or -1 when not part of the key.
+     */
+    public int keyIndex() {
+        return keyIndex;
     }
 
     /**

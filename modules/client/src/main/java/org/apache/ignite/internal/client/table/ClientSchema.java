@@ -40,9 +40,6 @@ public class ClientSchema {
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
-    /** Key columns count. */
-    private final int keyColumnCount;
-
     /** Columns. */
     private final ClientColumn[] columns;
 
@@ -68,43 +65,28 @@ public class ClientSchema {
      * @param colocationColumns Colocation columns. When null, all key columns are used.
      * @param marshallers Marshallers provider.
      */
-    public ClientSchema(int ver, ClientColumn[] columns, ClientColumn @Nullable [] colocationColumns, MarshallersProvider marshallers) {
+    public ClientSchema(
+            int ver,
+            ClientColumn[] columns,
+            ClientColumn[] keyColumns,
+            ClientColumn @Nullable [] colocationColumns,
+            MarshallersProvider marshallers) {
         assert ver >= 0;
         assert columns != null;
 
         this.ver = ver;
         this.columns = columns;
+        this.keyColumns = keyColumns;
+        this.colocationColumns = colocationColumns == null ? keyColumns : colocationColumns;
         this.marshallers = marshallers;
-        var keyCnt = 0;
 
         for (var col : columns) {
-            if (col.key()) {
-                keyCnt++;
-            }
-
             map.put(col.name(), col);
         }
 
         // TODO:
         // * Preserve column order from SchemaDescriptor
         // * Remove logic "key columns come first"
-        keyColumnCount = keyCnt;
-        keyColumns = new ClientColumn[keyCnt];
-        keyCnt = 0;
-
-        for (var col : columns) {
-            if (col.key()) {
-                keyColumns[keyCnt++] = col;
-            }
-        }
-
-        if (colocationColumns == null) {
-            this.colocationColumns = new ClientColumn[keyCnt];
-
-            System.arraycopy(columns, 0, this.colocationColumns, 0, keyCnt);
-        } else {
-            this.colocationColumns = colocationColumns;
-        }
     }
 
     /**
