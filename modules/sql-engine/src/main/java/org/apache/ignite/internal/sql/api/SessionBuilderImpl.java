@@ -26,7 +26,7 @@ import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -194,13 +194,11 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        Builder propsBuilder = SqlPropertiesHelper.newBuilder()
+        SqlProperties propsHolder = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
-                .set(QueryProperty.DEFAULT_SCHEMA, schema);
-
-        if (timeZoneId != null) {
-            propsBuilder.set(QueryProperty.TIME_ZONE_ID, timeZoneId);
-        }
+                .set(QueryProperty.DEFAULT_SCHEMA, schema)
+                .set(QueryProperty.TIME_ZONE_ID, timeZoneId == null ? ZoneId.systemDefault() : timeZoneId)
+                .build();
 
         SessionId sessionId = new SessionId(UUID.randomUUID());
         SessionImpl session = new SessionImpl(
@@ -212,7 +210,7 @@ public class SessionBuilderImpl implements SessionBuilder {
                 transactions,
                 pageSize,
                 sessionTimeout,
-                propsBuilder.build(),
+                propsHolder,
                 timeProvider,
                 () -> sessions.remove(sessionId)
         );

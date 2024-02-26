@@ -248,6 +248,7 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
     @MethodSource("dateTimeIntervalTestCases")
     public void testBasicDateTimeIntervalArithmetic(DateTimeIntervalBasicTestCase testCase) {
         assertQuery(testCase.query())
+                .withTimeZoneId(DateTimeIntervalBasicTestCase.TIME_ZONE_ID)
                 .returns(testCase.expected())
                 .check();
     }
@@ -322,11 +323,14 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
 
         // Timestamp - interval.
         BiConsumer<String, String> timestampChecker = (expression, expected) -> {
+            ZoneId timeZoneId = ZoneId.systemDefault();
+
             Function<String, Object> validator = sqlTypeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
-                    ? ts -> LocalDateTime.parse(ts).atZone(ZoneId.systemDefault()).toInstant()
+                    ? ts -> LocalDateTime.parse(ts).atZone(timeZoneId).toInstant()
                     : LocalDateTime::parse;
 
             assertQuery(format(expression, sqlTypeName.getSpaceName()))
+                    .withTimeZoneId(timeZoneId)
                     .returns(validator.apply(expected))
                     .check();
         };
@@ -485,6 +489,7 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
     }
 
     abstract static class DateTimeIntervalBasicTestCase {
+        private static final ZoneId TIME_ZONE_ID = ZoneId.of("Asia/Nicosia");
         private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
         private static final String dateString = "1992-01-19 00:00:00.123";
         private static final LocalDateTime testLocalDate = LocalDateTime.parse(dateString, dateTimeFormatter);
@@ -558,7 +563,7 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
 
             @Override
             public Temporal expected() {
-                return testLocalDate.atZone(ZoneId.systemDefault()).toInstant().plus(amount, unit);
+                return testLocalDate.atZone(TIME_ZONE_ID).toInstant().plus(amount, unit);
             }
         }
 

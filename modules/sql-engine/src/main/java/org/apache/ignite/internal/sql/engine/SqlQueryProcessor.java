@@ -136,7 +136,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class SqlQueryProcessor implements QueryProcessor {
     /** Default time zone ID. */
-    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.systemDefault();
+    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
