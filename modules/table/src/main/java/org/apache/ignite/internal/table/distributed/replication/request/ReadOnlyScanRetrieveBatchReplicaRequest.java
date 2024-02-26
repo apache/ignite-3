@@ -27,4 +27,11 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 @Transferable(TableMessageGroup.RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST)
 public interface ReadOnlyScanRetrieveBatchReplicaRequest extends ScanRetrieveBatchReplicaRequest, ReadOnlyReplicaRequest {
     UUID transactionId();
+
+    /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return Transaction coordinator inconsistent ID.
+     */
+    String coordinatorId();
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -65,7 +66,10 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
@@ -181,6 +185,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -636,6 +641,8 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 txConfig,
@@ -647,7 +654,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 indexNodeFinishedRwTransactionsChecker,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                resourcesRegistry
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
@@ -680,7 +688,8 @@ public class IgniteImpl implements Ignite {
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
                 this::sql,
-                failureProcessor
+                failureProcessor,
+                resourcesRegistry
         );
 
         indexManager = new IndexManager(
@@ -993,6 +1002,7 @@ public class IgniteImpl implements Ignite {
 
                         return cmgMgr.onJoinReady();
                     }, startupExecutor)
+                    .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), startupExecutor)
                     .thenRunAsync(() -> {
                         try {
                             //Enable REST component on start complete.
@@ -1018,6 +1028,39 @@ public class IgniteImpl implements Ignite {
             startupExecutor.shutdownNow();
 
             throw handleStartException(e);
+        }
+    }
+
+    private CompletableFuture<Void> awaitSelfInLocalLogicalTopology() {
+        CompletableFuture<Void> awaitSelfInLogicalTopologyFuture = new CompletableFuture<>();
+
+        LogicalTopologyEventListener awaitSelfListener = new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+                checkSelfInTopology(newTopology, awaitSelfInLogicalTopologyFuture, this);
+            }
+
+            @Override
+            public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
+                checkSelfInTopology(newTopology, awaitSelfInLogicalTopologyFuture, this);
+            }
+        };
+
+        logicalTopologyService.addEventListener(awaitSelfListener);
+
+        checkSelfInTopology(logicalTopologyService.localLogicalTopology(), awaitSelfInLogicalTopologyFuture, awaitSelfListener);
+
+        return awaitSelfInLogicalTopologyFuture;
+    }
+
+    private void checkSelfInTopology(
+            LogicalTopologySnapshot logicalTopologySnapshot,
+            CompletableFuture<Void> awaitSelfInLogicalTopologyFuture,
+            LogicalTopologyEventListener awaitSelfListener
+    ) {
+        if (logicalTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
+            awaitSelfInLogicalTopologyFuture.complete(null);
+            logicalTopologyService.removeEventListener(awaitSelfListener);
         }
     }
 

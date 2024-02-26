@@ -37,11 +37,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -81,11 +79,11 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
-    /** Transaction manager. */
-    private final TxManager txManager;
-
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
+
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
@@ -517,9 +515,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        // It's important to not block any thread while being inside of the "runConsistently" section.
-        storageUpdateHandler.getIndexUpdateHandler().waitForIndex(cmd.indexId());
-
         BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(cmd);
 
         storage.runConsistently(locker -> {
@@ -612,24 +607,18 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         ));
     }
 
-    // TODO: IGNITE-21560 Add schema sync to BuildIndexCommand#startBuildingCatalogVersion
-    // TODO: IGNITE-21560 Skip command if index was removed
     private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(BuildIndexCommand command) {
-        int creationCatalogVersion = command.creationCatalogVersion();
-        Catalog creationIndexCatalog = catalogService.catalog(creationCatalogVersion);
+        int indexCreationCatalogVersion = command.creationCatalogVersion();
+        Catalog indexCreationCatalog = catalogService.catalog(indexCreationCatalogVersion);
 
-        assert creationIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + creationCatalogVersion;
+        assert indexCreationCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
 
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
-        Catalog startBuildingIndexCatalog = IntStream.rangeClosed(creationCatalogVersion, latestCatalogVersion)
-                .mapToObj(catalogService::catalog)
-                .filter(catalog -> catalog.index(command.indexId()).status() == CatalogIndexStatus.BUILDING)
-                .findFirst()
-                .orElse(null);
+        int startBuildingIndexCatalogVersion = command.requiredCatalogVersion();
 
-        assert startBuildingIndexCatalog != null : format("indexId={}, catalogVersionFrom={}, catalogVersionTo={}",
-                command.indexId(), creationCatalogVersion, latestCatalogVersion);
+        Catalog startBuildingIndexCatalog = catalogService.catalog(startBuildingIndexCatalogVersion);
 
-        return new BuildIndexRowVersionChooser(storage, creationIndexCatalog.time(), startBuildingIndexCatalog.time());
+        assert startBuildingIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
+
+        return new BuildIndexRowVersionChooser(storage, indexCreationCatalog.time(), startBuildingIndexCatalog.time());
     }
 }

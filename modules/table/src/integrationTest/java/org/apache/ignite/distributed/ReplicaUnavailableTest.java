@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -41,6 +40,9 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -72,7 +74,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -111,7 +112,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private ClusterService clusterService;
 
-    private StripedThreadPoolExecutor requestsExecutor;
+    private ExecutorService requestsExecutor;
 
     @BeforeEach
     public void setup() {
@@ -126,11 +127,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         // This test is run without Meta storage.
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
-        requestsExecutor = new StripedThreadPoolExecutor(
-                5,
-                NamedThreadFactory.create(NODE_NAME, "partition-operations", log),
-                false,
-                0
+        requestsExecutor = new ThreadPoolExecutor(
+                0, 5,
+                0, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
         replicaService = new ReplicaService(clusterService.messagingService(), clock);
@@ -174,7 +175,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
                         replicaManager.startReplica(
                                 tablePartitionId,
-                                nullCompletedFuture(),
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(5)
                                         .build(), null)),
@@ -288,10 +288,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
                     replicaManager.startReplica(
                             tablePartitionId,
-                            new CompletableFuture<>(),
-                            (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                    .result(5)
-                                    .build(), null)),
+                            (request, senderId) -> new CompletableFuture<>(),
                             mock(TopologyAwareRaftGroupService.class),
                             new PendingComparableValuesTracker<>(0L)
                     );

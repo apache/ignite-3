@@ -54,6 +54,11 @@ public class LogicalTopologyServiceImpl implements LogicalTopologyService {
     }
 
     @Override
+    public LogicalTopologySnapshot localLogicalTopology() {
+        return logicalTopology.getLogicalTopology();
+    }
+
+    @Override
     public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
         return clusterManagementGroupManager.validatedNodes();
     }

@@ -60,7 +60,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -78,7 +77,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.ChooseExecutorForReplicationGroup;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -88,9 +86,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
@@ -207,7 +203,49 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
 
-    private final ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser;
+    private final Executor partitionOperationsExecutor;
+
+    /**
+     * Test-only constructor.
+     *
+     * @param txConfig Transaction configuration.
+     * @param clusterService Cluster service.
+     * @param replicaService Replica service.
+     * @param lockManager Lock manager.
+     * @param clock A hybrid logical clock.
+     * @param transactionIdGenerator Used to generate transaction IDs.
+     * @param placementDriver Placement driver.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     * @param resourcesRegistry Resources registry.
+     */
+    @TestOnly
+    public TxManagerImpl(
+            TransactionConfiguration txConfig,
+            ClusterService clusterService,
+            ReplicaService replicaService,
+            LockManager lockManager,
+            HybridClock clock,
+            TransactionIdGenerator transactionIdGenerator,
+            PlacementDriver placementDriver,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            LocalRwTxCounter localRwTxCounter,
+            RemotelyTriggeredResourceRegistry resourcesRegistry
+    ) {
+        this(
+                txConfig,
+                clusterService,
+                replicaService,
+                lockManager,
+                clock,
+                transactionIdGenerator,
+                placementDriver,
+                idleSafeTimePropagationPeriodMsSupplier,
+                localRwTxCounter,
+                ForkJoinPool.commonPool(),
+                resourcesRegistry
+        );
+    }
 
     /**
      * The constructor.
@@ -222,6 +260,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      * @param partitionOperationsExecutor Executor on which partition operations will be executed, if needed.
+     * @param resourcesRegistry Resources registry.
      */
     public TxManagerImpl(
             TransactionConfiguration txConfig,
@@ -233,86 +272,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
-            StripedThreadPoolExecutor partitionOperationsExecutor
-    ) {
-        this(
-                txConfig,
-                clusterService,
-                replicaService,
-                lockManager,
-                clock,
-                transactionIdGenerator,
-                placementDriver,
-                idleSafeTimePropagationPeriodMsSupplier,
-                localRwTxCounter,
-                new ChooseExecutorForReplicationGroup(partitionOperationsExecutor)
-        );
-    }
-
-    /**
-     * Test-only constructor.
-     *
-     * @param txConfig Transaction configuration.
-     * @param clusterService Cluster service.
-     * @param replicaService Replica service.
-     * @param lockManager Lock manager.
-     * @param clock A hybrid logical clock.
-     * @param transactionIdGenerator Used to generate transaction IDs.
-     * @param placementDriver Placement driver.
-     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
-     * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
-     */
-    @TestOnly
-    public TxManagerImpl(
-            TransactionConfiguration txConfig,
-            ClusterService clusterService,
-            ReplicaService replicaService,
-            LockManager lockManager,
-            HybridClock clock,
-            TransactionIdGenerator transactionIdGenerator,
-            PlacementDriver placementDriver,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            LocalRwTxCounter localRwTxCounter
-    ) {
-        this(
-                txConfig,
-                clusterService,
-                replicaService,
-                lockManager,
-                clock,
-                transactionIdGenerator,
-                placementDriver,
-                idleSafeTimePropagationPeriodMsSupplier,
-                localRwTxCounter,
-                groupId -> ForkJoinPool.commonPool()
-        );
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param txConfig Transaction configuration.
-     * @param clusterService Cluster service.
-     * @param replicaService Replica service.
-     * @param lockManager Lock manager.
-     * @param clock A hybrid logical clock.
-     * @param transactionIdGenerator Used to generate transaction IDs.
-     * @param placementDriver Placement driver.
-     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
-     * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
-     * @param partitionOperationsStripeChooser Chooser of an executor on which partition operations will be executed, if needed.
-     */
-    private TxManagerImpl(
-            TransactionConfiguration txConfig,
-            ClusterService clusterService,
-            ReplicaService replicaService,
-            LockManager lockManager,
-            HybridClock clock,
-            TransactionIdGenerator transactionIdGenerator,
-            PlacementDriver placementDriver,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            LocalRwTxCounter localRwTxCounter,
-            ExecutorChooser<ReplicationGroupId> partitionOperationsStripeChooser
+            Executor partitionOperationsExecutor,
+            RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -324,7 +285,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.messagingService = clusterService.messagingService();
         this.primaryReplicaEventListener = this::primaryReplicaEventListener;
         this.localRwTxCounter = localRwTxCounter;
-        this.partitionOperationsStripeChooser = partitionOperationsStripeChooser;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
 
@@ -345,7 +306,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
-        txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
+        txCleanupRequestHandler = new TxCleanupRequestHandler(
+                messagingService,
+                lockManager,
+                clock,
+                writeIntentSwitchProcessor,
+                resourcesRegistry
+        );
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
     }
@@ -666,7 +633,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         if (TransactionFailureHandler.isRecoverable(cause)) {
                             LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
 
-                            Executor stripe = partitionOperationsStripeChooser.choose(commitPartition);
                             return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,
                                     commitPartition,
@@ -675,7 +641,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txId,
                                     commitTimestamp,
                                     txFinishFuture
-                            ), stripe).thenCompose(identity());
+                            ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx [txId={}].", ex, txId);
 
@@ -821,11 +787,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
         return runAsync(runnable, cleanupExecutor);
-    }
-
-    @Override
-    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
-        return supplyAsync(action, cleanupExecutor).thenCompose(f -> f);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {

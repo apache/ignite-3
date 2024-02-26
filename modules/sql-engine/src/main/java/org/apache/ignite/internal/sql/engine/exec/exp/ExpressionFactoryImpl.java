@@ -32,12 +32,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
+import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
@@ -315,6 +317,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
                 RexLiteral literal = values.get(i);
                 Object val = literal.getValueAs(types.get(field));
+
+                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+                if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                    val = IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
+                }
 
                 rowBuilder.addField(val);
             }

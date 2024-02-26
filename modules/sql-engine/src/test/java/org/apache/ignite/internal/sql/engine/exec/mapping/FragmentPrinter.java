@@ -19,13 +19,17 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -128,8 +132,20 @@ final class FragmentPrinter extends IgniteRelShuttle {
             output.writeNewline();
         }
 
+        Long2ObjectMap<List<String>> sourcesByExchangeId = mappedFragment.sourcesByExchangeId();
+        if (sourcesByExchangeId != null) {
+            output.appendPadding();
+            output.writeKeyValue("exchangeSourceNodes", sourcesByExchangeId.long2ObjectEntrySet()
+                    .stream()
+                    .map(e -> Map.entry(e.getLongKey(), new TreeSet<>(e.getValue())))
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
+                    .toString()
+            );
+            output.writeNewline();
+        }
+
         if (!fragment.tables().isEmpty()) {
-            List<String> tables = fragment.tables().stream()
+            List<String> tables = fragment.tables().values().stream()
                     .map(IgniteDataSource::name)
                     .sorted(Comparator.naturalOrder())
                     .collect(Collectors.toList());
@@ -147,6 +163,36 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
             output.appendPadding();
             output.writeKeyValue("systemViews", tables.toString());
+            output.writeNewline();
+        }
+
+        Map<String, List<PartitionWithConsistencyToken>> partitions = new HashMap<>();
+        for (ColocationGroup group : mappedFragment.groups()) {
+            Comparator<PartitionWithConsistencyToken> cmp = Comparator.comparing(PartitionWithConsistencyToken::partId)
+                    .thenComparing(PartitionWithConsistencyToken::enlistmentConsistencyToken);
+
+            for (String nodeName : mappedFragment.nodes()) {
+                List<PartitionWithConsistencyToken> nodePartitions = group.partitionsWithConsistencyTokens(nodeName);
+                if (!nodePartitions.isEmpty()) {
+                    nodePartitions.sort(cmp);
+                    partitions.put(nodeName, nodePartitions);
+                }
+            }
+        }
+
+        if (!partitions.isEmpty()) {
+            String partitionsAsString = partitions.entrySet().stream()
+                    .map(e -> {
+                        String valuesStr = e.getValue().stream()
+                                .map(v -> v.partId() + ":" + v.enlistmentConsistencyToken())
+                                .collect(Collectors.joining(", ", "[", "]"));
+
+                        return e.getKey() + "=" + valuesStr;
+                    })
+                    .collect(Collectors.joining(", ", "{", "}"));
+
+            output.appendPadding();
+            output.writeKeyValue("partitions", partitionsAsString);
             output.writeNewline();
         }
 
@@ -214,8 +260,12 @@ final class FragmentPrinter extends IgniteRelShuttle {
     public IgniteRel visit(IgniteIndexScan rel) {
         long sourceId = rel.sourceId();
         String tableName = String.join(".", rel.getTable().getQualifiedName());
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null;
 
-        output.writeFormattedString("(name={}, source={}, distribution={})", tableName, sourceId, rel.distribution());
+        output.writeFormattedString("(name={}, source={}, partitions={}, distribution={})",
+                tableName, sourceId, table.partitions(), rel.distribution()
+        );
         return super.visit(rel);
     }
 
@@ -223,8 +273,12 @@ final class FragmentPrinter extends IgniteRelShuttle {
     public IgniteRel visit(IgniteTableScan rel) {
         long sourceId = rel.sourceId();
         String tableName = String.join(".", rel.getTable().getQualifiedName());
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null;
 
-        output.writeFormattedString("(name={}, source={}, distribution={})", tableName, sourceId, rel.distribution());
+        output.writeFormattedString("(name={}, source={}, partitions={}, distribution={})",
+                tableName, sourceId, table.partitions(), rel.distribution()
+        );
         return super.visit(rel);
     }
 

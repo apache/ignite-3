@@ -287,11 +287,13 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             if (idxId == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode);
+                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
             } else if (exactKey == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, null, null, 0, null);
+                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, null, null, 0, null,
+                        tx.coordinatorId());
             } else {
-                publisher = tbl.internalTable().lookup(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, exactKey, null);
+                publisher = tbl.internalTable().lookup(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, exactKey, null,
+                        tx.coordinatorId());
             }
         } else if (idxId == null) {
             publisher = tbl.internalTable().scan(PART_ID, tx);

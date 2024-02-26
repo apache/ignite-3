@@ -350,7 +350,16 @@ public class ClientTableCommon {
         int tableId = unpacker.unpackInt();
 
         try {
-            return ((IgniteTablesInternal) tables).tableAsync(tableId)
+            IgniteTablesInternal tablesInternal = (IgniteTablesInternal) tables;
+
+            // Fast path - in most cases, the table is already in the startedTables cache.
+            // This method can return a table that is being stopped, but it's not a problem - any operation on such table will fail.
+            TableViewInternal cachedTable = tablesInternal.cachedTable(tableId);
+            if (cachedTable != null) {
+                return CompletableFuture.completedFuture(cachedTable);
+            }
+
+            return tablesInternal.tableAsync(tableId)
                     .thenApply(t -> {
                         if (t == null) {
                             throw tableIdNotFoundException(tableId);

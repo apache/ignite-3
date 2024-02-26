@@ -182,6 +182,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -775,7 +776,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
                     .startRaftGroupNodeWithoutService(any(), any(), any(), any(), any(RaftGroupOptions.class));
             verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startReplica(any(), any(), any(), any(), any());
+                    .startReplica(any(), any(), any(), any());
         }
     }
 
@@ -1050,6 +1051,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.partitionOperationsExecutor()
             );
 
+            var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
             txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
@@ -1059,7 +1062,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TransactionIdGenerator(addr.port()),
                     placementDriver,
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
-                    new TestLocalRwTxCounter()
+                    new TestLocalRwTxCounter(),
+                    resourcesRegistry
             );
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
@@ -1156,7 +1160,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new HybridTimestampTracker(),
                     placementDriver,
                     () -> mock(IgniteSql.class),
-                    failureProcessor
+                    failureProcessor,
+                    resourcesRegistry
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

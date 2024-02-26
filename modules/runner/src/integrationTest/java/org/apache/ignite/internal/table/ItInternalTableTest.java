@@ -604,7 +604,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
                 (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
 
         for (int i = 0; i < parts; i++) {
-            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node());
+            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node(), roTx.coordinatorId());
 
             res.subscribe(new Subscriber<>() {
                 @Override

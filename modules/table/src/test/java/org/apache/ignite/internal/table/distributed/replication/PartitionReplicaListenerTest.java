@@ -22,7 +22,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -40,6 +42,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -86,6 +89,7 @@ import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.distributed.replicator.action.RequestTypes;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -182,6 +186,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -573,7 +578,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 schemaSyncService,
                 catalogService,
                 placementDriver,
-                new SingleClusterNodeResolver(localNode)
+                new SingleClusterNodeResolver(localNode),
+                new RemotelyTriggeredResourceRegistry()
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -955,6 +961,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .scanId(1L)
                         .indexToUse(sortedIndexId)
                         .batchSize(4)
+                        .coordinatorId(localNode.id())
                         .build(), localNode.id());
 
         List<BinaryRow> rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -970,6 +977,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .scanId(1L)
                 .indexToUse(sortedIndexId)
                 .batchSize(4)
+                .coordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -988,6 +996,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .upperBoundPrefix(toIndexBound(3))
                 .flags(SortedIndexStorage.LESS_OR_EQUAL)
                 .batchSize(5)
+                .coordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1004,6 +1013,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexToUse(sortedIndexId)
                 .lowerBoundPrefix(toIndexBound(5))
                 .batchSize(5)
+                .coordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1020,6 +1030,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexToUse(sortedIndexId)
                 .exactKey(toIndexKey(0))
                 .batchSize(5)
+                .coordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1059,6 +1070,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .indexToUse(hashIndexId)
                         .exactKey(toIndexKey(0))
                         .batchSize(3)
+                        .coordinatorId(localNode.id())
                         .build(), localNode.id());
 
         List<BinaryRow> rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1075,6 +1087,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexToUse(hashIndexId)
                 .exactKey(toIndexKey(0))
                 .batchSize(1)
+                .coordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1091,6 +1104,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexToUse(hashIndexId)
                 .exactKey(toIndexKey(5))
                 .batchSize(5)
+                .coordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1107,6 +1121,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexToUse(hashIndexId)
                 .exactKey(toIndexKey(1))
                 .batchSize(5)
+                .coordinatorId(localNode.id())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1940,6 +1955,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .scanId(1)
                         .batchSize(100)
                         .readTimestampLong(readTimestamp.longValue())
+                        .coordinatorId(localNode.id())
                         .build(),
                 localNode.id()
         );
@@ -2804,7 +2820,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest(name = "readOnly = {0}")
     @ValueSource(booleans = {true, false})
     void testStaleTxOperationAfterIndexStartBuilding(boolean readOnly) {
-        fireHashIndexStartBuildingEventForStaleTxOperation();
+        fireHashIndexStartBuildingEventForStaleTxOperation(hashIndexStorage.id(), 1, 2);
 
         UUID txId = newTxId();
         long beginTs = beginTimestamp(txId).longValue();
@@ -2822,25 +2838,34 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     void testBuildIndexReplicaRequestWithoutRwTxOperations() {
-        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(1, 1);
+        int indexId = hashIndexStorage.id();
+        int indexCreationCatalogVersion = 1;
+
+        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(
+                indexId,
+                indexCreationCatalogVersion
+        );
 
         assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
 
-        fireHashIndexStartBuildingEventForStaleTxOperation();
+        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, indexCreationCatalogVersion, indexCreationCatalogVersion + 1);
 
         assertThat(invokeBuildIndexReplicaRequestFuture, willCompleteSuccessfully());
-        assertThat(invokeBuildIndexReplicaRequestAsync(1, 1), willCompleteSuccessfully());
+        assertThat(invokeBuildIndexReplicaRequestAsync(indexId, indexCreationCatalogVersion), willCompleteSuccessfully());
     }
 
     @ParameterizedTest(name = "failCmd = {0}")
     @ValueSource(booleans = {false, true})
     void testBuildIndexReplicaRequest(boolean failCmd) {
         var continueNotBuildIndexCmdFuture = new CompletableFuture<Void>();
+        var buildIndexCommandFuture = new CompletableFuture<BuildIndexCommand>();
 
         when(mockRaftClient.run(any())).thenAnswer(invocation -> {
             Command cmd = invocation.getArgument(0);
 
             if (cmd instanceof BuildIndexCommand) {
+                buildIndexCommandFuture.complete((BuildIndexCommand) cmd);
+
                 return raftClientFutureClosure.apply(cmd);
             }
 
@@ -2855,9 +2880,17 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow row = binaryRow(0);
 
         CompletableFuture<ReplicaResult> upsertFuture = upsertAsync(txId, row, true);
-        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(1, 1);
 
-        fireHashIndexStartBuildingEventForStaleTxOperation();
+        int indexId = hashIndexStorage.id();
+        int indexCreationCatalogVersion = 1;
+        int indexStartBuildingCatalogVersion = 2;
+
+        CompletableFuture<?> invokeBuildIndexReplicaRequestFuture = invokeBuildIndexReplicaRequestAsync(
+                indexId,
+                indexCreationCatalogVersion
+        );
+
+        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, indexCreationCatalogVersion, indexStartBuildingCatalogVersion);
 
         assertFalse(upsertFuture.isDone());
         assertFalse(invokeBuildIndexReplicaRequestFuture.isDone());
@@ -2873,22 +2906,63 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
 
         assertThat(invokeBuildIndexReplicaRequestFuture, willCompleteSuccessfully());
+
+        HybridTimestamp startBuildingIndexActivationTs = hybridTimestamp(catalogService.catalog(indexStartBuildingCatalogVersion).time());
+
+        verify(safeTimeClock).waitFor(eq(startBuildingIndexActivationTs));
+
+        assertThat(buildIndexCommandFuture, willCompleteSuccessfully());
+
+        BuildIndexCommand buildIndexCommand = buildIndexCommandFuture.join();
+        assertThat(buildIndexCommand.indexId(), equalTo(indexId));
+        assertThat(buildIndexCommand.creationCatalogVersion(), equalTo(indexCreationCatalogVersion));
+        assertThat(buildIndexCommand.requiredCatalogVersion(), equalTo(indexStartBuildingCatalogVersion));
     }
 
-    private void fireHashIndexStartBuildingEventForStaleTxOperation() {
-        CatalogHashIndexDescriptor hashIndexDescriptor = mock(CatalogHashIndexDescriptor.class);
+    private void fireHashIndexStartBuildingEventForStaleTxOperation(
+            int indexId,
+            int creationIndexCatalogVersion,
+            int startBuildingIndexCatalogVersion
+    ) {
+        var registeredIndexDescriptor = mock(CatalogHashIndexDescriptor.class);
+        var buildingIndexDescriptor = mock(CatalogHashIndexDescriptor.class);
 
-        int indexId = hashIndexStorage.id();
+        when(registeredIndexDescriptor.id()).thenReturn(indexId);
+        when(buildingIndexDescriptor.id()).thenReturn(indexId);
 
-        when(hashIndexDescriptor.id()).thenReturn(indexId);
-        when(hashIndexDescriptor.tableId()).thenReturn(TABLE_ID);
-        when(hashIndexDescriptor.status()).thenReturn(BUILDING);
-        when(hashIndexDescriptor.txWaitCatalogVersion()).thenReturn(1);
+        when(buildingIndexDescriptor.tableId()).thenReturn(TABLE_ID);
+        when(registeredIndexDescriptor.tableId()).thenReturn(TABLE_ID);
 
-        when(catalogService.index(eq(indexId), anyInt())).thenReturn(hashIndexDescriptor);
+        when(registeredIndexDescriptor.status()).thenReturn(REGISTERED);
+        when(buildingIndexDescriptor.status()).thenReturn(BUILDING);
+
+        when(buildingIndexDescriptor.txWaitCatalogVersion()).thenReturn(creationIndexCatalogVersion);
+
+        when(catalogService.index(eq(indexId), eq(creationIndexCatalogVersion))).thenReturn(registeredIndexDescriptor);
+        when(catalogService.index(eq(indexId), eq(startBuildingIndexCatalogVersion))).thenReturn(buildingIndexDescriptor);
+
+        when(catalogService.latestCatalogVersion()).thenReturn(startBuildingIndexCatalogVersion);
+
+        var registeredIndexCatalog = mock(Catalog.class);
+        var buildingIndexCatalog = mock(Catalog.class);
+
+        when(registeredIndexCatalog.version()).thenReturn(creationIndexCatalogVersion);
+        when(buildingIndexCatalog.version()).thenReturn(startBuildingIndexCatalogVersion);
+
+        long registeredIndexActivationTs = clock.now().addPhysicalTime(-100).longValue();
+        long buildingIndexActivationTs = clock.nowLong();
+
+        when(registeredIndexCatalog.time()).thenReturn(registeredIndexActivationTs);
+        when(buildingIndexCatalog.time()).thenReturn(buildingIndexActivationTs);
+
+        when(catalogService.catalog(eq(creationIndexCatalogVersion))).thenReturn(registeredIndexCatalog);
+        when(catalogService.catalog(eq(startBuildingIndexCatalogVersion))).thenReturn(buildingIndexCatalog);
 
         assertThat(
-                catalogServiceEventProducer.fireEvent(INDEX_BUILDING, new StartBuildingIndexEventParameters(0L, 2, indexId)),
+                catalogServiceEventProducer.fireEvent(
+                        INDEX_BUILDING,
+                        new StartBuildingIndexEventParameters(0L, startBuildingIndexCatalogVersion, indexId)
+                ),
                 willCompleteSuccessfully()
         );
     }

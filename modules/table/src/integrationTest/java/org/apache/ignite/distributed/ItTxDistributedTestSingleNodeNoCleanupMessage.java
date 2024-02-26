@@ -56,6 +56,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
@@ -111,7 +112,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     HybridClock clock,
                     TransactionIdGenerator generator,
                     ClusterNode node,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    RemotelyTriggeredResourceRegistry resourcesRegistry
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
@@ -122,7 +124,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         generator,
                         placementDriver,
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                        new TestLocalRwTxCounter()
+                        new TestLocalRwTxCounter(),
+                        resourcesRegistry
                 ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
@@ -156,7 +159,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
                     PlacementDriver placementDriver,
-                    ClusterNodeResolver clusterNodeResolver
+                    ClusterNodeResolver clusterNodeResolver,
+                    RemotelyTriggeredResourceRegistry resourcesRegistry
             ) {
                 return new PartitionReplicaListener(
                         mvDataStorage,
@@ -179,7 +183,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         schemaSyncService,
                         catalogService,
                         placementDriver,
-                        clusterNodeResolver
+                        clusterNodeResolver,
+                        resourcesRegistry
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {

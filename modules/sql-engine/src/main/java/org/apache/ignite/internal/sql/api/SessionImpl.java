@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -174,6 +175,12 @@ public class SessionImpl implements AbstractSession {
 
     /** {@inheritDoc} */
     @Override
+    public ZoneId timeZoneId() {
+        return props.get(QueryProperty.TIME_ZONE_ID);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @Nullable Object property(String name) {
         var prop = QueryProperty.byName(name);
 
@@ -213,7 +220,7 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                     .build();
 
@@ -298,7 +305,7 @@ public class SessionImpl implements AbstractSession {
         }
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
                     .build();
 
@@ -405,10 +412,12 @@ public class SessionImpl implements AbstractSession {
             return CompletableFuture.failedFuture(sessionIsClosedException());
         }
 
+        SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+                .build();
+
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         try {
-            SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
                     qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
 
