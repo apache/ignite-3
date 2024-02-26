@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
@@ -234,6 +235,38 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get() - deleteFromTableFuture.join())
+                .check();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21606")
+    @Test
+    void testBuildingIndexWithUpdateSchema() throws Exception {
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
+
+        insertPeople(TABLE_NAME, new Person(0, "0", 10.0));
+
+        sql(format("ALTER TABLE {} ADD COLUMN SURNAME VARCHAR DEFAULT 'foo'", TABLE_NAME));
+
+        String indexName0 = INDEX_NAME + 0;
+        String indexName1 = INDEX_NAME + 1;
+
+        createIndex(TABLE_NAME, indexName0, "SALARY");
+        createIndex(TABLE_NAME, indexName1, "SURNAME");
+
+        awaitIndexesBecomeAvailable(node(), indexName0);
+        awaitIndexesBecomeAvailable(node(), indexName1);
+
+        // Hack so that we can wait for the index to be added to the sql planner.
+        waitForReadTimestampThatObservesMostRecentCatalog();
+
+        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
+                .matches(containsIndexScan("PUBLIC", TABLE_NAME, indexName0))
+                .returns(0, "0", 10.0, "foo")
+                .check();
+
+        assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
+                .matches(containsIndexScan("PUBLIC", TABLE_NAME, indexName1))
+                .returns(0, "0", 10.0, "foo")
                 .check();
     }
 
