@@ -312,7 +312,7 @@ public class ExecutionContext<RowT> implements DataContext {
                 onError.accept(e);
 
                 if (e instanceof IgniteException) {
-                    throw (IgniteException) e;
+                    return;
                 }
 
                 throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);

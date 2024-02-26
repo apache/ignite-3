@@ -81,22 +81,11 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
                 () -> {
                     try {
                         qryTask.run();
-                    } catch (IgniteException | IgniteInternalException iex) {
-                        //it's normal situation when we have our own exception here. Just ignore.
-                        LOG.debug("Uncaught exception", iex);
-                    } catch (Error err) {
-                        String message = String.format(
-                                "Unexpected error during execute fragment %d of query %s",
-                                fragmentId,
-                                qryId);
-
-                        failureProcessor.process(
-                                new FailureContext(CRITICAL_ERROR, new IgniteException(INTERNAL_ERR, message, err))
-                        );
                     } catch (Throwable e) {
                         /*
                          * No exceptions are rethrown here to preserve the current thread from being destroyed,
-                         * because other queries may be pinned to the current thread id.                         *
+                         * because other queries may be pinned to the current thread id.
+                         * However, any exception here considered as Unexpected and must be processed by FailureHandler.
                          */
 
                         String message = String.format(
@@ -104,7 +93,9 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
                                 fragmentId,
                                 qryId);
 
-                        LOG.warn(message, e);
+                        failureProcessor.process(
+                                new FailureContext(CRITICAL_ERROR, new IgniteException(INTERNAL_ERR, message, e))
+                        );
                     }
                 },
                 commandIdx

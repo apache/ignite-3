@@ -169,7 +169,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                 inbox.onError(e);
 
                 if (e instanceof IgniteException) {
-                    throw (IgniteException) e;
+                    return;
                 }
 
                 throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
