@@ -63,7 +63,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -642,7 +641,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ArrayBlockingQueue<String> queriesQueue = new ArrayBlockingQueue<>(totalStatements, false, queries);
         AtomicReference<AssertionError> errHolder = new AtomicReference<>();
         ExecutionService execService = executionServices.get(0);
-        Function<QueryPrefetchCallback, BaseQueryContext> createCtx = this::createContext;
 
         QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
             @Override
@@ -654,7 +652,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
                     assertThat(sql, notNullValue());
 
-                    BaseQueryContext ctx = createCtx.apply(queriesQueue.isEmpty() ? null : this);
+                    BaseQueryContext ctx = createContext(queriesQueue.isEmpty() ? null : this);
                     InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
                     QueryPlan plan = prepare(sql, ctx);
 
