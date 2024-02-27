@@ -441,8 +441,10 @@ public class ItTxTestCluster {
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         return new TxManagerImpl(
+                node.name(),
                 txConfiguration,
-                clusterService,
+                clusterService.messagingService(),
+                clusterService.topologyService(),
                 replicaSvc,
                 new HeapLockManager(),
                 clock,
@@ -906,8 +908,10 @@ public class ItTxTestCluster {
 
     private void initializeClientTxComponents() {
         clientTxManager = new TxManagerImpl(
+                "client",
                 txConfiguration,
-                client,
+                client.messagingService(),
+                client.topologyService(),
                 clientReplicaSvc,
                 new HeapLockManager(),
                 clientClock,

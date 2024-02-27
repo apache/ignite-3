@@ -26,13 +26,11 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -68,40 +66,9 @@ public class ReplicaService {
      * @param messagingService Cluster message service.
      * @param clock A hybrid logical clock.
      */
-    public ReplicaService(
-            MessagingService messagingService,
-            HybridClock clock
-    ) {
+    public ReplicaService(MessagingService messagingService, HybridClock clock) {
         this.messagingService = messagingService;
         this.clock = clock;
-    }
-
-    /**
-     * The constructor of replica client.
-     *
-     * @param messagingService Cluster message service.
-     * @param clock A hybrid logical clock.
-     * @param localConsistentId Consistent ID (aka node name) of the current node.
-     * @param executor Executor on which responses from remote replicas will be handled.
-     */
-    public ReplicaService(
-            MessagingService messagingService,
-            HybridClock clock,
-            String localConsistentId,
-            Executor executor
-    ) {
-        this(
-                wrapMessagingService(messagingService, localConsistentId, executor),
-                clock
-        );
-    }
-
-    private static MessagingService wrapMessagingService(MessagingService messagingService, String localConsistentId, Executor executor) {
-        return new JumpToExecutorByConsistentIdAfterSend(
-                messagingService,
-                localConsistentId,
-                request -> executor
-        );
     }
 
     /**
