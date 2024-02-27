@@ -873,7 +873,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             newConfiguration,
                             safeTimeTracker,
                             storageIndexTracker,
-                            internalTbl,
+                            table,
                             partitionStorages.getTxStateStorage(),
                             partitionDataStorage,
                             partitionUpdateHandlers
@@ -1915,11 +1915,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PeersAndLearners stableConfiguration,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            InternalTable internalTable,
+            TableImpl table,
             TxStateStorage txStatePartitionStorage,
             PartitionDataStorage partitionDataStorage,
             PartitionUpdateHandlers partitionUpdateHandlers
     ) throws NodeStoppingException {
+        InternalTable internalTable = table.internalTable();
+
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 internalTable.storage(),
                 internalTable.txStateStorage(),
@@ -1934,7 +1936,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txStatePartitionStorage,
                 safeTimeTracker,
                 storageIndexTracker,
-                catalogService
+                catalogService,
+                table.schemaView()
         );
 
         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

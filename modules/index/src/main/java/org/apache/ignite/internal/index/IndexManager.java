@@ -286,7 +286,7 @@ public class IndexManager implements IgniteComponent {
             for (int i = 0; i < indexedColumns.length; i++) {
                 Column column = descriptor.column(indexedColumns[i]);
 
-                assert column != null : indexedColumns[i];
+                assert column != null : "schemaVersion=" + descriptor.version() + ", column=" + indexedColumns[i];
 
                 result[i] = column.schemaIndex();
             }

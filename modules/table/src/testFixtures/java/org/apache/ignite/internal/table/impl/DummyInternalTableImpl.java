@@ -403,7 +403,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
                 new PendingComparableValuesTracker<>(0L),
-                catalogService
+                catalogService,
+                schemaManager
         );
     }
 
