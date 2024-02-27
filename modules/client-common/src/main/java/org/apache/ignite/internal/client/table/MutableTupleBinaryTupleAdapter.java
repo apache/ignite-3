@@ -97,7 +97,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         int internalIndex = internalIndex(columnName, null);
 
-        return internalIndex < 0 || internalIndex >= schemaSize ? -1 : internalIndex - schemaOffset;
+        return internalIndex < 0 ? -1 : publicIndex(internalIndex);
     }
 
     /** {@inheritDoc} */
@@ -110,7 +110,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         int internalIndex = internalIndex(columnName, null);
 
         return internalIndex < 0
-                || internalIndex >= schemaSize
+                || publicIndex(internalIndex) < 0
                 || (noValueSet != null && noValueSet.get(internalIndex))
                 ? defaultValue
                 : value(internalIndex);
@@ -125,7 +125,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         int internalIndex = internalIndex(columnName, null);
 
-        if (internalIndex < 0 || internalIndex >= schemaSize) {
+        if (internalIndex < 0 || publicIndex(internalIndex) < 0) {
             throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
         }
 
@@ -139,9 +139,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.value(columnIndex);
         }
 
-        Objects.checkIndex(columnIndex, schemaSize - schemaOffset);
+        Objects.checkIndex(columnIndex, columnCount);
 
-        int internalIndex = columnIndex + schemaOffset;
+        int internalIndex = internalIndex(columnIndex);
         return (T) object(internalIndex);
     }
 
@@ -463,9 +463,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     }
 
     private int validateSchemaColumnType(int publicIndex, ColumnType type) {
-        Objects.checkIndex(publicIndex, schemaSize - schemaOffset);
+        Objects.checkIndex(publicIndex, columnCount);
 
-        int internalIndex = publicIndex + schemaOffset;
+        int internalIndex = internalIndex(publicIndex);
         var actualType = schemaColumnType(internalIndex);
 
         if (type != actualType) {
@@ -477,9 +477,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     }
 
     private String schemaColumnName0(int publicIndex) {
-        Objects.checkIndex(publicIndex, schemaSize - schemaOffset);
+        Objects.checkIndex(publicIndex, columnCount);
 
-        return schemaColumnName(publicIndex + schemaOffset);
+        return schemaColumnName(internalIndex(publicIndex));
     }
 
     private @Nullable Object object(int internalIndex) {
