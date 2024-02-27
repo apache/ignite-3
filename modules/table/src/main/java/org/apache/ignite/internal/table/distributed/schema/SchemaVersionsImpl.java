@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
+
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.lang.TableNotFoundException;
 
 /**
  * Default implementation of {@link SchemaVersions}.
@@ -57,7 +61,11 @@ public class SchemaVersionsImpl implements SchemaVersions {
                 .thenApply(unused -> {
                     CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
 
-                    assert table != null : "No table in the catalog after schema sync, table " + tableId + ", ts " + timestamp;
+                    if (table == null) {
+                        String message = "Table does not exist or was dropped concurrently: " + tableId;
+
+                        throw new TableNotFoundException(UUID.randomUUID(), TABLE_ID_NOT_FOUND_ERR, message, null);
+                    }
 
                     return table;
                 });

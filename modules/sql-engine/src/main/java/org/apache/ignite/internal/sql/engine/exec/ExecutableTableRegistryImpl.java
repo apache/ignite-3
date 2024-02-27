@@ -74,15 +74,13 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         return tableCache.computeIfAbsent(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
     }
 
+    //TODO https://issues.apache.org/jira/browse/IGNITE-21584 Remove future.
     private CompletableFuture<ExecutableTable> loadTable(IgniteTable sqlTable) {
-        return tableManager.tableAsync(sqlTable.id())
+        return CompletableFuture.completedFuture(tableManager.cachedTable(sqlTable.id()))
                 .thenApply((table) -> {
                     TableDescriptor tableDescriptor = sqlTable.descriptor();
 
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
-                    // TODO Can be removed after https://issues.apache.org/jira/browse/IGNITE-20680
-                    assert schemaRegistry != null : "SchemaRegistry does not exist: " + sqlTable.id();
-
                     SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
                     TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(
                             sqlTable.keyColumns(), schemaRegistry, schemaDescriptor

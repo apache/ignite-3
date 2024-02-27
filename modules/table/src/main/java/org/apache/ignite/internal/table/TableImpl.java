@@ -289,6 +289,6 @@ public class TableImpl implements TableViewInternal {
     public void unregisterIndex(int indexId) {
         indexWrapperById.remove(indexId);
 
-        // TODO: IGNITE-19150 Also need to destroy the index storages
+        // TODO: IGNITE-20121 Also need to destroy the index storages
     }
 }
