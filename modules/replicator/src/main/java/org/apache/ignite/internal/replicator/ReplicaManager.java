@@ -243,6 +243,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // But if this is a local call (in the same Ignite instance), we might still be in a thread that does not have those permissions.
         if (currentThreadCannotDoStorageReadsAndWrites()) {
             requestsExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
+        } else {
+            handleReplicaRequest(request, senderConsistentId, correlationId);
         }
     }
 
