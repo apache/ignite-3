@@ -49,6 +49,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -70,6 +71,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static final MultiStepPlan PLAN;
     private static final MultiStepPlan PLAN_WITH_SYSTEM_VIEW;
     private static final TestCluster cluster;
+    private static final MappingParameters PARAMS = MappingParameters.EMPTY;
+    private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams) -> fragments;
 
     static {
         // @formatter:off
@@ -115,7 +118,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         MappingServiceImpl mappingService = createMappingServiceNoCache(localNodeName, List.of(localNodeName));
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class), new LogicalTopologySnapshot(1, logicalNodes(localNodeName)));
 
-        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN);
+        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN, PARAMS);
 
         assertThat(mappingFuture, willSucceedFast());
     }
@@ -127,7 +130,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         MappingServiceImpl mappingService = createMappingServiceNoCache(localNodeName, nodeNames);
 
-        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN);
+        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN, PARAMS);
 
         // Mapping should wait for service initialization.
         assertFalse(mappingFuture.isDone());
@@ -140,7 +143,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         mappingService.onTopologyLeap(new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
 
         assertThat(mappingFuture, willSucceedFast());
-        assertThat(mappingService.map(PLAN), willSucceedFast());
+        assertThat(mappingService.map(PLAN, PARAMS), willSucceedFast());
     }
 
     @Test
@@ -150,7 +153,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         MappingServiceImpl mappingService = createMappingServiceNoCache(localNodeName, nodeNames);
 
-        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN);
+        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN, PARAMS);
 
         // Mapping should wait for service initialization.
         assertFalse(mappingFuture.isDone());
@@ -166,7 +169,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
 
         assertThat(mappingFuture, willSucceedFast());
-        assertThat(mappingService.map(PLAN), willSucceedFast());
+        assertThat(mappingService.map(PLAN, PARAMS), willSucceedFast());
     }
 
     @Test
@@ -177,28 +180,28 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Initialize mapping service.
         ExecutionTargetProvider targetProvider = Mockito.spy(createTargetProvider(nodeNames));
         MappingServiceImpl mappingService =
-                new MappingServiceImpl(localNodeName, targetProvider, CaffeineCacheFactory.INSTANCE, 100, Runnable::run);
+                new MappingServiceImpl(localNodeName, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run);
 
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
-        List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN));
-        List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW));
+        List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
+        List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
 
         verify(targetProvider, times(2)).forTable(any(), any());
         verify(targetProvider, times(1)).forSystemView(any(), any());
 
-        assertSame(tableOnlyMapping, await(mappingService.map(PLAN)));
-        assertSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW)));
+        assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
+        assertSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
 
         mappingService.onNodeLeft(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(2, logicalNodes("NODE")));
         // Plan with tables only must not be invalidated.
-        assertSame(tableOnlyMapping, await(mappingService.map(PLAN)));
+        assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
         verifyNoMoreInteractions(targetProvider);
 
         // Plan with system views must be invalidated.
-        assertNotSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW)));
+        assertNotSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
         verify(targetProvider, times(3)).forTable(any(), any());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
@@ -226,23 +229,23 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Initialize mapping service.
         ExecutionTargetProvider targetProvider = Mockito.spy(createTargetProvider(nodeNames));
         MappingServiceImpl mappingService =
-                new MappingServiceImpl(localNodeName, targetProvider, CaffeineCacheFactory.INSTANCE, 100, Runnable::run);
+                new MappingServiceImpl(localNodeName, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run);
 
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
-        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW));
+        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
         verify(targetProvider, times(1)).forTable(any(), any());
         verify(targetProvider, times(1)).forSystemView(any(), any());
 
         // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T2")));
-        assertSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW)));
+        assertSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
         verifyNoMoreInteractions(targetProvider);
 
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
-        assertNotSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW)));
+        assertNotSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
         verify(targetProvider, times(2)).forTable(any(), any());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
@@ -254,7 +257,14 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static MappingServiceImpl createMappingServiceNoCache(String localNodeName, List<String> nodeNames) {
-        return new MappingServiceImpl(localNodeName, createTargetProvider(nodeNames), EmptyCacheFactory.INSTANCE, 0, Runnable::run);
+        return new MappingServiceImpl(
+                localNodeName,
+                createTargetProvider(nodeNames),
+                EmptyCacheFactory.INSTANCE,
+                0,
+                PARTITION_PRUNER,
+                Runnable::run
+        );
     }
 
     private static ExecutionTargetProvider createTargetProvider(List<String> nodeNames) {

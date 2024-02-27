@@ -71,6 +71,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -151,7 +152,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TransactionIdGenerator(0xdeadbeef),
                     new TestPlacementDriver(leaseholder, leaseholder),
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                    new TestLocalRwTxCounter()
+                    new TestLocalRwTxCounter(),
+                    new RemotelyTriggeredResourceRegistry()
             );
 
             txManager.start();
@@ -247,7 +249,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,
-                @Nullable BitSet columnsToInclude
+                @Nullable BitSet columnsToInclude,
+                String txCoordinatorId
         ) {
             return s -> {
                 s.onSubscribe(new Subscription() {

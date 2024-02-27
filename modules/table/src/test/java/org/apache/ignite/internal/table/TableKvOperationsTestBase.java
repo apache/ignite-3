@@ -72,7 +72,8 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
                 new DummySchemaManagerImpl(schema),
                 new HeapLockManager(),
                 schemaVersions,
-                mock(IgniteSql.class)
+                mock(IgniteSql.class),
+                -1
         );
     }
 

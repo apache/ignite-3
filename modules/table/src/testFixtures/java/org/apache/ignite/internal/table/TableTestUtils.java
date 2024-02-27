@@ -118,11 +118,9 @@ public class TableTestUtils {
      * Removes index from the catalog.
      *
      * @param catalogManager Catalog manager.
-     * @param indexName Index name.
+     * @param indexId Index ID.
      */
-    public static void removeIndex(CatalogManager catalogManager, String indexName) {
-        int indexId = getIndexIdStrict(catalogManager, indexName, Long.MAX_VALUE);
-
+    public static void removeIndex(CatalogManager catalogManager, int indexId) {
         assertThat(
                 catalogManager.execute(RemoveIndexCommand.builder().indexId(indexId).build()),
                 willCompleteSuccessfully()
@@ -259,7 +257,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogIndexDescriptor getIndex(CatalogService catalogService, String indexName, long timestamp) {
-        return catalogService.index(indexName, timestamp);
+        return catalogService.aliveIndex(indexName, timestamp);
     }
 
     /**
@@ -271,7 +269,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogIndexDescriptor getIndexStrict(CatalogService catalogService, String indexName, long timestamp) {
-        CatalogIndexDescriptor index = catalogService.index(indexName, timestamp);
+        CatalogIndexDescriptor index = catalogService.aliveIndex(indexName, timestamp);
 
         assertNotNull(index, "indexName=" + indexName + ", timestamp=" + timestamp);
 

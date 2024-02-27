@@ -44,7 +44,7 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
     protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
         requireNonNull(tx);
 
-        return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), mock(ClusterNode.class));
+        return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), mock(ClusterNode.class), tx.coordinatorId());
     }
 
     // TODO: IGNITE-17666 Use super test as is.

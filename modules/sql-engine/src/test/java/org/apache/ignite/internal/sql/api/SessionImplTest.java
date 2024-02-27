@@ -43,6 +43,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -480,8 +482,35 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         assertThat(session.openedCursors(), empty());
     }
 
+    @Test
+    public void localTimeZoneUsedByDefault() {
+        SessionBuilder sessionBuilder = newSessionBuilder();
+
+        // Check default value.
+        {
+            Session session = sessionBuilder.build();
+
+            assertEquals(ZoneId.systemDefault(), session.timeZoneId());
+        }
+
+        // Check that time zone can be changed.
+        {
+            ZoneId utcTz = ZoneId.of("UTC");
+
+            Session session = sessionBuilder.timeZoneId(utcTz).build();
+
+            assertEquals(utcTz, session.timeZoneId());
+        }
+    }
+
     private SessionImpl newSession(long idleTimeout) {
-        SessionBuilder builder = new SessionBuilderImpl(
+        return (SessionImpl) newSessionBuilder()
+                .idleTimeout(idleTimeout, TimeUnit.MILLISECONDS)
+                .build();
+    }
+
+    private SessionBuilder newSessionBuilder() {
+        return new SessionBuilderImpl(
                 new IgniteSpinBusyLock(),
                 sessions,
                 queryProcessor,
@@ -489,9 +518,5 @@ class SessionImplTest extends BaseIgniteAbstractTest {
                 clock::get,
                 new HashMap<>()
         );
-
-        return (SessionImpl) builder
-                .idleTimeout(idleTimeout, TimeUnit.MILLISECONDS)
-                .build();
     }
 }

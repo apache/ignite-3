@@ -94,6 +94,7 @@ import org.apache.ignite.internal.cluster.management.configuration.StorageProfil
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -166,6 +167,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -433,6 +435,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
         var txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterSvc,
@@ -443,7 +447,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new TestLocalRwTxCounter(),
-                threadPools.partitionOperationsExecutor()
+                threadPools.partitionOperationsExecutor(),
+                resourcesRegistry
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -530,7 +535,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new HybridTimestampTracker(),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
-                failureProcessor
+                failureProcessor,
+                resourcesRegistry
         );
 
         var indexManager = new IndexManager(
@@ -837,6 +843,26 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         ignite = startNode(0);
 
         checkTableWithData(ignite, TABLE_NAME);
+    }
+
+    @Test
+    public void testNodeSeesItselfInLocalLogicalTopology() {
+        List<IgniteImpl> nodes = startNodes(3);
+
+        // Here we check that node sees itself in local logical topology.
+        nodes.forEach(node -> assertTrue(node.logicalTopologyService().localLogicalTopology().nodes().stream().map(LogicalNode::id)
+                .collect(toSet()).contains(node.id())));
+
+        // Actually we have stronger guarantees because of awaiting all nodes to start inside startNodes.
+        // On one node (cmg leader) we will see all three nodes in local logical topology.
+        // On the node that started second we will see at least two nodes.
+        // On the third node we will see all three nodes.
+        // All in all that means that in total we will see at least (3 + 2 + 3) nodes.
+        Integer sumOfLogicalTopologyProjectionSizes =
+                nodes.stream().map(node -> node.logicalTopologyService().localLogicalTopology().nodes().size())
+                        .reduce(0, Integer::sum);
+
+        assertTrue(sumOfLogicalTopologyProjectionSizes >= 3 + 2 + 3);
     }
 
     /**

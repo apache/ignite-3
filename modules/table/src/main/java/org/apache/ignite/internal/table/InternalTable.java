@@ -296,6 +296,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partId The partition.
      * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
+     * @param txCoordinatorId Transaction coordinator inconsistent id.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      * @throws TransactionException If proposed {@code tx} is read-write. Transaction itself won't be automatically rolled back.
@@ -304,9 +305,10 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode
+            ClusterNode recipientNode,
+            String txCoordinatorId
     ) {
-        return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null);
+        return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null, txCoordinatorId);
     }
 
     /**
@@ -321,6 +323,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param upperBound Upper search bound.
      * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
      * @param columnsToInclude Row projection.
+     * @param txCoordinatorId Transaction coordinator inconsistent id.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
     Publisher<BinaryRow> scan(
@@ -332,7 +335,8 @@ public interface InternalTable extends ManuallyCloseable {
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     );
 
     /**
@@ -393,6 +397,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param indexId Index id.
      * @param key Key to search.
      * @param columnsToInclude Row projection.
+     * @param txCoordinatorId Transaction coordinator id.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
     Publisher<BinaryRow> lookup(
@@ -402,7 +407,8 @@ public interface InternalTable extends ManuallyCloseable {
             ClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     );
 
     /**

@@ -61,6 +61,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -566,6 +567,8 @@ public class PlatformTestNodeRunner {
             try (Session session = context.ignite().sql().createSession()) {
                 session.execute(null, "DROP TABLE " + tableName + "");
             }
+
+            IgniteIntegrationTest.forceCleanupAbandonedResources(context.ignite());
 
             return tableName;
         }

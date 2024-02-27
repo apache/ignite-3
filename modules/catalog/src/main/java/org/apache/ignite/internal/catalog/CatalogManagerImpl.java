@@ -213,8 +213,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogIndexDescriptor index(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
+    public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
+        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).aliveIndex(indexName);
     }
 
     @Override

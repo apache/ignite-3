@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
@@ -102,41 +105,49 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
         // String tsStr = "2023-03-29T08:22:33.005007Z";
         String tsStr = "2023-03-29T08:22:33.005Z";
 
-        Instant ins = Instant.parse(tsStr);
+        LocalDateTime localDate = LocalDateTime.parse(tsStr, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+        Instant instant = localDate.atZone(ZoneId.systemDefault()).toInstant();
 
-        sql("CREATE TABLE timestamps(id INTEGER PRIMARY KEY, i TIMESTAMP(9))");
+        sql("CREATE TABLE timestamps(id INTEGER PRIMARY KEY, i TIMESTAMP(9), i_tz TIMESTAMP WITH LOCAL TIME ZONE)");
 
-        // TODO: IGNITE-19274 Add column with TIMESTAMP WITH LOCAL TIME ZONE
-        sql(String.format("CREATE TABLE %s(\"%s\" INTEGER PRIMARY KEY, \"TIMESTAMP\" TIMESTAMP(9))", kvTblName, keyCol));
+        sql(format("CREATE TABLE {}("
+                        + "\"{}\" INTEGER PRIMARY KEY, "
+                        + "\"TIMESTAMP\" TIMESTAMP(9), "
+                        + "\"TIMESTAMP_TZ\" TIMESTAMP(9) WITH LOCAL TIME ZONE)", kvTblName, keyCol));
 
         Table tbl = node.tables().table(kvTblName);
 
+        localDate = LocalDateTime.of(2023, 3, 29, 8, 22, 33, 5000000);
+
         Tuple rec = Tuple.create()
                 .set("KEY", 1)
-                .set("TIMESTAMP", LocalDateTime.of(2023, 3, 29, 8, 22, 33, 5000000));
+                .set("TIMESTAMP", localDate)
+                .set("TIMESTAMP_TZ", instant);
 
         tbl.recordView().insert(null, rec);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19161 Can`t insert timestamp representing in ISO_INSTANT format
-        tsStr = tsStr.replace("T", " ").substring(0, tsStr.length() - 1);
+        String tsValue = tsStr.replace("T", " ").substring(0, tsStr.length() - 1);
 
-        sql("INSERT INTO timestamps VALUES (101, TIMESTAMP '" + tsStr + "')");
+        sql(format("INSERT INTO timestamps VALUES (101, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')", tsValue, tsValue));
 
         try (Session ses = node.sql().createSession()) {
             // for projection pop up
-            ResultSet<SqlRow> res = ses.execute(null, "SELECT i, id FROM timestamps");
+            ResultSet<SqlRow> res = ses.execute(null, "SELECT i, i_tz, id FROM timestamps");
 
-            String srtRepr = ins.toString();
+            SqlRow row = res.next();
 
-            String expDateTimeStr = srtRepr.substring(0, srtRepr.length() - 1);
+            assertEquals(localDate, row.datetimeValue("i"));
+            assertEquals(instant, row.timestampValue("i_tz"));
 
-            assertEquals(expDateTimeStr, res.next().datetimeValue(0).toString());
-
-            String query = "select \"KEY\", \"TIMESTAMP\" from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
+            String query = "select \"KEY\", \"TIMESTAMP\", \"TIMESTAMP_TZ\" from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
 
             res = ses.execute(null, query);
 
-            assertEquals(expDateTimeStr, res.next().datetimeValue(1).toString());
+            row = res.next();
+
+            assertEquals(localDate, row.datetimeValue("TIMESTAMP"));
+            assertEquals(instant, row.timestampValue("TIMESTAMP_TZ"));
         }
     }
 

@@ -39,24 +39,19 @@ import org.rocksdb.RocksDBException;
 public class RocksDbMetaStorage {
     /**
      * Prefix to store partition meta information, such as last applied index and term.
-     * Key format is {@code [prexif, tableId, partitionId]} in BE.
+     * Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
     public static final byte[] PARTITION_META_PREFIX = {0};
 
     /**
-     * Prefix to store partition configuration. Key format is {@code [prexif, tableId, partitionId]} in BE.
+     * Prefix to store partition configuration. Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
     public static final byte[] PARTITION_CONF_PREFIX = {1};
 
     /**
-     * Prefix to store index column family name. Key format is {@code [prexif, indexId]} in BE.
+     * Prefix to store next row id to build in index. Key format is {@code [prefix, indexId, partitionId]} in BE.
      */
-    public static final byte[] INDEX_CF_PREFIX = {2};
-
-    /**
-     * Prefix to store next row id to build in index. Key format is {@code [prexif, indexId, partitionId]} in BE.
-     */
-    public static final byte[] INDEX_ROW_ID_PREFIX = {3};
+    public static final byte[] INDEX_ROW_ID_PREFIX = {2};
 
     private final ColumnFamily metaColumnFamily;
 

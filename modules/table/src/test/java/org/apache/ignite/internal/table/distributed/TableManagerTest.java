@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -62,8 +63,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -117,9 +121,9 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
@@ -236,7 +240,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Catalog manager. */
     private CatalogManager catalogManager;
 
-    private StripedThreadPoolExecutor partitionOperationsExecutor;
+    private ExecutorService partitionOperationsExecutor;
 
     @BeforeEach
     void before() throws NodeStoppingException {
@@ -266,11 +270,11 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        partitionOperationsExecutor = new StripedThreadPoolExecutor(
-                5,
-                IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE),
-                false,
-                0
+        partitionOperationsExecutor = new ThreadPoolExecutor(
+                0, 5,
+                0, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE)
         );
     }
 
@@ -344,13 +348,18 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         dropTable(DYNAMIC_TABLE_FOR_DROP_NAME);
 
+        assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
+        assertEquals(0, tableManager.tables().size());
+
+        verify(mvTableStorage, atMost(0)).destroy();
+        verify(txStateTableStorage, atMost(0)).destroy();
+        verify(replicaMgr, atMost(0)).stopReplica(any());
+
+        assertTrue(CatalogTestUtils.waitCatalogCompaction(catalogManager, Long.MAX_VALUE));
+
         verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
         verify(txStateTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
-        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
-
-        assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
-
-        assertEquals(0, tableManager.tables().size());
+        verify(replicaMgr, timeout(TimeUnit.SECONDS.toMillis(10)).times(PARTITIONS)).stopReplica(any());
     }
 
     /**
@@ -378,10 +387,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
         assertNotEquals(oldTableId, table.tableId());
 
-        // TODO IGNITE-20680 ensure old table is available
-        // assertNotNull(tableManager.getTable(oldTableId));
-        assertNotNull(tableManager.getTable(table.tableId()));
-        assertNotSame(tableManager.getTable(oldTableId), tableManager.getTable(table.tableId()));
+        assertNotNull(tableManager.cachedTable(oldTableId));
+        assertNotNull(tableManager.cachedTable(table.tableId()));
+        assertNotSame(tableManager.cachedTable(oldTableId), tableManager.cachedTable(table.tableId()));
     }
 
     /**
@@ -765,7 +773,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
-                mock(FailureProcessor.class)
+                mock(FailureProcessor.class),
+                new RemotelyTriggeredResourceRegistry()
         ) {
 
             @Override

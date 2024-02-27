@@ -24,6 +24,9 @@ plugins {
 import org.gradle.crypto.checksum.Checksum
 
 configurations {
+    cppClient
+    cppClientHeaders
+    dotNet
     odbc
 }
 
@@ -98,6 +101,15 @@ task buildNuGet(type: Exec) {
             "/p:Version=${project.version}"
 }
 
+task buildDotNet(type: Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "build", "Apache.Ignite",
+            "--configuration", "Release",
+            "--output", "$buildDir/dotnet"
+    "/p:Version=${project.version}"
+}
+
 task zipNuGet(type: Zip) {
     archiveFileName = "apache-ignite-${project.version}-nuget.zip"
 
@@ -152,7 +164,19 @@ if (project.hasProperty('prepareRelease')) {
 }
 
 artifacts {
-    if (project.hasProperty('odbc.enable')) {
+    if (project.hasProperty('platforms.enable')) {
+        dotNet(file("$buildDir/dotnet")) {
+            builtBy buildDotNet
+        }
+        cppClientHeaders(file("$buildDir/install/include")) {
+            builtBy cmakeBuildClient
+        }
+        cppClient(file("$buildDir/cpp/lib/libignite-client.so.3")) {
+            builtBy cmakeBuildClient
+        }
+        cppClient(file("$buildDir/cpp/lib/libignite-client.so")) {
+            builtBy cmakeBuildClient
+        }
         odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
             builtBy cmakeBuildOdbc
         }

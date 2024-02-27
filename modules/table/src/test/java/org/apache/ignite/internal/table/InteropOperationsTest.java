@@ -142,7 +142,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
         SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
 
-        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions, mock(IgniteSql.class));
+        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions, mock(IgniteSql.class), -1);
 
         kvBinView = table.keyValueView();
         kvView =  table.keyValueView(Mapper.of(Long.class, "id"), Mapper.of(Value.class));
