@@ -38,7 +38,7 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
      * @param meta Meta.
      */
     ClientSqlRow(BinaryTupleReader row, ResultSetMetadata meta) {
-        super(row, 0, meta.columns().size(), null);
+        super(row, meta.columns().size(), null);
 
         assert row != null;
         assert meta != null;

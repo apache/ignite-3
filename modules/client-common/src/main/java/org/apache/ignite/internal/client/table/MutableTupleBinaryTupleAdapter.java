@@ -429,9 +429,13 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     protected abstract int internalIndex(String columnName);
 
-    protected abstract int internalIndex(int publicIndex);
+    protected int internalIndex(int publicIndex) {
+        return publicIndex;
+    }
 
-    protected abstract int publicIndex(int internalIndex);
+    protected int publicIndex(int internalIndex) {
+        return internalIndex;
+    }
 
     private int internalIndex(String columnName, @Nullable ColumnType type) {
         var internalIndex = internalIndex(columnName);

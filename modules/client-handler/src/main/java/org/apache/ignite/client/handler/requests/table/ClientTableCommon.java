@@ -297,7 +297,7 @@ public class ClientTableCommon {
         var noValueSet = unpacker.unpackBitSet();
         var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinary());
 
-        return new ClientTuple(schema, noValueSet, binaryTupleReader, 0, cnt);
+        return new ClientTuple(schema, noValueSet, binaryTupleReader, cnt);
     }
 
     /**

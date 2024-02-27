@@ -41,11 +41,10 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
      * @param schema Schema.
      * @param noValueSet No-value set.
      * @param tuple Tuple.
-     * @param schemaOffset Schema offset.
-     * @param schemaSize Schema size.
+     * @param columnCount Column count.
      */
-    ClientTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
-        super(tuple, schemaOffset, schemaSize, noValueSet);
+    ClientTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int columnCount) {
+        super(tuple, columnCount, noValueSet);
 
         this.schema = schema;
     }

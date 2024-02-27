@@ -331,21 +331,21 @@ public class ClientTupleSerializer {
         var columns = keyOnly ? schema.keyColumns() : schema.columns();
         var binTuple = new BinaryTupleReader(columns.length, in.readBinary());
 
-        return new ClientTuple(schema, binTuple);
+        return new ClientTuple(schema, keyOnly ? TuplePart.KEY : TuplePart.KEY_AND_VAL, binTuple);
     }
 
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var binTuple = new BinaryTupleReader(schema.columns().length, in.readBinary());
 
         // TODO IGNITE-21525: This is full tuple.
-        return new ClientTuple(schema, binTuple);
+        return new ClientTuple(schema, TuplePart.KEY_AND_VAL, binTuple);
     }
 
     private static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
         // TODO IGNITE-21525: How to split the tuple into K and V?
         var binTuple = new BinaryTupleReader(schema.columns().length, in.readBinary());
-        var keyTuple = new ClientTuple(schema, binTuple);
-        var valTuple = new ClientTuple(schema, binTuple);
+        var keyTuple = new ClientTuple(schema, TuplePart.KEY, binTuple);
+        var valTuple = new ClientTuple(schema, TuplePart.VAL, binTuple);
 
         return new IgniteBiTuple<>(keyTuple, valTuple);
     }
