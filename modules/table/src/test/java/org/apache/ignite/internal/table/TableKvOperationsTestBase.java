@@ -35,6 +35,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -78,6 +79,7 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
     }
 
     protected final DummyInternalTableImpl createInternalTable(SchemaDescriptor schema) {
-        return new DummyInternalTableImpl(replicaService, schema, txConfiguration, storageUpdateConfiguration);
+        return new DummyInternalTableImpl(replicaService, schema, txConfiguration, storageUpdateConfiguration,
+                mock(ClusterNodeResolver.class));
     }
 }

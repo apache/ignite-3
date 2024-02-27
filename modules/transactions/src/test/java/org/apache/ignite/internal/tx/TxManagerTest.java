@@ -78,6 +78,7 @@ import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxScheduledCleanupManager;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -150,7 +151,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 placementDriver,
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
-                new RemotelyTriggeredResourceRegistry()
+                new RemotelyTriggeredResourceRegistry(clusterService.topologyService(), new TxScheduledCleanupManager(LOCAL_NODE.name()))
         );
 
         txManager.start();

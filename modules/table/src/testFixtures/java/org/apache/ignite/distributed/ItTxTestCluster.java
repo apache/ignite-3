@@ -136,6 +136,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxScheduledCleanupManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -346,14 +347,16 @@ public class ItTxTestCluster {
         );
 
         for (int i = 0; i < nodes; i++) {
-            ClusterNode node = cluster.get(i).topologyService().localMember();
+            ClusterService clusterService = cluster.get(i);
+
+            ClusterNode node = clusterService.topologyService().localMember();
 
             HybridClock clock = new HybridClockImpl();
 
             clocks.put(node.name(), clock);
 
             var raftSrv = new Loza(
-                    cluster.get(i),
+                    clusterService,
                     raftConfig,
                     workDir.resolve("node" + i),
                     clock
@@ -370,7 +373,7 @@ public class ItTxTestCluster {
 
             ReplicaManager replicaMgr = new ReplicaManager(
                     node.name(),
-                    cluster.get(i),
+                    clusterService,
                     cmgManager,
                     clock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
@@ -385,18 +388,19 @@ public class ItTxTestCluster {
             LOG.info("Replica manager has been started, node=[" + node + ']');
 
             ReplicaService replicaSvc = spy(new ReplicaService(
-                    cluster.get(i).messagingService(),
+                    clusterService.messagingService(),
                     clock
             ));
 
             replicaServices.put(node.name(), replicaSvc);
 
-            RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+            RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry(clusterService.topologyService(),
+                    new TxScheduledCleanupManager(node.name()));
 
             cursorRegistries.put(node.name(), resourcesRegistry);
 
             TxManagerImpl txMgr = newTxManager(
-                    cluster.get(i),
+                    clusterService,
                     replicaSvc,
                     clock,
                     new TransactionIdGenerator(i),
@@ -910,7 +914,7 @@ public class ItTxTestCluster {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
-                new RemotelyTriggeredResourceRegistry()
+                new RemotelyTriggeredResourceRegistry(client.topologyService(), new TxScheduledCleanupManager(client.nodeName()))
         );
 
         clientTxStateResolver = new TransactionStateResolver(

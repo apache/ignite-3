@@ -64,6 +64,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -120,7 +121,8 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(replicaService, mockStorage, SCHEMA, txConfiguration, storageUpdateConfiguration);
+        internalTbl = new DummyInternalTableImpl(replicaService, mockStorage, SCHEMA, txConfiguration, storageUpdateConfiguration,
+                mock(ClusterNodeResolver.class));
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
         lenient().when(readOnlyTx.readTimestamp()).thenReturn(CLOCK.now());

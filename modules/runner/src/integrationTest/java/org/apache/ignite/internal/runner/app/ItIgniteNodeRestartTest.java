@@ -170,6 +170,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxScheduledCleanupManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -435,7 +436,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+        var txScheduledCleanupManager = new TxScheduledCleanupManager(name);
+
+        var resourcesRegistry = new RemotelyTriggeredResourceRegistry(clusterSvc.topologyService(), txScheduledCleanupManager);
 
         var txManager = new TxManagerImpl(
                 txConfiguration,

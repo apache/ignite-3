@@ -18,26 +18,62 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.Collections.unmodifiableMap;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.network.ClusterNodeResolver;
 
 /**
  * This registry keeps track of the resources that were created by remote nodes.
  */
-public class RemotelyTriggeredResourceRegistry {
+public class RemotelyTriggeredResourceRegistry implements IgniteComponent {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(RemotelyTriggeredResourceRegistry.class);
+
+    /** Resources map. */
+    private final ConcurrentNavigableMap<FullyQualifiedResourceId, RemotelyTriggeredResource> resources = new ConcurrentSkipListMap<>();
+
+    private final Map<String, Set<FullyQualifiedResourceId>> remoteHostsToResources = new ConcurrentHashMap<>();
+
+    /** Cluster node resolver. */
+    private final ClusterNodeResolver clusterNodeResolver;
+
+    private final TxScheduledCleanupManager txScheduledCleanupManager;
+
     /**
-     * Resources map.
+     * Constructor.
+     *
+     * @param clusterNodeResolver Cluster node resolver.
      */
-    private final ConcurrentNavigableMap<FullyQualifiedResourceId, RemotelyTriggeredResource> resources =
-            new ConcurrentSkipListMap<>();
+    public RemotelyTriggeredResourceRegistry(ClusterNodeResolver clusterNodeResolver, TxScheduledCleanupManager txScheduledCleanupManager) {
+        this.clusterNodeResolver = clusterNodeResolver;
+        this.txScheduledCleanupManager = txScheduledCleanupManager;
+    }
+
+    @Override
+    public CompletableFuture<Void> start() {
+        txScheduledCleanupManager.registerScheduledOperation(this::cleanupOrphanTxResources);
+
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public void stop() throws Exception {
+        // No-op.
+    }
 
     /**
      * Register a resource.
@@ -52,7 +88,11 @@ public class RemotelyTriggeredResourceRegistry {
             String remoteHostId,
             Supplier<ManuallyCloseable> resourceProvider
     ) {
-        return (T) resources.computeIfAbsent(resourceId, k -> new RemotelyTriggeredResource(resourceProvider.get(), remoteHostId)).resource;
+        T r = (T) resources.computeIfAbsent(resourceId, k -> new RemotelyTriggeredResource(resourceProvider.get(), remoteHostId)).resource;
+
+        addRemoteHostResource(remoteHostId, resourceId);
+
+        return r;
     }
 
     /**
@@ -61,15 +101,15 @@ public class RemotelyTriggeredResourceRegistry {
      * @param resourceId Resource id.
      */
     public void close(FullyQualifiedResourceId resourceId) throws ResourceCloseException {
-        RemotelyTriggeredResource remotelyTriggeredResource = resources.get(resourceId);
+        RemotelyTriggeredResource remotelyTriggeredResource = resources.remove(resourceId);
 
         if (remotelyTriggeredResource != null) {
             try {
                 remotelyTriggeredResource.resource.close();
 
-                resources.remove(resourceId);
+                remoteRemoteHostResource(remotelyTriggeredResource.remoteHostId(), resourceId);
             } catch (Exception e) {
-                throw new ResourceCloseException("Close resource exception.", resourceId, e);
+                throw new ResourceCloseException(resourceId, remotelyTriggeredResource.remoteHostId(), e);
             }
         }
     }
@@ -86,29 +126,67 @@ public class RemotelyTriggeredResourceRegistry {
 
         Set<FullyQualifiedResourceId> closedResources = new HashSet<>();
 
+        // We assume that the resources of the same context are triggered by the same remote host.
+        String remoteHostId = null;
+
         for (Entry<FullyQualifiedResourceId, RemotelyTriggeredResource> entry : resourcesWithContext.entrySet()) {
             try {
                 entry.getValue().resource.close();
 
                 closedResources.add(entry.getKey());
+
+                if (remoteHostId == null) {
+                    remoteHostId = entry.getValue().remoteHostId();
+                }
+
+                assert remoteHostId == entry.getValue().remoteHostId() : "Resources of the same context triggered by different remote "
+                        + "hosts [" + remoteHostId + ", " + entry.getValue().remoteHostId() + "].";
             } catch (Exception e) {
                 if (ex == null) {
-                    ex = new ResourceCloseException("Close resource exception.", entry.getKey(), e);
+                    ex = new ResourceCloseException(entry.getKey(), entry.getValue().remoteHostId(), e);
                 } else {
                     ex.addSuppressed(e);
                 }
             }
         }
 
-        resourcesWithContext.keySet().removeAll(closedResources);
+        if (!closedResources.isEmpty()) {
+            assert remoteHostId != null : "Remote host is null, resources=" + resourcesWithContext;
+
+            for (FullyQualifiedResourceId resourceId : closedResources) {
+                resourcesWithContext.remove(resourceId);
+
+                remoteRemoteHostResource(remoteHostId, resourceId);
+            }
+        }
 
         if (ex != null) {
             throw ex;
         }
     }
 
+    private void addRemoteHostResource(String remoteHostId, FullyQualifiedResourceId resourceId) {
+        remoteHostsToResources.compute(remoteHostId, (k, v) -> {
+            if (v == null) {
+                v = ConcurrentHashMap.newKeySet();
+            }
+
+            v.add(resourceId);
+
+            return v;
+        });
+    }
+
+    private void remoteRemoteHostResource(String remoteHostId, FullyQualifiedResourceId resourceId) {
+        remoteHostsToResources.computeIfPresent(remoteHostId, (k, v) -> {
+            v.remove(resourceId);
+
+            return v.isEmpty() ? null : v;
+        });
+    }
+
     private Map<FullyQualifiedResourceId, RemotelyTriggeredResource> resources(UUID contextId) {
-        var lowResourceId =  FullyQualifiedResourceId.lower(contextId);
+        var lowResourceId = FullyQualifiedResourceId.lower(contextId);
         var upperResourceId = FullyQualifiedResourceId.upper(contextId);
 
         return resources.subMap(lowResourceId, true, upperResourceId, true);
@@ -121,6 +199,28 @@ public class RemotelyTriggeredResourceRegistry {
      */
     public Map<FullyQualifiedResourceId, RemotelyTriggeredResource> resources() {
         return unmodifiableMap(resources);
+    }
+
+    private void cleanupOrphanTxResources() {
+        try {
+            for (Map.Entry<String, Set<FullyQualifiedResourceId>> remoteHostResourceEntry : remoteHostsToResources.entrySet()) {
+                if (clusterNodeResolver.getById(remoteHostResourceEntry.getKey()) == null) {
+                    for (FullyQualifiedResourceId resourceId : remoteHostResourceEntry.getValue()) {
+                        try {
+                            close(resourceId);
+                        } catch (Exception e) {
+                            LOG.warn("Error occurred during the orphan cursor closing.", e);
+                        }
+                    }
+                }
+            }
+        } catch (Throwable err) {
+            LOG.error("Error occurred during the orphan cursors closing.", err);
+
+            if (err instanceof Error) {
+                throw err;
+            }
+        }
     }
 
     /**

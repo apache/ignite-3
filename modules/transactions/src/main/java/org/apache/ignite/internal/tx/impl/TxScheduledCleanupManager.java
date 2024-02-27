@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
-import java.util.Map;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -30,15 +32,14 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry.RemotelyTriggeredResource;
-import org.apache.ignite.network.ClusterNodeResolver;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * Manager that is responsible for cleaning up the orphan transaction resources.
+ * Manager that is responsible for the scheduled cleaning up of the transaction resources.
  */
-public class TxResourceCleanupManager implements IgniteComponent {
+public class TxScheduledCleanupManager implements IgniteComponent {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxResourceCleanupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TxScheduledCleanupManager.class);
 
     private static final int RESOURCE_CLEANUP_EXECUTOR_SIZE = 1;
 
@@ -48,36 +49,28 @@ public class TxResourceCleanupManager implements IgniteComponent {
     private final int resourceCleanupIntervalMilliseconds = IgniteSystemProperties
             .getInteger(RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY, 30_000);
 
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     private final ScheduledExecutorService resourceCleanupExecutor;
 
-    private final RemotelyTriggeredResourceRegistry resourceRegistry;
-
-    private final ClusterNodeResolver clusterNodeResolver;
+    private final List<Runnable> scheduledOperations = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
      *
      * @param nodeName Name of the Ignite node.
-     * @param resourceRegistry Remote triggered resource registry.
-     * @param clusterNodeResolver Cluster node resolver.
      */
-    public TxResourceCleanupManager(
-            String nodeName,
-            RemotelyTriggeredResourceRegistry resourceRegistry,
-            ClusterNodeResolver clusterNodeResolver
-    ) {
+    public TxScheduledCleanupManager(String nodeName) {
         resourceCleanupExecutor = Executors.newScheduledThreadPool(
                 RESOURCE_CLEANUP_EXECUTOR_SIZE,
                 NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
         );
-        this.resourceRegistry = resourceRegistry;
-        this.clusterNodeResolver = clusterNodeResolver;
     }
 
     @Override
     public CompletableFuture<Void> start() {
         resourceCleanupExecutor.scheduleAtFixedRate(
-                this::cleanupOrphanTxResources,
+                this::runOperations,
                 0,
                 resourceCleanupIntervalMilliseconds,
                 TimeUnit.MILLISECONDS
@@ -88,30 +81,20 @@ public class TxResourceCleanupManager implements IgniteComponent {
 
     @Override
     public void stop() {
+        busyLock.block();
+
         shutdownAndAwaitTermination(resourceCleanupExecutor, 10, TimeUnit.SECONDS);
     }
 
-    private void cleanupOrphanTxResources() {
-        Map<FullyQualifiedResourceId, RemotelyTriggeredResource> cursorInfos = resourceRegistry.resources();
-
-        try {
-            for (Map.Entry<FullyQualifiedResourceId, RemotelyTriggeredResource> cursorInfoEntry : cursorInfos.entrySet()) {
-                RemotelyTriggeredResource cursorInfo = cursorInfoEntry.getValue();
-
-                if (clusterNodeResolver.getById(cursorInfo.remoteHostId()) == null) {
-                    try {
-                        resourceRegistry.close(cursorInfoEntry.getKey());
-                    } catch (Exception e) {
-                        LOG.warn("Error occured during the orphan cursor closing [txCoordinatorId={}]", e, cursorInfo.remoteHostId());
-                    }
-                }
+    private void runOperations() {
+        inBusyLock(busyLock, () -> {
+            for (Runnable operation : scheduledOperations) {
+                operation.run();
             }
-        } catch (Throwable err) {
-            LOG.error("Error occured during the orphan cursors closing.", err);
+        });
+    }
 
-            if (err instanceof Error) {
-                throw err;
-            }
-        }
+    public void registerScheduledOperation(Runnable operation) {
+        scheduledOperations.add(operation);
     }
 }

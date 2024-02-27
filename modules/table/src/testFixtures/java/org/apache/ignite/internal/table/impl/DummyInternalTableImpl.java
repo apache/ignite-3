@@ -97,6 +97,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxScheduledCleanupManager;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
@@ -153,12 +154,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
      * @param storageUpdateConfiguration Configuration for the storage update handler.
+     * @param clusterNodeResolver Cluster node resolver.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             SchemaDescriptor schema,
             TransactionConfiguration txConfiguration,
-            StorageUpdateConfiguration storageUpdateConfiguration
+            StorageUpdateConfiguration storageUpdateConfiguration,
+            ClusterNodeResolver clusterNodeResolver
     ) {
         this(
                 replicaSvc,
@@ -170,7 +173,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 storageUpdateConfiguration,
                 txConfiguration,
-                new RemotelyTriggeredResourceRegistry()
+                new RemotelyTriggeredResourceRegistry(clusterNodeResolver, new TxScheduledCleanupManager(LOCAL_NODE.name()))
         );
     }
 
@@ -182,13 +185,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
      * @param storageUpdateConfiguration Configuration for the storage update handler.
+     * @param clusterNodeResolver Cluster node resolver.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage storage,
             SchemaDescriptor schema,
             TransactionConfiguration txConfiguration,
-            StorageUpdateConfiguration storageUpdateConfiguration
+            StorageUpdateConfiguration storageUpdateConfiguration,
+            ClusterNodeResolver clusterNodeResolver
     ) {
         this(
                 replicaSvc,
@@ -200,7 +205,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 storageUpdateConfiguration,
                 txConfiguration,
-                new RemotelyTriggeredResourceRegistry()
+                new RemotelyTriggeredResourceRegistry(clusterNodeResolver, new TxScheduledCleanupManager(LOCAL_NODE.name()))
         );
     }
 
