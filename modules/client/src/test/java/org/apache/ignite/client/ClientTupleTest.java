@@ -85,7 +85,7 @@ public class ClientTupleTest {
             new ClientColumn("PERIOD", ColumnType.PERIOD, false, -1, -1, 16),
             new ClientColumn("DURATION", ColumnType.DURATION, false, -1, -1, 17),
             new ClientColumn("NUMBER", ColumnType.NUMBER, false, -1, -1, 18)
-    }, new ClientColumn[0], null, marshallers);
+    }, null, null, marshallers);
 
     private static final UUID GUID = UUID.randomUUID();
 

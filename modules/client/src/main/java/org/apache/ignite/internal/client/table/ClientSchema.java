@@ -38,6 +38,8 @@ import org.jetbrains.annotations.Nullable;
  */
 @SuppressWarnings({"rawtypes", "AssignmentOrReturnOfFieldWithMutableType"})
 public class ClientSchema {
+    private static final ClientColumn[] EMPTY_COLUMNS = new ClientColumn[0];
+
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
@@ -71,11 +73,15 @@ public class ClientSchema {
     public ClientSchema(
             int ver,
             ClientColumn[] columns,
-            ClientColumn[] keyColumns,
+            ClientColumn @Nullable [] keyColumns,
             ClientColumn @Nullable [] colocationColumns,
             MarshallersProvider marshallers) {
         assert ver >= 0;
         assert columns != null;
+
+        if (keyColumns == null) {
+            keyColumns = EMPTY_COLUMNS;
+        }
 
         this.ver = ver;
         this.columns = columns;

@@ -216,7 +216,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             try {
                 for (int i = 0; i < size; i++) {
                     var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
-                    var reader = new ClientMarshallerReader(tupleReader);
+                    var reader = new ClientMarshallerReader(tupleReader, null);
 
                     res.add((T) marshaller.readObject(reader, null));
                 }
@@ -320,7 +320,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             schemaColumns[i] = schemaColumn;
         }
 
-        var schema = new ClientSchema(0, schemaColumns, null, marshallers);
+        var schema = new ClientSchema(0, schemaColumns, null, null, marshallers);
         return schema.getMarshaller(mapper);
     }
 }
