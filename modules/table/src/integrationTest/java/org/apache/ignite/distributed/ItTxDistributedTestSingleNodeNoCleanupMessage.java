@@ -42,6 +42,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
@@ -160,7 +161,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     CatalogService catalogService,
                     PlacementDriver placementDriver,
                     ClusterNodeResolver clusterNodeResolver,
-                    RemotelyTriggeredResourceRegistry resourcesRegistry
+                    RemotelyTriggeredResourceRegistry resourcesRegistry,
+                    SchemaRegistry schemaRegistry
             ) {
                 return new PartitionReplicaListener(
                         mvDataStorage,
@@ -184,7 +186,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         catalogService,
                         placementDriver,
                         clusterNodeResolver,
-                        resourcesRegistry
+                        resourcesRegistry,
+                        schemaRegistry
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {

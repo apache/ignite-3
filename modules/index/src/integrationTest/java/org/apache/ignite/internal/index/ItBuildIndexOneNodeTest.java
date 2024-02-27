@@ -47,7 +47,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
@@ -241,7 +240,6 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21606")
     @Test
     void testBuildingIndexWithUpdateSchema() throws Exception {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
@@ -273,7 +271,6 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21606")
     @Test
     void testBuildingIndexWithUpdateSchemaAfterCreateIndex() throws Exception {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
