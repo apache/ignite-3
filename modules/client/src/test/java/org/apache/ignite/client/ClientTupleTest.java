@@ -309,7 +309,7 @@ public class ClientTupleTest {
 
         var binTuple = new BinaryTupleReader(SCHEMA.columns().length, binTupleBuf);
 
-        return new ClientTuple(SCHEMA, SCHEMA.columns(), binTuple);
+        return new ClientTuple(SCHEMA, binTuple);
     }
 
     private static ClientTuple createFullSchemaTuple() {
@@ -337,6 +337,6 @@ public class ClientTupleTest {
 
         var binTuple = new BinaryTupleReader(FULL_SCHEMA.columns().length, binTupleBuf);
 
-        return new ClientTuple(FULL_SCHEMA, FULL_SCHEMA.columns(), binTuple);
+        return new ClientTuple(FULL_SCHEMA, binTuple);
     }
 }

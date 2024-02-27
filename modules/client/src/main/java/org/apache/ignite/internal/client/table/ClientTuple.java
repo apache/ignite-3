@@ -26,28 +26,23 @@ import org.jetbrains.annotations.Nullable;
  * Client tuple. Wraps {@link BinaryTupleReader} and allows mutability.
  */
 public class ClientTuple extends MutableTupleBinaryTupleAdapter {
-    /** Schema. */
-    private final ClientColumn[] columns;
-
     private final ClientSchema schema;
 
     /**
      * Constructor.
      *
      * @param schema Schema.
-     * @param columns Columns.
      * @param tuple Tuple.
      */
-    public ClientTuple(ClientSchema schema, ClientColumn[] columns, BinaryTupleReader tuple) {
-        super(tuple, 0, columns.length, null);
+    public ClientTuple(ClientSchema schema, BinaryTupleReader tuple) {
+        super(tuple, 0, tuple.elementCount(), null);
 
         this.schema = schema;
-        this.columns = columns;
     }
 
     @Override
     protected String schemaColumnName(int index) {
-        return columns[index].name();
+        return schema.columns()[index].name();
     }
 
     @Override
@@ -59,14 +54,14 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected ColumnType schemaColumnType(int columnIndex) {
-        ClientColumn column = columns[columnIndex];
+        ClientColumn column = schema.columns()[columnIndex];
 
         return column.type();
     }
 
     @Override
     protected int schemaDecimalScale(int columnIndex) {
-        return columns[columnIndex].scale();
+        return schema.columns()[columnIndex].scale();
     }
 
     @Nullable
