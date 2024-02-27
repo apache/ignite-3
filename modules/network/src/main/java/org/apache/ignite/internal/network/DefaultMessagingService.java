@@ -470,13 +470,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
         // they will be guaranteed to be executed on the same thread (as the inbound pool is striped, the stripe key is sender+channelId).
         // Hence these handlers will be executed on the current thread, so, to avoid additional latency, we'll collect them to a list
         // and execute here directly after executing the first handler, instead of submitting them to the inbound pool.
-        List<NetworkMessageHandler> handlersWantingSameThreadAsFirst = null;
+        List<NetworkMessageHandler> handlersWantingSameThreadAsFirst = List.of();
 
         while (remainingContexts.hasNext()) {
             HandlerContext handlerContext = remainingContexts.next();
 
             if (wantSamePool(firstHandlerContext, handlerContext)) {
-                if (handlersWantingSameThreadAsFirst == null) {
+                if (handlersWantingSameThreadAsFirst.isEmpty()) {
                     handlersWantingSameThreadAsFirst = new ArrayList<>();
                 }
                 handlersWantingSameThreadAsFirst.add(handlerContext.handler());
@@ -489,10 +489,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         firstHandlerContext.handler().onReceived(payload, senderConsistentId, correlationId);
 
         // Now execute those handlers that are guaranteed to be executed on the same thread as the first one.
-        if (handlersWantingSameThreadAsFirst != null) {
-            for (NetworkMessageHandler handler : handlersWantingSameThreadAsFirst) {
-                handler.onReceived(payload, senderConsistentId, correlationId);
-            }
+        for (NetworkMessageHandler handler : handlersWantingSameThreadAsFirst) {
+            handler.onReceived(payload, senderConsistentId, correlationId);
         }
     }
 
