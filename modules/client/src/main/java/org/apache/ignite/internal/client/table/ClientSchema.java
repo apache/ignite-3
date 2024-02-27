@@ -98,7 +98,7 @@ public class ClientSchema {
         int valColumnCount = columns.length - keyColumnCount;
 
         this.keyColumns = keyColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[keyColumnCount];
-        this.colocationColumns = colocationColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[colocationColumnCount];
+        this.colocationColumns = colocationColumnCount == 0 ? keyColumns : new ClientColumn[colocationColumnCount];
         this.valColumns = valColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[valColumnCount];
 
         int keyIdx = 0;
