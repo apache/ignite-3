@@ -111,13 +111,13 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 columnName,
                 ClientTableCommon.getColumnType(type.spec()),
                 false,
-                true,
+                0,
                 -1,
                 0,
                 ClientTableCommon.getDecimalScale(type),
                 ClientTableCommon.getPrecision(type));
 
-        return new ClientSchema(0, new ClientColumn[]{clientColumn}, null, marshallers);
+        return new ClientSchema(0, new ClientColumn[]{clientColumn}, marshallers);
     }
 
     private static TupleMarshallerImpl tupleMarshaller(NativeType type, String columnName) {
