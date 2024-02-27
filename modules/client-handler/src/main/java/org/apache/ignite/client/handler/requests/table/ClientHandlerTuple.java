@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Server-side client Tuple.
  */
-class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware {
+class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware {
     /** Schema. */
     private final SchemaDescriptor schema;
 
@@ -43,7 +43,7 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
      * @param tuple Tuple.
      * @param columnCount Column count.
      */
-    ClientTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int columnCount) {
+    ClientHandlerTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int columnCount) {
         super(tuple, columnCount, noValueSet);
 
         this.schema = schema;
