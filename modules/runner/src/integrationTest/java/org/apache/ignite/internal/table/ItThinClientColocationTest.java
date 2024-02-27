@@ -113,6 +113,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 false,
                 0,
                 -1,
+                -1,
                 0,
                 ClientTableCommon.getDecimalScale(type),
                 ClientTableCommon.getPrecision(type));
