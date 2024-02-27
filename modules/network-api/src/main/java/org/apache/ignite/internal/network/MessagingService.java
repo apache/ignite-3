@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.network;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -209,7 +212,9 @@ public interface MessagingService {
     CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, ChannelType channelType, NetworkMessage msg, long timeout);
 
     /**
-     * Registers a listener for a group of network message events.
+     * Registers a listener for a group of network message events. Inbound thread pool is used to handle messages.
+     * Use {@link #addMessageHandler(Class, ExecutorChooser, NetworkMessageHandler)} to supply your own thread pool on which
+     * to handle messages.
      *
      * <p>Message group is specified by providing a class annotated with the {@link MessageGroup} annotation.
      *
@@ -219,4 +224,22 @@ public interface MessagingService {
      *                                  ID as the given {@code messageGroup}.
      */
     void addMessageHandler(Class<?> messageGroup, NetworkMessageHandler handler);
+
+    /**
+     * Registers a listener for a group of network message events.
+     *
+     * <p>Message group is specified by providing a class annotated with the {@link MessageGroup} annotation.
+     *
+     * <p>The provided executor chooser will choose the {@link Executor} for each message; the message will be handled
+     * on this executor. It will be chosen before @{@link Marshallable} fields of the message are unmarshalled, so they will be {@code null}
+     * from the point of view of the chooser.
+     *
+     * @param messageGroup Message group descriptor.
+     * @param executorChooser Will choose an {@link Executor} on which to handle a message. It will be called before @{@link Marshallable}
+     *     fields are unmarshalled, so they will be {@code null} from the point of view of the chooser.
+     * @param handler      Message handler.
+     * @throws IllegalArgumentException If some handlers have already been registered for a different message group class that has the same
+     *                                  ID as the given {@code messageGroup}.
+     */
+    void addMessageHandler(Class<?> messageGroup, ExecutorChooser<NetworkMessage> executorChooser, NetworkMessageHandler handler);
 }
