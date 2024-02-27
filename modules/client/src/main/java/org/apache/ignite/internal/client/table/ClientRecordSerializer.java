@@ -217,8 +217,9 @@ public class ClientRecordSerializer<R> {
                 if (nullable && !in.unpackBoolean()) {
                     res.add(null);
                 } else {
-                    var tupleReader = new BinaryTupleReader(columnCount(schema, part), in.readBinaryUnsafe());
-                    var reader = new ClientMarshallerReader(tupleReader);
+                    ClientColumn[] columns = schema.columns(part);
+                    var tupleReader = new BinaryTupleReader(columns.length, in.readBinaryUnsafe());
+                    var reader = new ClientMarshallerReader(tupleReader, columns);
                     res.add((R) marshaller.readObject(reader, null));
                 }
             }
@@ -250,7 +251,7 @@ public class ClientRecordSerializer<R> {
         Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
 
         var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
-        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
+        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns());
 
         try {
             return (R) valMarshaller.readObject(reader, null);
@@ -260,18 +261,6 @@ public class ClientRecordSerializer<R> {
     }
 
     private static int columnCount(ClientSchema schema, TuplePart part) {
-        switch (part) {
-            case KEY:
-                return schema.keyColumnCount();
-
-            case VAL:
-                return schema.columns().length - schema.keyColumnCount();
-
-            case KEY_AND_VAL:
-                return schema.columns().length;
-
-            default:
-                throw new IllegalArgumentException();
-        }
+        return schema.columns(part).length;
     }
 }
