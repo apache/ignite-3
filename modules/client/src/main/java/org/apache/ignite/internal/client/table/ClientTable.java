@@ -221,6 +221,7 @@ public class ClientTable implements Table {
         var colCnt = in.unpackInt();
         var columns = new ClientColumn[colCnt];
         int keyCnt = 0;
+        int valCnt = 0;
 
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackInt();
@@ -236,11 +237,12 @@ public class ClientTable implements Table {
             var precision = in.unpackInt();
 
             var keyIndex = isKey ? keyCnt++ : -1;
+            var valIndex = isKey ? -1 : valCnt++;
 
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
 
-            var column = new ClientColumn(name, type, isNullable, keyIndex, colocationIndex, i, scale, precision);
+            var column = new ClientColumn(name, type, isNullable, keyIndex, valIndex, colocationIndex, i, scale, precision);
             columns[i] = column;
         }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -28,16 +29,19 @@ import org.jetbrains.annotations.Nullable;
 public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
 
+    private final TuplePart part;
+
     /**
      * Constructor.
      *
      * @param schema Schema.
      * @param tuple Tuple.
      */
-    public ClientTuple(ClientSchema schema, BinaryTupleReader tuple) {
-        super(tuple, 0, tuple.elementCount(), null);
+    public ClientTuple(ClientSchema schema, TuplePart part, BinaryTupleReader tuple) {
+        super(tuple, schema.columns(part).length, null);
 
         this.schema = schema;
+        this.part = part;
     }
 
     @Override
@@ -50,6 +54,26 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
         ClientColumn column = column(columnName);
 
         return column == null ? -1 : column.schemaIndex();
+    }
+
+    @Override
+    protected int internalIndex(int publicIndex) {
+        if (part == TuplePart.KEY_AND_VAL) {
+            return publicIndex;
+        }
+
+        return schema.columns(part)[publicIndex].schemaIndex();
+    }
+
+    @Override
+    protected int publicIndex(int internalIndex) {
+        if (part == TuplePart.KEY_AND_VAL) {
+            return internalIndex;
+        }
+
+        var col = schema.columns()[internalIndex];
+
+        return part == TuplePart.KEY ? col.keyIndex() : col.valIndex();
     }
 
     @Override

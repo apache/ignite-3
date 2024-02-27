@@ -35,6 +35,9 @@ public class ClientColumn {
     /** Key index (-1 for non-key). */
     private final int keyIndex;
 
+    /** Value index (-1 for non-value). */
+    private final int valIndex;
+
     /** Colocation index (-1 when not part of colocation index). */
     private final int colocationIndex;
 
@@ -54,11 +57,12 @@ public class ClientColumn {
      * @param type Column type.
      * @param nullable Nullable flag.
      * @param keyIndex Key index, -1 if not part of the key.
+     * @param valIndex Val index, -1 if not part of the value.
      * @param colocationIndex Colocation index.
      * @param schemaIndex Index of the column in the schema.
      */
-    public ClientColumn(String name, ColumnType type, boolean nullable, int keyIndex, int colocationIndex, int schemaIndex) {
-        this(name, type, nullable, keyIndex, colocationIndex, schemaIndex, 0, 0);
+    public ClientColumn(String name, ColumnType type, boolean nullable, int keyIndex, int valIndex, int colocationIndex, int schemaIndex) {
+        this(name, type, nullable, keyIndex, valIndex, colocationIndex, schemaIndex, 0, 0);
     }
 
     /**
@@ -68,6 +72,7 @@ public class ClientColumn {
      * @param type Column type code.
      * @param nullable Nullable flag.
      * @param keyIndex Key index, -1 if not part of the key.
+     * @param valIndex Val index, -1 if not part of the value.
      * @param colocationIndex Colocation index, -1 if not part of the colocation key.
      * @param schemaIndex Index of the column in the schema.
      * @param scale Scale of the column, if applicable.
@@ -77,6 +82,7 @@ public class ClientColumn {
             ColumnType type,
             boolean nullable,
             int keyIndex,
+            int valIndex,
             int colocationIndex,
             int schemaIndex,
             int scale,
@@ -88,6 +94,7 @@ public class ClientColumn {
         this.type = type;
         this.nullable = nullable;
         this.keyIndex = keyIndex;
+        this.valIndex = valIndex;
         this.colocationIndex = colocationIndex;
         this.schemaIndex = schemaIndex;
         this.scale = scale;
@@ -141,6 +148,15 @@ public class ClientColumn {
      */
     public int keyIndex() {
         return keyIndex;
+    }
+
+    /**
+     * Gets the value index, or -1 when part of the key.
+     *
+     * @return Index within the value part, or -1 when part of the key.
+     */
+    public int valIndex() {
+        return valIndex;
     }
 
     /**
