@@ -76,33 +76,45 @@ public class ClientSchema {
         assert ver >= 0;
         assert columns != null;
 
-        if (keyColumns == null) {
-            keyColumns = EMPTY_COLUMNS;
-        }
-
         this.ver = ver;
         this.columns = columns;
-        this.keyColumns = keyColumns;
-        this.colocationColumns = colocationColumns == null ? keyColumns : colocationColumns;
         this.marshallers = marshallers;
+
+        int keyColumnCount = 0;
+        int colocationColumnCount = 0;
 
         for (var col : columns) {
             map.put(col.name(), col);
-        }
 
-        int valColumnCount = columns.length - keyColumns.length;
-        this.valColumns = new ClientColumn[valColumnCount];
+            if (col.key()) {
+                keyColumnCount++;
+            }
 
-        int idx = 0;
-        for (var col : columns) {
-            if (!col.key()) {
-                this.valColumns[idx++] = col;
+            if (col.colocationIndex() >= 0) {
+                colocationColumnCount++;
             }
         }
 
-        // TODO:
-        // * Preserve column order from SchemaDescriptor
-        // * Remove logic "key columns come first"
+        int valColumnCount = columns.length - keyColumnCount;
+
+        this.keyColumns = keyColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[keyColumnCount];
+        this.colocationColumns = colocationColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[colocationColumnCount];
+        this.valColumns = valColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[valColumnCount];
+
+        int keyIdx = 0;
+        int valIdx = 0;
+
+        for (var col : columns) {
+            if (col.key()) {
+                this.keyColumns[keyIdx++] = col;
+            } else {
+                this.valColumns[valIdx++] = col;
+            }
+
+            if (col.colocationIndex() >= 0) {
+                this.colocationColumns[col.colocationIndex()] = col;
+            }
+        }
     }
 
     /**
