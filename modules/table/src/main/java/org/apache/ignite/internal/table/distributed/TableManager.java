@@ -305,7 +305,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
-    /** Executor for scheduling retries of a rebalance. */
+    /** Executor for scheduling rebalance routine. */
     private final ScheduledExecutorService rebalanceScheduler;
 
     /** Transaction state storage scheduled pool. */
@@ -411,6 +411,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param failureProcessor Failure processor that is used to process critical errors.
+     * @param rebalanceScheduler Executor for scheduling rebalance routine.
      */
     public TableManager(
             String nodeName,

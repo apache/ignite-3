@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doOnNewPeersConfigurationApplied;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doStableKeySwitch;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
@@ -272,7 +272,7 @@ public class DistributionZoneRebalanceEngine {
                             return;
                         }
 
-                        LOG.info("Started to update stable keys for tables from the zone [zoneId = {}, tables = [{}]]",
+                        LOG.debug("Started to update stable keys for tables from the zone [zoneId = {}, tables = [{}]]",
                                 zoneId,
                                 tables.stream().map(CatalogObjectDescriptor::name).collect(Collectors.toSet())
                         );
@@ -290,9 +290,10 @@ public class DistributionZoneRebalanceEngine {
                             Map<ByteArray, Entry> entriesMap = metaStorageManager.getAll(partitionTablesKeys.keySet()).get();
 
                             entriesMap.forEach((key, stable) -> {
-                                doOnNewPeersConfigurationApplied(
+                                doStableKeySwitch(
                                         Assignments.fromBytes(stable.value()).nodes(),
                                         partitionTablesKeys.get(key),
+                                        event.revision(),
                                         metaStorageManager,
                                         catalogService,
                                         distributionZoneManager

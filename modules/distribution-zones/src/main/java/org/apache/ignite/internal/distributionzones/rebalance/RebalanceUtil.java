@@ -125,7 +125,7 @@ public class RebalanceUtil {
             int partNum,
             Set<Assignment> tableCfgPartAssignments
     ) {
-        ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
+        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
@@ -315,14 +315,25 @@ public class RebalanceUtil {
     private static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
 
     /**
-     * Key that is needed for the rebalance algorithm.
+     * Key that is needed for skipping stale events of pending key change.
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partChangeTriggerKey(TablePartitionId partId) {
-        return new ByteArray(partId + ".change.trigger");
+    public static ByteArray pendingChangeTriggerKey(TablePartitionId partId) {
+        return new ByteArray(partId + "pending.change.trigger");
+    }
+
+    /**
+     * Key that is needed for skipping stale events of stable key change.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     */
+    public static ByteArray stableChangeTriggerKey(TablePartitionId partId) {
+        return new ByteArray(partId + "stable.change.trigger");
     }
 
     /**

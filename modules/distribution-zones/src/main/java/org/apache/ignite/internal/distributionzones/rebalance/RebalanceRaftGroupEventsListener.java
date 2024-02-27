@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.Distributio
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stableChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
@@ -28,6 +29,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -65,6 +67,7 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -368,11 +371,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     }
 
     /**
-     * Implementation of {@link RebalanceRaftGroupEventsListener#onNewPeersConfigurationApplied}.
+     * Updates stable value with the new applied assignment.
      */
-    public static void doOnNewPeersConfigurationApplied(
+    static void doStableKeySwitch(
             Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
+            long revision,
             MetaStorageManager metaStorageMgr,
             CatalogService catalogService,
             DistributionZoneManager distributionZoneManager
@@ -506,6 +510,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 retryPreconditions = and(retryPreconditions, con5);
             }
 
+            retryPreconditions = and(
+                    or(
+                            notExists(stableChangeTriggerKey(tablePartitionId)),
+                            value(stableChangeTriggerKey(tablePartitionId)).lt(ByteUtils.longToBytes(revision))
+                    ),
+                    retryPreconditions
+            );
+
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             int res = metaStorageMgr.invoke(iif(retryPreconditions, successCase, failCase)).get().getAsInt();
 
@@ -535,9 +547,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                         break;
                 }
 
-                doOnNewPeersConfigurationApplied(
+                doStableKeySwitch(
                         stableFromRaft,
                         tablePartitionId,
+                        revision,
                         metaStorageMgr,
                         catalogService,
                         distributionZoneManager
