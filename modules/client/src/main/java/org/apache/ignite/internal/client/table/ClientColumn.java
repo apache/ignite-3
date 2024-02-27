@@ -35,7 +35,7 @@ public class ClientColumn {
     /** Key index (-1 for non-key). */
     private final int keyIndex;
 
-    /** Colocation index. */
+    /** Colocation index (-1 when not part of colocation index). */
     private final int colocationIndex;
 
     /** Index of the column in the schema. */
@@ -53,12 +53,12 @@ public class ClientColumn {
      * @param name Column name.
      * @param type Column type.
      * @param nullable Nullable flag.
-     * @param isKey Key column flag.
+     * @param keyIndex Key index, -1 if not part of the key.
      * @param colocationIndex Colocation index.
      * @param schemaIndex Index of the column in the schema.
      */
-    public ClientColumn(String name, ColumnType type, boolean nullable, boolean isKey, int colocationIndex, int schemaIndex) {
-        this(name, type, nullable, isKey, colocationIndex, schemaIndex, 0, 0);
+    public ClientColumn(String name, ColumnType type, boolean nullable, int keyIndex, int colocationIndex, int schemaIndex) {
+        this(name, type, nullable, keyIndex, colocationIndex, schemaIndex, 0, 0);
     }
 
     /**
@@ -67,8 +67,8 @@ public class ClientColumn {
      * @param name Column name.
      * @param type Column type code.
      * @param nullable Nullable flag.
-     * @param isKey Key column flag.
-     * @param colocationIndex Colocation index.
+     * @param keyIndex Key index, -1 if not part of the key.
+     * @param colocationIndex Colocation index, -1 if not part of the colocation key.
      * @param schemaIndex Index of the column in the schema.
      * @param scale Scale of the column, if applicable.
      */
