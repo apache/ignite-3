@@ -36,7 +36,9 @@ public class ThreadAssertions {
     private static final Set<String> BLACKLISTED_THREAD_NAMES = Set.of(
             "main",
             // JUnit worker thread name
-            "Test worker"
+            "Test worker",
+            // Awaitility
+            "awaitility-thread"
     );
 
     /**
