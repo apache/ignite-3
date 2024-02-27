@@ -480,18 +480,14 @@ public class ClientTupleSerializer {
     }
 
     private static void throwSchemaMismatchException(Tuple tuple, ClientSchema schema, TuplePart part) {
-        ClientColumn[] columns = schema.columns();
         Set<String> extraColumns = new HashSet<>();
-        int start = part == TuplePart.VAL ? schema.keyColumnCount() : 0;
-        int end = part == TuplePart.KEY ? schema.keyColumnCount() : columns.length;
 
         for (int i = 0; i < tuple.columnCount(); i++) {
             extraColumns.add(tuple.columnName(i));
         }
 
-
-        for (int i = start; i < end; i++) {
-            extraColumns.remove(columns[i].name());
+        for (var col : schema.columns(part)) {
+            extraColumns.remove(col.name());
         }
 
         String prefix = "Tuple";

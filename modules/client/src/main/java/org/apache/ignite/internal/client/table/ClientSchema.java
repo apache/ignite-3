@@ -138,6 +138,18 @@ public class ClientSchema {
         return valColumns;
     }
 
+    ClientColumn[] columns(TuplePart part) {
+        if (part == TuplePart.KEY) {
+            return keyColumns;
+        }
+
+        if (part == TuplePart.VAL) {
+            return valColumns;
+        }
+
+        return columns;
+    }
+
     /**
      * Returns colocation columns.
      *
