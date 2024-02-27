@@ -38,14 +38,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     /** Underlying BinaryTuple. */
     private BinaryTupleReader binaryTuple;
 
+    /** Column count. Can be less than binaryTuple.elementCount in case of a slice. */
+    private final int columnCount;
+
     /** Tuple with overwritten data. */
     private @Nullable Tuple tuple;
-
-    /** Schema offset: value tuples skip the key part. */
-    private final int schemaOffset;
-
-    /** Schema size: key tuples skip the value part. */
-    private final int schemaSize;
 
     /** No-value set. */
     private final @Nullable BitSet noValueSet;
@@ -54,15 +51,16 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
      * Constructor.
      *
      * @param binaryTuple Binary tuple.
+     * @param columnCount Column count.
+     * @param noValueSet No-value set.
      */
-    public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int schemaOffset, int schemaSize, @Nullable BitSet noValueSet) {
+    public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int columnCount, @Nullable BitSet noValueSet) {
         assert binaryTuple != null : "binaryTuple != null";
-        assert schemaOffset >= 0 : "schemaOffset >= 0";
-        assert schemaSize > 0 : "schemaSize > 0";
+        assert columnCount > 0 : "columnCount > 0";
+        assert columnCount <= binaryTuple.elementCount() : "columnCount <= binaryTuple.elementCount";
 
         this.binaryTuple = binaryTuple;
-        this.schemaOffset = schemaOffset;
-        this.schemaSize = schemaSize;
+        this.columnCount = columnCount;
         this.noValueSet = noValueSet;
     }
 
@@ -73,7 +71,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.columnCount();
         }
 
-        int cnt = schemaSize - schemaOffset;
+        int cnt = columnCount;
 
         if (noValueSet != null) {
             cnt -= noValueSet.cardinality();
