@@ -74,7 +74,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         return tableCache.computeIfAbsent(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
     }
 
-    //TODO https://issues.apache.org/jira/browse/IGNITE-21584 Remove future.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-21584 Remove future.
     private CompletableFuture<ExecutableTable> loadTable(IgniteTable sqlTable) {
         return CompletableFuture.completedFuture(tableManager.cachedTable(sqlTable.id()))
                 .thenApply((table) -> {
