@@ -337,12 +337,10 @@ public class ClientTupleSerializer {
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var binTuple = new BinaryTupleReader(schema.columns().length, in.readBinary());
 
-        // TODO IGNITE-21525: This is full tuple.
-        return new ClientTuple(schema, TuplePart.KEY_AND_VAL, binTuple);
+        return new ClientTuple(schema, TuplePart.VAL, binTuple);
     }
 
     private static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
-        // TODO IGNITE-21525: How to split the tuple into K and V?
         var binTuple = new BinaryTupleReader(schema.columns().length, in.readBinary());
         var keyTuple = new ClientTuple(schema, TuplePart.KEY, binTuple);
         var valTuple = new ClientTuple(schema, TuplePart.VAL, binTuple);
