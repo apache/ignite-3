@@ -509,7 +509,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 // TODO: Optimize (IGNITE-16022).
                 if (in.in().unpackBoolean()) {
                     var tupleReader = new BinaryTupleReader(schema.columns().length, in.in().readBinaryUnsafe());
-                    var reader = new ClientMarshallerReader(tupleReader);
+                    var reader = new ClientMarshallerReader(tupleReader, schema.columns());
                     res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
                 }
             }
