@@ -488,7 +488,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
                             LOG.warn("Failed to compact catalog.", err);
-                            //TODO: IGNITE-14611 Pass exception to an error handler?
+                            // TODO: IGNITE-14611 Pass exception to an error handler?
                         } else {
                             truncateUpTo(catalog);
                         }
@@ -531,7 +531,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
                             LOG.warn("Failed to apply catalog update.", err);
-                            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+                            // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
                         }
 
                         versionTracker.update(version, null);

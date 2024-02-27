@@ -624,7 +624,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
      * @param peer Fail the request targeted to given peer.
      */
     private void mockUserInput(boolean delay, @Nullable Peer peer) {
-        //noinspection Convert2Lambda
+        // noinspection Convert2Lambda
         when(messagingService.invoke(
                 any(ClusterNode.class),
                 // Must be an anonymous class, to deduce the message type from the generic superclass.

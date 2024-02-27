@@ -297,7 +297,7 @@ public class RendezvousAffinityFunction {
         // Group by mac addresses.
         for (String node : topSnapshot) {
             String macs = String.valueOf(node.hashCode());
-            //node.attribute(IgniteNodeAttributes.ATTR_MACS);
+            // node.attribute(IgniteNodeAttributes.ATTR_MACS);
 
             Collection<String> nodes = macMap.get(macs);
 

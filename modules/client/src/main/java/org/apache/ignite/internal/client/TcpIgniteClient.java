@@ -138,7 +138,7 @@ public class TcpIgniteClient implements IgniteClient {
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
         ErrorGroups.initialize();
 
-        //noinspection resource: returned from method
+        // noinspection resource: returned from method
         var client = new TcpIgniteClient(cfg);
 
         return client.initAsync().thenApply(x -> client);

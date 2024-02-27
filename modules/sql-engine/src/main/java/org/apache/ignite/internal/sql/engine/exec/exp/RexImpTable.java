@@ -2007,7 +2007,7 @@ public class RexImpTable {
         WinAggAddContext add) {
       Expression acc = add.accumulator().get(0);
       // This is an example of the generated code
-      if (false) {
+      if (false) { // NOPMD
         new Object() {
           int curentPosition; // position in for-win-agg-loop
           int startIndex;     // index of start of window
@@ -2015,7 +2015,7 @@ public class RexImpTable {
           @SuppressWarnings("nullness")
           void sample() {
             if (curentPosition > startIndex) {
-              if (rows[curentPosition - 1].compareTo(rows[curentPosition])
+              if (rows[curentPosition - 1].compareTo(rows[curentPosition]) // NOPMD
                   > 0) {
                 // update rank
               }
@@ -2783,7 +2783,7 @@ public class RexImpTable {
       Expression errorBehavior = Expressions.constant(SqlJsonValueEmptyOrErrorBehavior.NULL);
       Expression defaultValueOnError = Expressions.constant(null);
       // Patched up with user defines.
-      if (leftExprs.size() > 0) {
+      if (!leftExprs.isEmpty()) {
         for (int i = 0; i < leftExprs.size(); i++) {
           Expression expr = leftExprs.get(i);
           final Object exprVal = translator.getLiteralValue(expr);

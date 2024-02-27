@@ -113,7 +113,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void throwsExceptionForDdlWithExternalTransaction() {
         QueryTransactionContext txCtx = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
 
-        //noinspection ThrowableNotThrown
+        // noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DDL doesn't support transactions.",
                 () -> txCtx.getOrStartImplicit(SqlQueryType.DDL));
 
@@ -124,7 +124,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void throwsExceptionForDmlWithReadOnlyExternalTransaction() {
         QueryTransactionContext txCtx = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
 
-        //noinspection ThrowableNotThrown
+        // noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
                 () -> txCtx.getOrStartImplicit(SqlQueryType.DML));
 
@@ -148,7 +148,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         txCtx.handleControlStatement(txStartStmt);
 
-        //noinspection ThrowableNotThrown
+        // noinspection ThrowableNotThrown
         assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "Nested transactions are not supported.",

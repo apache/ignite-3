@@ -365,7 +365,7 @@ public class SchemaManager implements IgniteComponent {
 
         busyLock.block();
 
-        //noinspection ConstantConditions
+        // noinspection ConstantConditions
         IgniteUtils.closeAllManually(registriesVv.latest().values());
     }
 }

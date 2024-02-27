@@ -250,7 +250,7 @@ public class LeaseUpdater {
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
     private @Nullable ClusterNode nextLeaseHolder(Set<Assignment> assignments, @Nullable String proposedConsistentId) {
-        //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
+        // TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
         ClusterNode primaryCandidate = null;
 
         for (Assignment assignment : assignments) {

@@ -284,7 +284,7 @@ public class FakeSession implements AbstractSession {
     }
 
     public Map<String, Object> properties() {
-        //noinspection AssignmentOrReturnOfFieldWithMutableType
+        // noinspection AssignmentOrReturnOfFieldWithMutableType
         return properties;
     }
 }

@@ -126,6 +126,7 @@ public interface Tuple extends Iterable<Object> {
      * @see #hashCode(Tuple)
      * @see Object#hashCode()
      */
+    @Override
     int hashCode();
 
     /**
@@ -175,6 +176,7 @@ public interface Tuple extends Iterable<Object> {
      * @see Tuple#equals(Tuple, Tuple)
      * @see Object#equals(Object)
      */
+    @Override
     boolean equals(Object obj);
 
     /**

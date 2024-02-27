@@ -246,7 +246,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
 
         tx1.commit();
 
-        //Now start the seconds transaction and make sure write intent resolution is called  by adding a `get` operaiton.
+        // Now start the seconds transaction and make sure write intent resolution is called  by adding a `get` operation.
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
         assertEquals(100., accounts.recordView().get(tx2, makeKey(1)).doubleValue("balance"));

@@ -158,7 +158,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
         }
 
         if (y == null) {
-            //noinspection ConstantConditions
+            // noinspection ConstantConditions
             assertNull(x);
             return;
         }

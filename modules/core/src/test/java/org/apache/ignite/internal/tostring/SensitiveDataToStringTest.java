@@ -137,6 +137,19 @@ public class SensitiveDataToStringTest extends IgniteAbstractTest {
             this.name = name;
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            Person person = (Person) o;
+            return orgId == person.orgId && (name != null ? name.equals(person.name) : person.name == null);
+        }
+
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
