@@ -187,7 +187,7 @@ public class ClientRecordSerializer<R> {
                 : schema.getMarshaller(mapper, TuplePart.KEY);
 
         int columnCount = schema.columns().length;
-        int keyColumnCount = schema.keyColumnCount();
+        int keyColumnCount = schema.keyColumns().length;
 
         int i = 0;
 
@@ -232,11 +232,8 @@ public class ClientRecordSerializer<R> {
     R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
 
-        int columnCount = part == TuplePart.KEY ? schema.keyColumnCount() : schema.columns().length;
-        var tupleReader = new BinaryTupleReader(columnCount, in.readBinaryUnsafe());
-
-        int startIndex = part == TuplePart.VAL ? schema.keyColumnCount() : 0;
-        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, startIndex);
+        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
+        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns(part));
 
         try {
             return (R) marshaller.readObject(reader, null);
