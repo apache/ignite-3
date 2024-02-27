@@ -112,6 +112,10 @@ public class ClientSchema {
             }
 
             if (col.colocationIndex() >= 0) {
+                assert this.colocationColumns[col.colocationIndex()] == null
+                        : "Duplicate colocation index: name=" + col.name() + ", colocationIndex=" + col.colocationIndex()
+                        + ", other.name=" + this.colocationColumns[col.colocationIndex()].name();
+
                 this.colocationColumns[col.colocationIndex()] = col;
             }
         }
