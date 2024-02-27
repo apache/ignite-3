@@ -618,7 +618,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, replicaMessagesExecutorChooser, handler);
         clusterNetSvc.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, placementDriverMessageHandler);
-        messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, replicaMessagesExecutorChooser, handler));
+        messageGroupsToHandle.forEach(
+                mg -> clusterNetSvc.messagingService().addMessageHandler(mg, replicaMessagesExecutorChooser, handler)
+        );
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,
