@@ -231,7 +231,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
-        //noinspection ThisEscapedInObjectConstruction
+        // noinspection ThisEscapedInObjectConstruction
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 busyLock,
                 metaStorageManager,
@@ -240,7 +240,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 rebalanceScheduler
         );
 
-        //noinspection ThisEscapedInObjectConstruction
+        // noinspection ThisEscapedInObjectConstruction
         causalityDataNodesEngine = new CausalityDataNodesEngine(
                 busyLock,
                 registry,
@@ -468,7 +468,7 @@ public class DistributionZoneManager implements IgniteComponent {
             // Max revision from the {@link ZoneState#topologyAugmentationMap()} for node joins.
             Optional<Long> maxScaleUpRevisionOptional = zoneState.highestRevision(true);
 
-            //Max revision from the {@link ZoneState#topologyAugmentationMap()} for node removals.
+            // Max revision from the {@link ZoneState#topologyAugmentationMap()} for node removals.
             Optional<Long> maxScaleDownRevisionOptional = zoneState.highestRevision(false);
 
             maxScaleUpRevisionOptional.ifPresent(
@@ -863,7 +863,7 @@ public class DistributionZoneManager implements IgniteComponent {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         if ((nodesAdded || nodesRemoved) && autoAdjust != INFINITE_TIMER_VALUE) {
-            //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
+            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
             throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
         } else {
             if (nodesAdded) {

@@ -585,14 +585,14 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         ResultSet rs = stmt.executeQuery(sqlText);
 
         assertTrue(rs.next());
-        assertFalse(rs.next()); //max rows reached
+        assertFalse(rs.next()); // Max rows reached.
 
         stmt.close();
 
-        // Call on a closed statement
+        // Call on a closed statement.
         checkStatementClosed(() -> stmt.getMaxRows());
 
-        // Call on a closed statement
+        // Call on a closed statement.
         checkStatementClosed(() -> stmt.setMaxRows(maxRows));
     }
 
@@ -815,7 +815,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertTrue(rs.isClosed());
 
         assertTrue(populateStmtCnt < 100);
-        //more than one fetch request
+        // More than one fetch request.
         for (int i = populateStmtCnt; i < stmt.getMaxRows() + 100; ++i) {
             stmt.execute(String.format("INSERT INTO TEST VALUES (%d, '1')", i));
         }

@@ -348,7 +348,7 @@ public class RowAssembler {
 
         NumberNativeType type = (NumberNativeType) col.type();
 
-        //0 is a magic number for "unlimited precision"
+        // 0 is a magic number for "unlimited precision".
         if (type.precision() > 0 && new BigDecimal(val).precision() > type.precision()) {
             throw new SchemaMismatchException("Failed to set number value for column '" + col.name() + "' "
                     + "(max precision exceeds allocated precision) "

@@ -30,7 +30,7 @@ public class NodeNotFoundException extends ComputeException {
         super(NODE_NOT_FOUND_ERR, "None of the specified nodes are present in the cluster: " + nodeNames);
     }
 
-    //TODO https://issues.apache.org/jira/browse/IGNITE-20140
+    // TODO https://issues.apache.org/jira/browse/IGNITE-20140
     public NodeNotFoundException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }

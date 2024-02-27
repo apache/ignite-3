@@ -113,13 +113,13 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         );
         RelRecordType type = new RelRecordType(Collections.singletonList(field));
 
-        //Imagine we have 2 columns: (id: INTEGER, val: VARCHAR)
+        // Imagine we have 2 columns: (id: INTEGER, val: VARCHAR)
         RexDynamicParam firstNode = new RexDynamicParam(typeFactory.createSqlType(SqlTypeName.INTEGER), 0);
         RexDynamicParam secondNode = new RexDynamicParam(typeFactory.createSqlType(SqlTypeName.VARCHAR), 1);
 
         SingleScalar scalar1 = expFactory.scalar(Arrays.asList(firstNode, secondNode), type);
 
-        //Imagine we have 2 columns: (id: VARCHAR, val: INTEGER)
+        // Imagine we have 2 columns: (id: VARCHAR, val: INTEGER)
         firstNode = new RexDynamicParam(typeFactory.createSqlType(SqlTypeName.VARCHAR), 0);
         secondNode = new RexDynamicParam(typeFactory.createSqlType(SqlTypeName.INTEGER), 1);
 

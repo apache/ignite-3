@@ -25,6 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.util.TimeZone;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
@@ -32,6 +36,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Sql functions test.
@@ -480,5 +485,34 @@ public class IgniteSqlFunctionsTest {
     })
     public void testTruncate2LongType(long input, int scale, long result) {
         assertEquals(result, IgniteSqlFunctions.struncate(input, scale));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "2023-10-29 02:01:01",
+            "2023-10-29 03:01:01",
+            "2023-10-29 04:01:01",
+            "2023-10-29 05:01:01",
+            "2024-03-31 02:01:01",
+            "2024-03-31 03:01:01",
+            "2024-03-31 04:01:01",
+            "2024-03-31 05:01:01",
+    })
+    public void testSubtractTimeZoneOffset(String input) throws ParseException {
+        TimeZone cyprusTz = TimeZone.getTimeZone("Asia/Nicosia");
+        TimeZone utcTz = TimeZone.getTimeZone("UTC");
+
+        SimpleDateFormat dateFormatTz = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        dateFormatTz.setTimeZone(cyprusTz);
+
+        SimpleDateFormat dateFormatUtc = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        dateFormatUtc.setTimeZone(utcTz);
+
+        long expMillis = dateFormatTz.parse(input).getTime();
+        long utcMillis = dateFormatUtc.parse(input).getTime();
+
+        long actualTs = IgniteSqlFunctions.subtractTimeZoneOffset(utcMillis, cyprusTz);
+
+        assertEquals(Instant.ofEpochMilli(expMillis), Instant.ofEpochMilli(actualTs));
     }
 }

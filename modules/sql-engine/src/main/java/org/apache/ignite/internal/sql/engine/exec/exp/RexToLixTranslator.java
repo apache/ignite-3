@@ -355,6 +355,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 switch (sourceType.getSqlTypeName()) {
                     case CHAR:
                     case VARCHAR:
+                        // By default Calcite for this type requires that the time zone be explicitly specified.
+                        // Since this type implies a local timezone, its explicit indication seems redundant,
+                        // so we prohibit the user from explicitly setting a timezone.
                         convert =
                                 Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
                         break;
@@ -400,9 +403,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case CHAR:
                     case VARCHAR:
                         convert =
-                                Expressions.call(
-                                        BuiltInMethod.STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                                        operand);
+                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
                         break;
                     case DATE:
                         convert =
@@ -845,6 +846,15 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         Expressions.constant(type.getPrecision()),
                         Expressions.constant(type.getScale())
                 );
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                Object val = literal.getValueAs(Long.class);
+
+                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+                return Expressions.call(
+                        IgniteMethod.SUBTRACT_TIMEZONE_OFFSET.method(),
+                        Expressions.constant(val, long.class),
+                        Expressions.call(BuiltInMethod.TIME_ZONE.method, DataContext.ROOT)
+                );
             case DATE:
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
@@ -855,7 +865,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 javaClass = int.class;
                 break;
             case TIMESTAMP:
-            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
             case INTERVAL_DAY:
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:
@@ -1596,7 +1605,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
             final Constructor<?> constructor =
                     declaringClass.getConstructor(FunctionContext.class);
             final List<Expression> constantArgs = new ArrayList<>();
-            //noinspection unchecked
+            // noinspection unchecked
             Ord.forEach(method.getParameterTypes(),
                     (parameterType, i) ->
                             constantArgs.add(

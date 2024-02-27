@@ -42,7 +42,7 @@ public class AuthenticationProvidersValidatorImpl implements
     ) {
         NamedListView<? extends AuthenticationProviderView> view = ctx.getNewValue();
 
-        if (view.size() == 0) {
+        if (view.isEmpty()) {
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), "At least one provider is required."));
             return;
         }
@@ -63,7 +63,7 @@ public class AuthenticationProvidersValidatorImpl implements
         }
 
         boolean enabled = ctx.getNewRoot(SecurityConfiguration.KEY).enabled();
-        if (enabled && basicProviders.get(0).users().size() == 0) {
+        if (enabled && basicProviders.get(0).users().isEmpty()) {
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Basic provider must have at least one user."));
         }
     }

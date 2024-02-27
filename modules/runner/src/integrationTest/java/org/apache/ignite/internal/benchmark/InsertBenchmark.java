@@ -165,7 +165,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         @TearDown
         public void tearDown() throws Exception {
             // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            IgniteUtils.closeAll(session/*, statement*/);
+            IgniteUtils.closeAll(session/* , statement*/);
         }
 
         private int id = 0;
@@ -213,7 +213,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         @TearDown
         public void tearDown() throws Exception {
             // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            IgniteUtils.closeAll(session/*, statement*/, client);
+            IgniteUtils.closeAll(session/* , statement*/, client);
         }
 
         private int id = 0;
@@ -243,7 +243,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() throws SQLException {
             String queryStr = createInsertStatement();
 
-            //noinspection CallToDriverManagerGetConnection
+            // noinspection CallToDriverManagerGetConnection
             conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
 
             stmt = conn.prepareStatement(queryStr);

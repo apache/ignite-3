@@ -189,6 +189,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -644,6 +645,8 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 txConfig,
@@ -655,7 +658,8 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 indexNodeFinishedRwTransactionsChecker,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                resourcesRegistry
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
@@ -689,6 +693,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 this::sql,
                 failureProcessor,
+                resourcesRegistry,
                 rebalanceScheduler
         );
 
@@ -771,7 +776,7 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
-                //TODO: IGNITE-20232 The observable timestamp should be different for each client.
+                // TODO: IGNITE-20232 The observable timestamp should be different for each client.
                 new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
                 nodeConfigRegistry,
                 compute,
@@ -941,7 +946,7 @@ public class IgniteImpl implements Ignite {
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
-                    //Disable REST component during initialization.
+                    // Disable REST component during initialization.
                     .thenAcceptAsync(unused -> restComponent.disable(), startupExecutor)
                     .thenComposeAsync(unused -> {
                         LOG.info("Join complete, starting MetaStorage");
@@ -1006,7 +1011,7 @@ public class IgniteImpl implements Ignite {
                     .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), startupExecutor)
                     .thenRunAsync(() -> {
                         try {
-                            //Enable REST component on start complete.
+                            // Enable REST component on start complete.
                             restComponent.enable();
                             // Transfer the node to the STARTED state.
                             lifecycleManager.onStartComplete();

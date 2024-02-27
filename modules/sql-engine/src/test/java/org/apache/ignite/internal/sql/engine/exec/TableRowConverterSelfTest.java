@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.readValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
@@ -149,7 +150,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
         BinaryTupleReader reader = new BinaryTupleReader(schema.length(), convertedRow.tupleSlice());
 
         // Schema stores in key columns in the following order: c2, c1
-        assertEquals(true, reader.booleanValue(0));
+        assertTrue(reader.booleanValue(0));
         assertEquals(5, reader.intValue(1));
         assertEquals(Short.MAX_VALUE, reader.intValue(2));
         assertEquals("654", reader.stringValue(3));

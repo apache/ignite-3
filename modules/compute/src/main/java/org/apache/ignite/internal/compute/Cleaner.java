@@ -64,7 +64,7 @@ public class Cleaner<T> {
             toRemove.clear();
 
             UUID nextToRemove;
-            //noinspection NestedAssignment
+            // noinspection NestedAssignment
             while ((nextToRemove = waitToRemove.poll()) != null) {
                 toRemove.add(nextToRemove);
             }

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.SIX;
 import static org.apache.ignite.internal.tx.LockMode.X;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -422,8 +423,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 0);
 
-        assertTrue(writeLocks.sum() == 0);
-        assertTrue(failedLocks.sum() == 0);
+        assertEquals(0, writeLocks.sum());
+        assertEquals(0, failedLocks.sum());
     }
 
     @Test
@@ -434,7 +435,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 1);
 
-        assertTrue(readLocks.sum() == 0);
+        assertEquals(0, readLocks.sum());
     }
 
     @Test
@@ -521,7 +522,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         fut.join();
 
-        assertTrue(lockManager.queue(key).size() == 1);
+        assertThat(lockManager.queue(key), hasSize(1));
     }
 
     @Test
@@ -536,7 +537,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             assertEquals(lockMode, lockManager.waiter(key, txId0).lockMode());
         }
 
-        assertTrue(lockManager.queue(key).size() == 1);
+        assertThat(lockManager.queue(key), hasSize(1));
 
         lockManager.release(new Lock(key, X, txId0));
 
@@ -572,7 +573,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         fut = lockManager.acquire(txId, key, X);
         assertTrue(fut.isDone());
 
-        assertTrue(lockManager.queue(key).size() == 1);
+        assertThat(lockManager.queue(key), hasSize(1));
 
         lockManager.release(fut.join());
 
@@ -584,7 +585,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         fut = lockManager.acquire(txId, key, S);
         assertTrue(fut.isDone());
 
-        assertTrue(lockManager.queue(key).size() == 1);
+        assertThat(lockManager.queue(key), hasSize(1));
 
         lockManager.release(fut.join());
 
@@ -691,13 +692,13 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
             lockManager.release(txId0, key, X);
 
-            assertTrue(lockManager.queue(key).size() == 1);
+            assertThat(lockManager.queue(key), hasSize(1));
 
             waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
 
             assertEquals(lockMode, waiter.lockMode());
 
-            assertTrue(lockManager.queue(key).size() == 1);
+            assertThat(lockManager.queue(key), hasSize(1));
 
             lockManager.release(lockFut.join());
         }

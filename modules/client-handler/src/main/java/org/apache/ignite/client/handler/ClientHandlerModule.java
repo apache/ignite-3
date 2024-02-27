@@ -296,7 +296,7 @@ public class ClientHandlerModule implements IgniteComponent {
                             ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
                                     configuration, clusterTag, connectionId);
 
-                            //noinspection TestOnlyProblems
+                            // noinspection TestOnlyProblems
                             handler = messageHandler;
 
                             ch.pipeline().addLast(

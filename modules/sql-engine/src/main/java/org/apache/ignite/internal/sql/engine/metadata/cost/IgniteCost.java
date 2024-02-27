@@ -151,12 +151,13 @@ public class IgniteCost implements RelOptCost {
 
     /** {@inheritDoc} */
     @Override
+    @SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
     public int hashCode() {
         return Objects.hash(rowCount, cpu, io, memory, network);
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("FloatingPointEquality")
+    @SuppressWarnings({"FloatingPointEquality", "PMD.SuspiciousEqualsMethodName"})
     @Override
     public boolean equals(RelOptCost cost) {
         return this == cost

@@ -1331,9 +1331,10 @@ public class InternalTableImpl implements InternalTable {
             ClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     ) {
-        return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude);
+        return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude, txCoordinatorId);
     }
 
     @Override
@@ -1372,9 +1373,22 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     ) {
-        return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+        return readOnlyScan(
+                partId,
+                txId,
+                readTimestamp,
+                recipientNode,
+                indexId,
+                null,
+                lowerBound,
+                upperBound,
+                flags,
+                columnsToInclude,
+                txCoordinatorId
+        );
     }
 
     @Override
@@ -1428,7 +1442,8 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     ) {
         validatePartitionIndex(partId);
 
@@ -1449,6 +1464,7 @@ public class InternalTableImpl implements InternalTable {
                             .upperBoundPrefix(binaryTupleMessage(upperBound))
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
+                            .coordinatorId(txCoordinatorId)
                             .build();
 
                     return replicaSvc.invoke(recipientNode, request);

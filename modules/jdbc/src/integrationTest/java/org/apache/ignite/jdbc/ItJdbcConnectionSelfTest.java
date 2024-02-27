@@ -918,7 +918,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testAbort() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            //Invalid executor
+            // Invalid executor.
             JdbcTestUtils.assertThrowsSqlException(
                     "Executor cannot be null",
                     () -> conn.abort(null)
@@ -942,7 +942,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             final int timeout = 1000;
 
-            //Invalid timeout
+            // Invalid timeout.
             JdbcTestUtils.assertThrowsSqlException(
                     "Network timeout cannot be negative",
                     () -> conn.setNetworkTimeout(executor, -1)

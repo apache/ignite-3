@@ -168,7 +168,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         @Override
         public CompletionStage<AsyncResultSet<SqlRow>> apply(AsyncResultSet<SqlRow> rs) {
             assertFalse(rs.wasApplied());
-            //SELECT
+            // SELECT
             if (rs.hasRowSet()) {
                 assertEquals(-1L, rs.affectedRows());
 
@@ -183,7 +183,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
                 if (rs.hasMorePages()) {
                     return rs.fetchNextPage().thenCompose(this);
                 }
-            } else { //DML/DDL
+            } else { // DML/DDL
                 affectedRows = rs.affectedRows();
                 assertNotEquals(-1L, affectedRows());
             }
@@ -193,7 +193,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
         @Override
         public List<SqlRow> result() {
-            //noinspection AssignmentOrReturnOfFieldWithMutableType
+            // noinspection AssignmentOrReturnOfFieldWithMutableType
             if (expectedPages != null) {
                 assertEquals(0, expectedPages, "Expected to be read more pages");
             }

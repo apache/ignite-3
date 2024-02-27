@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -181,6 +182,11 @@ public class RecordMarshallerValidationsTest {
             TruncatedRecClass truncatedRecClass = (TruncatedRecClass) o;
             return id == truncatedRecClass.id && fbyte1 == truncatedRecClass.fbyte1;
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, fbyte1);
+        }
     }
 
     /**
@@ -211,6 +217,11 @@ public class RecordMarshallerValidationsTest {
             }
             FullRecClass that = (FullRecClass) o;
             return id == that.id && fbyte1 == that.fbyte1 && fbyte2 == that.fbyte2;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, fbyte1, fbyte2);
         }
     }
 

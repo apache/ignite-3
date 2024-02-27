@@ -34,6 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -274,6 +275,11 @@ public class GroupPageStoresMapTest extends BaseIgniteAbstractTest {
             }
 
             return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(groupPartitionId, filePageStore);
         }
 
         @Override

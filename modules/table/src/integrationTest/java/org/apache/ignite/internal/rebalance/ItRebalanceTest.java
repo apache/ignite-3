@@ -94,7 +94,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         cluster.startAndInit(4);
 
         createZone("TEST_ZONE", 1, 3);
-        //Creates table with 1 partition and 3 replicas.
+        // Creates table with 1 partition and 3 replicas.
         createTestTable("TEST_TABLE", "TEST_ZONE");
 
         TableViewInternal table = (TableViewInternal) cluster.node(0).tables().table("TEST");

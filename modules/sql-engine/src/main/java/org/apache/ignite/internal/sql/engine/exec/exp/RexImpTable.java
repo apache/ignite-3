@@ -420,6 +420,7 @@ import org.apache.calcite.sql.fun.SqlJsonArrayAggAggFunction;
 import org.apache.calcite.sql.fun.SqlJsonObjectAggAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlUserDefinedAggFunction;
@@ -2006,7 +2007,7 @@ public class RexImpTable {
         WinAggAddContext add) {
       Expression acc = add.accumulator().get(0);
       // This is an example of the generated code
-      if (false) {
+      if (false) { // NOPMD
         new Object() {
           int curentPosition; // position in for-win-agg-loop
           int startIndex;     // index of start of window
@@ -2014,7 +2015,7 @@ public class RexImpTable {
           @SuppressWarnings("nullness")
           void sample() {
             if (curentPosition > startIndex) {
-              if (rows[curentPosition - 1].compareTo(rows[curentPosition])
+              if (rows[curentPosition - 1].compareTo(rows[curentPosition]) // NOPMD
                   > 0) {
                 // update rank
               }
@@ -2782,7 +2783,7 @@ public class RexImpTable {
       Expression errorBehavior = Expressions.constant(SqlJsonValueEmptyOrErrorBehavior.NULL);
       Expression defaultValueOnError = Expressions.constant(null);
       // Patched up with user defines.
-      if (leftExprs.size() > 0) {
+      if (!leftExprs.isEmpty()) {
         for (int i = 0; i < leftExprs.size(); i++) {
           Expression expr = leftExprs.get(i);
           final Object exprVal = translator.getLiteralValue(expr);
@@ -3542,6 +3543,7 @@ public class RexImpTable {
       case DATE:
         switch (typeName) {
         case TIMESTAMP:
+        case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
           trop0 =
               Expressions.convert_(
                   IgniteExpressions.multiplyExact(trop0,

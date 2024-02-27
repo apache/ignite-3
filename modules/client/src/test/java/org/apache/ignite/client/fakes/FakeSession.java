@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -241,6 +242,13 @@ public class FakeSession implements AbstractSession {
 
     /** {@inheritDoc} */
     @Override
+    public ZoneId timeZoneId() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @Nullable Object property(String name) {
         return properties == null ? null : properties.get(name);
     }
@@ -276,7 +284,7 @@ public class FakeSession implements AbstractSession {
     }
 
     public Map<String, Object> properties() {
-        //noinspection AssignmentOrReturnOfFieldWithMutableType
+        // noinspection AssignmentOrReturnOfFieldWithMutableType
         return properties;
     }
 }
