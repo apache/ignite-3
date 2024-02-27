@@ -216,7 +216,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         when(checkpointManager.lastCheckpointProgress()).thenReturn(checkpointProgress);
 
-        ByteBuffer pageBuf = mock(ByteBuffer.class);
+        ByteBuffer pageBuf = spy(ByteBuffer.wrap(new byte[deltaFilePageStoreIo.pageSize()]));
 
         checkpointManager.writePageToDeltaFilePageStore(pageMemory, dirtyPageId, pageBuf, true);
 
