@@ -281,7 +281,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void checkIndexBuild(int partitions, int replicas, String indexName) throws Exception {
-        // TODO: IGNITE-20121 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        // TODO: IGNITE-20525 We are waiting for schema synchronization to avoid races to create and destroy indexes
         Map<Integer, List<Ignite>> nodesWithBuiltIndexesByPartitionId = waitForIndexBuild(TABLE_NAME, indexName);
 
         // Check that the number of nodes with built indexes is equal to the number of replicas.
