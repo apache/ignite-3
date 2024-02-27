@@ -83,6 +83,11 @@ public abstract class AbstractMessagingService implements MessagingService {
         doAddMessageHandler(messageGroup, IN_INBOUND_POOL, handler);
     }
 
+    @Override
+    public void addMessageHandler(Class<?> messageGroup, ExecutorChooser<NetworkMessage> executorChooser, NetworkMessageHandler handler) {
+        doAddMessageHandler(messageGroup, executorChooser, handler);
+    }
+
     private void doAddMessageHandler(
             Class<?> messageGroup,
             ExecutorChooser<NetworkMessage> executorChooser,
@@ -110,11 +115,6 @@ public abstract class AbstractMessagingService implements MessagingService {
 
             return new Handlers(messageGroup, handlerContexts);
         });
-    }
-
-    @Override
-    public void addMessageHandler(Class<?> messageGroup, ExecutorChooser<NetworkMessage> executorChooser, NetworkMessageHandler handler) {
-        doAddMessageHandler(messageGroup, executorChooser, handler);
     }
 
     /**
