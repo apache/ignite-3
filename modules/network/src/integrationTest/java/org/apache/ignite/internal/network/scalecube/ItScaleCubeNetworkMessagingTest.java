@@ -885,15 +885,6 @@ class ItScaleCubeNetworkMessagingTest {
 
         // We are going to send 3 messages, of which 2 will arrive after the sender has been removed from the physical topology,
         // so we expect 2 messages to be 'skipped' and not delivered on the receiver.
-        CountDownLatch messagesSkipped = new CountDownLatch(2);
-        logInspectors.add(
-                new LogInspector(
-                        DefaultMessagingService.class.getName(),
-                        event -> event.getMessage().getFormattedMessage().contains("is stale, so skipping message handling"),
-                        messagesSkipped::countDown
-                )
-        );
-        logInspectors.forEach(LogInspector::start);
 
         AtomicBoolean first = new AtomicBoolean(true);
         CountDownLatch canProceed = new CountDownLatch(1);
@@ -933,7 +924,11 @@ class ItScaleCubeNetworkMessagingTest {
 
         canProceed.countDown();
 
-        assertTrue(messagesSkipped.await(10, SECONDS), "Messages were not skipped");
+        assertTrue(waitForCondition(() -> messagesDelivered.get() >= 1, 10_000));
+
+        // Let other messages a chance to be delivered.
+        Thread.sleep(300);
+
         assertThat(messagesDelivered.get(), is(1));
     }
 

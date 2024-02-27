@@ -358,9 +358,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         assert isInNetworkThread() : Thread.currentThread().getName();
 
         if (senderIdIsStale(inNetworkObject)) {
-            LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
-                    inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message()
-            );
+            logMessageSkipDueToSenderLeft(inNetworkObject);
             return;
         }
 
@@ -406,6 +404,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
         });
     }
 
+    private static void logMessageSkipDueToSenderLeft(InNetworkObject inNetworkObject) {
+        LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
+                inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message()
+        );
+    }
+
     private boolean senderIdIsStale(InNetworkObject obj) {
         return staleIdDetector.isIdStale(obj.launchId());
     }
@@ -448,6 +452,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
             HandlerContext firstHandlerContext,
             Iterator<HandlerContext> remainingContexts
     ) {
+        if (senderIdIsStale(obj)) {
+            logMessageSkipDueToSenderLeft(obj);
+            return;
+        }
+
         unmarshalMessage(obj);
 
         String senderConsistentId = obj.consistentId();
