@@ -131,11 +131,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
         this.criticalWorkerRegistry = criticalWorkerRegistry;
 
-        this.outboundExecutor = new CriticalSingleThreadExecutor(
+        outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
-        // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
-        // TODO asch This invariant should be preserved while working on IGNITE-20373
         inboundExecutors = new CriticalLazyStripedExecutor(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
     }
 
