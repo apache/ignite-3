@@ -46,22 +46,22 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     }
 
     @Override
-    protected int schemaColumnIndex(String columnName) {
+    protected int internalIndex(String columnName) {
         ClientColumn column = column(columnName);
 
         return column == null ? -1 : column.schemaIndex();
     }
 
     @Override
-    protected ColumnType schemaColumnType(int columnIndex) {
-        ClientColumn column = schema.columns()[columnIndex];
+    protected ColumnType schemaColumnType(int internalIndex) {
+        ClientColumn column = schema.columns()[internalIndex];
 
         return column.type();
     }
 
     @Override
-    protected int schemaDecimalScale(int columnIndex) {
-        return schema.columns()[columnIndex].scale();
+    protected int schemaDecimalScale(int internalIndex) {
+        return schema.columns()[internalIndex].scale();
     }
 
     @Nullable

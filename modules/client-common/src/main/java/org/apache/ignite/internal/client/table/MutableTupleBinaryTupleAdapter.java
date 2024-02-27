@@ -97,7 +97,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.columnIndex(columnName);
         }
 
-        int internalIndex = schemaColumnIndex(columnName, null);
+        int internalIndex = internalIndex(columnName, null);
 
         return internalIndex < 0 || internalIndex >= schemaSize ? -1 : internalIndex - schemaOffset;
     }
@@ -109,7 +109,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.valueOrDefault(columnName, defaultValue);
         }
 
-        int internalIndex = schemaColumnIndex(columnName, null);
+        int internalIndex = internalIndex(columnName, null);
 
         return internalIndex < 0
                 || internalIndex >= schemaSize
@@ -125,7 +125,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.value(columnName);
         }
 
-        int internalIndex = schemaColumnIndex(columnName, null);
+        int internalIndex = internalIndex(columnName, null);
 
         if (internalIndex < 0 || internalIndex >= schemaSize) {
             throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
@@ -425,14 +425,18 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     protected abstract String schemaColumnName(int internalIndex);
 
-    protected abstract ColumnType schemaColumnType(int columnIndex);
+    protected abstract ColumnType schemaColumnType(int internalIndex);
 
-    protected abstract int schemaDecimalScale(int columnIndex);
+    protected abstract int schemaDecimalScale(int internalIndex);
 
-    protected abstract int schemaColumnIndex(String columnName);
+    protected abstract int internalIndex(String columnName);
 
-    private int schemaColumnIndex(String columnName, @Nullable ColumnType type) {
-        var internalIndex = schemaColumnIndex(columnName);
+    protected abstract int internalIndex(int publicIndex);
+
+    protected abstract int publicIndex(int internalIndex);
+
+    private int internalIndex(String columnName, @Nullable ColumnType type) {
+        var internalIndex = internalIndex(columnName);
 
         if (internalIndex < 0) {
             return internalIndex;
@@ -451,7 +455,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     }
 
     private int validateSchemaColumnType(String columnName, ColumnType type) {
-        var index = schemaColumnIndex(columnName, type);
+        var index = internalIndex(columnName, type);
 
         if (index < 0) {
             throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');

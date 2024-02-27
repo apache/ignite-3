@@ -70,22 +70,22 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaColumnIndex(String columnName) {
+    protected int internalIndex(String columnName) {
         Column column = schema.column(columnName);
         return column == null ? -1 : column.schemaIndex();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected ColumnType schemaColumnType(int columnIndex) {
-        NativeTypeSpec spec = schema.column(columnIndex).type().spec();
+    protected ColumnType schemaColumnType(int internalIndex) {
+        NativeTypeSpec spec = schema.column(internalIndex).type().spec();
 
         return ClientTableCommon.getColumnType(spec);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaDecimalScale(int columnIndex) {
-        return ClientTableCommon.getDecimalScale(schema.column(columnIndex).type());
+    protected int schemaDecimalScale(int internalIndex) {
+        return ClientTableCommon.getDecimalScale(schema.column(internalIndex).type());
     }
 }
