@@ -459,7 +459,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(RunnableX task) {
+    public static CompletableFuture<Void> runAsync(RunnableX task) {
         return runAsync(task, "async-runnable-runner");
     }
 
@@ -469,7 +469,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(RunnableX task, String threadName) {
+    public static CompletableFuture<Void> runAsync(RunnableX task, String threadName) {
         return runAsync(() -> {
             try {
                 task.run();
