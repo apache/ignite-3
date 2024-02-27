@@ -328,9 +328,6 @@ public class ClientTupleSerializer {
     }
 
     static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
-        // TODO: How do we represent a key-only BinaryTuple?
-        // 1. Null non-key columns
-        // 2. Only key columns (different schema basically) <-- this one.
         var columns = keyOnly ? schema.keyColumns() : schema.columns();
         var binTuple = new BinaryTupleReader(columns.length, in.readBinary());
 
@@ -338,12 +335,9 @@ public class ClientTupleSerializer {
     }
 
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
-        var keyColCnt = schema.keyColumnCount();
-        var colCnt = schema.columns().length;
+        var binTuple = new BinaryTupleReader(schema.columns().length, in.readBinary());
 
-        var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
-
-        return new ClientTuple(schema, binTuple, keyColCnt, colCnt);
+        return new ClientTuple(schema, schema.valColumns(), binTuple);
     }
 
     private static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {

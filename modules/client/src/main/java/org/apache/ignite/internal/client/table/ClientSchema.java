@@ -46,6 +46,8 @@ public class ClientSchema {
 
     private final ClientColumn[] keyColumns;
 
+    private final ClientColumn[] valColumns;
+
     /** Colocation columns. */
     private final ClientColumn[] colocationColumns;
 
@@ -85,6 +87,16 @@ public class ClientSchema {
             map.put(col.name(), col);
         }
 
+        int valColumnCount = columns.length - keyColumns.length;
+        this.valColumns = new ClientColumn[valColumnCount];
+
+        int idx = 0;
+        for (var col : columns) {
+            if (!col.key()) {
+                this.valColumns[idx++] = col;
+            }
+        }
+
         // TODO:
         // * Preserve column order from SchemaDescriptor
         // * Remove logic "key columns come first"
@@ -115,6 +127,15 @@ public class ClientSchema {
      */
     ClientColumn[] keyColumns() {
         return keyColumns;
+    }
+
+    /**
+     * Returns key columns.
+     *
+     * @return Key columns.
+     */
+    ClientColumn[] valColumns() {
+        return valColumns;
     }
 
     /**
