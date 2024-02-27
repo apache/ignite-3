@@ -63,7 +63,7 @@ public class ClientTupleTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
             new ClientColumn("ID", ColumnType.INT64, false, 0, 0, 0),
             new ClientColumn("NAME", ColumnType.STRING, false, -1, -1, 1)
-    }, null, marshallers);
+    }, null, null, marshallers);
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
             new ClientColumn("I8", ColumnType.INT8, false, -1, -1, 0),

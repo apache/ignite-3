@@ -67,14 +67,11 @@ public class ClientSchema {
      *
      * @param ver Schema version.
      * @param columns Columns.
-     * @param colocationColumns Colocation columns. When null, all key columns are used.
      * @param marshallers Marshallers provider.
      */
     public ClientSchema(
             int ver,
             ClientColumn[] columns,
-            ClientColumn @Nullable [] keyColumns,
-            ClientColumn @Nullable [] colocationColumns,
             MarshallersProvider marshallers) {
         assert ver >= 0;
         assert columns != null;
