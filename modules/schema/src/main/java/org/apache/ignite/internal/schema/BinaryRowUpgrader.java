@@ -38,13 +38,13 @@ public class BinaryRowUpgrader {
     }
 
     /**
-     * Returns an upgraded {@link BinaryRow} to the required schema version, or the {@code source} if its schema version is equal to the
-     * required schema version.
+     * Returns an upgraded {@link BinaryRow} to the required schema version, or the {@code source} if its schema version is greater than or
+     * equal to to the required schema version.
      *
      * @param source Source binary row.
      */
     public BinaryRow upgrade(BinaryRow source) {
-        if (source.schemaVersion() == targetSchema.version()) {
+        if (source.schemaVersion() >= targetSchema.version()) {
             return source;
         }
 

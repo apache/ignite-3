@@ -56,6 +56,16 @@ public class BinaryRowUpgraderTest {
             }
     );
 
+    private static final SchemaDescriptor DEFAULT_COLUMN_CHANGED = new SchemaDescriptor(
+            4,
+            new Column[]{new Column("k", INT32, false)},
+            new Column[]{
+                    new Column("v", INT32, true),
+                    new Column("vLong", INT64, true),
+                    new Column("s", STRING, true, DefaultValueProvider.constantProvider("bar"))
+            }
+    );
+
     private static final SchemaRegistry SCHEMA_REGISTRY = new SchemaRegistryImpl(schemaVersion -> {
         if (ORIGINAL_SCHEMA.version() == schemaVersion) {
             return ORIGINAL_SCHEMA;
@@ -63,6 +73,8 @@ public class BinaryRowUpgraderTest {
             return NULLABLE_COLUMN_ADDED;
         } else if (DEFAULTED_COLUMN_ADDED.version() == schemaVersion) {
             return DEFAULTED_COLUMN_ADDED;
+        } else if (DEFAULT_COLUMN_CHANGED.version() == schemaVersion) {
+            return DEFAULT_COLUMN_CHANGED;
         }
 
         return null;
@@ -72,6 +84,7 @@ public class BinaryRowUpgraderTest {
     static void beforeAll() {
         NULLABLE_COLUMN_ADDED.columnMapping(SchemaUtils.columnMapper(ORIGINAL_SCHEMA, NULLABLE_COLUMN_ADDED));
         DEFAULTED_COLUMN_ADDED.columnMapping(SchemaUtils.columnMapper(NULLABLE_COLUMN_ADDED, DEFAULTED_COLUMN_ADDED));
+        DEFAULT_COLUMN_CHANGED.columnMapping(SchemaUtils.columnMapper(DEFAULTED_COLUMN_ADDED, DEFAULT_COLUMN_CHANGED));
     }
 
     @Test
@@ -95,6 +108,13 @@ public class BinaryRowUpgraderTest {
         BinaryRow expected = binaryRow(DEFAULTED_COLUMN_ADDED, 1, 2, 10L, "foo");
 
         assertThat(upgradeRow(DEFAULTED_COLUMN_ADDED, source), equalToRow(expected));
+    }
+
+    @Test
+    void testDontDowngradeSourceBinaryRow() {
+        BinaryRow source = binaryRow(DEFAULT_COLUMN_CHANGED, 1, 2, 10L, "bar");
+
+        assertThat(upgradeRow(DEFAULTED_COLUMN_ADDED, source), sameInstance(source));
     }
 
     private static BinaryRow binaryRow(SchemaDescriptor schema, Object... values) {
