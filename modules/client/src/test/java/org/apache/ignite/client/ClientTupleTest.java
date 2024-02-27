@@ -61,31 +61,31 @@ public class ClientTupleTest {
     private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("ID", ColumnType.INT64, false, true, 0, 0),
-            new ClientColumn("NAME", ColumnType.STRING, false, false, -1, 1)
+            new ClientColumn("ID", ColumnType.INT64, false, 0, 0, 0),
+            new ClientColumn("NAME", ColumnType.STRING, false, -1, -1, 1)
     }, null, marshallers);
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
-            new ClientColumn("I8", ColumnType.INT8, false, false, -1, 0),
-            new ClientColumn("I16", ColumnType.INT16, false, false, -1, 1),
-            new ClientColumn("I32", ColumnType.INT32, false, false, -1, 2),
-            new ClientColumn("I64", ColumnType.INT64, false, false, -1, 3),
-            new ClientColumn("FLOAT", ColumnType.FLOAT, false, false, -1, 4),
-            new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, false, -1, 5),
-            new ClientColumn("UUID", ColumnType.UUID, false, false, -1, 6),
-            new ClientColumn("STR", ColumnType.STRING, false, false, -1, 7),
-            new ClientColumn("BITS", ColumnType.BITMASK, false, false, -1, 8),
-            new ClientColumn("DATE", ColumnType.DATE, false, false, -1, 9),
-            new ClientColumn("TIME", ColumnType.TIME, false, false, -1, 10),
-            new ClientColumn("DATETIME", ColumnType.DATETIME, false, false, -1, 11),
-            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, false, -1, 12),
-            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, false, -1, 13),
-            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, false, -1, 14),
-            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, false, -1, 15),
-            new ClientColumn("PERIOD", ColumnType.PERIOD, false, false, -1, 16),
-            new ClientColumn("DURATION", ColumnType.DURATION, false, false, -1, 17),
-            new ClientColumn("NUMBER", ColumnType.NUMBER, false, false, -1, 18)
-    }, null, marshallers);
+            new ClientColumn("I8", ColumnType.INT8, false, -1, -1, 0),
+            new ClientColumn("I16", ColumnType.INT16, false, -1, -1, 1),
+            new ClientColumn("I32", ColumnType.INT32, false, -1, -1, 2),
+            new ClientColumn("I64", ColumnType.INT64, false, -1, -1, 3),
+            new ClientColumn("FLOAT", ColumnType.FLOAT, false, -1, -1, 4),
+            new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, -1, -1, 5),
+            new ClientColumn("UUID", ColumnType.UUID, false, -1, -1, 6),
+            new ClientColumn("STR", ColumnType.STRING, false, -1, -1, 7),
+            new ClientColumn("BITS", ColumnType.BITMASK, false, -1, -1, 8),
+            new ClientColumn("DATE", ColumnType.DATE, false, -1, -1, 9),
+            new ClientColumn("TIME", ColumnType.TIME, false, -1, -1, 10),
+            new ClientColumn("DATETIME", ColumnType.DATETIME, false, -1, -1, 11),
+            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, -1, -1, 12),
+            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, -1, -1, 13),
+            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, -1, -1, 14),
+            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, -1, -1, 15),
+            new ClientColumn("PERIOD", ColumnType.PERIOD, false, -1, -1, 16),
+            new ClientColumn("DURATION", ColumnType.DURATION, false, -1, -1, 17),
+            new ClientColumn("NUMBER", ColumnType.NUMBER, false, -1, -1, 18)
+    }, new ClientColumn[0], null, marshallers);
 
     private static final UUID GUID = UUID.randomUUID();
 
@@ -309,7 +309,7 @@ public class ClientTupleTest {
 
         var binTuple = new BinaryTupleReader(SCHEMA.columns().length, binTupleBuf);
 
-        return new ClientTuple(SCHEMA, binTuple, 0, SCHEMA.columns().length);
+        return new ClientTuple(SCHEMA, SCHEMA.columns(), binTuple);
     }
 
     private static ClientTuple createFullSchemaTuple() {
@@ -337,6 +337,6 @@ public class ClientTupleTest {
 
         var binTuple = new BinaryTupleReader(FULL_SCHEMA.columns().length, binTupleBuf);
 
-        return new ClientTuple(FULL_SCHEMA, binTuple, 0, FULL_SCHEMA.columns().length);
+        return new ClientTuple(FULL_SCHEMA, FULL_SCHEMA.columns(), binTuple);
     }
 }
