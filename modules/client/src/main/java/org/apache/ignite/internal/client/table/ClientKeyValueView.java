@@ -79,7 +79,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
      * @param keyMapper Key mapper.
      * @param valMapper value mapper.
      */
-    public ClientKeyValueView(ClientTable tbl, Mapper<K> keyMapper, Mapper<V> valMapper) {
+    ClientKeyValueView(ClientTable tbl, Mapper<K> keyMapper, Mapper<V> valMapper) {
         super(tbl);
 
         assert keyMapper != null;
@@ -547,7 +547,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
                     for (Entry<K, V> e : items) {
                         boolean del = deleted != null && deleted.get(i++);
-                        int colCount = del ? s.keyColumnCount() : s.columns().length;
+                        int colCount = del ? s.keyColumns().length : s.columns().length;
 
                         noValueSet.clear();
                         var builder = new BinaryTupleBuilder(colCount);
@@ -576,8 +576,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
-        String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
-        String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
+        // TODO: Cache column names in schema?
+        String[] keyCols = columnNames(schema.keyColumns());
+        String[] valCols = columnNames(schema.valColumns());
 
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);

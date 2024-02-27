@@ -67,17 +67,13 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
      * Map columns to it's names.
      *
      * @param columns Target columns.
-     * @param startInclusive The first index to cover.
-     * @param endExclusive Index immediately past the last index to cover.
      * @return Column names.
      */
-    protected static String[] columnNames(ClientColumn[] columns, int startInclusive, int endExclusive) {
-        int sz = endExclusive - startInclusive;
+    protected static String[] columnNames(ClientColumn[] columns) {
+        String[] columnNames = new String[columns.length];
 
-        String[] columnNames = new String[sz];
-
-        for (int i = 0; i < sz; i++) {
-            columnNames[i] = columns[startInclusive + i].name();
+        for (int i = 0; i < columns.length; i++) {
+            columnNames[i] = columns[i].name();
         }
 
         return columnNames;
