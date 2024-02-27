@@ -63,7 +63,7 @@ public class ClientTupleTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
             new ClientColumn("ID", ColumnType.INT64, false, 0, 0, 0),
             new ClientColumn("NAME", ColumnType.STRING, false, -1, -1, 1)
-    }, null, null, marshallers);
+    }, marshallers);
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
             new ClientColumn("I8", ColumnType.INT8, false, -1, -1, 0),
@@ -85,7 +85,7 @@ public class ClientTupleTest {
             new ClientColumn("PERIOD", ColumnType.PERIOD, false, -1, -1, 16),
             new ClientColumn("DURATION", ColumnType.DURATION, false, -1, -1, 17),
             new ClientColumn("NUMBER", ColumnType.NUMBER, false, -1, -1, 18)
-    }, null, null, marshallers);
+    }, marshallers);
 
     private static final UUID GUID = UUID.randomUUID();
 

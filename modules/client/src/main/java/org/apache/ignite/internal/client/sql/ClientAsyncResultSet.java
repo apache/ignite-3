@@ -320,7 +320,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             schemaColumns[i] = schemaColumn;
         }
 
-        var schema = new ClientSchema(0, schemaColumns, null, null, marshallers);
+        var schema = new ClientSchema(0, schemaColumns, marshallers);
         return schema.getMarshaller(mapper);
     }
 }
