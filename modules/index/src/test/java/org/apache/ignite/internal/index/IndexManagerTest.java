@@ -345,10 +345,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectedIndexes = collectIndexesForRecovery();
 
-        CatalogTableDescriptor table = table(catalogManager.latestCatalogVersion(), TABLE_NAME);
-
-        assertThat(collectedIndexes, aMapWithSize(1));
-        assertThat(collectedIndexes, hasKey(table));
+        assertThat(collectedIndexes, aMapWithSize(2));
+        assertThat(collectedIndexes.keySet().stream().map(CatalogTableDescriptor::name).collect(toList()),
+                hasItems(TABLE_NAME, OTHER_TABLE_NAME));
+        assertThat(collectedIndexes.values().stream().flatMap(Collection::stream).map(CatalogIndexDescriptor::name).collect(toList()),
+                hasItems(PK_INDEX_NAME, PK_INDEX_NAME_OTHER_TABLE));
     }
 
     @Test

@@ -54,6 +54,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -94,7 +95,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
@@ -567,8 +568,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return onTableCreate((CreateTableEventParameters) parameters).thenApply(unused -> false);
             });
 
-            catalogService.listen(CatalogEvent.TABLE_DROP, parameters -> {
-                return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
+            catalogService.listen(CatalogEvent.TABLE_DESTROY, parameters -> {
+                return onTableDestroy(((DestroyTableEventParameters) parameters)).thenApply(unused -> false);
             });
 
             catalogService.listen(CatalogEvent.TABLE_ALTER, parameters -> {
@@ -713,17 +714,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<Void> onTableDelete(DropTableEventParameters parameters) {
+    private CompletableFuture<Void> onTableDestroy(DestroyTableEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            long causalityToken = parameters.causalityToken();
-            int catalogVersion = parameters.catalogVersion();
-
-            int tableId = parameters.tableId();
-
-            CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion - 1);
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion - 1);
-
-            dropTableLocally(causalityToken, tableDescriptor, zoneDescriptor);
+            dropTableLocally(parameters.causalityToken(), parameters);
 
             return nullCompletedFuture();
         });
@@ -1374,12 +1367,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Drops local structures for a table.
      *
      * @param causalityToken Causality token.
-     * @param tableDescriptor Catalog table descriptor.
-     * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param parameters Destroy table event parameters.
      */
-    private void dropTableLocally(long causalityToken, CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-        int tableId = tableDescriptor.id();
-        int partitions = zoneDescriptor.partitions();
+    private void dropTableLocally(long causalityToken, DestroyTableEventParameters parameters) {
+        int tableId = parameters.tableId();
+        int partitions = parameters.partitions();
 
         localPartsByTableIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1425,8 +1417,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             ioExecutor
                     ).thenApply(v -> map);
         }));
-
-        schemaManager.dropRegistry(causalityToken, tableId);
 
         startedTables.remove(tableId);
 
@@ -2357,13 +2347,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void startTables(long recoveryRevision) {
         sharedTxStateStorage.start();
 
-        int catalogVersion = catalogService.latestCatalogVersion();
+        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
 
+        var startedTables = new IntOpenHashSet();
         List<CompletableFuture<?>> startTableFutures = new ArrayList<>();
 
         // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from volt and metastore
-        for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
-            startTableFutures.add(createTableLocally(recoveryRevision, catalogVersion, tableDescriptor));
+        for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
+            int ver0 = ver;
+            catalogService.tables(ver).stream()
+                    .filter(tbl -> startedTables.add(tbl.id()))
+                    .forEach(tableDescriptor -> startTableFutures.add(createTableLocally(recoveryRevision, ver0, tableDescriptor)));
         }
 
         // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
