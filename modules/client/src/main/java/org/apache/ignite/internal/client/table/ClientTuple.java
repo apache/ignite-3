@@ -40,6 +40,9 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     public ClientTuple(ClientSchema schema, TuplePart part, BinaryTupleReader tuple) {
         super(tuple, schema.columns(part).length, null);
 
+        assert tuple.elementCount() <= schema.columns().length : "Tuple element count is greater than schema column count: [tuple=" +
+            tuple.elementCount() + ", schema=" + schema.columns().length + ']';
+
         this.schema = schema;
         this.part = part;
     }

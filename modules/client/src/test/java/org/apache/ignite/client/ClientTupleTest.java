@@ -314,6 +314,10 @@ public class ClientTupleTest {
     }
 
     private static ClientTuple createFullSchemaTuple() {
+        return createFullSchemaTuple(TuplePart.KEY_AND_VAL);
+    }
+
+    private static ClientTuple createFullSchemaTuple(TuplePart part) {
         var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
                 .appendByte((byte) 1)
                 .appendShort((short) 2)
@@ -338,6 +342,6 @@ public class ClientTupleTest {
 
         var binTuple = new BinaryTupleReader(FULL_SCHEMA.columns().length, binTupleBuf);
 
-        return new ClientTuple(FULL_SCHEMA, TuplePart.KEY_AND_VAL, binTuple);
+        return new ClientTuple(FULL_SCHEMA, part, binTuple);
     }
 }
