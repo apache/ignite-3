@@ -576,7 +576,6 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
-        // TODO: Cache column names in schema?
         String[] keyCols = columnNames(schema.keyColumns());
         String[] valCols = columnNames(schema.valColumns());
 
