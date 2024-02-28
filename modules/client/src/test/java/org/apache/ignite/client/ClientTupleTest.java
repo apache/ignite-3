@@ -306,10 +306,10 @@ public class ClientTupleTest {
     public void testKeyOnlyTupleEquality() {
         var keyTupleFullData = createFullSchemaTuple(TuplePart.KEY, false);
         var keyTupleKeyData = createFullSchemaTuple(TuplePart.KEY, true);
-        var keyTupleUser = Tuple.create().set("I32", 3).set("I64", 4).set("STR", "8");
+        var keyTupleUser = Tuple.create().set("I32", 3).set("I64", 4L).set("STR", "8");
 
-        assertEquals(keyTupleFullData, keyTupleKeyData);
-        assertEquals(keyTupleFullData, keyTupleUser);
+        assertEquals(keyTupleUser, keyTupleFullData);
+        assertEquals(keyTupleUser, keyTupleKeyData);
     }
 
     private static Tuple createTuple() {
