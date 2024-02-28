@@ -990,7 +990,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 catalogService,
                 executorInclinedPlacementDriver,
                 clusterService.topologyService(),
-                remotelyTriggeredResourceRegistry
+                remotelyTriggeredResourceRegistry,
+                schemaManager.schemaRegistry(tableId)
         );
     }
 
