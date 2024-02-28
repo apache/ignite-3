@@ -39,7 +39,6 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
      * @param schema Schema.
      * @param part Schema part.
      * @param binaryTuple Tuple.
-     * When false, only the columns corresponding to the part are present.
      */
     public ClientTuple(ClientSchema schema, TuplePart part, BinaryTupleReader binaryTuple) {
         super(binaryTuple, schema.columns(part).length, null);
@@ -48,7 +47,6 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
                 : "Binary tuple element count is greater than schema column count: [binaryTuple="
                 + binaryTuple.elementCount() + ", schema=" + schema.columns().length + ']';
 
-        // TODO: This class does not work correctly with key-only tuples when keys are not in the beginning of the binaryTuple (e.g. RemoveAll).
         this.schema = schema;
         this.part = part;
         this.fullBinaryTuple = binaryTuple.elementCount() == schema.columns().length;
