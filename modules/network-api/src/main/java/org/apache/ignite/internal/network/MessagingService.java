@@ -234,6 +234,8 @@ public interface MessagingService {
      * on this executor. It will be chosen before @{@link Marshallable} fields of the message are unmarshalled, so they will be {@code null}
      * from the point of view of the chooser.
      *
+     * <p>The executor chooser is invoked in a network I/O thread, so it must never block.
+     *
      * @param messageGroup Message group descriptor.
      * @param executorChooser Will choose an {@link Executor} on which to handle a message. It will be called before @{@link Marshallable}
      *     fields are unmarshalled, so they will be {@code null} from the point of view of the chooser.
