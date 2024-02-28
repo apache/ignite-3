@@ -464,7 +464,11 @@ public class IgniteImpl implements Ignite {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        ReplicaService replicaSvc = new ReplicaService(messagingServiceReturningToStorageOperationsPool, clock);
+        ReplicaService replicaSvc = new ReplicaService(
+                messagingServiceReturningToStorageOperationsPool,
+                clock,
+                threadPoolsManager.partitionOperationsExecutor()
+        );
 
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));

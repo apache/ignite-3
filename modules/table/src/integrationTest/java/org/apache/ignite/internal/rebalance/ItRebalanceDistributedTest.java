@@ -1037,7 +1037,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             ));
 
-            ReplicaService replicaSvc = new ReplicaService(clusterService.messagingService(), hybridClock);
+            ReplicaService replicaSvc = new ReplicaService(
+                    clusterService.messagingService(),
+                    hybridClock,
+                    threadPoolsManager.partitionOperationsExecutor()
+            );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 

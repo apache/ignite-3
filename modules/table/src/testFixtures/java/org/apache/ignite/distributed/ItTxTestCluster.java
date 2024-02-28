@@ -387,7 +387,8 @@ public class ItTxTestCluster {
 
             ReplicaService replicaSvc = spy(new ReplicaService(
                     cluster.get(i).messagingService(),
-                    clock
+                    clock,
+                    partitionOperationsExecutor
             ));
 
             replicaServices.put(node.name(), replicaSvc);
@@ -900,7 +901,8 @@ public class ItTxTestCluster {
 
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
-                clientClock
+                clientClock,
+                partitionOperationsExecutor
         ));
 
         LOG.info("The client has been started");

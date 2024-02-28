@@ -26,6 +26,8 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -42,6 +44,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
@@ -53,6 +56,8 @@ public class ReplicaService {
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
+
+    private final Executor partitionOperationsExecutor;
 
     /** Requests to retry. */
     private final Map<String, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
@@ -66,9 +71,21 @@ public class ReplicaService {
      * @param messagingService Cluster message service.
      * @param clock A hybrid logical clock.
      */
+    @TestOnly
     public ReplicaService(MessagingService messagingService, HybridClock clock) {
+        this(messagingService, clock, ForkJoinPool.commonPool());
+    }
+
+    /**
+     * The constructor of replica client.
+     *
+     * @param messagingService Cluster message service.
+     * @param clock A hybrid logical clock.
+     */
+    public ReplicaService(MessagingService messagingService, HybridClock clock, Executor partitionOperationsExecutor) {
         this.messagingService = messagingService;
         this.clock = clock;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
     /**
@@ -89,7 +106,8 @@ public class ReplicaService {
                 throwable = unwrapCause(throwable);
 
                 if (throwable instanceof TimeoutException) {
-                    res.completeExceptionally(new ReplicationTimeoutException(req.groupId()));
+                    // As a timeout has happened, we are probably on the system delayer thread, we should leave it.
+                    partitionOperationsExecutor.execute(() -> res.completeExceptionally(new ReplicationTimeoutException(req.groupId())));
                 } else {
                     res.completeExceptionally(withCause(
                             ReplicationException::new,

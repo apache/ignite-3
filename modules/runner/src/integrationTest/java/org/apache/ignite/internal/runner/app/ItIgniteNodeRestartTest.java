@@ -359,7 +359,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        var replicaService = new ReplicaService(messagingServiceReturningToStorageOperationsPool, hybridClock);
+        var replicaService = new ReplicaService(
+                messagingServiceReturningToStorageOperationsPool,
+                hybridClock,
+                threadPoolsManager.partitionOperationsExecutor()
+        );
 
         var lockManager = new HeapLockManager();
 
