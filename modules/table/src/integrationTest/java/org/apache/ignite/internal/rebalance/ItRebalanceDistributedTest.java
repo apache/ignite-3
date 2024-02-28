@@ -682,7 +682,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n ->
                         n.tableManager
-                                .latestTables()
+                                .startedTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
                                 .tableRaftService()
@@ -738,7 +738,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n ->
                         n.tableManager
-                                .latestTables()
+                                .startedTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
                                 .tableRaftService()
@@ -823,7 +823,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     try {
                         return nodes.stream().allMatch(n ->
                                 n.tableManager
-                                        .latestTables()
+                                        .startedTables()
                                         .get(getTableId(n, tableName))
                                         .internalTable()
                                         .tableRaftService()
