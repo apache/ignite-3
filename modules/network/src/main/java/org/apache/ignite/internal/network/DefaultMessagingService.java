@@ -500,10 +500,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return wantsInboundPool(handlerContext.executorChooser());
     }
 
-    private static boolean wantsInboundPool(ExecutorChooser<NetworkMessage> executorChooser) {
-        return executorChooser == IN_INBOUND_POOL;
-    }
-
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
         if (e instanceof UnresolvableConsistentIdException && obj.message() instanceof InvokeRequest) {
             LOG.info("onMessage() failed while processing {} from {} as the sender has left the topology",

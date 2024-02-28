@@ -93,7 +93,11 @@ public abstract class AbstractMessagingService implements MessagingService {
             ExecutorChooser<NetworkMessage> executorChooser,
             NetworkMessageHandler handler
     ) {
-        HandlerContext newHandlerContext = new HandlerContext(new TrackableNetworkMessageHandler(handler), executorChooser);
+        // Only track handling time if the handling is going to happen in an inbound thread. If there is a
+        // custom executor chooser, then the chosen executor is probably ready for long processing if it happens.
+        NetworkMessageHandler handlerToAdd = wantsInboundPool(executorChooser)
+                ? new TrackableNetworkMessageHandler(handler) : handler;
+        HandlerContext newHandlerContext = new HandlerContext(handlerToAdd, executorChooser);
 
         handlersByGroupType.getAndUpdate(getMessageGroupType(messageGroup), oldHandlers -> {
             if (oldHandlers == null) {
@@ -115,6 +119,10 @@ public abstract class AbstractMessagingService implements MessagingService {
 
             return new Handlers(messageGroup, handlerContexts);
         });
+    }
+
+    protected static boolean wantsInboundPool(ExecutorChooser<NetworkMessage> executorChooser) {
+        return executorChooser == IN_INBOUND_POOL;
     }
 
     /**
