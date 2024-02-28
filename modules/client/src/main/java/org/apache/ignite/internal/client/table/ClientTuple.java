@@ -74,6 +74,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     }
 
     private int internalIndex(@Nullable ClientColumn column) {
+        // TODO: There is a mix up between publicIndex, internalIndex and schemaIndex!
         if (column == null) {
             return -1;
         }
