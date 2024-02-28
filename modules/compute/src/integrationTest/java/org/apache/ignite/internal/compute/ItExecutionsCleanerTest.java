@@ -34,7 +34,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.network.ClusterNode;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
@@ -67,8 +67,9 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
                 + "}";
     }
 
-    @BeforeAll
+    @BeforeEach
     void setUp() {
+        // Get new references before each test since node can be restarted.
         IgniteImpl localNode = CLUSTER.node(0);
         IgniteImpl remoteNode = CLUSTER.node(1);
 
