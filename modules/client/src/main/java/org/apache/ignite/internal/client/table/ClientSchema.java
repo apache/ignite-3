@@ -30,7 +30,6 @@ import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -201,11 +200,11 @@ public class ClientSchema {
      * @param name Column name.
      * @return Column by name.
      */
-    public @Nullable ClientColumn columnSafe(String name) {
+    @Nullable ClientColumn columnSafe(String name) {
         return map.get(name);
     }
 
-    public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
+    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
         return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 
@@ -253,7 +252,6 @@ public class ClientSchema {
         return res;
     }
 
-    @NotNull
     private static MarshallerColumn marshallerColumn(ClientColumn col) {
         return new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
     }
