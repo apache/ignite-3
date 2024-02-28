@@ -31,11 +31,15 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
 
     private final TuplePart part;
 
+    private final boolean fullBinaryTuple;
+
     /**
      * Constructor.
      *
      * @param schema Schema.
+     * @param part Schema part.
      * @param binaryTuple Tuple.
+     * When false, only the columns corresponding to the part are present.
      */
     public ClientTuple(ClientSchema schema, TuplePart part, BinaryTupleReader binaryTuple) {
         super(binaryTuple, schema.columns(part).length, null);
@@ -47,6 +51,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
         // TODO: This class does not work correctly with key-only tuples when keys are not in the beginning of the binaryTuple (e.g. RemoveAll).
         this.schema = schema;
         this.part = part;
+        this.fullBinaryTuple = part == TuplePart.KEY_AND_VAL && binaryTuple.elementCount() == schema.columns().length;
     }
 
     @Override
@@ -56,9 +61,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected int internalIndex(String columnName) {
-        ClientColumn column = column(columnName);
-
-        return column == null ? -1 : column.schemaIndex();
+        return internalIndex(column(columnName));
     }
 
     @Override
@@ -67,8 +70,23 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
             return publicIndex;
         }
 
-        return schema.columns(part)[publicIndex].schemaIndex();
+        return internalIndex(schema.columns(part)[publicIndex]);
     }
+
+    private int internalIndex(@Nullable ClientColumn column) {
+        if (column == null) {
+            return -1;
+        }
+
+        if (fullBinaryTuple) {
+            return column.schemaIndex();
+        }
+
+        return part == TuplePart.KEY
+                ? column.keyIndex()
+                : column.valIndex();
+    }
+
 
     @Override
     protected int publicIndex(int internalIndex) {
