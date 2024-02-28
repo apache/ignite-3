@@ -43,6 +43,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
         assert tuple.elementCount() <= schema.columns().length : "Tuple element count is greater than schema column count: [tuple="
                 + tuple.elementCount() + ", schema=" + schema.columns().length + ']';
 
+        // TODO: This class does not work correctly with key-only tuples when keys are not in the beginning of the tuple (e.g. RemoveAll).
         this.schema = schema;
         this.part = part;
     }
