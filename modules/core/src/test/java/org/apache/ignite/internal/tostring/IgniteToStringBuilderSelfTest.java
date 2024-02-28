@@ -270,7 +270,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
             testArr(val, limit);
         }
 
-        //noinspection ZeroLengthArrayAllocation
+        // noinspection ZeroLengthArrayAllocation
         int[] intArr1 = new int[0];
 
         assertEquals("[]", IgniteToStringBuilder.arrayToString(intArr1));
@@ -567,13 +567,13 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         String strRep = wr.toString();
 
-        //field before faulty field was written successfully to string representation
+        // field before faulty field was written successfully to string representation
         assertTrue(strRep.contains("id=12345"));
 
-        //message from RuntimeException was written to string representation
+        // message from RuntimeException was written to string representation
         assertTrue(strRep.contains("toString failed"));
 
-        //field after faulty field was written successfully to string representation
+        // field after faulty field was written successfully to string representation
         assertTrue(strRep.contains("str=str"));
     }
 

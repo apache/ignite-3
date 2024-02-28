@@ -215,6 +215,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());
 
         when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
         when(indexDescriptor.id()).thenReturn(PK_INDEX_ID);
@@ -257,7 +258,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 catalogService,
                 new TestPlacementDriver(localNode),
                 mock(ClusterNodeResolver.class),
-                new RemotelyTriggeredResourceRegistry(mock(ClusterNodeResolver.class), new TxScheduledCleanupManager(localNode.name()))
+                new RemotelyTriggeredResourceRegistry(mock(ClusterNodeResolver.class), new TxScheduledCleanupManager(localNode.name())),
+                schemaManager
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

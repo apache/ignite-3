@@ -171,7 +171,7 @@ public class UpdateLogImpl implements UpdateLog {
         } catch (MarshallerException ex) {
             LOG.warn("Failed to append update log.", ex);
 
-            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+            // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
             return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
@@ -217,7 +217,7 @@ public class UpdateLogImpl implements UpdateLog {
         } catch (MarshallerException ex) {
             LOG.warn("Failed to append update log.", ex);
 
-            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+            // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
             return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
@@ -309,7 +309,7 @@ public class UpdateLogImpl implements UpdateLog {
                 } catch (MarshallerException ex) {
                     LOG.warn("Failed to deserialize update.", ex);
 
-                    //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+                    // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
                     return failedFuture(ex);
                 }
             }

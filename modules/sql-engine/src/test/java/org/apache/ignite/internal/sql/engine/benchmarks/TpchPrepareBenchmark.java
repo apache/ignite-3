@@ -107,7 +107,7 @@ public class TpchPrepareBenchmark {
      */
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
-                //.addProfiler("gc")
+                // .addProfiler("gc")
                 .include(TpchPrepareBenchmark.class.getName())
                 .build();
 

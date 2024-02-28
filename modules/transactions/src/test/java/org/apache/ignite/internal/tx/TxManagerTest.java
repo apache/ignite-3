@@ -644,7 +644,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertSame(TransactionException.class, throwable.getClass());
         // short cast is useful for better error code readability
-        //noinspection NumericCastThatLosesPrecision
+        // noinspection NumericCastThatLosesPrecision
         assertEquals((short) TX_COMMIT_ERR, (short) ((TransactionException) throwable).code());
 
         assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());
@@ -749,7 +749,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertSame(TransactionException.class, throwable.getClass());
         // short cast is useful for better error code readability
-        //noinspection NumericCastThatLosesPrecision
+        // noinspection NumericCastThatLosesPrecision
         assertEquals((short) TX_PRIMARY_REPLICA_EXPIRED_ERR, (short) ((TransactionException) throwable).code());
 
         assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());

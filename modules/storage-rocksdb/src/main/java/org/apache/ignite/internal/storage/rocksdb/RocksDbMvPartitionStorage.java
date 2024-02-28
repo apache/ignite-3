@@ -231,7 +231,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                                 lastAppliedIndex = state.pendingAppliedIndex;
                                 lastAppliedTerm = state.pendingAppliedTerm;
                             }
-                            //noinspection ArrayEquality
+                            // noinspection ArrayEquality
                             if (oldGroupConfig != state.pendingGroupConfig) {
                                 lastGroupConfig = state.pendingGroupConfig;
                             }
@@ -304,7 +304,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-        //TODO Complicated code.
+        // TODO Complicated code.
         if (state != null) {
             state.pendingAppliedIndex = lastAppliedIndex;
             state.pendingAppliedTerm = lastAppliedTerm;
@@ -351,7 +351,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-        //TODO Complicated code.
+        // TODO Complicated code.
         if (state != null) {
             state.pendingGroupConfig = config.clone();
         }
@@ -479,7 +479,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 byte[] previousValue = writeBatch.getFromBatchAndDB(db, helper.partCf, readOpts, keyBytes);
 
                 if (previousValue == null) {
-                    //the chain doesn't contain an uncommitted write intent
+                    // The chain doesn't contain an uncommitted write intent.
                     return null;
                 }
 
@@ -569,7 +569,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // We only write tombstone if the previous value for the same row id was not a tombstone.
             // So there won't be consecutive tombstones for the same row id.
             if (!newAndPrevTombstones) {
-                //TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
+                // TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
                 byte[] rowBytes;
 
                 if (row == null) {
@@ -990,7 +990,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        //noinspection resource
+        // noinspection resource
         PartitionDataHelper.requireWriteBatch();
 
         // No busy lock required, we're already in "runConsistently" closure.
@@ -1270,7 +1270,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 //          - R1 > R0, this means that we found next row and T1 is either missing (pending row) or represents the latest
                 //            version of the row. It doesn't matter in this case, because this row id will be reused to find its value
                 //            at time T0. Additional "seek" will be required to do it.
-                //TODO IGNITE-18201 Remove copying.
+                // TODO IGNITE-18201 Remove copying.
                 it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 // Finish scan if nothing was found.
@@ -1368,7 +1368,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             ByteBuffer directBuffer = DIRECT_KEY_BUFFER.get();
 
             while (true) {
-                //TODO IGNITE-18201 Remove copying.
+                // TODO IGNITE-18201 Remove copying.
                 it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 if (invalid(it)) {

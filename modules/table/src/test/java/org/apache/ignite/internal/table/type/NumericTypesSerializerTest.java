@@ -202,7 +202,7 @@ public class NumericTypesSerializerTest {
                 }
         );
 
-        //representation of "0000" value.
+        // representation of "0000" value.
         final Tuple tup = createTuple().set("key", rnd.nextLong()).set("decimalCol", new BigDecimal("0E+3"));
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);

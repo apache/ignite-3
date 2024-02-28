@@ -171,7 +171,7 @@ public abstract class BplusMetaIo extends PageIo {
 
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-16350
+        // TODO https://issues.apache.org/jira/browse/IGNITE-16350
         sb.app("BPlusMeta [\n\tlevelsCnt=").app(getLevelsCount(addr))
                 .app(",\n\trootLvl=").app(getRootLevel(addr))
                 .app("\n]");

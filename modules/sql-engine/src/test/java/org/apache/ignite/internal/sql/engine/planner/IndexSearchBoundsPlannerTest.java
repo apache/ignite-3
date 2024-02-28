@@ -496,15 +496,15 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19858
                 //  Cause serialization/deserialization mismatch in AbstractPlannerTest::checkSplitAndSerialization
-                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE).negate(),
+                // Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE).negate(),
                 //        exact(bigIntTypeLimits[0])),
-                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63), exact(bigIntTypeLimits[1])),
-                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE), exact(bigIntTypeLimits[1])),
+                // Arguments.arguments(bigIntType, BigInteger.TWO.pow(63), exact(bigIntTypeLimits[1])),
+                // Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE), exact(bigIntTypeLimits[1])),
 
-                //Arguments.arguments(realType, BigDecimal.valueOf(Float.MAX_VALUE).add(BigDecimal.ONE) + "::REAL",
+                // Arguments.arguments(realType, BigDecimal.valueOf(Float.MAX_VALUE).add(BigDecimal.ONE) + "::REAL",
                 //        exact(Float.MAX_VALUE)),
 
-                //Arguments.arguments(realType, BigDecimal.valueOf(Double.MAX_VALUE).add(BigDecimal.ONE),
+                // Arguments.arguments(realType, BigDecimal.valueOf(Double.MAX_VALUE).add(BigDecimal.ONE),
                 //        exact(Double.MAX_VALUE)),
                 Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).negate(), exact(bigIntTypeLimits[0]))
         );

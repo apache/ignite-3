@@ -94,6 +94,7 @@ public class FastCrc {
      * @return CRC32 checksum.
      * @throws IOException If fails.
      */
+    @SuppressWarnings("PMD.EmptyControlStatement")
     public static int calcCrc(File file) throws IOException {
         assert !file.isDirectory() : "CRC32 can't be calculated over directories";
 

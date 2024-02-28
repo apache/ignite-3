@@ -143,7 +143,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_2);
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_3);
 
-        //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is fixed
+        // TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is fixed
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_1A);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_2A);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_3A);
@@ -216,7 +216,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregate() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
-        //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
+        // TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_12A);
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_12B);
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_12C);
@@ -229,7 +229,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregateUseIndex() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_13);
-        //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
+        // TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_13A);
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_13B);
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_13C);
@@ -438,7 +438,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                 ))
         );
 
-        //TODO Replace with uncommented code after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
+        // TODO Replace with uncommented code after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
         assumeRun("", TestCase.CASE_21A);
         assumeRun("", TestCase.CASE_21B);
         /*
@@ -770,7 +770,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
                                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
+                                                // TODO: https://issues.apache.org/jira/browse/IGNITE-20095
                                                 // Why can't Map be pushed down to under 'exchange'.
                                                 .and(input(isInstanceOf(IgniteExchange.class)
                                                         .and(input(isTableScan("TEST")))

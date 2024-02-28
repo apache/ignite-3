@@ -84,7 +84,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);
 
-        //Creates table with 1 partition and 3 replicas.
+        // Creates table with 1 partition and 3 replicas.
         createTestTable();
 
         TableViewInternal table = (TableViewInternal) cluster.node(0).tables().table("TEST");
