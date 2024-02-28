@@ -22,7 +22,6 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
@@ -30,15 +29,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.compute.ComputeException;
-import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.network.ClusterNode;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-class ItExecutionsCleanerTest extends ClusterPerTestIntegrationTest {
+class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     private ExecutionManager localExecutionManager;
 
     private ExecutionManager remoteExecutionManager;
@@ -68,10 +67,10 @@ class ItExecutionsCleanerTest extends ClusterPerTestIntegrationTest {
                 + "}";
     }
 
-    @BeforeEach
+    @BeforeAll
     void setUp() {
-        IgniteImpl localNode = node(0);
-        IgniteImpl remoteNode = node(1);
+        IgniteImpl localNode = CLUSTER.node(0);
+        IgniteImpl remoteNode = CLUSTER.node(1);
 
         IgniteComputeImpl localCompute = (IgniteComputeImpl) localNode.compute();
         IgniteComputeImpl remoteCompute = (IgniteComputeImpl) remoteNode.compute();
@@ -124,7 +123,8 @@ class ItExecutionsCleanerTest extends ClusterPerTestIntegrationTest {
         runningExecution.assertCancelled();
 
         // All executions are retained
-        assertThat(localExecutionManager.executions(), hasItems(runningJobId, queuedJobId));
+        assertThat(localExecutionManager.executions(), hasItem(runningJobId));
+        assertThat(localExecutionManager.executions(), hasItem(queuedJobId));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
@@ -180,8 +180,8 @@ class ItExecutionsCleanerTest extends ClusterPerTestIntegrationTest {
         runningExecution.assertCancelled();
 
         // All executions are retained
-        assertThat(localExecutionManager.executions(), hasItems(runningJobId, queuedJobId));
-        assertThat(remoteExecutionManager.executions(), hasItems(runningJobId, queuedJobId));
+        assertThat(localExecutionManager.executions(), hasItem(runningJobId));
+        assertThat(remoteExecutionManager.executions(), hasItem(queuedJobId));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
@@ -197,18 +197,19 @@ class ItExecutionsCleanerTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void failover() throws Exception {
-        TestingJobExecution<Object> execution = submit(Set.of(node(1).node(), node(2).node()));
+        TestingJobExecution<Object> execution = submit(Set.of(CLUSTER.node(1).node(), CLUSTER.node(2).node()));
         UUID jobId = execution.idSync();
 
         execution.assertExecuting();
 
         // Stop the worker node
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
-        stopNode(workerNodeName);
+        int workerNodeIndex = CLUSTER.nodeIndex(workerNodeName);
+        CLUSTER.stopNode(workerNodeIndex);
 
         String failoverWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
 
-        IgniteImpl failoverNode = node(cluster.nodeIndex(failoverWorkerNodeName));
+        IgniteImpl failoverNode = CLUSTER.node(CLUSTER.nodeIndex(failoverWorkerNodeName));
         IgniteComputeImpl failoverCompute = (IgniteComputeImpl) failoverNode.compute();
         ExecutionManager failoverExecutionManager = ((ComputeComponentImpl) failoverCompute.computeComponent()).executionManager();
 
@@ -229,9 +230,12 @@ class ItExecutionsCleanerTest extends ClusterPerTestIntegrationTest {
             assertThat(localExecutionManager.executions(), is(empty()));
             assertThat(failoverExecutionManager.executions(), is(empty()));
         });
+
+        // Start node again for next tests
+        CLUSTER.startNode(workerNodeIndex);
     }
 
-    private TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(node(0).compute().executeAsync(nodes, List.of(), InteractiveJobs.globalJob().name()));
+    private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
+        return new TestingJobExecution<>(CLUSTER.node(0).compute().executeAsync(nodes, List.of(), InteractiveJobs.globalJob().name()));
     }
 }
