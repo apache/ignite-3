@@ -220,7 +220,6 @@ public class ClientTable implements Table {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackInt();
         var columns = new ClientColumn[colCnt];
-        int keyCnt = 0;
         int valCnt = 0;
 
         for (int i = 0; i < colCnt; i++) {
