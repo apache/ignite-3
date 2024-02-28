@@ -314,11 +314,18 @@ public class ClientTupleTest {
     }
 
     private static ClientTuple createFullSchemaTuple() {
-        return createFullSchemaTuple(TuplePart.KEY_AND_VAL);
+        return createFullSchemaTuple(TuplePart.KEY_AND_VAL, false);
     }
 
-    private static ClientTuple createFullSchemaTuple(TuplePart part) {
-        var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
+    private static ClientTuple createFullSchemaTuple(TuplePart part, boolean keyOnlyData) {
+        // TODO: Tests for keyOnly mode with full and partial data.
+        var binTupleBuf = keyOnlyData
+                ? new BinaryTupleBuilder(2)
+                .appendInt(1)
+                .appendLong(2)
+                .appendString("3")
+                .build()
+                : new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
                 .appendByte((byte) 1)
                 .appendShort((short) 2)
                 .appendInt(3)
