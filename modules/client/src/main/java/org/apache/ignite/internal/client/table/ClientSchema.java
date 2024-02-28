@@ -139,6 +139,23 @@ public class ClientSchema {
     }
 
     /**
+     * Returns columns for the specified tuple part.
+     *
+     * @return Partial columns.
+     */
+    ClientColumn[] columns(TuplePart part) {
+        if (part == TuplePart.KEY) {
+            return keyColumns;
+        }
+
+        if (part == TuplePart.VAL) {
+            return valColumns;
+        }
+
+        return columns;
+    }
+
+    /**
      * Returns key columns.
      *
      * @return Key columns.
@@ -154,18 +171,6 @@ public class ClientSchema {
      */
     ClientColumn[] valColumns() {
         return valColumns;
-    }
-
-    ClientColumn[] columns(TuplePart part) {
-        if (part == TuplePart.KEY) {
-            return keyColumns;
-        }
-
-        if (part == TuplePart.VAL) {
-            return valColumns;
-        }
-
-        return columns;
     }
 
     /**
