@@ -32,8 +32,9 @@ import org.jetbrains.annotations.Nullable;
  * Server-side client Tuple.
  */
 class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware {
-    /** Schema. */
     private final SchemaDescriptor schema;
+
+    private final boolean keyOnly;
 
     /**
      * Constructor.
@@ -41,12 +42,13 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
      * @param schema Schema.
      * @param noValueSet No-value set.
      * @param tuple Tuple.
-     * @param columnCount Column count.
+     * @param keyOnly Key only.
      */
-    ClientHandlerTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int columnCount) {
-        super(tuple, columnCount, noValueSet);
+    ClientHandlerTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, boolean keyOnly) {
+        super(tuple, tuple.elementCount(), noValueSet);
 
         this.schema = schema;
+        this.keyOnly = keyOnly;
     }
 
     /** {@inheritDoc} */
@@ -72,6 +74,25 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     protected int internalIndex(String columnName) {
         Column column = schema.column(columnName);
         return column == null ? -1 : column.schemaIndex();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected int internalIndex(int publicIndex) {
+        return keyOnly
+                ? schema.keyColumns().column(publicIndex).schemaIndex()
+                : super.internalIndex(publicIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected int publicIndex(int internalIndex) {
+        if (keyOnly) {
+            var col = schema.keyColumns().column(internalIndex);
+            return schema.keyIndex(col);
+        }
+
+        return super.publicIndex(internalIndex);
     }
 
     /** {@inheritDoc} */
