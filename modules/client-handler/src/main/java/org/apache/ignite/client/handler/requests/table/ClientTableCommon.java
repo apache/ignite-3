@@ -83,7 +83,7 @@ public class ClientTableCommon {
             packer.packInt(7);
             packer.packString(col.name());
             packer.packInt(getColumnType(col.type().spec()).ordinal());
-            packer.packBoolean(schema.isKeyColumn(colIdx));
+            packer.packInt(schema.keyIndex(col));
             packer.packBoolean(col.nullable());
             packer.packInt(schema.colocationIndex(col));
             packer.packInt(getDecimalScale(col.type()));
