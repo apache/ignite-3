@@ -214,7 +214,7 @@ public class TestServer implements AutoCloseable {
                 .clusterId(clusterId)
                 .build();
 
-        ClientConnectorConfiguration connectorConfiguration = cfg.getConfiguration(ClientConnectorConfiguration.KEY);
+        ClientConnectorConfiguration clientConnectorConfiguration = cfg.getConfiguration(ClientConnectorConfiguration.KEY);
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
@@ -229,7 +229,7 @@ public class TestServer implements AutoCloseable {
                 authenticationManager,
                 clock,
                 placementDriver,
-                connectorConfiguration)
+                clientConnectorConfiguration)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
@@ -246,7 +246,7 @@ public class TestServer implements AutoCloseable {
                         new AlwaysSyncedSchemaSyncService(),
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
                         placementDriver,
-                        connectorConfiguration
+                        clientConnectorConfiguration
                 );
 
         module.start().join();

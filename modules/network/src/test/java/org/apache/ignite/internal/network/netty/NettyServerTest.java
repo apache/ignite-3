@@ -147,16 +147,30 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests that bootstrap tries to bind to host specified in network.bindHost.
+     * Tests that bootstrap tries to bind to address specified in configuration.
      */
     @Test
     public void testBindHost() {
-        String host = "unknown-host";
+        String host = "localhost";
         assertThat(serverCfg.listenAddress().update(host), willCompleteSuccessfully());
+
+        getServer(true);
+
+        assertThat(serverCfg.listenAddress().update(""), willCompleteSuccessfully());
+
+    }
+
+    /**
+     * Tests the case when couldn't bind to the address provided.
+     */
+    @Test
+    public void testBindUnknownAddressFailed() {
+        String address = "unknown-address";
+        assertThat(serverCfg.listenAddress().update(address), willCompleteSuccessfully());
 
         AssertionFailedError e = assertThrows(AssertionFailedError.class, () -> getServer(true));
 
-        String expectedError = String.format("Host %s:%d is not available", host, serverCfg.port().value());
+        String expectedError = String.format("Address %s:%d is not available", address, serverCfg.port().value());
         assertTrue(e.getCause().getMessage().contains(expectedError));
 
         assertThat(serverCfg.listenAddress().update(""), willCompleteSuccessfully());

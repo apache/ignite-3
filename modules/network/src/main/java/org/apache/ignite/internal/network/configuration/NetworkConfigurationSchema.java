@@ -36,7 +36,7 @@ public class NetworkConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = DEFAULT_PORT;
 
-    /** Address (IP or hostname) to listen to. */
+    /** Address (IP or hostname) to listen to. Listen to all interfaces if not provided. */
     @Value(hasDefault = true)
     public String listenAddress = "";
 

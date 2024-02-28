@@ -36,7 +36,7 @@ public class ClientConnectorConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = 10800;
 
-    /** Address (IP or hostname) to listen to. */
+    /** Address (IP or hostname) to listen to. Listen to all interfaces if not provided. */
     @Value(hasDefault = true)
     public String listenAddress = "";
 

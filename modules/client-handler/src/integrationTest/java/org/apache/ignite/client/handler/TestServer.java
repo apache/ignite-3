@@ -17,21 +17,16 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -54,8 +49,6 @@ import org.mockito.Mockito;
 public class TestServer {
     private final ConfigurationTreeGenerator generator;
 
-    private final ConfigurationManager configurationManager;
-
     private NettyBootstrapFactory bootstrapFactory;
 
     private final TestSslConfig testSslConfig;
@@ -66,33 +59,29 @@ public class TestServer {
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
-    private final ClientConnectorConfiguration connectorConfiguration;
+    private final ClientConnectorConfiguration clientConnectorConfiguration;
+
+    private final NetworkConfiguration networkConfiguration;
 
     private long idleTimeout = 5000;
 
-    public TestServer() {
-        this(null, null, null);
+    public TestServer(ClientConnectorConfiguration clientConnectorConfiguration, NetworkConfiguration networkConfiguration) {
+        this(null, null, clientConnectorConfiguration, networkConfiguration);
     }
 
     TestServer(
             @Nullable TestSslConfig testSslConfig,
             @Nullable SecurityConfiguration securityConfiguration,
-            @Nullable ClientConnectorConfiguration connectorConfiguration
+            ClientConnectorConfiguration clientConnectorConfiguration,
+            NetworkConfiguration networkConfiguration
     ) {
         this.testSslConfig = testSslConfig;
         this.authenticationManager = securityConfiguration == null
                 ? new DummyAuthenticationManager()
                 : new AuthenticationManagerImpl(securityConfiguration);
         this.generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
-        this.configurationManager = new ConfigurationManager(
-                List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
-                new TestConfigurationStorage(LOCAL),
-                generator,
-                new TestConfigurationValidator()
-        );
-        this.connectorConfiguration = connectorConfiguration == null
-                ? configurationManager.configurationRegistry().getConfiguration(ClientConnectorConfiguration.KEY)
-                : connectorConfiguration;
+        this.clientConnectorConfiguration = clientConnectorConfiguration;
+        this.networkConfiguration = networkConfiguration;
 
         metrics.enable();
     }
@@ -102,29 +91,26 @@ public class TestServer {
     }
 
     void tearDown() throws Exception {
-        configurationManager.stop();
         bootstrapFactory.stop();
         generator.close();
     }
 
     ClientHandlerModule start(TestInfo testInfo) {
-        configurationManager.start();
         authenticationManager.start();
 
-        connectorConfiguration.change(
+        clientConnectorConfiguration.change(
                 local -> local
                         .changePort(10800)
                         .changeIdleTimeout(idleTimeout)
         ).join();
 
         if (testSslConfig != null) {
-            connectorConfiguration.ssl().enabled().update(true).join();
-            connectorConfiguration.ssl().keyStore().path().update(testSslConfig.keyStorePath()).join();
-            connectorConfiguration.ssl().keyStore().password().update(testSslConfig.keyStorePassword()).join();
+            clientConnectorConfiguration.ssl().enabled().update(true).join();
+            clientConnectorConfiguration.ssl().keyStore().path().update(testSslConfig.keyStorePath()).join();
+            clientConnectorConfiguration.ssl().keyStore().password().update(testSslConfig.keyStorePassword()).join();
         }
 
-        var registry = configurationManager.configurationRegistry();
-        bootstrapFactory = new NettyBootstrapFactory(registry.getConfiguration(NetworkConfiguration.KEY), testInfo.getDisplayName());
+        bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, testInfo.getDisplayName());
 
         bootstrapFactory.start();
 
@@ -148,7 +134,7 @@ public class TestServer {
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class),
                 mock(PlacementDriver.class),
-                connectorConfiguration
+                clientConnectorConfiguration
         );
 
         module.start().join();

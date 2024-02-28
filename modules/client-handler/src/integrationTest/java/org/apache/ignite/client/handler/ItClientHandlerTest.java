@@ -33,10 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -61,9 +61,15 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(rootName = "security")
     private SecurityConfiguration securityConfiguration;
 
+    @InjectConfiguration
+    private ClientConnectorConfiguration clientConnectorConfiguration;
+
+    @InjectConfiguration
+    private NetworkConfiguration networkConfiguration;
+
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        testServer = new TestServer(null, securityConfiguration, null);
+        testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
         serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();
     }
@@ -459,17 +465,6 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals("org.apache.ignite.lang.IgniteException", errClassName);
             assertNull(errStackTrace);
         }
-    }
-
-    @Test
-    void connectWithHostSpecified(
-            TestInfo testInfo,
-            @InjectConfiguration("mock.listenAddress=test-address") ClientConnectorConfiguration connectorConfiguration) {
-
-        TestServer server = new TestServer(null, null, connectorConfiguration);
-
-        CompletionException e = assertThrows(CompletionException.class, () -> server.start(testInfo));
-        assertTrue(e.getMessage().contains("Failed to start thin connector endpoint, address \"test-address\" is not found"));
     }
 
     private void writeAndFlushLoop(Socket socket) throws Exception {

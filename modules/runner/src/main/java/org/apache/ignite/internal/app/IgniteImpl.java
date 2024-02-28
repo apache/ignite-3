@@ -765,7 +765,7 @@ public class IgniteImpl implements Ignite {
 
         authenticationManager = createAuthenticationManager();
 
-        ClientConnectorConfiguration connectorConfiguration = nodeConfigRegistry.getConfiguration(ClientConnectorConfiguration.KEY);
+        ClientConnectorConfiguration clientConnectorConfiguration = nodeConfigRegistry.getConfiguration(ClientConnectorConfiguration.KEY);
 
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
@@ -784,7 +784,7 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 placementDriverMgr.placementDriver(),
-                connectorConfiguration
+                clientConnectorConfiguration
         );
 
         restComponent = createRestComponent(name);

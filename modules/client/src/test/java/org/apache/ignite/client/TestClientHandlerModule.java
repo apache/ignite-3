@@ -99,7 +99,7 @@ public class TestClientHandlerModule implements IgniteComponent {
     private final AuthenticationManager authenticationManager;
 
     /** Configuration of the client connector. */
-    private final ClientConnectorConfiguration connectorConfiguration;
+    private final ClientConnectorConfiguration clientConnectorConfiguration;
 
     /**
      * Constructor.
@@ -115,7 +115,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param authenticationManager Authentication manager.
      * @param clock Clock.
      * @param placementDriver Placement driver.
-     * @param connectorConfiguration Configuration of the client connector.
+     * @param clientConnectorConfiguration Configuration of the client connector.
      */
     public TestClientHandlerModule(
             Ignite ignite,
@@ -129,7 +129,7 @@ public class TestClientHandlerModule implements IgniteComponent {
             AuthenticationManager authenticationManager,
             HybridClock clock,
             PlacementDriver placementDriver,
-            ClientConnectorConfiguration connectorConfiguration
+            ClientConnectorConfiguration clientConnectorConfiguration
     ) {
         assert ignite != null;
         assert bootstrapFactory != null;
@@ -145,7 +145,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.authenticationManager = authenticationManager;
         this.clock = clock;
         this.placementDriver = placementDriver;
-        this.connectorConfiguration = connectorConfiguration;
+        this.clientConnectorConfiguration = clientConnectorConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -192,7 +192,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @throws IgniteException      When startup has failed.
      */
     private ChannelFuture startEndpoint() throws InterruptedException {
-        var configuration = connectorConfiguration.value();
+        var configuration = clientConnectorConfiguration.value();
 
         var requestCounter = new AtomicInteger();
         var connectionIdGen = new AtomicLong();

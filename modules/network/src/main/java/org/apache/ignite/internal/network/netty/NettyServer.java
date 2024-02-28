@@ -153,7 +153,7 @@ public class NettyServer {
                     bindFuture.completeExceptionally(
                             new IllegalStateException(host.isEmpty()
                                     ? "Port " + port + " is not available."
-                                    : String.format("Host %s:%d is not available", host, port)
+                                    : String.format("Address %s:%d is not available", host, port)
                             )
                     );
                 }

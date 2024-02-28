@@ -23,6 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.SocketException;
 import java.nio.file.Path;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -36,7 +40,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Client handler metrics tests. See also {@code org.apache.ignite.client.MetricsTest}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
+    @InjectConfiguration
+    private NetworkConfiguration networkConfiguration;
+
+    @InjectConfiguration
+    private ClientConnectorConfiguration clientConnectorConfiguration;
+
     private TestServer testServer;
 
     @WorkDirectory
@@ -57,7 +68,8 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
                         .keyStorePassword("changeit")
                         .build(),
                 null,
-                null
+                clientConnectorConfiguration,
+                networkConfiguration
         );
 
         var serverModule = testServer.start(testInfo);
@@ -71,7 +83,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSessionsRejected(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         var serverModule = testServer.start(testInfo);
 
         // Bad MAGIC.
@@ -92,7 +104,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSessionsRejectedTimeout(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         testServer.idleTimeout(300);
         var serverModule = testServer.start(testInfo);
 
@@ -109,7 +121,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSessionsAccepted(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         var serverModule = testServer.start(testInfo);
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
@@ -118,7 +130,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSessionsActive(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
@@ -130,7 +142,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testBytesSentReceived(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         var serverModule = testServer.start(testInfo);
 
         assertEquals(0, testServer.metrics().bytesSent());

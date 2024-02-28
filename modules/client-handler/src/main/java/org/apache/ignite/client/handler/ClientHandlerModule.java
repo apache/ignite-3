@@ -123,7 +123,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    private final ClientConnectorConfiguration connectorConfiguration;
+    private final ClientConnectorConfiguration clientConnectorConfiguration;
 
     @TestOnly
     @SuppressWarnings("unused")
@@ -143,7 +143,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
      * @param clock Hybrid clock.
-     * @param connectorConfiguration Configuration of the connector.
+     * @param clientConnectorConfiguration Configuration of the connector.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -161,7 +161,7 @@ public class ClientHandlerModule implements IgniteComponent {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
-            ClientConnectorConfiguration connectorConfiguration
+            ClientConnectorConfiguration clientConnectorConfiguration
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -177,7 +177,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert schemaSyncService != null;
         assert catalogService != null;
         assert placementDriver != null;
-        assert connectorConfiguration != null;
+        assert clientConnectorConfiguration != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -194,7 +194,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock, schemaSyncService);
-        this.connectorConfiguration = connectorConfiguration;
+        this.clientConnectorConfiguration = clientConnectorConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -204,7 +204,7 @@ public class ClientHandlerModule implements IgniteComponent {
             throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
 
-        var configuration = connectorConfiguration.value();
+        var configuration = clientConnectorConfiguration.value();
 
         metricManager.registerSource(metrics);
         if (configuration.metricsEnabled()) {
@@ -326,34 +326,28 @@ public class ClientHandlerModule implements IgniteComponent {
                 }
 
                 result.complete(bindFut.channel());
-                return;
-            }
-
-            //TODO IGNITE-21614
-            if (bindFut.cause() instanceof BindException) {
+            } else if (bindFut.cause() instanceof BindException) {
+                //TODO IGNITE-21614
                 result.completeExceptionally(
                         new IgniteException(
                                 PORT_IN_USE_ERR,
                                 "Cannot start thin client connector endpoint. Port " + port + " is in use.",
                                 bindFut.cause())
                 );
-                return;
-            }
-
-            if (bindFut.cause() instanceof UnresolvedAddressException) {
+            } else if (bindFut.cause() instanceof UnresolvedAddressException) {
                 result.completeExceptionally(
                         new IgniteException(
                                 INTERNAL_ERR,
                                 "Failed to start thin connector endpoint, address \"" + host + "\" is not found"
                         )
                 );
+            } else {
+                result.completeExceptionally(
+                        new IgniteException(
+                                INTERNAL_ERR,
+                                "Failed to start thin client connector endpoint: " + bindFut.cause().getMessage(),
+                                bindFut.cause()));
             }
-
-            result.completeExceptionally(
-                    new IgniteException(
-                            INTERNAL_ERR,
-                            "Failed to start thin client connector endpoint: " + bindFut.cause().getMessage(),
-                            bindFut.cause()));
         });
 
         return result;
