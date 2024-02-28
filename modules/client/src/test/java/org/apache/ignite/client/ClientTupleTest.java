@@ -69,8 +69,8 @@ public class ClientTupleTest {
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
             new ClientColumn("I8", ColumnType.INT8, false, -1, 0, -1, 0),
             new ClientColumn("I16", ColumnType.INT16, false, -1, 1, -1, 1),
-            new ClientColumn("I32", ColumnType.INT32, false, 1, -1, -1, 2),
-            new ClientColumn("I64", ColumnType.INT64, false, 0, -1, -1, 3),
+            new ClientColumn("I32", ColumnType.INT32, false, 0, -1, -1, 2),
+            new ClientColumn("I64", ColumnType.INT64, false, 1, -1, -1, 3),
             new ClientColumn("FLOAT", ColumnType.FLOAT, false, -1, 2, -1, 4),
             new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, -1, 3, -1, 5),
             new ClientColumn("UUID", ColumnType.UUID, false, -1, 4, -1, 6),

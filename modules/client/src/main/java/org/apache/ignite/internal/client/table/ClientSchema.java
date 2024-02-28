@@ -106,6 +106,9 @@ public class ClientSchema {
                 assert this.keyColumns[col.keyIndex()] == null : "Duplicate key index: name=" + col.name() + ", keyIndex=" + col.keyIndex()
                         + ", other.name=" + this.keyColumns[col.keyIndex()].name();
 
+                assert col.keyIndex() == 0 || this.keyColumns[col.keyIndex() - 1] != null : "Key index is out of order: name="
+                        + col.name() + ", keyIndex=" + col.keyIndex();
+
                 this.keyColumns[col.keyIndex()] = col;
             } else {
                 assert this.valColumns[col.valIndex()] == null : "Duplicate val index: name=" + col.name() + ", valIndex=" + col.valIndex()
