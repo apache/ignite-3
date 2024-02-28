@@ -46,6 +46,7 @@ task extractParserTemplate(type: Copy) {
         include 'codegen/templates/Parser.jj'
         include 'codegen/default_config.fmpp'
     }
+    doNotTrackState("test")
     into("${buildDir}")
 }
 

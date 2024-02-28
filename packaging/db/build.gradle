@@ -49,10 +49,13 @@ configurations {
     }
 }
 
+configurations {
+    defaultsGenerator.extendsFrom(dbArtifacts)
+}
+
 dependencies {
     dbArtifacts project(':ignite-runner')
 
-    defaultsGenerator configurations.dbArtifacts
     defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
 }
 
