@@ -83,7 +83,8 @@ public class ClientSchema {
         int colocationColumnCount = 0;
 
         for (var col : columns) {
-            map.put(col.name(), col);
+            ClientColumn existing = map.put(col.name(), col);
+            assert existing == null : "Duplicate column name: " + col.name();
 
             if (col.key()) {
                 keyColumnCount++;
@@ -100,14 +101,17 @@ public class ClientSchema {
         this.colocationColumns = colocationColumnCount == 0 ? keyColumns : new ClientColumn[colocationColumnCount];
         this.valColumns = valColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[valColumnCount];
 
-        int keyIdx = 0;
-        int valIdx = 0;
-
         for (var col : columns) {
             if (col.key()) {
-                this.keyColumns[keyIdx++] = col;
+                assert this.keyColumns[col.keyIndex()] == null : "Duplicate key index: name=" + col.name() + ", keyIndex=" + col.keyIndex()
+                        + ", other.name=" + this.keyColumns[col.keyIndex()].name();
+
+                this.keyColumns[col.keyIndex()] = col;
             } else {
-                this.valColumns[valIdx++] = col;
+                assert this.valColumns[col.valIndex()] == null : "Duplicate val index: name=" + col.name() + ", valIndex=" + col.valIndex()
+                        + ", other.name=" + this.valColumns[col.valIndex()].name();
+
+                this.valColumns[col.valIndex()] = col;
             }
 
             if (col.colocationIndex() >= 0) {
