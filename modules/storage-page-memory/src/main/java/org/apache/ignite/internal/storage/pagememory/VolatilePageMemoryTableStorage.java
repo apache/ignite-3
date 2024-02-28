@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -40,7 +40,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     private final VolatilePageMemoryDataRegion dataRegion;
 
-    private final GradualTaskExecutor destructionExecutor;
+    private final ExecutorService destructionExecutor;
 
     /**
      * Constructor.
@@ -54,7 +54,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             VolatilePageMemoryDataRegion dataRegion,
-            GradualTaskExecutor destructionExecutor
+            ExecutorService destructionExecutor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 

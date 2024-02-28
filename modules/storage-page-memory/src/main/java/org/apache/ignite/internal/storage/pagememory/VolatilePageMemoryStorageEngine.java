@@ -20,13 +20,16 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -36,7 +39,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -63,7 +65,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private final Map<String, VolatilePageMemoryDataRegion> regions = new ConcurrentHashMap<>();
 
-    private volatile GradualTaskExecutor destructionExecutor;
+    private volatile ExecutorService destructionExecutor;
 
     /**
      * Constructor.
@@ -103,7 +105,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
             }
         });
 
-        ThreadPoolExecutor destructionThreadPool = new ThreadPoolExecutor(
+        destructionExecutor = new ThreadPoolExecutor(
                 0,
                 Runtime.getRuntime().availableProcessors(),
                 100,
@@ -111,15 +113,22 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(igniteInstanceName, "volatile-mv-partition-destruction", LOG)
         );
-        destructionExecutor = new GradualTaskExecutor(destructionThreadPool);
     }
 
     @Override
     public void stop() throws StorageException {
-        destructionExecutor.close();
-
         try {
-            closeAll(regions.values().stream().map(region -> region::stop));
+            Stream<AutoCloseable> closeRegions = regions.values().stream().map(region -> region::stop);
+
+            ExecutorService destructionExecutor = this.destructionExecutor;
+
+            Stream<AutoCloseable> shutdownExecutor = Stream.of(
+                    destructionExecutor == null
+                            ? null
+                            : (AutoCloseable) () -> shutdownAndAwaitTermination(destructionExecutor, 30, TimeUnit.SECONDS)
+            );
+
+            closeAll(Stream.concat(closeRegions, shutdownExecutor));
         } catch (Exception e) {
             throw new StorageException("Error when stopping components", e);
         }

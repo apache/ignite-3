@@ -433,6 +433,23 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     /**
+     * Returns a list of all existing storages.
+     */
+    public List<T> getAll() {
+        var list = new ArrayList<T>(storageByPartitionId.length());
+
+        for (int i = 0; i < storageByPartitionId.length(); i++) {
+            T storage = storageByPartitionId.get(i);
+
+            if (storage != null) {
+                list.add(storage);
+            }
+        }
+
+        return list;
+    }
+
+    /**
      * Returns all storages for closing or destroying after completion of operations for all storages.
      *
      * <p>After completing the future, when try to perform any operation, {@link StorageException} for all storages will be thrown.

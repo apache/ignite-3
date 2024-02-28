@@ -33,7 +33,6 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -93,12 +92,5 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         assertThat(getAll(index, indexRow1), contains(indexRow1.rowId()));
 
         assertThat(getAll(index, createIndexRow(serializer, new RowId(TEST_PARTITION), 1, "foo")), empty());
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21583")
-    @Test
-    @Override
-    public void testDestroy() {
-        super.testDestroy();
     }
 }

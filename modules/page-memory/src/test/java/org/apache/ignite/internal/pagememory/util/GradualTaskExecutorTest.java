@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,6 +58,8 @@ class GradualTaskExecutorTest extends BaseIgniteAbstractTest {
     @AfterEach
     void stopExecutor() {
         executor.close();
+
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 
     @Test
@@ -116,7 +119,7 @@ class GradualTaskExecutorTest extends BaseIgniteAbstractTest {
 
         assertFalse(future.isDone());
 
-        executor.close();
+        stopExecutor();
 
         Exception ex = assertThrows(Exception.class, () -> future.getNow(null));
 

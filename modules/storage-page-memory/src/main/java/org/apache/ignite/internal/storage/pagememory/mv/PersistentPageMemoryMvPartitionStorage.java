@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -94,9 +95,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
-            GcQueue gcQueue
+            GcQueue gcQueue,
+            ExecutorService destructionExecutor
     ) {
-        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, gcQueue);
+        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, gcQueue, destructionExecutor);
 
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -51,8 +51,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryMvPartitionStorage.class);
 
     private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
-
-    private final GradualTaskExecutor destructionExecutor;
 
     /** Last applied index value. */
     private volatile long lastAppliedIndex;
@@ -79,7 +77,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
-            GradualTaskExecutor destructionExecutor
+            ExecutorService destructionExecutor
     ) {
         super(
                 partitionId,
@@ -88,10 +86,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
                 indexMetaTree,
-                gcQueue
+                gcQueue,
+                destructionExecutor
         );
-
-        this.destructionExecutor = destructionExecutor;
     }
 
     @Override
@@ -111,7 +108,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 try {
                     return closure.execute(locker0);
                 } finally {
-                    THREAD_LOCAL_LOCKER.set(null);
+                    THREAD_LOCAL_LOCKER.remove();
 
                     locker0.unlockAll();
                 }
@@ -203,7 +200,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     /**
-     * Cleans data backing this partition. Indices are destroyed, but index desscriptors are
+     * Cleans data backing this partition. Indices are destroyed, but index descriptors are
      * not removed from this partition so that they can be refilled with data later.
      */
     public void cleanStructuresData() {

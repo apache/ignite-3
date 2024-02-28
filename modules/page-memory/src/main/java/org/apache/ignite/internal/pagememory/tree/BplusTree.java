@@ -2072,7 +2072,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     @Override
-    public void invoke(L row, Object z, InvokeClosure<T> c) throws IgniteInternalCheckedException {
+    public void invoke(L row, @Nullable Object z, InvokeClosure<T> c) throws IgniteInternalCheckedException {
         checkDestroyed();
 
         Invoke x = new Invoke(row, z, c);

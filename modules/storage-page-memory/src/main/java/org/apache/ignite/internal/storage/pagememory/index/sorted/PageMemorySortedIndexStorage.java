@@ -22,10 +22,12 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -226,15 +228,16 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
      * @param executor {@link GradualTaskExecutor} on which to destroy.
      * @throws StorageException If something goes wrong.
      */
-    public void startDestructionOn(GradualTaskExecutor executor) throws StorageException {
+    public CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
         try {
-            executor.execute(
-                    sortedIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((SortedIndexRow) rowKey), false)
-            ).whenComplete((res, ex) -> {
-                if (ex != null) {
-                    LOG.error("Sorted index " + descriptor.id() + " destruction has failed", ex);
-                }
-            });
+            GradualTask task = sortedIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((SortedIndexRow) rowKey), false);
+
+            return executor.execute(task)
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            LOG.error("Sorted index " + descriptor.id() + " destruction has failed", ex);
+                        }
+                    });
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot destroy sorted index " + indexDescriptor().id(), e);
         }

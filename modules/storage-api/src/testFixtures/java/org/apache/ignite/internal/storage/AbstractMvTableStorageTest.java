@@ -254,7 +254,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      * Tests destroying an index.
      */
     @Test
-    public void testDestroyIndex() {
+    public void testDestroyIndex() throws Exception {
         MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx), is(notNullValue()));
@@ -266,6 +266,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(partitionStorage.flush(), willCompleteSuccessfully());
         assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
         assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+
+        tableStorage.close();
+
+        tableStorage = createMvTableStorage();
+
+        getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getIndex(PARTITION_ID, sortedIdx.id()), is(nullValue()));
         assertThat(tableStorage.getIndex(PARTITION_ID, hashIdx.id()), is(nullValue()));
