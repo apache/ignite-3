@@ -302,6 +302,16 @@ public class ClientTupleTest {
         }
     }
 
+    @Test
+    public void testKeyOnlyTupleEquality() {
+        var keyTupleFullData = createFullSchemaTuple(TuplePart.KEY, false);
+        var keyTupleKeyData = createFullSchemaTuple(TuplePart.KEY, true);
+        var keyTupleUser = Tuple.create().set("I32", 3).set("I64", 4).set("STR", "8");
+
+        assertEquals(keyTupleFullData, keyTupleKeyData);
+        assertEquals(keyTupleFullData, keyTupleUser);
+    }
+
     private static Tuple createTuple() {
         var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length)
                 .appendString("Shirt")
@@ -321,9 +331,9 @@ public class ClientTupleTest {
         // TODO: Tests for keyOnly mode with full and partial data.
         var binTupleBuf = keyOnlyData
                 ? new BinaryTupleBuilder(2)
-                .appendInt(1)
-                .appendLong(2)
-                .appendString("3")
+                .appendInt(3)
+                .appendLong(4)
+                .appendString("8")
                 .build()
                 : new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
                 .appendByte((byte) 1)
