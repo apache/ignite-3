@@ -51,7 +51,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
         // TODO: This class does not work correctly with key-only tuples when keys are not in the beginning of the binaryTuple (e.g. RemoveAll).
         this.schema = schema;
         this.part = part;
-        this.fullBinaryTuple = part == TuplePart.KEY_AND_VAL && binaryTuple.elementCount() == schema.columns().length;
+        this.fullBinaryTuple = binaryTuple.elementCount() == schema.columns().length;
     }
 
     @Override
