@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -29,11 +30,16 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * This registry keeps track of the resources that were created by remote nodes.
  */
 public class RemotelyTriggeredResourceRegistry {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(RemotelyTriggeredResourceRegistry.class);
+
     /** Resources map. */
     private final ConcurrentNavigableMap<FullyQualifiedResourceId, RemotelyTriggeredResource> resources = new ConcurrentSkipListMap<>();
 
@@ -66,11 +72,13 @@ public class RemotelyTriggeredResourceRegistry {
      * @param resourceId Resource id.
      */
     public void close(FullyQualifiedResourceId resourceId) throws ResourceCloseException {
-        RemotelyTriggeredResource remotelyTriggeredResource = resources.remove(resourceId);
+        RemotelyTriggeredResource remotelyTriggeredResource = resources.get(resourceId);
 
         if (remotelyTriggeredResource != null) {
             try {
                 remotelyTriggeredResource.resource.close();
+
+                resources.remove(resourceId);
 
                 remoteRemoteHostResource(remotelyTriggeredResource.remoteHostId(), resourceId);
             } catch (Exception e) {
@@ -130,6 +138,23 @@ public class RemotelyTriggeredResourceRegistry {
         }
     }
 
+    /**
+     * Close all resources created by the given remote host.
+     *
+     * @param remoteHostId Remote host inconsistent id.
+     */
+    public void close(String remoteHostId) {
+        Set<FullyQualifiedResourceId> resourceIds = remoteHostsToResources.get(remoteHostId);
+
+        for (FullyQualifiedResourceId resourceId : resourceIds) {
+            try {
+                close(resourceId);
+            } catch (Exception e) {
+                LOG.warn("Exception occurred during the orphan cursor closing.", e);
+            }
+        }
+    }
+
     private void addRemoteHostResource(String remoteHostId, FullyQualifiedResourceId resourceId) {
         remoteHostsToResources.compute(remoteHostId, (k, v) -> {
             if (v == null) {
@@ -167,12 +192,12 @@ public class RemotelyTriggeredResourceRegistry {
     }
 
     /**
-     * Remote host inconsistent ids mapped to resources created by them.
+     * Inconsistent ids of remote hosts that created the resources.
      *
-     * @return Remote host inconsistent ids mapped to resources created by them.
+     * @return Remote host inconsistent ids.
      */
-    Map<String, Set<FullyQualifiedResourceId>> remoteHostsToResources() {
-        return unmodifiableMap(remoteHostsToResources);
+    Set<String> registeredRemoteHosts() {
+        return unmodifiableSet(remoteHostsToResources.keySet());
     }
 
     /**

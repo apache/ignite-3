@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -30,11 +29,11 @@ import org.apache.ignite.network.ClusterNodeResolver;
 /**
  * Manager responsible from cleaning up the transaction resources.
  */
-public class TxResourceCleanupManager implements IgniteComponent {
+public class ResourceCleanupManager implements IgniteComponent {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxResourceCleanupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ResourceCleanupManager.class);
 
-    private final TxScheduledCleanupManager txScheduledCleanupManager;
+    private final CleanupScheduler cleanupScheduler;
 
     private final RemotelyTriggeredResourceRegistry resourceRegistry;
 
@@ -43,23 +42,23 @@ public class TxResourceCleanupManager implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param txScheduledCleanupManager Scheduled cleanup manager.
+     * @param cleanupScheduler Scheduled cleanup manager.
      * @param resourceRegistry Resources registry.
      * @param clusterNodeResolver Cluster node resolver.
      */
-    public TxResourceCleanupManager(
-            TxScheduledCleanupManager txScheduledCleanupManager,
+    public ResourceCleanupManager(
+            CleanupScheduler cleanupScheduler,
             RemotelyTriggeredResourceRegistry resourceRegistry,
             ClusterNodeResolver clusterNodeResolver
     ) {
-        this.txScheduledCleanupManager = txScheduledCleanupManager;
+        this.cleanupScheduler = cleanupScheduler;
         this.resourceRegistry = resourceRegistry;
         this.clusterNodeResolver = clusterNodeResolver;
     }
 
     @Override
     public CompletableFuture<Void> start() {
-        txScheduledCleanupManager.registerScheduledOperation(this::cleanupOrphanTxResources);
+        cleanupScheduler.registerScheduledOperation(this::cleanupOrphanTxResources);
 
         return nullCompletedFuture();
     }
@@ -71,17 +70,11 @@ public class TxResourceCleanupManager implements IgniteComponent {
 
     private void cleanupOrphanTxResources() {
         try {
-            Map<String, Set<FullyQualifiedResourceId>> remoteHostsToResources = resourceRegistry.remoteHostsToResources();
+            Set<String> remoteHosts = resourceRegistry.registeredRemoteHosts();
 
-            for (Map.Entry<String, Set<FullyQualifiedResourceId>> remoteHostResourceEntry : remoteHostsToResources.entrySet()) {
-                if (clusterNodeResolver.getById(remoteHostResourceEntry.getKey()) == null) {
-                    for (FullyQualifiedResourceId resourceId : remoteHostResourceEntry.getValue()) {
-                        try {
-                            resourceRegistry.close(resourceId);
-                        } catch (Exception e) {
-                            LOG.warn("Exception occurred during the orphan cursor closing.", e);
-                        }
-                    }
+            for (String remoteHostId : remoteHosts) {
+                if (clusterNodeResolver.getById(remoteHostId) == null) {
+                    resourceRegistry.close(remoteHostId);
                 }
             }
         } catch (Exception e) {

@@ -35,11 +35,11 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * Manager that is responsible for the scheduling of transaction cleanup procedures.
+ * Component that is responsible for the scheduling of transaction cleanup procedures.
  */
-public class TxScheduledCleanupManager implements IgniteComponent {
+public class CleanupScheduler implements IgniteComponent {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxScheduledCleanupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CleanupScheduler.class);
 
     private static final int RESOURCE_CLEANUP_EXECUTOR_SIZE = 1;
 
@@ -60,7 +60,7 @@ public class TxScheduledCleanupManager implements IgniteComponent {
      *
      * @param nodeName Name of the Ignite node.
      */
-    public TxScheduledCleanupManager(String nodeName) {
+    public CleanupScheduler(String nodeName) {
         resourceCleanupExecutor = Executors.newScheduledThreadPool(
                 RESOURCE_CLEANUP_EXECUTOR_SIZE,
                 NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
@@ -89,11 +89,9 @@ public class TxScheduledCleanupManager implements IgniteComponent {
     }
 
     private void runOperations() {
-        inBusyLock(busyLock, () -> {
-            for (Runnable operation : scheduledOperations) {
-                operation.run();
-            }
-        });
+        for (Runnable operation : scheduledOperations) {
+            inBusyLock(busyLock, operation);
+        }
     }
 
     /**
