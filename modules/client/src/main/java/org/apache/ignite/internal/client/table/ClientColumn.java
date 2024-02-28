@@ -99,6 +99,9 @@ public class ClientColumn {
         this.schemaIndex = schemaIndex;
         this.scale = scale;
         this.precision = precision;
+
+        assert keyIndex < 0 || valIndex < 0
+                : "Column cannot be part of both key and value: " + name + " (keyIndex=" + keyIndex + ", valIndex=" + valIndex + ")";
     }
 
     public String name() {
