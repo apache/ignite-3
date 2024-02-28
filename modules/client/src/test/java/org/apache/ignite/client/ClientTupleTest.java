@@ -330,7 +330,7 @@ public class ClientTupleTest {
     private static ClientTuple createFullSchemaTuple(TuplePart part, boolean keyOnlyData) {
         // TODO: Tests for keyOnly mode with full and partial data.
         var binTupleBuf = keyOnlyData
-                ? new BinaryTupleBuilder(2)
+                ? new BinaryTupleBuilder(3)
                 .appendInt(3)
                 .appendLong(4)
                 .appendString("8")

@@ -794,7 +794,7 @@ public class BinaryTupleBuilder {
 
     /** Proceed to the next tuple element. */
     private BinaryTupleBuilder proceed() {
-        assert elementIndex < numElements;
+        assert elementIndex < numElements : "Element index overflow: " + elementIndex + " >= " + numElements;
 
         int offset = buffer.position() - valueBase;
         switch (entrySize) {
