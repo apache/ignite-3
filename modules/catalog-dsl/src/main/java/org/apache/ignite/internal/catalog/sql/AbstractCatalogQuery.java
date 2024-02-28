@@ -48,7 +48,7 @@ abstract class AbstractCatalogQuery extends QueryPart implements Query {
 
     @Override
     public String toString() {
-        return new QueryContext(Options.defaultOptions().prettyPrint())
+        return new QueryContext(Options.builder().prettyPrint().build())
                 .visit(this)
                 .getSql();
     }

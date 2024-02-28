@@ -22,7 +22,7 @@ import java.util.Objects;
 /**
  * Column reference with sort order, used in indexes or primary keys.
  */
-public class ColumnSorted {
+public final class ColumnSorted {
     private final String columnName;
 
     private SortOrder sortOrder = SortOrder.DEFAULT;

@@ -24,8 +24,6 @@ import org.apache.ignite.catalog.Options;
 import org.junit.jupiter.api.Test;
 
 class DropZoneTest {
-    private static final Options DEFAULT_OPTIONS = Options.defaultOptions();
-
     @Test
     void testDropZone() {
         String sql = dropZone().name("zone1").toSqlString();
@@ -39,7 +37,7 @@ class DropZoneTest {
     }
 
     private static DropZoneImpl dropZone() {
-        return dropZone(DEFAULT_OPTIONS);
+        return dropZone(Options.DEFAULT);
     }
 
     private static DropZoneImpl dropZone(Options options) {
@@ -47,6 +45,6 @@ class DropZoneTest {
     }
 
     private static DropZoneImpl dropZoneQuoted() {
-        return dropZone(DEFAULT_OPTIONS.quoteIdentifiers());
+        return dropZone(Options.builder().quoteIdentifiers().build());
     }
 }

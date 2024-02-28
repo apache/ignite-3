@@ -24,16 +24,6 @@ import org.apache.ignite.catalog.Options;
 import org.junit.jupiter.api.Test;
 
 class DropTableTest {
-    private static final Options quoteIdentifiers = Options.defaultOptions().prettyPrint(false).quoteIdentifiers(true);
-
-    private static DropTableImpl dropTable() {
-        return dropTable(Options.defaultOptions().prettyPrint(false).quoteIdentifiers(false));
-    }
-
-    private static DropTableImpl dropTable(Options options) {
-        return new DropTableImpl(null, options);
-    }
-
     @Test
     void testDropTable() {
         String sql = dropTable().name("table1").toSqlString();
@@ -42,7 +32,19 @@ class DropTableTest {
         sql = dropTable().ifExists().name("table1").toSqlString();
         assertThat(sql, is("DROP TABLE IF EXISTS table1;"));
 
-        sql = dropTable(quoteIdentifiers).ifExists().name("table1").toSqlString();
+        sql = dropTableQuoted().ifExists().name("table1").toSqlString();
         assertThat(sql, is("DROP TABLE IF EXISTS \"table1\";"));
+    }
+
+    private static DropTableImpl dropTable() {
+        return dropTable(Options.DEFAULT);
+    }
+
+    private static DropTableImpl dropTable(Options options) {
+        return new DropTableImpl(null, options);
+    }
+
+    private static DropTableImpl dropTableQuoted() {
+        return dropTable(Options.builder().quoteIdentifiers().build());
     }
 }

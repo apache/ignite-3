@@ -26,8 +26,8 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.SortOrder;
-import org.apache.ignite.catalog.annotations.Col;
 import org.apache.ignite.catalog.annotations.Column;
+import org.apache.ignite.catalog.annotations.ColumnRef;
 import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
@@ -136,10 +136,10 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     @Table(
             value = POJO_KV_TABLE_NAME,
             zone = ZoneTest.class,
-            colocateBy = @Col("id"),
+            colocateBy = @ColumnRef("id"),
             indexes = @Index(value = "ix_pojo", columns = {
-                    @Col("f_name"),
-                    @Col(value = "l_name", sort = SortOrder.DESC),
+                    @ColumnRef("f_name"),
+                    @ColumnRef(value = "l_name", sort = SortOrder.DESC),
             })
     )
     private static class PojoValue {
@@ -181,10 +181,10 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     @Table(
             value = POJO_RECORD_TABLE_NAME,
             zone = ZoneTest.class,
-            colocateBy = @Col("id"),
+            colocateBy = @ColumnRef("id"),
             indexes = @Index(value = "ix_pojo", columns = {
-                    @Col("f_name"),
-                    @Col(value = "l_name", sort = SortOrder.DESC),
+                    @ColumnRef("f_name"),
+                    @ColumnRef(value = "l_name", sort = SortOrder.DESC),
             })
     )
     private static class Pojo {

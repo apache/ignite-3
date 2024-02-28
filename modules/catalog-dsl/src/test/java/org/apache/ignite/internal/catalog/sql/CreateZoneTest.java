@@ -70,7 +70,7 @@ class CreateZoneTest {
     }
 
     private static CreateZoneImpl createZone() {
-        return createZone(Options.defaultOptions());
+        return createZone(Options.DEFAULT);
     }
 
     private static CreateZoneImpl createZone(Options options) {
@@ -78,6 +78,6 @@ class CreateZoneTest {
     }
 
     private static CreateZoneImpl createZoneQuoted() {
-        return createZone(Options.defaultOptions().quoteIdentifiers());
+        return createZone(Options.builder().quoteIdentifiers().build());
     }
 }

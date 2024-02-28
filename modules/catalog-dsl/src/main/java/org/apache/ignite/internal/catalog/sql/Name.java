@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.catalog.sql;
 
 /**
- * Qualified SQL identifier.
+ * SQL identifier.
  */
 class Name extends QueryPart {
-
     private final String[] names;
 
     /**
@@ -35,13 +34,13 @@ class Name extends QueryPart {
 
     @Override
     protected void accept(QueryContext ctx) {
-        String c = ctx.isQuoteNames() ? "\"" : "";
+        String quote = ctx.isQuoteNames() ? "\"" : "";
         String separator = "";
         for (String name : names) {
             if (name == null || name.isBlank()) {
                 continue;
             }
-            ctx.sql(separator).sql(c).sqlSanitized(name).sql(c);
+            ctx.sql(separator).sql(quote).sqlSanitized(name).sql(quote);
             separator = ".";
         }
     }

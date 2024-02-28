@@ -28,7 +28,7 @@ import org.apache.ignite.catalog.SortOrder;
  */
 @Target({})
 @Retention(RUNTIME)
-public @interface Col {
+public @interface ColumnRef {
     /**
      * Column name.
      *

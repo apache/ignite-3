@@ -223,11 +223,11 @@ class QueryPartTest {
     }
 
     private static String sql(QueryPart part) {
-        return ctx(Options.defaultOptions()).visit(part).getSql();
+        return ctx(Options.DEFAULT).visit(part).getSql();
     }
 
     private static String sqlQuoted(QueryPart part) {
-        return ctx(Options.defaultOptions().quoteIdentifiers()).visit(part).getSql();
+        return ctx(Options.builder().quoteIdentifiers().build()).visit(part).getSql();
     }
 
     private static QueryContext ctx(Options options) {

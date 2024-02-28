@@ -41,7 +41,7 @@ public @interface Index {
      *
      * @return Columns to include in the index.
      */
-    Col[] columns();
+    ColumnRef[] columns();
 
     /**
      * The type of the index.

@@ -27,8 +27,8 @@ import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.ZoneEngine;
-import org.apache.ignite.catalog.annotations.Col;
 import org.apache.ignite.catalog.annotations.Column;
+import org.apache.ignite.catalog.annotations.ColumnRef;
 import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
@@ -38,7 +38,6 @@ import org.apache.ignite.table.mapper.PojoMapper;
 import org.junit.jupiter.api.Test;
 
 class CreateFromAnnotationsTest {
-    private static final Options DEFAULT_OPTIONS = Options.defaultOptions();
 
     @Test
     void testMapperCompatibility() {
@@ -58,10 +57,10 @@ class CreateFromAnnotationsTest {
     }
 
     @Test
-    void createFromKeyValueViewPrimitive() {
+    void createFromKeyValueClassesPrimitive() {
         // primitive/boxed key class is a primary key with default name 'id'
         assertThat(
-                createTable().keyValueView(Integer.class, PojoValue.class).toSqlString(),
+                createTable().processKeyValueClasses(Integer.class, PojoValue.class).toSqlString(),
                 is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
                         + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -70,10 +69,10 @@ class CreateFromAnnotationsTest {
     }
 
     @Test
-    void createFromKeyValueViewPrimitiveQuoted() {
+    void createFromKeyValueClassesPrimitiveQuoted() {
         // primitive/boxed key class is a primary key with default name 'id'
         assertThat(
-                createTableQuoted().keyValueView(Integer.class, PojoValue.class).toSqlString(),
+                createTableQuoted().processKeyValueClasses(Integer.class, PojoValue.class).toSqlString(),
                 is("CREATE ZONE IF NOT EXISTS \"zone_test\" ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_value_test\" (\"id\" int, \"f_name\" varchar, \"l_name\" varchar,"
                         + " \"str\" varchar, PRIMARY KEY (\"id\")) COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -82,10 +81,10 @@ class CreateFromAnnotationsTest {
     }
 
     @Test
-    void createFromKeyValueViewClass() {
+    void createFromKeyValueClasses() {
         // key class fields (annotated only) is a composite primary keys
         assertThat(
-                createTable().keyValueView(PojoKey.class, PojoValue.class).toSqlString(),
+                createTable().processKeyValueClasses(PojoKey.class, PojoValue.class).toSqlString(),
                 is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
                         + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -94,10 +93,10 @@ class CreateFromAnnotationsTest {
     }
 
     @Test
-    void createFromKeyValueViewClassQuoted() {
+    void createFromKeyValueClassesQuoted() {
         // key class fields (annotated only) is a composite primary keys
         assertThat(
-                createTableQuoted().keyValueView(PojoKey.class, PojoValue.class).toSqlString(),
+                createTableQuoted().processKeyValueClasses(PojoKey.class, PojoValue.class).toSqlString(),
                 is("CREATE ZONE IF NOT EXISTS \"zone_test\" ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_value_test\" (\"id\" int, \"id_str\" varchar(20), \"f_name\" varchar,"
                         + " \"l_name\" varchar, \"str\" varchar, PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\")"
@@ -107,9 +106,9 @@ class CreateFromAnnotationsTest {
     }
 
     @Test
-    void createFromRecordView() {
+    void createFromRecordClass() {
         assertThat(
-                createTable().recordView(Pojo.class).toSqlString(),
+                createTable().processRecordClass(Pojo.class).toSqlString(),
                 is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS pojo_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
                         + " l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
@@ -119,9 +118,9 @@ class CreateFromAnnotationsTest {
     }
 
     @Test
-    void createFromRecordViewQuoted() {
+    void createFromRecordClassQuoted() {
         assertThat(
-                createTableQuoted().recordView(Pojo.class).toSqlString(),
+                createTableQuoted().processRecordClass(Pojo.class).toSqlString(),
                 is("CREATE ZONE IF NOT EXISTS \"zone_test\" ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_test\" (\"id\" int, \"id_str\" varchar(20),"
                         + " \"f_name\" varchar(20) not null default 'a', \"l_name\" varchar, \"str\" varchar,"
@@ -133,7 +132,7 @@ class CreateFromAnnotationsTest {
     @Test
     void nameGeneration() {
         assertThat(
-                createTable().recordView(NameGeneration.class).toSqlString(),
+                createTable().processRecordClass(NameGeneration.class).toSqlString(),
                 is("CREATE TABLE IF NOT EXISTS NameGeneration (col1 int, col2 varchar);"
                         + "CREATE INDEX IF NOT EXISTS ix_col1_col2 ON NameGeneration (col1, col2);")
         );
@@ -142,7 +141,7 @@ class CreateFromAnnotationsTest {
     @Test
     void nameGenerationQuoted() {
         assertThat(
-                createTableQuoted().recordView(NameGeneration.class).toSqlString(),
+                createTableQuoted().processRecordClass(NameGeneration.class).toSqlString(),
                 is("CREATE TABLE IF NOT EXISTS \"NameGeneration\" (\"col1\" int, \"col2\" varchar);"
                         + "CREATE INDEX IF NOT EXISTS \"ix_col1_col2\" ON \"NameGeneration\" (\"col1\", \"col2\");")
         );
@@ -151,7 +150,7 @@ class CreateFromAnnotationsTest {
     @Test
     void primaryKey() {
         assertThat(
-                createTable().recordView(PkSort.class).toSqlString(),
+                createTable().processRecordClass(PkSort.class).toSqlString(),
                 is("CREATE TABLE IF NOT EXISTS PkSort (id int, PRIMARY KEY USING TREE (id desc));")
         );
     }
@@ -159,20 +158,20 @@ class CreateFromAnnotationsTest {
     @Test
     void primaryKeyQuoted() {
         assertThat(
-                createTableQuoted().recordView(PkSort.class).toSqlString(),
+                createTableQuoted().processRecordClass(PkSort.class).toSqlString(),
                 is("CREATE TABLE IF NOT EXISTS \"PkSort\" (\"id\" int, PRIMARY KEY USING TREE (\"id\" desc));")
         );
     }
 
     @Test
     void nativeTypes() {
-        assertThrows(IllegalArgumentException.class, () -> createTable().keyValueView(Integer.class, Integer.class));
+        assertThrows(IllegalArgumentException.class, () -> createTable().processKeyValueClasses(Integer.class, Integer.class));
     }
 
     @Test
     void noAnnotations() {
-        assertThrows(IllegalArgumentException.class, () -> createTable().keyValueView(NoAnnotations.class, NoAnnotations.class));
-        assertThrows(IllegalArgumentException.class, () -> createTable().recordView(NoAnnotations.class));
+        assertThrows(IllegalArgumentException.class, () -> createTable().processKeyValueClasses(NoAnnotations.class, NoAnnotations.class));
+        assertThrows(IllegalArgumentException.class, () -> createTable().processRecordClass(NoAnnotations.class));
     }
 
     @Zone(
@@ -197,10 +196,10 @@ class CreateFromAnnotationsTest {
     @Table(
             value = "pojo_value_test",
             zone = ZoneTest.class,
-            colocateBy = {@Col("id"), @Col("id_str")},
+            colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_pojo", columns = {
-                    @Col("f_name"),
-                    @Col(value = "l_name", sort = SortOrder.DESC),
+                    @ColumnRef("f_name"),
+                    @ColumnRef(value = "l_name", sort = SortOrder.DESC),
             })
     )
     private static class PojoValue {
@@ -217,10 +216,10 @@ class CreateFromAnnotationsTest {
     @Table(
             value = "pojo_test",
             zone = ZoneTest.class,
-            colocateBy = {@Col("id"), @Col("id_str")},
+            colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_pojo", columns = {
-                    @Col("f_name"),
-                    @Col(value = "l_name", sort = SortOrder.DESC),
+                    @ColumnRef("f_name"),
+                    @ColumnRef(value = "l_name", sort = SortOrder.DESC)
             })
     )
     static class Pojo {
@@ -240,7 +239,7 @@ class CreateFromAnnotationsTest {
         String str;
     }
 
-    @Table(indexes = @Index(columns = {@Col("col1"), @Col("col2")}))
+    @Table(indexes = @Index(columns = {@ColumnRef("col1"), @ColumnRef("col2")}))
     private static class NameGeneration {
         Integer col1;
         String col2;
@@ -257,7 +256,7 @@ class CreateFromAnnotationsTest {
     }
 
     private static CreateFromAnnotationsImpl createTable() {
-        return createTable(DEFAULT_OPTIONS);
+        return createTable(Options.DEFAULT);
     }
 
     private static CreateFromAnnotationsImpl createTable(Options options) {
@@ -265,6 +264,6 @@ class CreateFromAnnotationsTest {
     }
 
     private static CreateFromAnnotationsImpl createTableQuoted() {
-        return createTable(Options.defaultOptions().quoteIdentifiers());
+        return createTable(Options.builder().quoteIdentifiers().build());
     }
 }

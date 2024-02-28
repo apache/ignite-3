@@ -179,10 +179,10 @@ class CreateTableTest {
     }
 
     private static CreateTableImpl createTable() {
-        return new CreateTableImpl(null, Options.defaultOptions());
+        return new CreateTableImpl(null, Options.DEFAULT);
     }
 
     private static CreateTableImpl createTableQuoted() {
-        return new CreateTableImpl(null, Options.defaultOptions().quoteIdentifiers());
+        return new CreateTableImpl(null, Options.builder().quoteIdentifiers().build());
     }
 }

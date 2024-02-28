@@ -57,7 +57,7 @@ public @interface Table {
      *
      * @return Colocation columns.
      */
-    Col[] colocateBy() default {};
+    ColumnRef[] colocateBy() default {};
 
     /**
      * Class annotated with {@link Zone} annotation to create a zone.

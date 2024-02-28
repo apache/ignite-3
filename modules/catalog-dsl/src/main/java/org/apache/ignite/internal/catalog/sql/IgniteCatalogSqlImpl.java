@@ -36,13 +36,13 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public Query create(Class<?> key, Class<?> value) {
-        return new CreateFromAnnotationsImpl(sql, options).keyValueView(key, value);
+    public Query create(Class<?> keyClass, Class<?> valueClass) {
+        return new CreateFromAnnotationsImpl(sql, options).processKeyValueClasses(keyClass, valueClass);
     }
 
     @Override
-    public Query create(Class<?> recCls) {
-        return new CreateFromAnnotationsImpl(sql, options).recordView(recCls);
+    public Query create(Class<?> recordClass) {
+        return new CreateFromAnnotationsImpl(sql, options).processRecordClass(recordClass);
     }
 
     @Override

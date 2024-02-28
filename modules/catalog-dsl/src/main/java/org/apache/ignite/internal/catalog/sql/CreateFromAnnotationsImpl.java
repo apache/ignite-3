@@ -30,8 +30,8 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.DefaultZone;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.annotations.Col;
 import org.apache.ignite.catalog.annotations.Column;
+import org.apache.ignite.catalog.annotations.ColumnRef;
 import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
@@ -49,9 +49,12 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
         super(sql, options);
     }
 
-    CreateFromAnnotationsImpl keyValueView(Class<?> keyClass, Class<?> valueClass) {
+    CreateFromAnnotationsImpl processKeyValueClasses(Class<?> keyClass, Class<?> valueClass) {
         if (keyClass.getAnnotation(Table.class) == null && valueClass.getAnnotation(Table.class) == null) {
-            throw new IllegalArgumentException("Table annotation must be present.");
+            throw new IllegalArgumentException(
+                    "Cannot find @Table annotation on " + keyClass.getName() + " or " + valueClass.getName()
+                            + ". At least one of these classes must be annotated in order to create a query object."
+            );
         }
 
         processAnnotations(keyClass, true);
@@ -59,9 +62,10 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
         return this;
     }
 
-    CreateFromAnnotationsImpl recordView(Class<?> recordCls) {
+    CreateFromAnnotationsImpl processRecordClass(Class<?> recordCls) {
         if (recordCls.getAnnotation(Table.class) == null) {
-            throw new IllegalArgumentException("Table annotation must be present.");
+            throw new IllegalArgumentException("Cannot find @Table annotation on " + recordCls.getName()
+                    + ". This class must be annotated with in order to create a query object.");
         }
 
         processAnnotations(recordCls, true);
@@ -125,9 +129,9 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
             createTable.addIndex(name, ix.type(), indexColumns);
         }
 
-        Col[] colocateBy = table.colocateBy();
+        ColumnRef[] colocateBy = table.colocateBy();
         if (colocateBy != null && colocateBy.length > 0) {
-            createTable.colocateBy(mapArrayToList(colocateBy, Col::value));
+            createTable.colocateBy(mapArrayToList(colocateBy, ColumnRef::value));
         }
 
         pkType = table.primaryKeyType();
@@ -139,8 +143,8 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
         }
         List<String> list = new ArrayList<>();
         list.add("ix");
-        for (Col col : ix.columns()) {
-            list.add(col.value());
+        for (ColumnRef columnRef : ix.columns()) {
+            list.add(columnRef.value());
         }
         return String.join("_", list);
     }

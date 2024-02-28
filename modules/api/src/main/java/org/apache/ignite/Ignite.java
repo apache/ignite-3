@@ -101,6 +101,6 @@ public interface Ignite extends AutoCloseable {
      * @return Catalog object.
      */
     default IgniteCatalog catalog() {
-        return catalog(Options.defaultOptions());
+        return catalog(Options.DEFAULT);
     }
 }

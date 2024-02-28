@@ -21,19 +21,30 @@ package org.apache.ignite.catalog;
  * SQL query generation options.
  */
 public class Options {
-    private boolean prettyPrint = false;
+    /**
+     * Default options object - prints queries without line breaks, doesn't quote identifiers.
+     */
+    public static final Options DEFAULT = new Options(false, false, 2);
 
-    private boolean quoteIdentifiers = false;
+    private final boolean prettyPrint;
 
-    private int indentWidth = 2;
+    private final boolean quoteIdentifiers;
+
+    private final int indentWidth;
+
+    private Options(boolean prettyPrint, boolean quoteIdentifiers, int indentWidth) {
+        this.prettyPrint = prettyPrint;
+        this.quoteIdentifiers = quoteIdentifiers;
+        this.indentWidth = indentWidth;
+    }
 
     /**
-     * Constructs an options object with default values - prints queries without line breaks, doesn't quote identifiers.
+     * Creates new builder for options.
      *
-     * @return Options object.
+     * @return New builder instance.
      */
-    public static Options defaultOptions() {
-        return new Options();
+    public static Builder builder() {
+        return new Builder();
     }
 
     /**
@@ -46,52 +57,12 @@ public class Options {
     }
 
     /**
-     * Enables pretty printing.
-     *
-     * @return Options object.
-     */
-    public Options prettyPrint() {
-        return prettyPrint(true);
-    }
-
-    /**
-     * Sets pretty printing.
-     *
-     * @param b If {@code true}, pretty printing is enabled.
-     * @return Options object.
-     */
-    public Options prettyPrint(boolean b) {
-        this.prettyPrint = b;
-        return this;
-    }
-
-    /**
      * Returns quoting identifiers status.
      *
      * @return {@code true} if identifiers are quoted.
      */
     public boolean isQuoteIdentifiers() {
         return quoteIdentifiers;
-    }
-
-    /**
-     * Enables quoting identifiers.
-     *
-     * @return Options object.
-     */
-    public Options quoteIdentifiers() {
-        return quoteIdentifiers(true);
-    }
-
-    /**
-     * Sets quoting identifiers.
-     *
-     * @param b If {@code true}, quotes identifiers.
-     * @return Options object.
-     */
-    public Options quoteIdentifiers(boolean b) {
-        this.quoteIdentifiers = b;
-        return this;
     }
 
     /**
@@ -104,13 +75,73 @@ public class Options {
     }
 
     /**
-     * Sets indentation width.
-     *
-     * @param width Indentation width.
-     * @return Options object.
+     * Builder class for {@link Options}.
      */
-    public Options indentWidth(int width) {
-        this.indentWidth = width;
-        return this;
+    public static class Builder {
+        private boolean prettyPrint = false;
+
+        private boolean quoteIdentifiers = false;
+
+        private int indentWidth = 2;
+
+        /**
+         * Enables pretty printing.
+         *
+         * @return Builder object.
+         */
+        public Builder prettyPrint() {
+            return prettyPrint(true);
+        }
+
+        /**
+         * Sets pretty printing.
+         *
+         * @param b If {@code true}, pretty printing is enabled.
+         * @return Builder object.
+         */
+        public Builder prettyPrint(boolean b) {
+            this.prettyPrint = b;
+            return this;
+        }
+
+        /**
+         * Enables quoting identifiers.
+         *
+         * @return Builder object.
+         */
+        public Builder quoteIdentifiers() {
+            return quoteIdentifiers(true);
+        }
+
+        /**
+         * Sets quoting identifiers.
+         *
+         * @param b If {@code true}, quotes identifiers.
+         * @return Builder object.
+         */
+        public Builder quoteIdentifiers(boolean b) {
+            this.quoteIdentifiers = b;
+            return this;
+        }
+
+        /**
+         * Sets indentation width.
+         *
+         * @param width Indentation width.
+         * @return Builder object.
+         */
+        public Builder indentWidth(int width) {
+            this.indentWidth = width;
+            return this;
+        }
+
+        /**
+         * Builds options object.
+         *
+         * @return Constructed options object.
+         */
+        public Options build() {
+            return new Options(prettyPrint, quoteIdentifiers, indentWidth);
+        }
     }
 }
