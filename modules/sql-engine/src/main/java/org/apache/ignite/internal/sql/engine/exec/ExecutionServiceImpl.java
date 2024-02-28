@@ -132,7 +132,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private static final List<InternalSqlRow> NOT_APPLIED_ANSWER = List.of(new InternalSqlRowSingleBoolean(false));
 
     private static final FragmentDescription DUMMY_DESCRIPTION = new FragmentDescription(
-            0, true, Long2ObjectMaps.emptyMap(), null, null
+            0, true, Long2ObjectMaps.emptyMap(), null, null, null
     );
 
     private final MessageService messageService;
@@ -913,7 +913,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 !fragment.correlated(),
                                 mappedFragment.groupsBySourceId(),
                                 mappedFragment.target(),
-                                mappedFragment.sourcesByExchangeId()
+                                mappedFragment.sourcesByExchangeId(),
+                                mappedFragment.partitionPruningMetadata()
                         );
 
                         for (String nodeName : mappedFragment.nodes()) {

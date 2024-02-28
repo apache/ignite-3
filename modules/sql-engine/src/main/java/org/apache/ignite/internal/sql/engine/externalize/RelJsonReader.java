@@ -62,7 +62,9 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RelJsonReader {
-    private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {};
+    static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {};
+
+    private static final Map<String, Object> EMPTY_JSON_RELS = Map.of("rels", List.of());
 
     private final ObjectMapper mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
@@ -82,6 +84,21 @@ public class RelJsonReader {
         RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
 
         return (T) reader.read(json);
+    }
+
+    /** Creates a {@link RexNode} from the given json. */
+    public static RexNode fromExprJson(byte[] json) {
+        try {
+            RelJsonReader reader = new RelJsonReader(null);
+
+            RelInput relInput = reader.newInput(EMPTY_JSON_RELS);
+
+            LinkedHashMap<String, Object> val = reader.mapper.readValue(json, TYPE_REF);
+
+            return reader.relJson.toRex(relInput, val);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson expression serialization error", e);
+        }
     }
 
     /**
@@ -120,9 +137,13 @@ public class RelJsonReader {
         String id = (String) jsonRel.get("id");
         String type = (String) jsonRel.get("relOp");
         Function<RelInput, RelNode> factory = relJson.factory(type);
-        RelNode rel = factory.apply(new RelInputImpl(jsonRel));
+        RelNode rel = factory.apply(newInput(jsonRel));
         relMap.put(id, rel);
         lastRel = rel;
+    }
+
+    private RelInput newInput(Map<String, Object> jsonRel) {
+        return new RelInputImpl(jsonRel);
     }
 
     private class RelInputImpl implements RelInputEx {

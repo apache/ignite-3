@@ -71,6 +71,13 @@ public class PartitionPrunerImpl implements PartitionPruner {
                 continue;
             }
 
+            // Do not update colocation groups, in case of correlated fragment,
+            // because partitions for such fragments can be removed only at runtime.
+            if (fragment.correlated()) {
+                updatedFragments.add(mappedFragment.withPartitionPruningMetadata(pruningMetadata));
+                continue;
+            }
+
             // Update fragment by applying PP metadata.
             MappedFragment newFragment = updateColocationGroups(mappedFragment, pruningMetadata, dynamicParameters);
 
@@ -161,8 +168,10 @@ public class PartitionPrunerImpl implements PartitionPruner {
             ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(sourceId);
             assert colocationGroup != null : "No colocation group#" + sourceId;
 
-            PartitionPruningPredicate pruningPredicate = new PartitionPruningPredicate(table, pruningColumns, dynamicParameters);
-            ColocationGroup newColocationGroup = pruningPredicate.prunePartitions(colocationGroup);
+            ColocationGroup newColocationGroup = PartitionPruningPredicate.prunePartitions(
+                    table, pruningColumns, dynamicParameters,
+                    colocationGroup
+            );
 
             newColocationGroups.put(sourceId, newColocationGroup);
         }
