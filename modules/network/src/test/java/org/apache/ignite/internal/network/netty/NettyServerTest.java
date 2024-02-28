@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,6 +61,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.mockito.verification.VerificationMode;
+import org.opentest4j.AssertionFailedError;
 
 /**
  * Tests for {@link NettyServer}.
@@ -80,7 +83,10 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     @AfterEach
     final void tearDown() throws Exception {
-        server.stop().join();
+        if (server != null) {
+            server.stop().join();
+        }
+
         bootstrapFactory.stop();
     }
 
@@ -138,6 +144,22 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         server = getServer(true);
 
         assertThrows(IgniteInternalException.class, server::start);
+    }
+
+    /**
+     * Tests that bootstrap tries to bind to host specified in network.bindHost.
+     */
+    @Test
+    public void testBindHost() {
+        String host = "unknown-host";
+        assertThat(serverCfg.listenAddress().update(host), willCompleteSuccessfully());
+
+        AssertionFailedError e = assertThrows(AssertionFailedError.class, () -> getServer(true));
+
+        String expectedError = String.format("Host %s:%d is not available", host, serverCfg.port().value());
+        assertTrue(e.getCause().getMessage().contains(expectedError));
+
+        assertThat(serverCfg.listenAddress().update(""), willCompleteSuccessfully());
     }
 
     /**

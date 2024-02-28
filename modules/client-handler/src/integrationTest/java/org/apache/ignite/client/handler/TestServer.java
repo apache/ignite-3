@@ -66,13 +66,19 @@ public class TestServer {
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
+    private final ClientConnectorConfiguration connectorConfiguration;
+
     private long idleTimeout = 5000;
 
     public TestServer() {
-        this(null, null);
+        this(null, null, null);
     }
 
-    TestServer(@Nullable TestSslConfig testSslConfig, @Nullable SecurityConfiguration securityConfiguration) {
+    TestServer(
+            @Nullable TestSslConfig testSslConfig,
+            @Nullable SecurityConfiguration securityConfiguration,
+            @Nullable ClientConnectorConfiguration connectorConfiguration
+    ) {
         this.testSslConfig = testSslConfig;
         this.authenticationManager = securityConfiguration == null
                 ? new DummyAuthenticationManager()
@@ -84,6 +90,9 @@ public class TestServer {
                 generator,
                 new TestConfigurationValidator()
         );
+        this.connectorConfiguration = connectorConfiguration == null
+                ? configurationManager.configurationRegistry().getConfiguration(ClientConnectorConfiguration.KEY)
+                : connectorConfiguration;
 
         metrics.enable();
     }
@@ -102,16 +111,16 @@ public class TestServer {
         configurationManager.start();
         authenticationManager.start();
 
-        clientConnectorConfig().change(
+        connectorConfiguration.change(
                 local -> local
                         .changePort(10800)
                         .changeIdleTimeout(idleTimeout)
         ).join();
 
         if (testSslConfig != null) {
-            clientConnectorConfig().ssl().enabled().update(true).join();
-            clientConnectorConfig().ssl().keyStore().path().update(testSslConfig.keyStorePath()).join();
-            clientConnectorConfig().ssl().keyStore().password().update(testSslConfig.keyStorePassword()).join();
+            connectorConfiguration.ssl().enabled().update(true).join();
+            connectorConfiguration.ssl().keyStore().path().update(testSslConfig.keyStorePath()).join();
+            connectorConfiguration.ssl().keyStore().password().update(testSslConfig.keyStorePassword()).join();
         }
 
         var registry = configurationManager.configurationRegistry();
@@ -127,7 +136,6 @@ public class TestServer {
                 mock(QueryProcessor.class),
                 mock(IgniteTablesInternal.class),
                 mock(IgniteTransactionsImpl.class),
-                registry,
                 mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
@@ -139,7 +147,8 @@ public class TestServer {
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                connectorConfiguration
         );
 
         module.start().join();
@@ -149,10 +158,5 @@ public class TestServer {
 
     ClientHandlerMetricSource metrics() {
         return metrics;
-    }
-
-    private ClientConnectorConfiguration clientConnectorConfig() {
-        var registry = configurationManager.configurationRegistry();
-        return registry.getConfiguration(ClientConnectorConfiguration.KEY);
     }
 }

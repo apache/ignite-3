@@ -138,16 +138,24 @@ public class NettyServer {
                     });
 
             int port = configuration.port();
+            String host = configuration.listenAddress();
 
             var bindFuture = new CompletableFuture<Channel>();
 
-            bootstrap.bind(port).addListener((ChannelFuture future) -> {
+            ChannelFuture channelFuture = host.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(host, port);
+
+            channelFuture.addListener((ChannelFuture future) -> {
                 if (future.isSuccess()) {
                     bindFuture.complete(future.channel());
                 } else if (future.isCancelled()) {
                     bindFuture.cancel(true);
                 } else {
-                    bindFuture.completeExceptionally(new IllegalStateException("Port " + port + " is not available."));
+                    bindFuture.completeExceptionally(
+                            new IllegalStateException(host.isEmpty()
+                                    ? "Port " + port + " is not available."
+                                    : String.format("Host %s:%d is not available", host, port)
+                            )
+                    );
                 }
             });
 

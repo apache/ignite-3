@@ -79,6 +79,7 @@ public class ItSslClientHandlerTest extends BaseIgniteAbstractTest {
                         .keyStorePath(keyStorePkcs12Path)
                         .keyStorePassword("changeit")
                         .build(),
+                null,
                 null
         );
         serverModule = testServer.start(testInfo);
@@ -96,6 +97,7 @@ public class ItSslClientHandlerTest extends BaseIgniteAbstractTest {
                         .keyStorePath(keyStorePkcs12Path)
                         .keyStorePassword("wrong-password")
                         .build(),
+                null,
                 null
         );
 

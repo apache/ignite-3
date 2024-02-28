@@ -36,6 +36,10 @@ public class NetworkConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = DEFAULT_PORT;
 
+    /** Address (IP or hostname) to listen to. */
+    @Value(hasDefault = true)
+    public String listenAddress = "";
+
     /**
      * Graceful shutdown of the Netty's EventExecutorGroup ensures that no tasks are submitted for
      * <i>'the quiet period'</i> before it shuts itself down. If a task is submitted during the quiet period,

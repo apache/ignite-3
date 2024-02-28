@@ -56,6 +56,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
                         .keyStorePath(ItClientHandlerTestUtils.generateKeystore(workDir))
                         .keyStorePassword("changeit")
                         .build(),
+                null,
                 null
         );
 
@@ -70,7 +71,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSessionsRejected(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, null);
         var serverModule = testServer.start(testInfo);
 
         // Bad MAGIC.
@@ -91,7 +92,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSessionsRejectedTimeout(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, null);
         testServer.idleTimeout(300);
         var serverModule = testServer.start(testInfo);
 
@@ -108,7 +109,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSessionsAccepted(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, null);
         var serverModule = testServer.start(testInfo);
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
@@ -117,7 +118,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSessionsActive(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, null);
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
@@ -129,7 +130,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testBytesSentReceived(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, null);
         var serverModule = testServer.start(testInfo);
 
         assertEquals(0, testServer.metrics().bytesSent());

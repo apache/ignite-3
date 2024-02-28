@@ -49,6 +49,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -764,12 +765,13 @@ public class IgniteImpl implements Ignite {
 
         authenticationManager = createAuthenticationManager();
 
+        ClientConnectorConfiguration connectorConfiguration = nodeConfigRegistry.getConfiguration(ClientConnectorConfiguration.KEY);
+
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
                 //TODO: IGNITE-20232 The observable timestamp should be different for each client.
                 new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
-                nodeConfigRegistry,
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
@@ -781,7 +783,8 @@ public class IgniteImpl implements Ignite {
                 clock,
                 schemaSyncService,
                 catalogManager,
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                connectorConfiguration
         );
 
         restComponent = createRestComponent(name);
