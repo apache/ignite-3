@@ -34,7 +34,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.network.ClusterNode;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
@@ -67,7 +67,7 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
                 + "}";
     }
 
-    @BeforeEach
+    @BeforeAll
     void setUp() {
         IgniteImpl localNode = CLUSTER.node(0);
         IgniteImpl remoteNode = CLUSTER.node(1);
@@ -204,7 +204,8 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
 
         // Stop the worker node
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
-        CLUSTER.stopNode(workerNodeName);
+        int workerNodeIndex = CLUSTER.nodeIndex(workerNodeName);
+        CLUSTER.stopNode(workerNodeIndex);
 
         String failoverWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
 
@@ -229,9 +230,12 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
             assertThat(localExecutionManager.executions(), is(empty()));
             assertThat(failoverExecutionManager.executions(), is(empty()));
         });
+
+        // Start node again for next tests
+        CLUSTER.startNode(workerNodeIndex);
     }
 
-    private TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
+    private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
         return new TestingJobExecution<>(CLUSTER.node(0).compute().executeAsync(nodes, List.of(), InteractiveJobs.globalJob().name()));
     }
 }
