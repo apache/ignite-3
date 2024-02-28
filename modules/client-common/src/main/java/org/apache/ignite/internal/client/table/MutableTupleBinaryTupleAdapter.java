@@ -427,14 +427,14 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     protected abstract int schemaDecimalScale(int internalIndex);
 
+    protected int publicIndex(int internalIndex) {
+        return internalIndex;
+    }
+
     protected abstract int internalIndex(String columnName);
 
     protected int internalIndex(int publicIndex) {
         return publicIndex;
-    }
-
-    protected int publicIndex(int internalIndex) {
-        return internalIndex;
     }
 
     private int internalIndex(String columnName, @Nullable ColumnType type) {
