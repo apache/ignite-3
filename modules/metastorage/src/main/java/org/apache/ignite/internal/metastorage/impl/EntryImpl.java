@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.util.Arrays;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,11 +47,9 @@ public final class EntryImpl implements Entry {
     private static final long serialVersionUID = 3636551347117181271L;
 
     /** Key. */
-    @IgniteToStringInclude
     private final byte[] key;
 
     /** Value. */
-    @IgniteToStringInclude
     private final byte @Nullable [] val;
 
     /** Revision. */
@@ -75,25 +73,21 @@ public final class EntryImpl implements Entry {
         this.updCntr = updCntr;
     }
 
-    /** {@inheritDoc} */
     @Override
     public byte[] key() {
         return key;
     }
 
-    /** {@inheritDoc} */
     @Override
     public byte @Nullable [] value() {
         return val;
     }
 
-    /** {@inheritDoc} */
     @Override
     public long revision() {
         return rev;
     }
 
-    /** {@inheritDoc} */
     @Override
     public long updateCounter() {
         return updCntr;
@@ -111,7 +105,6 @@ public final class EntryImpl implements Entry {
         return new EntryImpl(key, null, rev, updCntr);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean tombstone() {
         return val == null && rev > 0 && updCntr > 0;
@@ -127,13 +120,11 @@ public final class EntryImpl implements Entry {
         return new EntryImpl(key, null, 0, 0);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean empty() {
         return val == null && rev == 0 && updCntr == 0;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -161,7 +152,6 @@ public final class EntryImpl implements Entry {
         return Arrays.equals(val, entry.val);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int res = Arrays.hashCode(key);
@@ -177,6 +167,11 @@ public final class EntryImpl implements Entry {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return "EntryImpl{"
+                + "key=" + new String(key, UTF_8)
+                + ", val=" + Arrays.toString(val)
+                + ", rev=" + rev
+                + ", updCntr=" + updCntr
+                + '}';
     }
 }
