@@ -16,7 +16,7 @@
 = Ignite CLI Tool
 
 The Ignite CLI tool uses REST API as a communication protocol between the node and the CLI,
-allowing you to configure the node. By default, the CLI tool runs in the REPL (Read Eval Print Loop) mode, but you can also execute commands without entering it.
+allowing you to configure the node. By default, the CLI tool runs in the interactive mode, but you can also execute commands without entering it.
 
 Below is a list of Ignite CLI tool commands with short descriptions:
 
@@ -24,9 +24,9 @@ Below is a list of Ignite CLI tool commands with short descriptions:
 
 You can find detailed installation guide in the link:quick-start/getting-started-guide[Getting Started] tutorial. The tutorial also includes some basic usage examples.
 
-== Command Options
+== Interactive Mode
 
-The following commands can be executed in REPL mode of the command line tool:
+The following commands can be executed in interactive mode of the command line tool:
 
 [cols="1,1,3",opts="header", stripes=none]
 |===
@@ -60,7 +60,7 @@ The following commands can be executed in REPL mode of the command line tool:
 
 == Non-interactive Mode
 
-The following commands can be executed in non-REPL mode of the command-line tool:
+The following commands can be executed in non-interactive mode of the command-line tool:
 
 [cols="1,1,3",opts="header", stripes=none]
 |===
