@@ -35,7 +35,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * Manager that is responsible for the scheduled cleaning up of the transaction resources.
+ * Manager that is responsible for the scheduling of transaction cleanup procedures.
  */
 public class TxScheduledCleanupManager implements IgniteComponent {
     /** The logger. */
@@ -67,6 +67,7 @@ public class TxScheduledCleanupManager implements IgniteComponent {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> start() {
         resourceCleanupExecutor.scheduleAtFixedRate(
@@ -79,6 +80,7 @@ public class TxScheduledCleanupManager implements IgniteComponent {
         return nullCompletedFuture();
     }
 
+    /** {@inheritDoc} */
     @Override
     public void stop() {
         busyLock.block();
@@ -94,6 +96,11 @@ public class TxScheduledCleanupManager implements IgniteComponent {
         });
     }
 
+    /**
+     * Register scheduled operation.
+     *
+     * @param operation The operation.
+     */
     public void registerScheduledOperation(Runnable operation) {
         scheduledOperations.add(operation);
     }

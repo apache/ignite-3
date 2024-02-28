@@ -137,7 +137,6 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
-import org.apache.ignite.internal.tx.impl.TxScheduledCleanupManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -395,8 +394,7 @@ public class ItTxTestCluster {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry(clusterService.topologyService(),
-                    new TxScheduledCleanupManager(node.name()));
+            var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
             cursorRegistries.put(node.name(), resourcesRegistry);
 
@@ -920,7 +918,7 @@ public class ItTxTestCluster {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
-                new RemotelyTriggeredResourceRegistry(client.topologyService(), new TxScheduledCleanupManager(client.nodeName()))
+                new RemotelyTriggeredResourceRegistry()
         );
 
         clientTxStateResolver = new TransactionStateResolver(

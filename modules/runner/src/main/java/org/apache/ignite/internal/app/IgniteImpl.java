@@ -188,6 +188,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TxScheduledCleanupManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -357,11 +358,14 @@ public class IgniteImpl implements Ignite {
     /** Local node RW transaction completion checker for indexes. */
     private final IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker;
 
+    /** Cleanup manager for tx resources. */
+    private final TxResourceCleanupManager txResourceCleanupManager;
+
+    /** Scheduled cleanup manager for tx resources. */
+    private final TxScheduledCleanupManager txScheduledCleanupManager;
+
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
-
-    /** Cleanup manager for tx resources. */
-    private final TxScheduledCleanupManager txScheduledCleanupManager;
 
     /**
      * The Constructor.
@@ -644,9 +648,11 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
         txScheduledCleanupManager = new TxScheduledCleanupManager(name);
 
-        resourcesRegistry = new RemotelyTriggeredResourceRegistry(clusterSvc.topologyService(), txScheduledCleanupManager);
+        txResourceCleanupManager = new TxResourceCleanupManager(txScheduledCleanupManager, resourcesRegistry, clusterSvc.topologyService());
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -988,7 +994,7 @@ public class IgniteImpl implements Ignite {
                                     deploymentManager,
                                     sql,
                                     txScheduledCleanupManager,
-                                    resourcesRegistry
+                                    txResourceCleanupManager
                             );
 
                             // The system view manager comes last because other components

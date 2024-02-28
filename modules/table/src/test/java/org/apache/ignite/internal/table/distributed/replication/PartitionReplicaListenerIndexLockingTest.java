@@ -101,7 +101,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.TxScheduledCleanupManager;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -258,7 +257,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 catalogService,
                 new TestPlacementDriver(localNode),
                 mock(ClusterNodeResolver.class),
-                new RemotelyTriggeredResourceRegistry(mock(ClusterNodeResolver.class), new TxScheduledCleanupManager(localNode.name())),
+                new RemotelyTriggeredResourceRegistry(),
                 schemaManager
         );
 

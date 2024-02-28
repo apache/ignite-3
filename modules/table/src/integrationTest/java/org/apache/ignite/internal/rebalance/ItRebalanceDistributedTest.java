@@ -182,7 +182,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.impl.TxScheduledCleanupManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
@@ -1044,9 +1043,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.partitionOperationsExecutor()
             );
 
-            var txScheduledCleanupManager = new TxScheduledCleanupManager(name);
-
-            var resourcesRegistry = new RemotelyTriggeredResourceRegistry(clusterService.topologyService(), txScheduledCleanupManager);
+            var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
             txManager = new TxManagerImpl(
                     txConfiguration,

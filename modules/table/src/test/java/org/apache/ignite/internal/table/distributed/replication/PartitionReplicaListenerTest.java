@@ -580,7 +580,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 catalogService,
                 placementDriver,
                 new SingleClusterNodeResolver(localNode),
-                new RemotelyTriggeredResourceRegistry(clusterNodeResolver, new TxScheduledCleanupManager(localNode.name())),
+                new RemotelyTriggeredResourceRegistry(),
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2)
         );
 

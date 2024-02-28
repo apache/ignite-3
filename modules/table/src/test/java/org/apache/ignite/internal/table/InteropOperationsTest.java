@@ -134,7 +134,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
         intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration,
-                storageUpdateConfiguration, clusterService.topologyService());
+                storageUpdateConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 

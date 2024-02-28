@@ -18,62 +18,27 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.Collections.unmodifiableMap;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.network.ClusterNodeResolver;
 
 /**
  * This registry keeps track of the resources that were created by remote nodes.
  */
-public class RemotelyTriggeredResourceRegistry implements IgniteComponent {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RemotelyTriggeredResourceRegistry.class);
-
+public class RemotelyTriggeredResourceRegistry {
     /** Resources map. */
     private final ConcurrentNavigableMap<FullyQualifiedResourceId, RemotelyTriggeredResource> resources = new ConcurrentSkipListMap<>();
 
+    /** Remote host inconsistent ids mapped to resources created by them. */
     private final Map<String, Set<FullyQualifiedResourceId>> remoteHostsToResources = new ConcurrentHashMap<>();
-
-    /** Cluster node resolver. */
-    private final ClusterNodeResolver clusterNodeResolver;
-
-    private final TxScheduledCleanupManager txScheduledCleanupManager;
-
-    /**
-     * Constructor.
-     *
-     * @param clusterNodeResolver Cluster node resolver.
-     */
-    public RemotelyTriggeredResourceRegistry(ClusterNodeResolver clusterNodeResolver, TxScheduledCleanupManager txScheduledCleanupManager) {
-        this.clusterNodeResolver = clusterNodeResolver;
-        this.txScheduledCleanupManager = txScheduledCleanupManager;
-    }
-
-    @Override
-    public CompletableFuture<Void> start() {
-        txScheduledCleanupManager.registerScheduledOperation(this::cleanupOrphanTxResources);
-
-        return nullCompletedFuture();
-    }
-
-    @Override
-    public void stop() throws Exception {
-        // No-op.
-    }
 
     /**
      * Register a resource.
@@ -139,7 +104,7 @@ public class RemotelyTriggeredResourceRegistry implements IgniteComponent {
                     remoteHostId = entry.getValue().remoteHostId();
                 }
 
-                assert remoteHostId == entry.getValue().remoteHostId() : "Resources of the same context triggered by different remote "
+                assert remoteHostId.equals(entry.getValue().remoteHostId()) : "Resources of the same context triggered by different remote "
                         + "hosts [" + remoteHostId + ", " + entry.getValue().remoteHostId() + "].";
             } catch (Exception e) {
                 if (ex == null) {
@@ -201,26 +166,13 @@ public class RemotelyTriggeredResourceRegistry implements IgniteComponent {
         return unmodifiableMap(resources);
     }
 
-    private void cleanupOrphanTxResources() {
-        try {
-            for (Map.Entry<String, Set<FullyQualifiedResourceId>> remoteHostResourceEntry : remoteHostsToResources.entrySet()) {
-                if (clusterNodeResolver.getById(remoteHostResourceEntry.getKey()) == null) {
-                    for (FullyQualifiedResourceId resourceId : remoteHostResourceEntry.getValue()) {
-                        try {
-                            close(resourceId);
-                        } catch (Exception e) {
-                            LOG.warn("Error occurred during the orphan cursor closing.", e);
-                        }
-                    }
-                }
-            }
-        } catch (Throwable err) {
-            LOG.error("Error occurred during the orphan cursors closing.", err);
-
-            if (err instanceof Error) {
-                throw err;
-            }
-        }
+    /**
+     * Remote host inconsistent ids mapped to resources created by them.
+     *
+     * @return Remote host inconsistent ids mapped to resources created by them.
+     */
+    Map<String, Set<FullyQualifiedResourceId>> remoteHostsToResources() {
+        return unmodifiableMap(remoteHostsToResources);
     }
 
     /**
