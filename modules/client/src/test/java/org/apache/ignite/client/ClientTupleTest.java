@@ -357,7 +357,9 @@ public class ClientTupleTest {
                 .appendNumber(BigInteger.valueOf(18))
                 .build();
 
-        var binTuple = new BinaryTupleReader(FULL_SCHEMA.columns().length, binTupleBuf);
+        var binTuple = new BinaryTupleReader(
+                keyOnlyData ? FULL_SCHEMA.columns(TuplePart.KEY).length : FULL_SCHEMA.columns().length,
+                binTupleBuf);
 
         return new ClientTuple(FULL_SCHEMA, part, binTuple);
     }

@@ -150,7 +150,7 @@ public class ClientSchema {
      *
      * @return Partial columns.
      */
-    ClientColumn[] columns(TuplePart part) {
+    public ClientColumn[] columns(TuplePart part) {
         if (part == TuplePart.KEY) {
             return keyColumns;
         }
