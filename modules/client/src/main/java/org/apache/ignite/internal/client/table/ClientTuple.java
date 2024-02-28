@@ -55,26 +55,25 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     }
 
     @Override
-    protected String schemaColumnName(int index) {
-        return schema.columns()[index].name();
+    protected String schemaColumnName(int binaryTupleIndex) {
+        return column(binaryTupleIndex).name();
     }
 
     @Override
-    protected int internalIndex(String columnName) {
-        return internalIndex(column(columnName));
+    protected int binaryTupleIndex(String columnName) {
+        return binaryTupleIndex(column(columnName));
     }
 
     @Override
-    protected int internalIndex(int publicIndex) {
+    protected int binaryTupleIndex(int publicIndex) {
         if (part == TuplePart.KEY_AND_VAL) {
             return publicIndex;
         }
 
-        return internalIndex(schema.columns(part)[publicIndex]);
+        return binaryTupleIndex(schema.columns(part)[publicIndex]);
     }
 
-    private int internalIndex(@Nullable ClientColumn column) {
-        // TODO: There is a mix up between publicIndex, internalIndex and schemaIndex!
+    private int binaryTupleIndex(@Nullable ClientColumn column) {
         if (column == null) {
             return -1;
         }
@@ -90,30 +89,38 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
 
 
     @Override
-    protected int publicIndex(int internalIndex) {
+    protected int publicIndex(int binaryTupleIndex) {
         if (part == TuplePart.KEY_AND_VAL) {
-            return internalIndex;
+            return binaryTupleIndex;
         }
 
-        var col = schema.columns()[internalIndex];
+        var col = column(binaryTupleIndex);
 
         return part == TuplePart.KEY ? col.keyIndex() : col.valIndex();
     }
 
     @Override
-    protected ColumnType schemaColumnType(int internalIndex) {
-        ClientColumn column = schema.columns()[internalIndex];
+    protected ColumnType schemaColumnType(int binaryTupleIndex) {
+        ClientColumn column = column(binaryTupleIndex);
 
         return column.type();
     }
 
     @Override
-    protected int schemaDecimalScale(int internalIndex) {
-        return schema.columns()[internalIndex].scale();
+    protected int schemaDecimalScale(int binaryTupleIndex) {
+        return column(binaryTupleIndex).scale();
     }
 
     @Nullable
     private ClientColumn column(String columnName) {
         return schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
+    }
+
+    private ClientColumn column(int binaryTupleIndex) {
+        if (fullBinaryTuple) {
+            return schema.columns()[binaryTupleIndex];
+        }
+
+        return schema.columns(part)[binaryTupleIndex];
     }
 }

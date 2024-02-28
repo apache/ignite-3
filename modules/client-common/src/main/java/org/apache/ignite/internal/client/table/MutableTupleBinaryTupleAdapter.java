@@ -95,9 +95,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.columnIndex(columnName);
         }
 
-        int internalIndex = internalIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName, null);
 
-        return internalIndex < 0 ? -1 : publicIndex(internalIndex);
+        return binaryTupleIndex < 0 ? -1 : publicIndex(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -107,13 +107,13 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.valueOrDefault(columnName, defaultValue);
         }
 
-        int internalIndex = internalIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName, null);
 
-        return internalIndex < 0
-                || publicIndex(internalIndex) < 0
-                || (noValueSet != null && noValueSet.get(internalIndex))
+        return binaryTupleIndex < 0
+                || publicIndex(binaryTupleIndex) < 0
+                || (noValueSet != null && noValueSet.get(binaryTupleIndex))
                 ? defaultValue
-                : value(internalIndex);
+                : (T) object(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -123,13 +123,13 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.value(columnName);
         }
 
-        int internalIndex = internalIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName, null);
 
-        if (internalIndex < 0 || publicIndex(internalIndex) < 0) {
+        if (binaryTupleIndex < 0 || publicIndex(binaryTupleIndex) < 0) {
             throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
         }
 
-        return (T) object(internalIndex);
+        return (T) object(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -141,8 +141,8 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         Objects.checkIndex(columnIndex, columnCount);
 
-        int internalIndex = internalIndex(columnIndex);
-        return (T) object(internalIndex);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        return (T) object(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
@@ -421,31 +421,31 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         return binaryTuple;
     }
 
-    protected abstract String schemaColumnName(int internalIndex);
+    protected abstract String schemaColumnName(int binaryTupleIndex);
 
-    protected abstract ColumnType schemaColumnType(int internalIndex);
+    protected abstract ColumnType schemaColumnType(int binaryTupleIndex);
 
-    protected abstract int schemaDecimalScale(int internalIndex);
+    protected abstract int schemaDecimalScale(int binaryTupleIndex);
 
-    protected int publicIndex(int internalIndex) {
-        return internalIndex;
+    protected int publicIndex(int binaryTupleIndex) {
+        return binaryTupleIndex;
     }
 
-    protected abstract int internalIndex(String columnName);
+    protected abstract int binaryTupleIndex(String columnName);
 
-    protected int internalIndex(int publicIndex) {
+    protected int binaryTupleIndex(int publicIndex) {
         return publicIndex;
     }
 
-    private int internalIndex(String columnName, @Nullable ColumnType type) {
-        var internalIndex = internalIndex(columnName);
+    private int binaryTupleIndex(String columnName, @Nullable ColumnType type) {
+        var binaryTupleIndex = binaryTupleIndex(columnName);
 
-        if (internalIndex < 0) {
-            return internalIndex;
+        if (binaryTupleIndex < 0) {
+            return binaryTupleIndex;
         }
 
         if (type != null) {
-            ColumnType actualType = schemaColumnType(internalIndex);
+            ColumnType actualType = schemaColumnType(binaryTupleIndex);
 
             if (type != actualType) {
                 throw new ClassCastException("Column with name '" + columnName + "' has type " + actualType
@@ -453,11 +453,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             }
         }
 
-        return internalIndex;
+        return binaryTupleIndex;
     }
 
     private int validateSchemaColumnType(String columnName, ColumnType type) {
-        var index = internalIndex(columnName, type);
+        var index = binaryTupleIndex(columnName, type);
 
         if (index < 0) {
             throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
@@ -469,87 +469,87 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     private int validateSchemaColumnType(int publicIndex, ColumnType type) {
         Objects.checkIndex(publicIndex, columnCount);
 
-        int internalIndex = internalIndex(publicIndex);
-        var actualType = schemaColumnType(internalIndex);
+        int binaryTupleIndex = binaryTupleIndex(publicIndex);
+        var actualType = schemaColumnType(binaryTupleIndex);
 
         if (type != actualType) {
             throw new ClassCastException("Column with index " + publicIndex + " has type " + actualType
                     + " but " + type + " was requested");
         }
 
-        return internalIndex;
+        return binaryTupleIndex;
     }
 
     private String schemaColumnName0(int publicIndex) {
         Objects.checkIndex(publicIndex, columnCount);
 
-        return schemaColumnName(internalIndex(publicIndex));
+        return schemaColumnName(binaryTupleIndex(publicIndex));
     }
 
-    private @Nullable Object object(int internalIndex) {
-        if (binaryTuple.hasNullValue(internalIndex)) {
+    private @Nullable Object object(int binaryTupleIndex) {
+        if (binaryTuple.hasNullValue(binaryTupleIndex)) {
             return null;
         }
 
-        var type = schemaColumnType(internalIndex);
+        var type = schemaColumnType(binaryTupleIndex);
 
         switch (type) {
             case BOOLEAN:
-                return binaryTuple.booleanValue(internalIndex);
+                return binaryTuple.booleanValue(binaryTupleIndex);
 
             case INT8:
-                return binaryTuple.byteValue(internalIndex);
+                return binaryTuple.byteValue(binaryTupleIndex);
 
             case INT16:
-                return binaryTuple.shortValue(internalIndex);
+                return binaryTuple.shortValue(binaryTupleIndex);
 
             case INT32:
-                return binaryTuple.intValue(internalIndex);
+                return binaryTuple.intValue(binaryTupleIndex);
 
             case INT64:
-                return binaryTuple.longValue(internalIndex);
+                return binaryTuple.longValue(binaryTupleIndex);
 
             case FLOAT:
-                return binaryTuple.floatValue(internalIndex);
+                return binaryTuple.floatValue(binaryTupleIndex);
 
             case DOUBLE:
-                return binaryTuple.doubleValue(internalIndex);
+                return binaryTuple.doubleValue(binaryTupleIndex);
 
             case DECIMAL:
-                return binaryTuple.decimalValue(internalIndex, schemaDecimalScale(internalIndex));
+                return binaryTuple.decimalValue(binaryTupleIndex, schemaDecimalScale(binaryTupleIndex));
 
             case DATE:
-                return binaryTuple.dateValue(internalIndex);
+                return binaryTuple.dateValue(binaryTupleIndex);
 
             case TIME:
-                return binaryTuple.timeValue(internalIndex);
+                return binaryTuple.timeValue(binaryTupleIndex);
 
             case DATETIME:
-                return binaryTuple.dateTimeValue(internalIndex);
+                return binaryTuple.dateTimeValue(binaryTupleIndex);
 
             case TIMESTAMP:
-                return binaryTuple.timestampValue(internalIndex);
+                return binaryTuple.timestampValue(binaryTupleIndex);
 
             case UUID:
-                return binaryTuple.uuidValue(internalIndex);
+                return binaryTuple.uuidValue(binaryTupleIndex);
 
             case BITMASK:
-                return binaryTuple.bitmaskValue(internalIndex);
+                return binaryTuple.bitmaskValue(binaryTupleIndex);
 
             case STRING:
-                return binaryTuple.stringValue(internalIndex);
+                return binaryTuple.stringValue(binaryTupleIndex);
 
             case BYTE_ARRAY:
-                return binaryTuple.bytesValue(internalIndex);
+                return binaryTuple.bytesValue(binaryTupleIndex);
 
             case PERIOD:
-                return binaryTuple.periodValue(internalIndex);
+                return binaryTuple.periodValue(binaryTupleIndex);
 
             case DURATION:
-                return binaryTuple.durationValue(internalIndex);
+                return binaryTuple.durationValue(binaryTupleIndex);
 
             case NUMBER:
-                return binaryTuple.numberValue(internalIndex);
+                return binaryTuple.numberValue(binaryTupleIndex);
 
             default:
                 throw new IllegalStateException("Unsupported type: " + type);

@@ -65,47 +65,47 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
 
     /** {@inheritDoc} */
     @Override
-    protected String schemaColumnName(int internalIndex) {
-        return schema.column(internalIndex).name();
+    protected String schemaColumnName(int binaryTupleIndex) {
+        return schema.column(binaryTupleIndex).name();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int internalIndex(String columnName) {
+    protected int binaryTupleIndex(String columnName) {
         Column column = schema.column(columnName);
         return column == null ? -1 : column.schemaIndex();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int internalIndex(int publicIndex) {
+    protected int binaryTupleIndex(int publicIndex) {
         return keyOnly
                 ? schema.keyColumns().column(publicIndex).schemaIndex()
-                : super.internalIndex(publicIndex);
+                : super.binaryTupleIndex(publicIndex);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int publicIndex(int internalIndex) {
+    protected int publicIndex(int binaryTupleIndex) {
         if (keyOnly) {
-            var col = schema.keyColumns().column(internalIndex);
+            var col = schema.keyColumns().column(binaryTupleIndex);
             return schema.keyIndex(col);
         }
 
-        return super.publicIndex(internalIndex);
+        return super.publicIndex(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected ColumnType schemaColumnType(int internalIndex) {
-        NativeTypeSpec spec = schema.column(internalIndex).type().spec();
+    protected ColumnType schemaColumnType(int binaryTupleIndex) {
+        NativeTypeSpec spec = schema.column(binaryTupleIndex).type().spec();
 
         return ClientTableCommon.getColumnType(spec);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaDecimalScale(int internalIndex) {
-        return ClientTableCommon.getDecimalScale(schema.column(internalIndex).type());
+    protected int schemaDecimalScale(int binaryTupleIndex) {
+        return ClientTableCommon.getDecimalScale(schema.column(binaryTupleIndex).type());
     }
 }

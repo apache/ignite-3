@@ -72,26 +72,26 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
 
     /** {@inheritDoc} */
     @Override
-    protected String schemaColumnName(int internalIndex) {
-        return columnName(internalIndex);
+    protected String schemaColumnName(int binaryTupleIndex) {
+        return columnName(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int internalIndex(String columnName) {
+    protected int binaryTupleIndex(String columnName) {
         return columnIndex(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected ColumnType schemaColumnType(int internalIndex) {
-        return metadata.columns().get(internalIndex).type();
+    protected ColumnType schemaColumnType(int binaryTupleIndex) {
+        return metadata.columns().get(binaryTupleIndex).type();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaDecimalScale(int internalIndex) {
-        return metadata.columns().get(internalIndex).scale();
+    protected int schemaDecimalScale(int binaryTupleIndex) {
+        return metadata.columns().get(binaryTupleIndex).scale();
     }
 
     /** {@inheritDoc} */
