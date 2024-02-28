@@ -62,8 +62,8 @@ public class ClientTupleTest {
     private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("ID", ColumnType.INT64, false, 0, -1, 0, 0),
-            new ClientColumn("NAME", ColumnType.STRING, false, -1, 0, -1, 1)
+            new ClientColumn("NAME", ColumnType.STRING, false, -1, 0, -1, 0),
+            new ClientColumn("ID", ColumnType.INT64, false, 0, -1, 0, 1)
     }, marshallers);
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
@@ -106,8 +106,8 @@ public class ClientTupleTest {
 
     @Test
     public void testValueReturnsValueByIndex() {
-        assertEquals(3L, (Long) createTuple().value(0));
-        assertEquals("Shirt", createTuple().value(1));
+        assertEquals(3L, (Long) createTuple().value(1));
+        assertEquals("Shirt", createTuple().value(0));
     }
 
     @Test
@@ -144,8 +144,8 @@ public class ClientTupleTest {
 
     @Test
     public void testColumnNameReturnsNameByIndex() {
-        assertEquals("ID", createTuple().columnName(0));
-        assertEquals("NAME", createTuple().columnName(1));
+        assertEquals("ID", createTuple().columnName(1));
+        assertEquals("NAME", createTuple().columnName(0));
     }
 
     @Test
@@ -156,8 +156,8 @@ public class ClientTupleTest {
 
     @Test
     public void testColumnIndexReturnsIndexByName() {
-        assertEquals(0, createTuple().columnIndex("id"));
-        assertEquals(1, createTuple().columnIndex("name"));
+        assertEquals(1, createTuple().columnIndex("id"));
+        assertEquals(0, createTuple().columnIndex("name"));
     }
 
     @Test
@@ -304,8 +304,8 @@ public class ClientTupleTest {
 
     private static Tuple createTuple() {
         var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length)
-                .appendLong(3L)
                 .appendString("Shirt")
+                .appendLong(3L)
                 .build();
 
         var binTuple = new BinaryTupleReader(SCHEMA.columns().length, binTupleBuf);
