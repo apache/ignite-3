@@ -288,7 +288,6 @@ public class ClientTableCommon {
             boolean keyOnly,
             SchemaDescriptor schema
     ) {
-        // TODO IGNITE-21525 fix ClientHandlerTuple logic.
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
 
         // NOTE: noValueSet is only present for client -> server communication.
