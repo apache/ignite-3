@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.contains;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -35,6 +37,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -188,6 +191,20 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 ),
                 willBe("remoteResponse")
         );
+    }
+
+    @Test
+    void executeBroadcastAsync() {
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
+
+        CompletableFuture<Map<ClusterNode, String>> future = compute.executeBroadcastAsync(
+                Set.of(localNode, remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42
+        );
+
+        assertThat(future, willBe(aMapWithSize(2)));
+        assertThat(future.join().keySet(), contains(localNode, remoteNode));
+        assertThat(future.join().values(), contains("jobResponse", "remoteResponse"));
     }
 
     private void respondWhenAskForPrimaryReplica() {
