@@ -52,6 +52,8 @@ import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests client tuple builder implementation.
@@ -158,11 +160,30 @@ public class ClientTupleTest {
     public void testColumnIndexReturnsIndexByName() {
         assertEquals(1, createTuple().columnIndex("id"));
         assertEquals(0, createTuple().columnIndex("name"));
+
+        assertEquals(2, createFullSchemaTuple().columnIndex("I32"));
+        assertEquals(3, createFullSchemaTuple().columnIndex("I64"));
+        assertEquals(7, createFullSchemaTuple().columnIndex("STR"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testColumnIndexReturnsIndexByNameKeyOnly(boolean keyOnlyData) {
+        assertEquals(0, createFullSchemaTuple(TuplePart.KEY, keyOnlyData).columnIndex("I32"));
+        assertEquals(1, createFullSchemaTuple(TuplePart.KEY, keyOnlyData).columnIndex("I64"));
+        assertEquals(2, createFullSchemaTuple(TuplePart.KEY, keyOnlyData).columnIndex("STR"));
     }
 
     @Test
     public void testColumnIndexForMissingColumns() {
         assertEquals(-1, createTuple().columnIndex("foo"));
+        assertEquals(-1, createFullSchemaTuple().columnIndex("UUID1"));
+    }
+
+    @Test
+    public void testColumnIndexForMissingColumnsKeyOnly() {
+        assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, false).columnIndex("UUID"));
+        assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, true).columnIndex("UUID"));
     }
 
     @Test
