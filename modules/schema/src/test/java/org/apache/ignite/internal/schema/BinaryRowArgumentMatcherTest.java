@@ -23,10 +23,11 @@ import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /** For {@link BinaryRowArgumentMatcher} testing. */
-public class BinaryRowArgumentMatcherTest {
+public class BinaryRowArgumentMatcherTest extends BaseIgniteAbstractTest {
     private static final SchemaDescriptor SCHEMA_1 = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", INT32, false)},
