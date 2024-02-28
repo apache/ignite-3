@@ -230,9 +230,12 @@ public interface MessagingService {
      *
      * <p>Message group is specified by providing a class annotated with the {@link MessageGroup} annotation.
      *
-     * <p>The provided executor chooser will choose the {@link Executor} for each message; the message will be handled
-     * on this executor. It will be chosen before @{@link Marshallable} fields of the message are unmarshalled, so they will be {@code null}
-     * from the point of view of the chooser.
+     * <p>The provided executor chooser will choose the {@link Executor} for each message coming from the network; the message will
+     * be handled on this executor. It might be chosen before @{@link Marshallable} fields of the message are unmarshalled, so they
+     * might be {@code null} from the point of view of the chooser.
+     *
+     * <p>The chooser will <b>NOT</b> be used for self-requests (that is, if the destination node is the same as current node). In such
+     * cases, handlers will be invoked in the same thread that initiated the send.
      *
      * <p>The executor chooser is invoked in a network I/O thread, so it must never block.
      *
