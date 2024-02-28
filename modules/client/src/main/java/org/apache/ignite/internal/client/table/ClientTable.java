@@ -230,14 +230,13 @@ public class ClientTable implements Table {
 
             var name = in.unpackString();
             var type = ColumnTypeConverter.fromIdOrThrow(in.unpackInt());
-            var isKey = in.unpackBoolean();
+            var keyIndex = in.unpackInt();
             var isNullable = in.unpackBoolean();
             var colocationIndex = in.unpackInt();
             var scale = in.unpackInt();
             var precision = in.unpackInt();
 
-            var keyIndex = isKey ? keyCnt++ : -1;
-            var valIndex = isKey ? -1 : valCnt++;
+            var valIndex = keyIndex < 0 ? valCnt++ : -1;
 
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
