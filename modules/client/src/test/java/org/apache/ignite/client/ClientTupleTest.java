@@ -144,6 +144,12 @@ public class ClientTupleTest {
         assertEquals(SCHEMA.columns().length, createTuple().columnCount());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testColumnCountKeyOnlyReturnsKeySize(boolean keyOnlyData) {
+        assertEquals(FULL_SCHEMA.columns(TuplePart.KEY).length, createFullSchemaTuple(TuplePart.KEY, keyOnlyData).columnCount());
+    }
+
     @Test
     public void testColumnNameReturnsNameByIndex() {
         assertEquals("ID", createTuple().columnName(1));
