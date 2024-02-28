@@ -354,39 +354,63 @@ public class ClientTupleTest {
         return createFullSchemaTuple(TuplePart.KEY_AND_VAL, false);
     }
 
-    private static ClientTuple createFullSchemaTuple(TuplePart part, boolean keyOnlyData) {
-        // TODO: Tests for keyOnly mode with full and partial data.
-        var binTupleBuf = keyOnlyData
-                ? new BinaryTupleBuilder(3)
-                .appendInt(3)
-                .appendLong(4)
-                .appendString("8")
-                .build()
-                : new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
-                .appendByte((byte) 1)
-                .appendShort((short) 2)
-                .appendInt(3)
-                .appendLong(4)
-                .appendFloat(5.5f)
-                .appendDouble(6.6)
-                .appendUuid(GUID)
-                .appendString("8")
-                .appendBitmask(new BitSet(3))
-                .appendDate(DATE)
-                .appendTime(TIME)
-                .appendDateTime(DATE_TIME)
-                .appendTimestamp(TIMESTAMP)
-                .appendByte((byte) 1)
-                .appendDecimal(BigDecimal.valueOf(1.234), 3)
-                .appendBytes(new byte[] {1, 2, 3})
-                .appendPeriod(Period.ofDays(16))
-                .appendDuration(Duration.ofDays(17))
-                .appendNumber(BigInteger.valueOf(18))
-                .build();
+    private static ClientTuple createFullSchemaTuple(TuplePart part, boolean partialData) {
+        var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
+                        .appendByte((byte) 1)
+                        .appendShort((short) 2)
+                        .appendInt(3)
+                        .appendLong(4)
+                        .appendFloat(5.5f)
+                        .appendDouble(6.6)
+                        .appendUuid(GUID)
+                        .appendString("8")
+                        .appendBitmask(new BitSet(3))
+                        .appendDate(DATE)
+                        .appendTime(TIME)
+                        .appendDateTime(DATE_TIME)
+                        .appendTimestamp(TIMESTAMP)
+                        .appendByte((byte) 1)
+                        .appendDecimal(BigDecimal.valueOf(1.234), 3)
+                        .appendBytes(new byte[] {1, 2, 3})
+                        .appendPeriod(Period.ofDays(16))
+                        .appendDuration(Duration.ofDays(17))
+                        .appendNumber(BigInteger.valueOf(18))
+                        .build();
 
-        var binTuple = new BinaryTupleReader(
-                keyOnlyData ? FULL_SCHEMA.columns(TuplePart.KEY).length : FULL_SCHEMA.columns().length,
-                binTupleBuf);
+        var binTupleColumnCount = FULL_SCHEMA.columns().length;
+
+        if (part == TuplePart.KEY && partialData) {
+            binTupleBuf = new BinaryTupleBuilder(3)
+                    .appendInt(3)
+                    .appendLong(4)
+                    .appendString("8")
+                    .build();
+
+            binTupleColumnCount = 3;
+        }
+
+        if (part == TuplePart.VAL && partialData) {
+            binTupleBuf = new BinaryTupleBuilder(15)
+                    .appendByte((byte) 1)
+                    .appendShort((short) 2)
+                    .appendInt(3)
+                    .appendLong(4)
+                    .appendFloat(5.5f)
+                    .appendDouble(6.6)
+                    .appendUuid(GUID)
+                    .appendString("8")
+                    .appendBitmask(new BitSet(3))
+                    .appendDate(DATE)
+                    .appendTime(TIME)
+                    .appendDateTime(DATE_TIME)
+                    .appendTimestamp(TIMESTAMP)
+                    .appendByte((byte) 1)
+                    .build();
+
+            binTupleColumnCount = 15;
+        }
+
+        var binTuple = new BinaryTupleReader(binTupleColumnCount, binTupleBuf);
 
         return new ClientTuple(FULL_SCHEMA, part, binTuple);
     }
