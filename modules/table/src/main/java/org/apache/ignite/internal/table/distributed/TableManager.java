@@ -68,7 +68,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -262,26 +261,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final TransactionStateResolver transactionStateResolver;
 
     /**
-     * Versioned store for tables by id. Only table instances are created here, local storages and RAFT groups may not be initialized yet.
+     * Versioned value for linearizing table changing events.
      *
-     * @see #localPartsByTableIdVv
+     * @see #localPartitionsVv
      * @see #assignmentsUpdatedVv
      */
     private final IncrementalVersionedValue<Void> tablesVv;
 
     /**
-     * Versioned store for local partition set by table id.
+     * Versioned value for linearizing table partitions changing events.
      *
      * <p>Completed strictly after {@link #tablesVv} and strictly before {@link #assignmentsUpdatedVv}.
      */
-    private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
+    private final IncrementalVersionedValue<Void> localPartitionsVv;
 
     /**
-     * Versioned store for tracking RAFT groups initialization and starting completion.
+     * Versioned value for tracking RAFT groups initialization and starting completion.
      *
      * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int)}.
      *
-     * <p>Completed strictly after {@link #localPartsByTableIdVv}.
+     * <p>Completed strictly after {@link #localPartitionsVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -290,6 +289,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Started tables. */
     private final Map<Integer, TableImpl> startedTables = new ConcurrentHashMap<>();
+
+    /** Local partitions. */
+    private final Map<Integer, PartitionSet> localPartsByTableId = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -489,9 +491,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         tablesVv = new IncrementalVersionedValue<>(registry);
 
-        localPartsByTableIdVv = new IncrementalVersionedValue<>(dependingOn(tablesVv), HashMap::new);
+        localPartitionsVv = new IncrementalVersionedValue<>(dependingOn(tablesVv));
 
-        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartsByTableIdVv));
+        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartitionsVv));
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
@@ -1254,8 +1256,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }));
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
-        CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
-                (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
+        CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
+                (ignore, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
@@ -1264,13 +1266,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         parts.set(i);
                     }
 
-                    return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
-                        var newValue = new HashMap<>(previous);
-
-                        newValue.put(tableId, parts);
-
-                        return newValue;
-                    });
+                    return getOrCreatePartitionStorages(table, parts).thenAccept(u -> localPartsByTableId.put(tableId, parts));
                 }, ioExecutor)));
 
         CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
@@ -1366,15 +1362,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // TODO Drop partitions from parameters and use from storage.
         int partitions = parameters.partitions();
 
-        localPartsByTableIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
+        localPartitionsVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
-            var newMap = new HashMap<>(previousVal);
-            newMap.remove(tableId);
+            localPartsByTableId.remove(tableId);
 
-            return completedFuture(newMap);
+            return nullCompletedFuture();
         }));
 
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
@@ -1542,7 +1537,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         try {
-            return localPartsByTableIdVv.get(causalityToken).thenApply(partitionSetById -> partitionSetById.get(tableId));
+            return localPartitionsVv.get(causalityToken).thenApply(unused -> localPartsByTableId.get(tableId));
         } finally {
             busyLock.leaveBusy();
         }
@@ -1771,20 +1766,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int zoneId = getTableDescriptor(tableId, catalogService.latestCatalogVersion()).zoneId();
 
         if (shouldStartLocalGroupNode) {
-            localServicesStartFuture = localPartsByTableIdVv.get(revision)
-                    .thenComposeAsync(oldMap -> {
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-20957 This is incorrect usage of the value stored in
-                        // TODO versioned value. See ticket for the details.
-                        PartitionSet partitionSet = oldMap.get(tableId).copy();
-
-                        return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
-                            var newMap = new HashMap<>(oldMap);
-
-                            newMap.put(tableId, partitionSet);
-
-                            return newMap;
-                        });
-                    }, ioExecutor)
+            localServicesStartFuture = localPartitionsVv.get(revision)
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
+                    .thenApply(unused -> localPartsByTableId.get(tableId).copy())
+                    .thenComposeAsync(partitionSet -> inBusyLock(busyLock,
+                            () -> getOrCreatePartitionStorages(tbl, partitionSet)
+                    ), ioExecutor)
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> startPartitionAndStartClient(
                             tbl,
                             replicaGrpId.partitionId(),
