@@ -15,20 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.streamer;
+package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.schema.BinaryRow;
 
-/**
- * Integration test for server-side data streamer API.
- */
-// Disabling thread assertions as DataStreamer uses common pool on which ReplicaManager executes its requests.
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
-public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
-    @Override
-    Ignite ignite() {
-        return CLUSTER.aliveNode();
+/** Container for index ID and {@link BinaryRow}. */
+class IndexIdAndBinaryRow {
+    private final int indexId;
+
+    private final BinaryRow binaryRow;
+
+    IndexIdAndBinaryRow(int indexId, BinaryRow binaryRow) {
+        this.indexId = indexId;
+        this.binaryRow = binaryRow;
+    }
+
+    public int indexId() {
+        return indexId;
+    }
+
+    public BinaryRow binaryRow() {
+        return binaryRow;
     }
 }

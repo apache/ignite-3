@@ -132,7 +132,8 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Loza;
@@ -235,7 +236,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
-    private final ClusterService clusterService;
+    private final TopologyService topologyService;
 
     /** Raft manager. */
     private final RaftManager raftMgr;
@@ -422,7 +423,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             GcConfiguration gcConfig,
             StorageUpdateConfiguration storageUpdateConfig,
-            ClusterService clusterService,
+            MessagingService messagingService,
+            TopologyService topologyService,
+            MessageSerializationRegistry messageSerializationRegistry,
             RaftManager raftMgr,
             ReplicaManager replicaMgr,
             LockManager lockMgr,
@@ -449,7 +452,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             ScheduledExecutorService rebalanceScheduler
     ) {
-        this.clusterService = clusterService;
+        this.topologyService = topologyService;
         this.raftMgr = raftMgr;
         this.replicaMgr = replicaMgr;
         this.lockMgr = lockMgr;
@@ -475,15 +478,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
 
-        TopologyService topologyService = clusterService.topologyService();
-
-        TxMessageSender txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaSvc, clock);
+        TxMessageSender txMessageSender = new TxMessageSender(messagingService, replicaSvc, clock);
 
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
                 clock,
                 topologyService,
-                clusterService.messagingService(),
+                messagingService,
                 executorInclinedPlacementDriver,
                 txMessageSender
         );
@@ -526,11 +527,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc, failureProcessor);
 
-        raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
+        raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(messageSerializationRegistry);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 metaStorageMgr,
-                clusterService.messagingService(),
+                messagingService,
                 topologyService,
                 tableId -> latestTablesById().get(tableId)
         );
@@ -1000,8 +1001,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 executorInclinedSchemaSyncService,
                 catalogService,
                 executorInclinedPlacementDriver,
-                clusterService.topologyService(),
-                remotelyTriggeredResourceRegistry
+                topologyService,
+                remotelyTriggeredResourceRegistry,
+                schemaManager.schemaRegistry(tableId)
         );
     }
 
@@ -1039,7 +1041,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
-                clusterService.topologyService(),
+                topologyService,
                 outgoingSnapshotsManager,
                 new PartitionAccessImpl(
                         partitionKey,
@@ -1048,7 +1050,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         mvGc,
                         partitionUpdateHandlers.indexUpdateHandler,
                         partitionUpdateHandlers.gcUpdateHandler,
-                        fullStateTransferIndexChooser
+                        fullStateTransferIndexChooser,
+                        schemaManager.schemaRegistry(partitionKey.tableId())
                 ),
                 catalogService,
                 incomingSnapshotsExecutor
@@ -1229,14 +1232,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableName,
                 partitions,
                 new Int2ObjectOpenHashMap<>(partitions),
-                clusterService.topologyService()
+                topologyService
         );
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 tableName,
                 tableId,
                 partitions,
-                clusterService.topologyService(),
+                topologyService,
                 txManager,
                 tableStorage,
                 txStateStorage,
@@ -2322,7 +2325,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private ClusterNode localNode() {
-        return clusterService.topologyService().localMember();
+        return topologyService.localMember();
     }
 
     private static PartitionUpdateHandlers createPartitionUpdateHandlers(

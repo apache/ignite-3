@@ -15,20 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.streamer;
+package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.mockito.ArgumentMatcher;
 
-/**
- * Integration test for server-side data streamer API.
- */
-// Disabling thread assertions as DataStreamer uses common pool on which ReplicaManager executes its requests.
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
-public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
+/** Matcher for comparing {@link BinaryRow}s. */
+public class BinaryRowArgumentMatcher implements ArgumentMatcher<BinaryRow> {
+    private final BinaryRow row;
+
+    private BinaryRowArgumentMatcher(BinaryRow row) {
+        this.row = row;
+    }
+
+    public static BinaryRowArgumentMatcher equalToRow(BinaryRow row) {
+        return new BinaryRowArgumentMatcher(row);
+    }
+
     @Override
-    Ignite ignite() {
-        return CLUSTER.aliveNode();
+    public boolean matches(BinaryRow argument) {
+        return row.schemaVersion() == argument.schemaVersion() && row.tupleSlice().equals(argument.tupleSlice());
+    }
+
+    @Override
+    public Class<?> type() {
+        return BinaryRow.class;
     }
 }

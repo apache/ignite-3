@@ -1080,7 +1080,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
-                    hybridClock, name,
+                    hybridClock,
                     threadPoolsManager.partitionOperationsExecutor()
             );
 
@@ -1173,7 +1173,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     registry,
                     gcConfig,
                     storageUpdateConfiguration,
-                    clusterService,
+                    clusterService.messagingService(),
+                    clusterService.topologyService(),
+                    clusterService.serializationRegistry(),
                     raftManager,
                     replicaManager,
                     mock(LockManager.class),

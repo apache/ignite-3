@@ -45,7 +45,9 @@ github:
       required_signatures: false
   autolink_jira:
     - IGNITE
-
+  dependabot_alerts:  true
+  dependabot_updates: true
+  
 notifications:
   commits:      commits@ignite.apache.org
   issues:       notifications@ignite.apache.org

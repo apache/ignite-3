@@ -23,11 +23,11 @@ import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.compute.JobState.QUEUED;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.AnythingMatcher.anything;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithStateAndCreateTimeStartTimeFinishTime;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -37,10 +37,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.awaitility.core.ConditionFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -166,22 +168,23 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         jobId = stateMachine.initJob();
         executeJob(false);
         completeJob(false);
-        waitForCondition(() -> stateMachine.currentStatus(jobId) == null, 100);
+        ConditionFactory await = await().timeout(300, TimeUnit.MILLISECONDS);
+        await.untilAsserted(() -> assertThat(stateMachine.currentStatus(jobId), is(nullValue())));
 
         jobId = stateMachine.initJob();
         executeJob(false);
         failJob(false);
-        waitForCondition(() -> stateMachine.currentStatus(jobId) == null, 100);
+        await.untilAsserted(() -> assertThat(stateMachine.currentStatus(jobId), is(nullValue())));
 
         jobId = stateMachine.initJob();
         cancelJob(false);
-        waitForCondition(() -> stateMachine.currentStatus(jobId) == null, 100);
+        await.untilAsserted(() -> assertThat(stateMachine.currentStatus(jobId), is(nullValue())));
 
         jobId = stateMachine.initJob();
         executeJob(false);
         cancelingJob(false);
         cancelJob(false);
-        waitForCondition(() -> stateMachine.currentStatus(jobId) == null, 100);
+        await.untilAsserted(() -> assertThat(stateMachine.currentStatus(jobId), is(nullValue())));
 
         stateMachine.stop();
     }
