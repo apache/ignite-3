@@ -145,6 +145,29 @@ public class ClientHandlerTupleTests {
         assertThrows(IndexOutOfBoundsException.class, () -> tuple.value(1));
     }
 
+    @Test
+    public void testColumnCount() {
+        assertEquals(16, createTuple().columnCount());
+        assertEquals(1, createKeyTuple().columnCount());
+    }
+
+    @Test
+    public void testColumnIndex() {
+        Tuple tuple = createTuple();
+
+        assertEquals(0, tuple.columnIndex("valByteCol"));
+        assertEquals(3, tuple.columnIndex("valLongCol"));
+        assertEquals(-1, tuple.columnIndex("bad-name"));
+    }
+
+    @Test
+    public void testColumnIndexKeyOnly() {
+        Tuple tuple = createKeyTuple();
+
+        assertEquals(0, tuple.columnIndex("keyUuidCol"));
+        assertEquals(-1, tuple.columnIndex("valLongCol"));
+    }
+
     private static Tuple createKeyTuple() {
         return Tuple.create()
                 .set("keyUuidCol", GUID);
