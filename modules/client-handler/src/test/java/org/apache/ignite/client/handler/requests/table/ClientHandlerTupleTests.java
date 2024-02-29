@@ -39,11 +39,13 @@ import java.time.LocalTime;
 import java.time.Month;
 import java.util.Random;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -118,13 +120,9 @@ public class ClientHandlerTupleTests {
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
 
-        Tuple rowTuple = TableRow.tuple(marshaller.marshal(tuple));
+        BinaryTuple row = marshaller.marshal(tuple).binaryTuple();
+        Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, row, false);
 
-        assertEquals(tuple, rowTuple);
-
-        rowTuple.set("foo", "bar"); // Force row to tuple conversion.
-        tuple.set("foo", "bar"); // Force row to tuple conversion.
-
-        assertEquals(tuple, rowTuple);
+        assertEquals(tuple, clientHandlerTuple);
     }
 }
