@@ -105,27 +105,27 @@ public class SchemaManager implements IgniteComponent {
         for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
             Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
 
-                for (CatalogTableDescriptor tableDescriptor : tables) {
-                    int tableId = tableDescriptor.id();
+            for (CatalogTableDescriptor tableDescriptor : tables) {
+                int tableId = tableDescriptor.id();
 
-                    if (registriesById.containsKey(tableId)) {
-                        continue;
-                    }
-
-                    SchemaDescriptor prevSchema = null;
-                    CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
-                    for (int tableVer = schemaVersions.earliestVersion(); tableVer <= schemaVersions.latestVersion(); tableVer++) {
-                        SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
-
-                        if (prevSchema != null) {
-                            newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
-                        }
-
-                        prevSchema = newSchema;
-
-                        registerSchema(tableId, newSchema);
-                    }
+                if (registriesById.containsKey(tableId)) {
+                    continue;
                 }
+
+                SchemaDescriptor prevSchema = null;
+                CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
+                for (int tableVer = schemaVersions.earliestVersion(); tableVer <= schemaVersions.latestVersion(); tableVer++) {
+                    SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
+
+                    if (prevSchema != null) {
+                        newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
+                    }
+
+                    prevSchema = newSchema;
+
+                    registerSchema(tableId, newSchema);
+                }
+            }
         }
     }
 
