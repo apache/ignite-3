@@ -45,7 +45,11 @@ public class Assignments implements Serializable {
     @IgniteToStringInclude
     private final HashSet<Assignment> nodes;
 
-    /** @see #force() */
+    /**
+     * Force flag.
+     *
+     * @see #force()
+     */
     private final boolean force;
 
     /**
