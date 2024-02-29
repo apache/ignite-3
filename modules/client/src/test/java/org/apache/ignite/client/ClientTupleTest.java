@@ -146,8 +146,14 @@ public class ClientTupleTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    public void testColumnCountKeyOnlyReturnsKeySize(boolean keyOnlyData) {
-        assertEquals(FULL_SCHEMA.columns(TuplePart.KEY).length, createFullSchemaTuple(TuplePart.KEY, keyOnlyData).columnCount());
+    public void testColumnCountKeyOnlyReturnsKeySize(boolean partialData) {
+        assertEquals(FULL_SCHEMA.columns(TuplePart.KEY).length, createFullSchemaTuple(TuplePart.KEY, partialData).columnCount());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testColumnCountValOnlyReturnsValSize(boolean partialData) {
+        assertEquals(FULL_SCHEMA.columns(TuplePart.VAL).length, createFullSchemaTuple(TuplePart.VAL, partialData).columnCount());
     }
 
     @Test
