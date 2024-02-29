@@ -138,11 +138,11 @@ public class NettyServer {
                     });
 
             int port = configuration.port();
-            String host = configuration.listenAddress();
+            String address = configuration.listenAddress();
 
             var bindFuture = new CompletableFuture<Channel>();
 
-            ChannelFuture channelFuture = host.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(host, port);
+            ChannelFuture channelFuture = address.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(address, port);
 
             channelFuture.addListener((ChannelFuture future) -> {
                 if (future.isSuccess()) {
@@ -151,9 +151,9 @@ public class NettyServer {
                     bindFuture.cancel(true);
                 } else {
                     bindFuture.completeExceptionally(
-                            new IllegalStateException(host.isEmpty()
+                            new IllegalStateException(address.isEmpty()
                                     ? "Port " + port + " is not available."
-                                    : String.format("Address %s:%d is not available", host, port)
+                                    : String.format("Address %s:%d is not available", address, port)
                             )
                     );
                 }

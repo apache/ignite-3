@@ -313,16 +313,16 @@ public class ClientHandlerModule implements IgniteComponent {
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
 
         int port = configuration.port();
-        String host = configuration.listenAddress();
+        String address = configuration.listenAddress();
 
-        ChannelFuture channelFuture = host.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(host, port);
+        ChannelFuture channelFuture = address.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(address, port);
 
         channelFuture.addListener((ChannelFutureListener) bindFut -> {
             if (bindFut.isSuccess()) {
                 if (LOG.isInfoEnabled()) {
                     LOG.info(
                             "Thin client connector endpoint started successfully [{}]",
-                            (host.isEmpty() ? "" : "host=" + host + ",") + "port=" + port);
+                            (address.isEmpty() ? "" : "address=" + address + ",") + "port=" + port);
                 }
 
                 result.complete(bindFut.channel());
@@ -338,7 +338,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 result.completeExceptionally(
                         new IgniteException(
                                 INTERNAL_ERR,
-                                "Failed to start thin connector endpoint, address \"" + host + "\" is not found"
+                                "Failed to start thin connector endpoint, address \"" + address + "\" is not found"
                         )
                 );
             } else {
