@@ -55,6 +55,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -83,11 +84,10 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     @AfterEach
     final void tearDown() throws Exception {
-        if (server != null) {
-            server.stop().join();
-        }
-
-        bootstrapFactory.stop();
+        IgniteUtils.closeAll(
+                server == null ? null : () -> server.stop().join(),
+                () -> bootstrapFactory.stop()
+        );
     }
 
     /**
