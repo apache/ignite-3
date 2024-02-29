@@ -64,6 +64,9 @@ public class ClosedTransactionTracker {
         this.messagingService = messagingService;
     }
 
+    /**
+     * Send close cursors batch message to all cluster nodes.
+     */
     public void broadcastClosedTransactions() {
         Set<UUID> txToSend = closedTransactions.stream()
                 .limit(maxClosedTransactionsInBatch)
