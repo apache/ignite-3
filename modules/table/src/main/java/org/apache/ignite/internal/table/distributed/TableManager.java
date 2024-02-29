@@ -1038,7 +1038,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         mvGc,
                         partitionUpdateHandlers.indexUpdateHandler,
                         partitionUpdateHandlers.gcUpdateHandler,
-                        fullStateTransferIndexChooser
+                        fullStateTransferIndexChooser,
+                        schemaManager.schemaRegistry(partitionKey.tableId())
                 ),
                 catalogService,
                 incomingSnapshotsExecutor
