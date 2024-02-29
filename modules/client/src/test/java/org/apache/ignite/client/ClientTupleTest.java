@@ -125,7 +125,7 @@ public class ClientTupleTest {
 
     @Test
     public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        var tuple = createTuple().set("name", null);
+        Tuple tuple = createTuple().set("name", null);
 
         assertNull(tuple.valueOrDefault("name", "foo"));
     }
