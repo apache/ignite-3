@@ -120,6 +120,9 @@ public class RebalanceUtil {
         }
     }
 
+    /** Rebalance scheduler pool size. */
+    public static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Runtime.getRuntime().availableProcessors() * 3, 20);
+
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
@@ -143,7 +146,7 @@ public class RebalanceUtil {
             int partNum,
             Set<Assignment> tableCfgPartAssignments
     ) {
-        ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
+        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
@@ -430,15 +433,32 @@ public class RebalanceUtil {
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
 
+    /** Key prefix for counter of rebalances of tables from a zone that are associated with the specified partition. */
+    private static final String TABLES_COUNTER_PREFIX = "tables.counter.";
+
+    /** Key prefix for a raft configuration that was applied during rebalance of the specified partition form a table. */
+    private static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
+
     /**
-     * Key that is needed for the rebalance algorithm.
+     * Key that is needed for skipping stale events of pending key change.
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partChangeTriggerKey(TablePartitionId partId) {
-        return new ByteArray(partId + ".change.trigger");
+    public static ByteArray pendingChangeTriggerKey(TablePartitionId partId) {
+        return new ByteArray(partId + "pending.change.trigger");
+    }
+
+    /**
+     * Key that is needed for skipping stale events of stable key change.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     */
+    public static ByteArray stableChangeTriggerKey(TablePartitionId partId) {
+        return new ByteArray(partId + "stable.change.trigger");
     }
 
     /**
@@ -497,13 +517,33 @@ public class RebalanceUtil {
     }
 
     /**
-     * Extract table id from a metastorage key of partition.
+     * ByteArray key for a counter of rebalances of tables from a zone that are associated with the specified partition.
      *
-     * @param key Key.
-     * @return Table id.
+     * @param zoneId Identifier of a zone.
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
      */
-    public static int extractTableId(byte[] key) {
-        return extractTableId(key, "");
+    public static ByteArray tablesCounterKey(int zoneId, int partId) {
+        return new ByteArray(TABLES_COUNTER_PREFIX + zoneId + "_part_" + partId);
+    }
+
+    /**
+     * ByteArray prefix for counter of rebalances of tables from a zone that are associated with the specified partition.
+     *
+     * @return Prefix for a counter of rebalances of tables partition.
+     */
+    public static ByteArray tablesCounterPrefixKey() {
+        return new ByteArray(TABLES_COUNTER_PREFIX);
+    }
+
+    /**
+     * ByteArray key for a raft configuration that was applied during rebalance of the specified partition form a table.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a applied raft configuration.
+     */
+    public static ByteArray raftConfigurationAppliedKey(TablePartitionId partId) {
+        return new ByteArray(RAFT_CONF_APPLIED_PREFIX + partId);
     }
 
     /**
@@ -517,6 +557,31 @@ public class RebalanceUtil {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
         return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+    }
+
+    /**
+     * Extract table id from a metastorage key of partition.
+     *
+     * @param key Key.
+     * @param prefix Key prefix.
+     * @return Table id.
+     */
+    public static int extractZoneId(byte[] key, String prefix) {
+        String strKey = new String(key, StandardCharsets.UTF_8);
+
+        return Integer.parseInt(strKey.substring(prefix.length()));
+    }
+
+    /**
+     * Extract zone id from a metastorage key {@link RebalanceUtil#tablesCounterKey}.
+     *
+     * @param key Key.
+     * @return Table id.
+     */
+    static int extractZoneIdFromTablesCounter(byte[] key) {
+        String strKey = new String(key, StandardCharsets.UTF_8);
+
+        return Integer.parseInt(strKey.substring(TABLES_COUNTER_PREFIX.length(), strKey.indexOf("_part_")));
     }
 
     /**
