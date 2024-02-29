@@ -185,7 +185,6 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.impl.CleanupScheduler;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -362,9 +361,6 @@ public class IgniteImpl implements Ignite {
 
     /** Cleanup manager for tx resources. */
     private final ResourceCleanupManager resourceCleanupManager;
-
-    /** Component that is responsible for the scheduling of transaction cleanup procedures. */
-    private final CleanupScheduler cleanupScheduler;
 
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
@@ -657,9 +653,7 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-        cleanupScheduler = new CleanupScheduler(name);
-
-        resourceCleanupManager = new ResourceCleanupManager(cleanupScheduler, resourcesRegistry, clusterSvc.topologyService());
+        resourceCleanupManager = new ResourceCleanupManager(name, resourcesRegistry, clusterSvc.topologyService());
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -1004,7 +998,6 @@ public class IgniteImpl implements Ignite {
                                     clientHandlerModule,
                                     deploymentManager,
                                     sql,
-                                    cleanupScheduler,
                                     resourceCleanupManager
                             );
 

@@ -18,12 +18,20 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNodeResolver;
 
 /**
@@ -33,7 +41,17 @@ public class ResourceCleanupManager implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ResourceCleanupManager.class);
 
-    private final CleanupScheduler cleanupScheduler;
+    private static final int RESOURCE_CLEANUP_EXECUTOR_SIZE = 1;
+
+    /** System property name. */
+    public static final String RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY = "RESOURCE_CLEANUP_INTERVAL_MILLISECONDS";
+
+    private final int resourceCleanupIntervalMilliseconds = IgniteSystemProperties
+            .getInteger(RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY, 30_000);
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final ScheduledExecutorService resourceCleanupExecutor;
 
     private final RemotelyTriggeredResourceRegistry resourceRegistry;
 
@@ -42,30 +60,44 @@ public class ResourceCleanupManager implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param cleanupScheduler Scheduled cleanup manager.
+     * @param nodeName Ignite node name.
      * @param resourceRegistry Resources registry.
      * @param clusterNodeResolver Cluster node resolver.
      */
     public ResourceCleanupManager(
-            CleanupScheduler cleanupScheduler,
+            String nodeName,
             RemotelyTriggeredResourceRegistry resourceRegistry,
             ClusterNodeResolver clusterNodeResolver
     ) {
-        this.cleanupScheduler = cleanupScheduler;
         this.resourceRegistry = resourceRegistry;
         this.clusterNodeResolver = clusterNodeResolver;
+        this.resourceCleanupExecutor = Executors.newScheduledThreadPool(
+                RESOURCE_CLEANUP_EXECUTOR_SIZE,
+                NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
+        );
     }
 
     @Override
     public CompletableFuture<Void> start() {
-        cleanupScheduler.registerScheduledOperation(this::cleanupOrphanTxResources);
+        resourceCleanupExecutor.scheduleAtFixedRate(
+                this::runCleanupOperations,
+                0,
+                resourceCleanupIntervalMilliseconds,
+                TimeUnit.MILLISECONDS
+        );
 
         return nullCompletedFuture();
     }
 
     @Override
     public void stop() throws Exception {
-        // No-op.
+        busyLock.block();
+
+        shutdownAndAwaitTermination(resourceCleanupExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    private void runCleanupOperations() {
+        inBusyLock(busyLock, this::cleanupOrphanTxResources);
     }
 
     private void cleanupOrphanTxResources() {

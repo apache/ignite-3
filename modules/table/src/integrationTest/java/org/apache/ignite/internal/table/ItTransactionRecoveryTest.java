@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.impl.CleanupScheduler.RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.tx.impl.ResourceCleanupManager.RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
