@@ -44,6 +44,7 @@ public class RemotelyTriggeredResourceRegistry {
     /** Resources map. */
     private final ConcurrentNavigableMap<FullyQualifiedResourceId, RemotelyTriggeredResource> resources = new ConcurrentSkipListMap<>();
 
+    // TODO IGNITE-21633 We may get rid of this map.
     /** Remote host inconsistent ids mapped to resources created by them. */
     private final Map<String, Set<FullyQualifiedResourceId>> remoteHostsToResources = new ConcurrentHashMap<>();
 
@@ -151,7 +152,7 @@ public class RemotelyTriggeredResourceRegistry {
             try {
                 close(resourceId);
             } catch (Exception e) {
-                LOG.warn("Exception occurred during the orphan resource closing.", e);
+                LOG.warn("Exception occurred during the orphan resource closing [resourceId={}].", e, resourceId);
             }
         }
     }
