@@ -1432,7 +1432,7 @@ public class IgniteImpl implements Ignite {
         return clusterSvc;
     }
 
-    /** Returns cursor manager. */
+    /** Returns resources registry. */
     @TestOnly
     public RemotelyTriggeredResourceRegistry resourcesRegistry() {
         return resourcesRegistry;

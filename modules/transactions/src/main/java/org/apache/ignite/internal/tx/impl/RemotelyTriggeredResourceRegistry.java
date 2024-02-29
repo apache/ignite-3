@@ -32,6 +32,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * This registry keeps track of the resources that were created by remote nodes.
@@ -150,7 +151,7 @@ public class RemotelyTriggeredResourceRegistry {
             try {
                 close(resourceId);
             } catch (Exception e) {
-                LOG.warn("Exception occurred during the orphan cursor closing.", e);
+                LOG.warn("Exception occurred during the orphan resource closing.", e);
             }
         }
     }
@@ -187,6 +188,7 @@ public class RemotelyTriggeredResourceRegistry {
      *
      * @return Remotely triggered resources.
      */
+    @TestOnly
     public Map<FullyQualifiedResourceId, RemotelyTriggeredResource> resources() {
         return unmodifiableMap(resources);
     }

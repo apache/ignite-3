@@ -77,10 +77,8 @@ public class ResourceCleanupManager implements IgniteComponent {
                     resourceRegistry.close(remoteHostId);
                 }
             }
-        } catch (Exception e) {
-            LOG.warn("Exception occurred during the orphan cursors closing.", e);
         } catch (Throwable err) {
-            LOG.error("Error occurred during the orphan cursors closing.", err);
+            LOG.error("Error occurred during the orphan resources closing.", err);
 
             throw err;
         }
