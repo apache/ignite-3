@@ -239,6 +239,9 @@ public interface MessagingService {
      *
      * <p>The executor chooser is invoked in a network I/O thread, so it must never block.
      *
+     * <p>If a few handlers handling the same message are registered with the same executor chooser, it might be called
+     * only once to call all such handlers on the same thread.
+     *
      * @param messageGroup Message group descriptor.
      * @param executorChooser Will choose an {@link Executor} on which to handle a message. It will be called before @{@link Marshallable}
      *     fields are unmarshalled, so they will be {@code null} from the point of view of the chooser.

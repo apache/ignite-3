@@ -464,20 +464,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
         // without throwing an exception.
         assert payload instanceof ScaleCubeMessage || senderConsistentId != null;
 
-        // If first handler chose an inbound pool, AND some other handlers also want to be executed on an inbound pool, this means that
-        // they will be guaranteed to be executed on the same thread (as the inbound pool is striped, the stripe key is sender+channelId).
-        // Hence these handlers will be executed on the current thread, so, to avoid additional latency, we'll collect them to a list
-        // and execute here directly after executing the first handler, instead of submitting them to the inbound pool.
-        List<NetworkMessageHandler> handlersWantingSameThreadAsFirst = List.of();
+        // If other handlers have the same chooser as the first handler, this means that we can execute them on the same
+        // executor that was chosen for the first one. This will save us some resubmissions: we'll just execute on the same
+        // thread (it will be current thread which belongs to the executor chosen for the first handler).
+        List<NetworkMessageHandler> handlersWithSameChooserAsFirst = List.of();
 
         while (remainingContexts.hasNext()) {
             HandlerContext handlerContext = remainingContexts.next();
 
-            if (wantSamePool(firstHandlerContext, handlerContext)) {
-                if (handlersWantingSameThreadAsFirst.isEmpty()) {
-                    handlersWantingSameThreadAsFirst = new ArrayList<>();
+            if (firstHandlerContext.executorChooser() == handlerContext.executorChooser()) {
+                if (handlersWithSameChooserAsFirst.isEmpty()) {
+                    handlersWithSameChooserAsFirst = new ArrayList<>();
                 }
-                handlersWantingSameThreadAsFirst.add(handlerContext.handler());
+                handlersWithSameChooserAsFirst.add(handlerContext.handler());
             } else {
                 Executor executor = chooseExecutorFor(payload, obj, handlerContext.executorChooser());
                 executor.execute(() -> handlerContext.handler().onReceived(payload, senderConsistentId, correlationId));
@@ -486,18 +485,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         firstHandlerContext.handler().onReceived(payload, senderConsistentId, correlationId);
 
-        // Now execute those handlers that are guaranteed to be executed on the same thread as the first one.
-        for (NetworkMessageHandler handler : handlersWantingSameThreadAsFirst) {
+        // Now execute those handlers that have the same chooser as the first one.
+        for (NetworkMessageHandler handler : handlersWithSameChooserAsFirst) {
             handler.onReceived(payload, senderConsistentId, correlationId);
         }
-    }
-
-    private static boolean wantSamePool(HandlerContext handlerContext1, HandlerContext handlerContext2) {
-        return wantsInboundPool(handlerContext1) && wantsInboundPool(handlerContext2);
-    }
-
-    private static boolean wantsInboundPool(HandlerContext handlerContext) {
-        return wantsInboundPool(handlerContext.executorChooser());
     }
 
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
