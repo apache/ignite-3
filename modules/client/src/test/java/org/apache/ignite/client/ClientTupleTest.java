@@ -453,7 +453,7 @@ public class ClientTupleTest {
                     .appendNumber(BigInteger.valueOf(18))
                     .build();
 
-            binTupleColumnCount = 15;
+            binTupleColumnCount = 16;
         }
 
         var binTuple = new BinaryTupleReader(binTupleColumnCount, binTupleBuf);
