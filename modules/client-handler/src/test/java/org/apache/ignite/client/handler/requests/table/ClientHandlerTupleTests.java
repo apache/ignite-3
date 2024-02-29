@@ -137,10 +137,13 @@ public class ClientHandlerTupleTests {
         assertThrows(IndexOutOfBoundsException.class, () -> tuple.value(123));
     }
 
-    private static Tuple createTuple(TuplePart part) {
-        assert part != TuplePart.VAL;
+    @Test
+    public void testValueReturnsValueByIndexKeyOnly() {
+        Tuple tuple = createKeyTuple();
 
-        return part == TuplePart.KEY ? createKeyTuple() : createTuple();
+        assertEquals(GUID, tuple.value(0));
+
+        assertThrows(IndexOutOfBoundsException.class, () -> tuple.value(1));
     }
 
     private static Tuple createKeyTuple() {
