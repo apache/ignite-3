@@ -265,6 +265,7 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
 
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21254 tables here must be the same as they were on rebalance start
                     List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogService.latestCatalogVersion(), catalogService);
 
                     rebalanceScheduler.schedule(() -> {
