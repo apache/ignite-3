@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -26,9 +25,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -65,8 +64,11 @@ public class SchemaManager implements IgniteComponent {
 
     private final CatalogService catalogService;
 
-    /** Versioned store for tables by ID. */
-    private final IncrementalVersionedValue<Map<Integer, SchemaRegistryImpl>> registriesVv;
+    /** Versioned value for linearizing index partition changing events. */
+    private final IncrementalVersionedValue<Void> registriesVv;
+
+    /** Schema registries by table ID. */
+    private final Map<Integer, SchemaRegistryImpl> registriesById = new ConcurrentHashMap<>();
 
     /** Meta storage manager. */
     private final MetaStorageManager metastorageMgr;
@@ -77,7 +79,7 @@ public class SchemaManager implements IgniteComponent {
             CatalogService catalogService,
             MetaStorageManager metastorageMgr
     ) {
-        this.registriesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        this.registriesVv = new IncrementalVersionedValue<>(registry);
         this.catalogService = catalogService;
         this.metastorageMgr = metastorageMgr;
     }
@@ -103,11 +105,10 @@ public class SchemaManager implements IgniteComponent {
         for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
             Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
 
-            registriesVv.update(causalityToken, (registries, throwable) -> {
                 for (CatalogTableDescriptor tableDescriptor : tables) {
                     int tableId = tableDescriptor.id();
 
-                    if (registries.containsKey(tableId)) {
+                    if (registriesById.containsKey(tableId)) {
                         continue;
                     }
 
@@ -121,12 +122,10 @@ public class SchemaManager implements IgniteComponent {
                         }
 
                         prevSchema = newSchema;
-                        registries = registerSchema(registries, tableId, newSchema);
+
+                        registerSchema(tableId, newSchema);
                     }
                 }
-
-                return completedFuture(registries);
-            });
         }
     }
 
@@ -180,7 +179,9 @@ public class SchemaManager implements IgniteComponent {
                     );
                 }
 
-                return completedFuture(registerSchema(registries, tableId, newSchema));
+                registerSchema(tableId, newSchema);
+
+                return nullCompletedFuture();
             })).thenApply(ignored -> false);
         } finally {
             busyLock.leaveBusy();
@@ -239,29 +240,22 @@ public class SchemaManager implements IgniteComponent {
     /**
      * Registers the new schema in the registries.
      *
-     * @param registries Registries before registering this schema.
      * @param tableId ID of the table to which the schema belongs.
      * @param schema The schema to register.
-     * @return Registries after registering this schema.
      */
-    private Map<Integer, SchemaRegistryImpl> registerSchema(
-            Map<Integer, SchemaRegistryImpl> registries,
+    private void registerSchema(
             int tableId,
             SchemaDescriptor schema
     ) {
-        SchemaRegistryImpl reg = registries.get(tableId);
+        registriesById.compute(tableId, (tableId0, reg) -> {
+            if (reg == null) {
+                return createSchemaRegistry(tableId0, schema);
+            }
 
-        if (reg == null) {
-            Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
-
-            copy.put(tableId, createSchemaRegistry(tableId, schema));
-
-            return copy;
-        } else {
             reg.onSchemaRegistered(schema);
 
-            return registries;
-        }
+            return reg;
+        });
     }
 
     /**
@@ -286,7 +280,7 @@ public class SchemaManager implements IgniteComponent {
      * @return Descriptor if required schema found, or {@code null} otherwise.
      */
     private @Nullable SchemaDescriptor searchSchemaByVersion(int tblId, int schemaVer) {
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
+        SchemaRegistry registry = registriesById.get(tblId);
 
         if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
             return registry.schema(schemaVer);
@@ -311,7 +305,7 @@ public class SchemaManager implements IgniteComponent {
 
         try {
             return registriesVv.get(causalityToken)
-                    .thenApply(regs -> inBusyLock(busyLock, () -> regs.get(tableId)));
+                    .thenApply(unused -> inBusyLock(busyLock, () -> registriesById.get(tableId)));
         } finally {
             busyLock.leaveBusy();
         }
@@ -324,7 +318,7 @@ public class SchemaManager implements IgniteComponent {
      * @return Schema registry.
      */
     public SchemaRegistry schemaRegistry(int tableId) {
-        return registriesVv.latest().get(tableId);
+        return registriesById.get(tableId);
     }
 
     /**
@@ -345,12 +339,10 @@ public class SchemaManager implements IgniteComponent {
                             format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
                 }
 
-                Map<Integer, SchemaRegistryImpl> regs = new HashMap<>(registries);
-
-                SchemaRegistryImpl removedRegistry = regs.remove(tableId);
+                SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
                 removedRegistry.close();
 
-                return completedFuture(regs);
+                return nullCompletedFuture();
             }));
         } finally {
             busyLock.leaveBusy();
@@ -366,6 +358,6 @@ public class SchemaManager implements IgniteComponent {
         busyLock.block();
 
         // noinspection ConstantConditions
-        IgniteUtils.closeAllManually(registriesVv.latest().values());
+        IgniteUtils.closeAllManually(registriesById.values());
     }
 }
