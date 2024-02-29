@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
@@ -387,6 +388,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(tablePartitionId);
             ByteArray switchReduceKey = switchReduceKey(tablePartitionId);
             ByteArray switchAppendKey = switchAppendKey(tablePartitionId);
+            ByteArray stableChangeTriggerKey = stableChangeTriggerKey(tablePartitionId);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             Map<ByteArray, Entry> values = metaStorageMgr.getAll(
@@ -395,7 +397,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                             pendingPartAssignmentsKey,
                             stablePartAssignmentsKey,
                             switchReduceKey,
-                            switchAppendKey
+                            switchAppendKey,
+                            stableChangeTriggerKey
                     )
             ).get();
 
@@ -406,13 +409,15 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Entry plannedEntry = values.get(plannedPartAssignmentsKey);
             Entry switchReduceEntry = values.get(switchReduceKey);
             Entry switchAppendEntry = values.get(switchAppendKey);
+            Entry stableChangeTriggerEntry = values.get(stableChangeTriggerKey);
 
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
             Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
+            long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null ? 0L : bytesToLong(stableChangeTriggerEntry.value());
 
-            if (!retrievedPending.equals(stableFromRaft)) {
+            if (!retrievedPending.equals(stableFromRaft) || stableChangeTriggerValue >= revision) {
                 return;
             }
 

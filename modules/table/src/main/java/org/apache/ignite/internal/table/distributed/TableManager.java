@@ -280,7 +280,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
      *
-     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl)}.
+     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int)}.
      *
      * <p>Completed strictly after {@link #localPartsByTableIdVv}.
      */
@@ -754,11 +754,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param assignmentsFuture Table assignments.
      * @param table Initialized table entity.
+     * @param zoneId Zone id.
      * @return future, which will be completed when the partitions creations done.
      */
     private CompletableFuture<Void> startLocalPartitionsAndClients(
             CompletableFuture<List<Assignments>> assignmentsFuture,
-            TableImpl table
+            TableImpl table,
+            int zoneId
     ) {
         int tableId = table.tableId();
 
@@ -779,6 +781,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 table,
                                 partId,
                                 assignments.get(partId),
+                                zoneId,
                                 false
                         )
                         .whenComplete((res, ex) -> {
@@ -798,13 +801,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TableImpl table,
             int partId,
             Assignments newPartAssignment,
+            int zoneId,
             boolean isRecovery
     ) {
         CompletableFuture<Void> resultFuture = new CompletableFuture<>();
 
         int tableId = table.tableId();
-
-        int zoneId = getTableDescriptor(tableId, catalogService.latestCatalogVersion()).zoneId();
 
         InternalTable internalTbl = table.internalTable();
 
@@ -1302,7 +1304,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return localPartsUpdateFuture.thenCompose(unused ->
                     tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(
                             busyLock,
-                            () -> startLocalPartitionsAndClients(assignmentsFuture, table)
+                            () -> startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id())
                     ), ioExecutor)
             );
         });
@@ -1807,13 +1809,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         CompletableFuture<Void> localServicesStartFuture;
 
+        int tableId = tbl.tableId();
+
+        int zoneId = getTableDescriptor(tableId, catalogService.latestCatalogVersion()).zoneId();
+
         if (shouldStartLocalGroupNode) {
             localServicesStartFuture = localPartsByTableIdVv.get(revision)
                     .thenComposeAsync(oldMap -> {
                         // TODO https://issues.apache.org/jira/browse/IGNITE-20957 This is incorrect usage of the value stored in
                         // TODO versioned value. See ticket for the details.
-                        int tableId = tbl.tableId();
-
                         PartitionSet partitionSet = oldMap.get(tableId).copy();
 
                         return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
@@ -1828,6 +1832,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             tbl,
                             replicaGrpId.partitionId(),
                             pendingAssignments,
+                            zoneId,
                             isRecovery
                     )), ioExecutor);
         } else {
