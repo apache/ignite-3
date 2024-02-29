@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +30,8 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowUpgrader;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -43,9 +47,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * {@link PartitionAccess} implementation.
- */
+/** {@link PartitionAccess} implementation. */
 public class PartitionAccessImpl implements PartitionAccess {
     private final PartitionKey partitionKey;
 
@@ -63,6 +65,8 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private final FullStateTransferIndexChooser fullStateTransferIndexChooser;
 
+    private final SchemaRegistry schemaRegistry;
+
     /**
      * Constructor.
      *
@@ -73,6 +77,7 @@ public class PartitionAccessImpl implements PartitionAccess {
      * @param indexUpdateHandler Index update handler.
      * @param gcUpdateHandler Gc update handler.
      * @param fullStateTransferIndexChooser Index chooser for full state transfer.
+     * @param schemaRegistry Schema registry.
      */
     public PartitionAccessImpl(
             PartitionKey partitionKey,
@@ -81,7 +86,8 @@ public class PartitionAccessImpl implements PartitionAccess {
             MvGc mvGc,
             IndexUpdateHandler indexUpdateHandler,
             GcUpdateHandler gcUpdateHandler,
-            FullStateTransferIndexChooser fullStateTransferIndexChooser
+            FullStateTransferIndexChooser fullStateTransferIndexChooser,
+            SchemaRegistry schemaRegistry
     ) {
         this.partitionKey = partitionKey;
         this.mvTableStorage = mvTableStorage;
@@ -90,6 +96,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         this.indexUpdateHandler = indexUpdateHandler;
         this.gcUpdateHandler = gcUpdateHandler;
         this.fullStateTransferIndexChooser = fullStateTransferIndexChooser;
+        this.schemaRegistry = schemaRegistry;
     }
 
     @Override
@@ -144,14 +151,22 @@ public class PartitionAccessImpl implements PartitionAccess {
     public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
-        List<Integer> indexIds = fullStateTransferIndexChooser.chooseForAddWrite(catalogVersion, tableId(), beginTimestamp(txId));
+        List<IndexIdAndTableVersion> indexIdAndTableVersionList = fullStateTransferIndexChooser.chooseForAddWrite(
+                catalogVersion,
+                tableId(),
+                beginTimestamp(txId)
+        );
+
+        List<IndexIdAndBinaryRow> indexIdAndBinaryRowList = upgradeForEachTableVersion(row, indexIdAndTableVersionList);
 
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
             mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
 
-            indexUpdateHandler.addToIndexes(row, rowId, indexIds);
+            for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
+                indexUpdateHandler.addToIndex(indexIdAndBinaryRow.binaryRow(), rowId, indexIdAndBinaryRow.indexId());
+            }
 
             return null;
         });
@@ -161,14 +176,22 @@ public class PartitionAccessImpl implements PartitionAccess {
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp, int catalogVersion) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
-        List<Integer> indexIds = fullStateTransferIndexChooser.chooseForAddWriteCommitted(catalogVersion, tableId(), commitTimestamp);
+        List<IndexIdAndTableVersion> indexIdAndTableVersionList = fullStateTransferIndexChooser.chooseForAddWriteCommitted(
+                catalogVersion,
+                tableId(),
+                commitTimestamp
+        );
+
+        List<IndexIdAndBinaryRow> indexIdAndBinaryRowList = upgradeForEachTableVersion(row, indexIdAndTableVersionList);
 
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
             mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
 
-            indexUpdateHandler.addToIndexes(row, rowId, indexIds);
+            for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
+                indexUpdateHandler.addToIndex(indexIdAndBinaryRow.binaryRow(), rowId, indexIdAndBinaryRow.indexId());
+            }
 
             return null;
         });
@@ -257,5 +280,22 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private static TablePartitionId toTablePartitionId(PartitionKey partitionKey) {
         return new TablePartitionId(partitionKey.tableId(), partitionKey.partitionId());
+    }
+
+    private List<IndexIdAndBinaryRow> upgradeForEachTableVersion(
+            @Nullable BinaryRow source,
+            List<IndexIdAndTableVersion> indexIdAndTableVersionList
+    ) {
+        if (source == null) { // Skip removes.
+            return List.of();
+        }
+
+        return indexIdAndTableVersionList.stream()
+                .map(indexIdAndTableVersion -> {
+                    var upgrader = new BinaryRowUpgrader(schemaRegistry, indexIdAndTableVersion.tableVersion());
+
+                    return new IndexIdAndBinaryRow(indexIdAndTableVersion.indexId(), upgrader.upgrade(source));
+                })
+                .collect(toCollection(() -> new ArrayList<>(indexIdAndTableVersionList.size())));
     }
 }

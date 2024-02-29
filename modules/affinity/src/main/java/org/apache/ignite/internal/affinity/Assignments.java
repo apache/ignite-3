@@ -90,7 +90,7 @@ public class Assignments implements Serializable {
      * @see #toBytes()
      */
     public static byte[] toBytes(Set<Assignment> assignments) {
-        return new Assignments(assignments).toBytes();
+        return of(assignments).toBytes();
     }
 
     /**

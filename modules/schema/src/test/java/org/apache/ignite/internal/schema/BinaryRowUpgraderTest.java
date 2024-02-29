@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.schema.SchemaTestUtils.binaryRow;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.apache.ignite.internal.type.NativeTypes.INT64;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
@@ -25,7 +26,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.sameInstance;
 
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -115,16 +115,6 @@ public class BinaryRowUpgraderTest {
         BinaryRow source = binaryRow(DEFAULT_COLUMN_CHANGED, 1, 2, 10L, "bar");
 
         assertThat(upgradeRow(DEFAULTED_COLUMN_ADDED, source), sameInstance(source));
-    }
-
-    private static BinaryRow binaryRow(SchemaDescriptor schema, Object... values) {
-        var rowAssembler = new RowAssembler(schema, -1);
-
-        for (Object value : values) {
-            rowAssembler.appendValue(value);
-        }
-
-        return new BinaryRowImpl(schema.version(), rowAssembler.build().tupleSlice());
     }
 
     private static BinaryRow upgradeRow(SchemaDescriptor targetSchema, BinaryRow source) {
