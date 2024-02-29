@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Server-side Tuple implementation, wraps binary data coming from the client to pass to the table internals. This tuple implementation
- * does not normally end up in the user's hands.
+ * does not end up in the user's hands, so mutability is not supported.
  */
 class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware {
     private final SchemaDescriptor schema;
