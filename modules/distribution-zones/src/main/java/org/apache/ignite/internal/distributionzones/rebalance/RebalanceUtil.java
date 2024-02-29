@@ -372,7 +372,7 @@ public class RebalanceUtil {
         Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21303
-        // This is a naive approach that doesn't exclude nodes in error state, if they exist.
+        //  This is a naive approach that doesn't exclude nodes in error state, if they exist.
         Set<Assignment> partAssignments = new HashSet<>();
         for (Assignment currentAssignment : currentAssignments) {
             if (aliveNodesConsistentIds.contains(currentAssignment.consistentId())) {
