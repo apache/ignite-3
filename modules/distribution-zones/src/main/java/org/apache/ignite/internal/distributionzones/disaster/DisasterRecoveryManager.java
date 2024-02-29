@@ -19,10 +19,10 @@ package org.apache.ignite.internal.distributionzones.disaster;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -62,14 +62,10 @@ public class DisasterRecoveryManager implements IgniteComponent {
     private final WatchListener watchListener;
 
     /** Map of operations, triggered by local node, that have not yet been processed by {@link #watchListener}. */
-    private final ConcurrentMap<UUID, CompletableFuture<Void>> ongoingOperations = new ConcurrentHashMap<>();
+    private final Map<UUID, CompletableFuture<Void>> ongoingOperationsById = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
-     *
-     * @param metaStorageManager Meta-storage manager.
-     * @param catalogManager Catalog manager.
-     * @param dzManager Distribution zone manager.
      */
     public DisasterRecoveryManager(
             MetaStorageManager metaStorageManager,
@@ -115,7 +111,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * @param tableId Table ID.
      * @return Operation future.
      */
-    public CompletableFuture<?> manualGroupsUpdate(int zoneId, int tableId) {
+    public CompletableFuture<Void> manualGroupsUpdate(int zoneId, int tableId) {
         return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), zoneId, tableId));
     }
 
@@ -125,14 +121,14 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * @param request Request.
      * @return Operation future.
      */
-    private CompletableFuture<?> processNewRequest(ManualGroupUpdateRequest request) {
+    private CompletableFuture<Void> processNewRequest(ManualGroupUpdateRequest request) {
         UUID operationId = request.operationId();
 
         CompletableFuture<Void> operationFuture = new CompletableFuture<Void>()
-                .whenComplete((v, throwable) -> ongoingOperations.remove(operationId))
+                .whenComplete((v, throwable) -> ongoingOperationsById.remove(operationId))
                 .orTimeout(30, TimeUnit.SECONDS);
 
-        ongoingOperations.put(operationId, operationFuture);
+        ongoingOperationsById.put(operationId, operationFuture);
 
         metaStorageManager.put(RECOVERY_TRIGGER_KEY, ByteUtils.toBytes(request));
 
@@ -158,7 +154,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
             return nullCompletedFuture();
         }
 
-        CompletableFuture<Void> operationFuture = ongoingOperations.remove(request.operationId());
+        CompletableFuture<Void> operationFuture = ongoingOperationsById.remove(request.operationId());
 
         if (operationFuture == null) {
             // We're not the initiator, or timeout has passed. Just ignore it.

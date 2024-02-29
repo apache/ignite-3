@@ -48,9 +48,6 @@ public class Assignments implements Serializable {
 
     /**
      * Constructor.
-     *
-     * @param nodes Set of nodes.
-     * @param force Force flag.
      */
     private Assignments(Set<Assignment> nodes, boolean force) {
         this.nodes = nodes;
@@ -79,6 +76,7 @@ public class Assignments implements Serializable {
      * Creates a new instance with {@code force} flag set on.
      *
      * @param nodes Set of nodes.
+     * @see #force()
      */
     public static Assignments forced(Set<Assignment> nodes) {
         return new Assignments(new HashSet<>(nodes), true);
@@ -92,7 +90,9 @@ public class Assignments implements Serializable {
     }
 
     /**
-     * Force flag that indicates ignoring of current stable assignments.
+     * Returns a force flag that indicates ignoring of current stable assignments. Force flag signifies that previous assignments for the
+     * group must be ignored, and new assignments must be accepted without questions. This flag should be used in disaster recovery
+     * situations when there's no way to recover the group using regular reassignment. For example, group majority is lost.
      */
     public boolean force() {
         return force;

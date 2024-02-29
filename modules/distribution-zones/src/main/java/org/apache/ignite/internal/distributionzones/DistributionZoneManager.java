@@ -323,7 +323,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @see DisasterRecoveryManager#manualGroupsUpdate(int, int)
      */
-    public CompletableFuture<?> resetPartitions(int zoneId, int tableId) {
+    public CompletableFuture<Void> resetPartitions(int zoneId, int tableId) {
         return disasterRecoveryManager.manualGroupsUpdate(zoneId, tableId);
     }
 
