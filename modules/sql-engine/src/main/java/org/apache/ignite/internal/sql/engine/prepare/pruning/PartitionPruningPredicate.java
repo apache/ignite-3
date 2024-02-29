@@ -89,6 +89,17 @@ public final class PartitionPruningPredicate {
 
         Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode = newHashMap(colocationGroup.nodeNames().size());
         Set<String> newNodes = new HashSet<>();
+        List<NodeWithConsistencyToken> newAssignments = new ArrayList<>(colocationGroup.assignments().size());
+
+        for (int p = 0; p < colocationGroup.assignments().size(); p++) {
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(p);
+
+            if (remainingPartitions.contains(p)) {
+                newAssignments.add(nodeWithConsistencyToken);
+            } else {
+                newAssignments.add(null);
+            }
+        }
 
         for (String nodeName : colocationGroup.nodeNames()) {
             List<PartitionWithConsistencyToken> partsWithConsistencyTokens = new ArrayList<>();
@@ -116,7 +127,7 @@ public final class PartitionPruningPredicate {
         return new ColocationGroup(
                 colocationGroup.sourceIds(),
                 List.copyOf(newNodes),
-                colocationGroup.assignments(),
+                newAssignments,
                 partitionsPerNode
         );
     }

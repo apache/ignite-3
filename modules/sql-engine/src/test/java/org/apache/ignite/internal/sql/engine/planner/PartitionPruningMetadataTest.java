@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
@@ -100,11 +101,76 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
             .build());
 
-    /** Basic test cases for partition pruning metadata extractor. */
-    @ParameterizedTest
+    /** Basic test cases for partition pruning metadata extractor, select case. */
+    @ParameterizedTest(name = "SELECT: {0}")
     @EnumSource(TestCaseBasic.class)
-    public void testBasic(TestCaseBasic testCaseSimple) {
-        checkPruningMetadata(testCaseSimple.data);
+    public void testBasicSelect(TestCaseBasic testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.SELECT);
+    }
+
+    /** Basic test cases for partition pruning metadata extractor, delete case. */
+    @ParameterizedTest(name = "DELETE: {0}")
+    @EnumSource(TestCaseBasic.class)
+    public void testBasicDelete(TestCaseBasic testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.DELETE);
+    }
+
+    /** Basic test cases for partition pruning metadata extractor, delete case. */
+    @ParameterizedTest(name = "INSERT: {0}")
+    @EnumSource(TestCaseBasicInsert.class)
+    public void testBasicInsert(TestCaseBasicInsert testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.INSERT);
+    }
+
+    /** Basic test cases for partition pruning metadata extractor, delete case. */
+    @ParameterizedTest(name = "UPDATE: {0}")
+    @EnumSource(TestCaseBasicUpdate.class)
+    public void testBasicInsert(TestCaseBasicUpdate testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.UPDATE);
+    }
+
+    enum TestCaseBasicInsert {
+        SIMPLE_1a("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
+        SIMPLE_1b("t(C1) VALUES (?), (?), (?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=?2]"),
+
+        SIMPLE_1c("t(C1) VALUES (OCTET_LENGTH('TEST')), (2)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1d("t(C1) VALUES (SELECT 1), (2)", TABLE_C1_NULLABLE_C2),
+
+        SIMPLE_1e("t(C1, C2, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
+                "[c1=1, c2=?0]", "[c1=2, c2=?1]", "[c1=3, c2=?2]"),
+        SIMPLE_1f("t(C2, C1, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
+                "[c1=?0, c2=1]", "[c1=?1, c2=2]", "[c1=?2, c2=3]"),
+        ;
+
+        private final TestCase data;
+
+        TestCaseBasicInsert(String condition, IgniteSchema schema, String... expected) {
+            this.data = new TestCase(condition, schema, expected);
+        }
+
+        @Override
+        public String toString() {
+            return data.toString();
+        }
+    }
+
+    enum TestCaseBasicUpdate {
+        SIMPLE_1a("c1 = 42", TABLE_C1, "[c1=42]"),
+        SIMPLE_1b("42 = c1", TABLE_C1, "[c1=42]"),
+        SIMPLE_1c("c1 = ?", TABLE_C1, "[c1=?0]"),
+        SIMPLE_1d("? = c1", TABLE_C1, "[c1=?0]"),
+        SIMPLE_1e("c1 = '42'::INTEGER", TABLE_C1, "[c1=42]"),
+        ;
+        private final TestCase data;
+
+        TestCaseBasicUpdate(String condition, IgniteSchema schema, String... expected) {
+            this.data = new TestCase(condition, schema, expected);
+        }
+
+        @Override
+        public String toString() {
+            return data.toString();
+        }
     }
 
     enum TestCaseBasic {
@@ -301,11 +367,18 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         }
     }
 
-    /** Test cases for bool columns. */
-    @ParameterizedTest
+    /** Test cases for bool columns, select case. */
+    @ParameterizedTest(name = "SELECT: {0}")
     @EnumSource(TestCaseBool.class)
-    public void testBool(TestCaseBool testCaseBool) {
-        checkPruningMetadata(testCaseBool.data);
+    public void testBoolSelect(TestCaseBool testCaseBool) {
+        checkPruningMetadata(testCaseBool.data, SqlKind.SELECT);
+    }
+
+    /** Test cases for bool columns, delete case. */
+    @ParameterizedTest(name = "DELETE: {0}")
+    @EnumSource(TestCaseBool.class)
+    public void testBoolDelete(TestCaseBool testCaseBool) {
+        checkPruningMetadata(testCaseBool.data, SqlKind.DELETE);
     }
 
     enum TestCaseBool {
@@ -347,11 +420,18 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         }
     }
 
-    /** Test cases for CASE expression. */
-    @ParameterizedTest
+    /** Test cases for CASE expression, select case. */
+    @ParameterizedTest(name = "SELECT: {0}")
     @EnumSource(TestCaseCaseExpr.class)
-    public void testCaseExpr(TestCaseCaseExpr testCaseBool) {
-        checkPruningMetadata(testCaseBool.data);
+    public void testCaseExprSelect(TestCaseCaseExpr testCaseBool) {
+        checkPruningMetadata(testCaseBool.data, SqlKind.SELECT);
+    }
+
+    /** Test cases for CASE expression, delete case. */
+    @ParameterizedTest(name = "DELETE: {0}")
+    @EnumSource(TestCaseCaseExpr.class)
+    public void testCaseExprDelete(TestCaseCaseExpr testCaseBool) {
+        checkPruningMetadata(testCaseBool.data, SqlKind.DELETE);
     }
 
     enum TestCaseCaseExpr {
@@ -426,8 +506,24 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         }
     }
 
-    private void checkPruningMetadata(TestCase testCase) {
-        String statement = "SELECT * FROM t WHERE " + testCase.condition;
+    private void checkPruningMetadata(TestCase testCase, SqlKind kind) {
+        String statement;
+        switch (kind) {
+            case SELECT:
+                statement = "SELECT * FROM t WHERE " + testCase.condition;
+                break;
+            case DELETE:
+                statement = "DELETE FROM t WHERE " + testCase.condition;
+                break;
+            case INSERT:
+                statement = "INSERT INTO " + testCase.condition;
+                break;
+            case UPDATE:
+                statement = "UPDATE t SET C2 = 100 WHERE " + testCase.condition;
+                break;
+            default:
+                throw new UnsupportedOperationException(kind.name());
+        }
 
         List<String> expectedMetadata = Arrays.asList(testCase.expected);
         List<Integer> colocationKeys = testCase.colocationKeys();

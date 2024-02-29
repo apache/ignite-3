@@ -190,6 +190,26 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         assertEquals(SqlTypeName.VARCHAR, lit2.getType().getSqlTypeName());
     }
 
+    @Test
+    public void testInsert() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(IgniteDistributions.affinity(List.of(1, 0), 1, 2))
+                .build();
+
+        PartitionPruningMetadata actual = extractMetadata(
+                "INSERT INTO t(C3, C2, C1) VALUES(null, 1, 2), (null, 3, 4)",
+                table
+        );
+
+        PartitionPruningColumns cols = actual.get(1);
+        assertNotNull(cols, "No metadata for source=1");
+        assertEquals("[[0=2, 1=1], [0=4, 1=3]]", PartitionPruningColumns.canonicalForm(cols).toString());
+    }
+
     private PartitionPruningMetadata extractMetadata(String query, IgniteTable... table) throws Exception {
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
 
@@ -215,7 +235,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         public IgniteRel visit(IgniteRel rel) {
             if (rel instanceof SourceAwareIgniteRel) {
                 SourceAwareIgniteRel s = (SourceAwareIgniteRel) rel;
-                return s.clone(sourceId++);
+                return super.visit(s.clone(sourceId++));
             } else {
                 return super.visit(rel);
             }
