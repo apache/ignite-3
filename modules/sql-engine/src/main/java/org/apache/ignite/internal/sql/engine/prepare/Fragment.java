@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
@@ -43,7 +45,7 @@ public class Fragment {
     private final String rootSer;
 
     private final List<IgniteReceiver> remotes;
-    private final List<IgniteTable> tables;
+    private final Long2ObjectMap<IgniteTable> tables;
     private final List<IgniteSystemView> systemViews;
 
     private final boolean correlated;
@@ -59,11 +61,11 @@ public class Fragment {
      * @param systemViews A list of system views containing by this fragment.
      */
     public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes,
-            List<IgniteTable> tables, List<IgniteSystemView> systemViews) {
+            Long2ObjectMap<IgniteTable> tables, List<IgniteSystemView> systemViews) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
-        this.tables = List.copyOf(tables);
+        this.tables = new Long2ObjectArrayMap<>(tables);
         this.systemViews = List.copyOf(systemViews);
         this.rootSer = toJson(root);
         this.correlated = correlated;
@@ -109,7 +111,7 @@ public class Fragment {
         return remotes;
     }
 
-    public List<IgniteTable> tables() {
+    public Long2ObjectMap<IgniteTable> tables() {
         return tables;
     }
 

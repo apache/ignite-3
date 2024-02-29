@@ -20,6 +20,8 @@ package org.apache.ignite.internal.testframework;
 import static java.lang.Thread.sleep;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -456,7 +459,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(RunnableX task) {
+    public static CompletableFuture<Void> runAsync(RunnableX task) {
         return runAsync(task, "async-runnable-runner");
     }
 
@@ -466,7 +469,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(RunnableX task, String threadName) {
+    public static CompletableFuture<Void> runAsync(RunnableX task, String threadName) {
         return runAsync(() -> {
             try {
                 task.run();
@@ -496,7 +499,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
-        NamedThreadFactory thrFactory = new NamedThreadFactory(threadName, LOG);
+        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, STORAGE_READ, STORAGE_WRITE);
 
         CompletableFuture<T> fut = new CompletableFuture<T>();
 

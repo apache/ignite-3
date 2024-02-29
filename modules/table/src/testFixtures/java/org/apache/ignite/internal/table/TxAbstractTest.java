@@ -161,7 +161,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     protected IgniteTransactions igniteTransactions;
 
-    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     protected RaftConfiguration raftConfiguration;
 
@@ -1539,7 +1539,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     private CompletableFuture<List<Tuple>> scan(InternalTable internalTable, @Nullable InternalTransaction internalTx) {
         Flow.Publisher<BinaryRow> pub = internalTx != null && internalTx.isReadOnly()
-                ? internalTable.scan(0, internalTx.id(), internalTx.readTimestamp(), internalTable.tableRaftService().leaderAssignment(0))
+                ?
+                internalTable.scan(
+                        0,
+                        internalTx.id(),
+                        internalTx.readTimestamp(),
+                        internalTable.tableRaftService().leaderAssignment(0),
+                        internalTx.coordinatorId()
+                )
                 : internalTable.scan(0, internalTx);
 
         List<Tuple> rows = new ArrayList<>();

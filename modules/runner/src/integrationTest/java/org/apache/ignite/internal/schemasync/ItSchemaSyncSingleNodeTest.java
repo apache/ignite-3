@@ -37,7 +37,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -226,7 +225,6 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(Operation.class)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20680")
     void readWriteOperationAfterDroppingTargetTableIsRejected(Operation operation) {
         createTable();
 

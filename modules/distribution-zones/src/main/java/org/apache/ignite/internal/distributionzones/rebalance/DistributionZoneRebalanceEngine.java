@@ -170,7 +170,7 @@ public class DistributionZoneRebalanceEngine {
                     Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value());
 
                     if (dataNodes == null) {
-                        //The zone was removed so data nodes was removed too.
+                        // The zone was removed so data nodes was removed too.
                         return nullCompletedFuture();
                     }
 

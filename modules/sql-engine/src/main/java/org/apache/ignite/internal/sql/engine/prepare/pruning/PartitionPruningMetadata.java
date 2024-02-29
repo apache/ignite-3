@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +30,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PartitionPruningMetadata {
 
-    @IgniteToStringInclude
+    /** Empty metadata. */
+    public static PartitionPruningMetadata EMPTY = new PartitionPruningMetadata(Long2ObjectMaps.emptyMap());
+
     private final Long2ObjectMap<PartitionPruningColumns> data;
 
     /** Constructor. */
@@ -40,8 +41,7 @@ public class PartitionPruningMetadata {
     }
 
     /** Return metadata for operator with the given sourceId, or {@code null} if there is no metadata for it. */
-    @Nullable
-    public PartitionPruningColumns get(long sourceId) {
+    public @Nullable PartitionPruningColumns get(long sourceId) {
         return data.get(sourceId);
     }
 
@@ -53,6 +53,6 @@ public class PartitionPruningMetadata {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(PartitionPruningMetadata.class, this, "data", data);
     }
 }

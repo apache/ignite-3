@@ -42,7 +42,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -127,7 +126,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
      * Tests that restarting the storage does not result in data loss.
      */
     @Test
-    void testRestart() {
+    void testRestart() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
@@ -142,7 +141,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
-        tableStorage.stop();
+        tableStorage.close();
 
         tableStorage = createMvTableStorage();
 
@@ -161,12 +160,5 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Test
     void storageAdvertisesItIsPersistent() {
         assertThat(tableStorage.isVolatile(), is(false));
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21574")
-    @Test
-    @Override
-    public void testDestroyIndex() {
-        super.testDestroyIndex();
     }
 }

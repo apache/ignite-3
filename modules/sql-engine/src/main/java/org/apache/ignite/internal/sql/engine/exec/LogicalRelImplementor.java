@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.combinedRowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -392,13 +393,16 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
+        List<PartitionWithConsistencyToken> partitions = group.partitionsWithConsistencyTokens(ctx.localNode().name());
+        assert !partitions.isEmpty() : format("No partitions for node {} group: {}", ctx.localNode().name(), group);
+
         return new IndexScanNode<>(
                 ctx,
                 rowFactory,
                 idx,
                 scannableTable,
                 tbl.descriptor(),
-                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
+                partitions,
                 comp,
                 ranges,
                 filters,
@@ -435,11 +439,14 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
+        List<PartitionWithConsistencyToken> partitions = group.partitionsWithConsistencyTokens(ctx.localNode().name());
+        assert !partitions.isEmpty() : format("No partitions for node {} group: {}", ctx.localNode().name(), group);
+
         return new TableScanNode<>(
                 ctx,
                 rowFactory,
                 scannableTable,
-                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
+                partitions,
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()

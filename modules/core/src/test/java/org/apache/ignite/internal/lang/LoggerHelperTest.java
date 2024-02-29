@@ -155,6 +155,7 @@ public class LoggerHelperTest {
     @Test
     public void testExceptionIn_toString() {
         Object o = new Object() {
+            @Override
             public String toString() {
                 throw new IllegalStateException("a");
             }

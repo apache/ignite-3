@@ -18,16 +18,21 @@
 plugins {
     id 'distribution'
     id 'signing'
+    id 'java'
     alias(libs.plugins.nebula)
     alias(libs.plugins.checksum)
 }
 
 import org.gradle.crypto.checksum.Checksum
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+
 configurations {
-    javaClient {
-        attributes.attribute(Attribute.of("org.gradle.jvm.environment", String), "standard-jvm")
-    }
+    javaClient
 }
 
 def igniteJavaClient = project(':ignite-client')

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentMap;
@@ -62,6 +63,8 @@ public class SessionBuilderImpl implements SessionBuilder {
     private String schema = AbstractSession.DEFAULT_SCHEMA;
 
     private int pageSize = AbstractSession.DEFAULT_PAGE_SIZE;
+
+    private ZoneId timeZoneId;
 
     /**
      * Session builder constructor.
@@ -167,6 +170,13 @@ public class SessionBuilderImpl implements SessionBuilder {
         return this;
     }
 
+    @Override
+    public SessionBuilder timeZoneId(ZoneId timeZoneId) {
+        this.timeZoneId = timeZoneId;
+
+        return this;
+    }
+
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
@@ -187,6 +197,7 @@ public class SessionBuilderImpl implements SessionBuilder {
         SqlProperties propsHolder = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
                 .set(QueryProperty.DEFAULT_SCHEMA, schema)
+                .set(QueryProperty.TIME_ZONE_ID, timeZoneId == null ? ZoneId.systemDefault() : timeZoneId)
                 .build();
 
         SessionId sessionId = new SessionId(UUID.randomUUID());

@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Thread factory that produces {@link IgniteThread}s with node name, prefix, allowed operations.
@@ -76,7 +77,7 @@ public class IgniteThreadFactory implements ThreadFactory {
      * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
      * @return Thread factory.
      */
-    public static IgniteThreadFactory create(String nodeName, String poolName, IgniteLogger logger, ThreadOperation... allowedOperations) {
+    public static ThreadFactory create(String nodeName, String poolName, IgniteLogger logger, ThreadOperation... allowedOperations) {
         return create(nodeName, poolName, false, logger, allowedOperations);
     }
 
@@ -90,7 +91,7 @@ public class IgniteThreadFactory implements ThreadFactory {
      * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
      * @return Thread factory.
      */
-    public static IgniteThreadFactory create(
+    public static ThreadFactory create(
             String nodeName,
             String poolName,
             boolean daemon,
@@ -98,5 +99,10 @@ public class IgniteThreadFactory implements ThreadFactory {
             ThreadOperation... allowedOperations
     ) {
         return new IgniteThreadFactory(nodeName, poolName, daemon, logger, allowedOperations);
+    }
+
+    @TestOnly
+    public static ThreadFactory withPrefix(String prefix, IgniteLogger logger, ThreadOperation... allowedOperations) {
+        return new IgniteThreadFactory(prefix, false, logger, allowedOperations);
     }
 }

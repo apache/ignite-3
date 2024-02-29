@@ -135,7 +135,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         when(mockTableManager.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> completedFuture(mockTable(inv.getArgument(1))));
 
-        when(mockTableManager.getTable(anyInt())).thenAnswer(inv -> mockTable(inv.getArgument(0)));
+        when(mockTableManager.cachedTable(anyInt())).thenAnswer(inv -> mockTable(inv.getArgument(0)));
 
         when(mockTableManager.localPartitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(PartitionSet.EMPTY_SET));
 
@@ -345,10 +345,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectedIndexes = collectIndexesForRecovery();
 
-        CatalogTableDescriptor table = table(catalogManager.latestCatalogVersion(), TABLE_NAME);
-
-        assertThat(collectedIndexes, aMapWithSize(1));
-        assertThat(collectedIndexes, hasKey(table));
+        assertThat(collectedIndexes, aMapWithSize(2));
+        assertThat(collectedIndexes.keySet().stream().map(CatalogTableDescriptor::name).collect(toList()),
+                hasItems(TABLE_NAME, OTHER_TABLE_NAME));
+        assertThat(collectedIndexes.values().stream().flatMap(Collection::stream).map(CatalogIndexDescriptor::name).collect(toList()),
+                hasItems(PK_INDEX_NAME, PK_INDEX_NAME_OTHER_TABLE));
     }
 
     @Test
@@ -407,8 +408,18 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.tableId()).thenReturn(tableId);
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
+        CatalogTableDescriptor table = catalogManager.table(tableId, catalogManager.latestCatalogVersion());
+
         ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
-        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1), marshallers, mock(IgniteSql.class)));
+
+        return spy(new TableImpl(
+                internalTable,
+                new HeapLockManager(),
+                new ConstantSchemaVersions(1),
+                marshallers,
+                mock(IgniteSql.class),
+                table.primaryKeyIndexId()
+        ));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {

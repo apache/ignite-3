@@ -66,7 +66,7 @@ public class WatchListenerInhibitor {
     public static WatchListenerInhibitor metastorageEventsInhibitor(MetaStorageManager metaStorageManager) {
         var metaStorageManager0 = metaStorageManager;
 
-        //TODO: IGNITE-15723 After a component factory is implemented, need to got rid of reflection here.
+        // TODO: IGNITE-15723 After a component factory is implemented, need to got rid of reflection here.
         var storage = (RocksDbKeyValueStorage) getFieldValue(metaStorageManager0, MetaStorageManagerImpl.class, "storage");
 
         var watchProcessor = (WatchProcessor) getFieldValue(storage, RocksDbKeyValueStorage.class, "watchProcessor");

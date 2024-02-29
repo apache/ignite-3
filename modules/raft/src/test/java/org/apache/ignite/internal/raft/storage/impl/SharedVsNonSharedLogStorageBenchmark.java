@@ -77,7 +77,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
                         System.err.println("Fatal error: write failures, expect " + batchSize + ", but was " + ret);
                         System.exit(1);
                     }
-                    entries.clear(); //reuse it
+                    entries.clear(); // Reuse it.
                 }
             });
         }).collect(toList());
