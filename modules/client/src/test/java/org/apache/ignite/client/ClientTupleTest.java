@@ -378,8 +378,8 @@ public class ClientTupleTest {
         var valTuplePartialData = createFullSchemaTuple(TuplePart.VAL, true);
 
         var valTupleUser = Tuple.create()
-                .set("I8", (byte)1)
-                .set("I16", (short)2)
+                .set("I8", (byte) 1)
+                .set("I16", (short) 2)
                 .set("FLOAT", 5.5f)
                 .set("DOUBLE", 6.6)
                 .set("UUID", GUID)
@@ -390,7 +390,7 @@ public class ClientTupleTest {
                 .set("TIMESTAMP", TIMESTAMP)
                 .set("BOOL", true)
                 .set("DECIMAL", BigDecimal.valueOf(1234))
-                .set("BYTES", new byte[] {1, 2, 3})
+                .set("BYTES", new byte[]{1, 2, 3})
                 .set("PERIOD", Period.ofDays(16))
                 .set("DURATION", Duration.ofDays(17))
                 .set("NUMBER", BigInteger.valueOf(18));

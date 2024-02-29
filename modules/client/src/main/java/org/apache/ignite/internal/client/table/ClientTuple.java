@@ -27,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Client tuple. Wraps {@link BinaryTupleReader} and allows mutability.
+ *
  * <p>The following use cases are supported:
  * <ul>
  *     <li>Full binary tuple, TuplePart.KEY_AND_VAL - obvious one.</li>
