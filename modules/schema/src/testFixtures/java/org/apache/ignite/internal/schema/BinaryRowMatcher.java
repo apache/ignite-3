@@ -22,9 +22,7 @@ import java.util.Arrays;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
-/**
- * Matcher for comparing {@link BinaryRow}s.
- */
+/** Matcher for comparing {@link BinaryRow}s. */
 public class BinaryRowMatcher extends TypeSafeMatcher<BinaryRow> {
     private final BinaryRow row;
 

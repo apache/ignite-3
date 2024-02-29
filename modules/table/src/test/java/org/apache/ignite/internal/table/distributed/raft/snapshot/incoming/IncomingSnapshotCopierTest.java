@@ -92,6 +92,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -116,9 +117,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.mockito.Answers;
 
-/**
- * For {@link IncomingSnapshotCopier} testing.
- */
+/** For {@link IncomingSnapshotCopier} testing. */
 public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
@@ -126,7 +125,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private static final int TEST_PARTITION = 0;
 
-    private static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.stringOf(256), false)},
             new Column[]{new Column("value", NativeTypes.stringOf(256), false)}
@@ -317,7 +316,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                         mvGc,
                         mock(IndexUpdateHandler.class),
                         mock(GcUpdateHandler.class),
-                        mock(FullStateTransferIndexChooser.class)
+                        mock(FullStateTransferIndexChooser.class),
+                        new DummySchemaManagerImpl(SCHEMA)
                 )),
                 catalogService,
                 mock(SnapshotMeta.class),
@@ -420,7 +420,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private static BinaryRow createRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR, -1)
+        return new RowAssembler(SCHEMA, -1)
                 .appendStringNotNull(key)
                 .appendStringNotNull(value)
                 .build();
@@ -439,8 +439,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 String msg = "RowId=" + rowId + ", i=" + i;
 
-                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA_DESCRIPTOR.length(), expReadResult.binaryRow().tupleSlice());
-                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA_DESCRIPTOR.length(), actReadResult.binaryRow().tupleSlice());
+                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA.length(), expReadResult.binaryRow().tupleSlice());
+                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA.length(), actReadResult.binaryRow().tupleSlice());
 
                 assertEquals(expTuple.stringValue(0), actTuple.stringValue(0), msg);
                 assertEquals(expTuple.stringValue(1), actTuple.stringValue(1), msg);

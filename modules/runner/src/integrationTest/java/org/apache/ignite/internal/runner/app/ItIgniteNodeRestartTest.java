@@ -126,11 +126,13 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -297,16 +299,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
-        var threadPools = new ThreadPoolsManager(name);
+        var threadPoolsManager = new ThreadPoolsManager(name);
 
         var failureProcessor = new FailureProcessor(name);
 
-        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPools.commonScheduler(), failureProcessor);
+        var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPoolsManager.commonScheduler(), failureProcessor);
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
         var nettyWorkersRegistrar = new NettyWorkersRegistrar(
                 workerRegistry,
-                threadPools.commonScheduler(),
+                threadPoolsManager.commonScheduler(),
                 nettyBootstrapFactory,
                 workersConfiguration
         );
@@ -351,11 +353,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
                 = () -> TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
 
-        var replicaService = new ReplicaService(
+        MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(
                 clusterSvc.messagingService(),
-                hybridClock,
                 name,
-                threadPools.partitionOperationsExecutor()
+                message -> threadPoolsManager.partitionOperationsExecutor()
+        );
+
+        var replicaService = new ReplicaService(
+                messagingServiceReturningToStorageOperationsPool,
+                hybridClock,
+                threadPoolsManager.partitionOperationsExecutor()
         );
 
         var lockManager = new HeapLockManager();
@@ -431,15 +438,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
-                threadPools.partitionOperationsExecutor(),
+                threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         var txManager = new TxManagerImpl(
+                name,
                 txConfiguration,
-                clusterSvc,
+                messagingServiceReturningToStorageOperationsPool,
+                clusterSvc.topologyService(),
                 replicaService,
                 lockManager,
                 hybridClock,
@@ -447,7 +456,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new TestLocalRwTxCounter(),
-                threadPools.partitionOperationsExecutor(),
+                threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry
         );
 
@@ -512,7 +521,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 registry,
                 gcConfig,
                 storageUpdateConfiguration,
-                clusterSvc,
+                messagingServiceReturningToStorageOperationsPool,
+                clusterSvc.topologyService(),
+                clusterSvc.serializationRegistry(),
                 raftMgr,
                 replicaMgr,
                 lockManager,
@@ -523,8 +534,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
-                threadPools.tableIoExecutor(),
-                threadPools.partitionOperationsExecutor(),
+                threadPoolsManager.tableIoExecutor(),
+                threadPoolsManager.partitionOperationsExecutor(),
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
@@ -544,7 +555,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 tableManager,
                 catalogManager,
                 metaStorageMgr,
-                threadPools.tableIoExecutor(),
+                threadPoolsManager.tableIoExecutor(),
                 registry
         );
 
@@ -585,7 +596,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
-                threadPools,
+                threadPoolsManager,
                 failureProcessor,
                 workerRegistry,
                 nettyBootstrapFactory,
