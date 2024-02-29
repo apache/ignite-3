@@ -131,7 +131,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
 
             List<Integer> fromReadOnlyIndexes = chooseFromReadOnlyIndexesBusy(tableId, beginTs);
 
-            return toIndexIdAndTableVersionList(mergeWithoutDuplicates(fromCatalog, fromReadOnlyIndexes));
+            return enrichWithTableVersions(mergeWithoutDuplicates(fromCatalog, fromReadOnlyIndexes));
         });
     }
 
@@ -156,7 +156,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
 
             List<Integer> fromReadOnlyIndexes = chooseFromReadOnlyIndexesBusy(tableId, commitTs);
 
-            return toIndexIdAndTableVersionList(mergeWithoutDuplicates(fromCatalog, fromReadOnlyIndexes));
+            return enrichWithTableVersions(mergeWithoutDuplicates(fromCatalog, fromReadOnlyIndexes));
         });
     }
 
@@ -346,7 +346,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         return table.tableVersion();
     }
 
-    private List<IndexIdAndTableVersion> toIndexIdAndTableVersionList(List<Integer> indexIds) {
+    private List<IndexIdAndTableVersion> enrichWithTableVersions(List<Integer> indexIds) {
         return indexIds.stream()
                 .map(indexId -> {
                     Integer tableVersion = tableVersionByIndexId.get(indexId);

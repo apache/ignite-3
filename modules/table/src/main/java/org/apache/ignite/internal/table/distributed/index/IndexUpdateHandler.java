@@ -71,7 +71,7 @@ public class IndexUpdateHandler {
     }
 
     /**
-     * Adds a binary row to the index, if the tombstone then skips such operation.
+     * Adds a binary row to the index, if it's a tombstone then skips such operation.
      *
      * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
      *

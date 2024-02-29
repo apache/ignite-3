@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 
-/** Container the index ID and {@link BinaryRow}. */
+/** Container for index ID and {@link BinaryRow}. */
 class IndexIdAndBinaryRow {
     private final int indexId;
 

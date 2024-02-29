@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import org.apache.ignite.internal.tostring.S;
 
-/** Container the index ID and table schema version at index creation. */
+/** Container for index ID and table schema version at index creation. */
 public class IndexIdAndTableVersion {
     private final int indexId;
 
