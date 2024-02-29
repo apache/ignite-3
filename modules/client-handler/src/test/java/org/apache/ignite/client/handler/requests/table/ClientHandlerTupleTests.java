@@ -109,7 +109,7 @@ public class ClientHandlerTupleTests {
                 .set("valDoubleCol", 0.066d)
                 .set("keyUuidCol", GUID)
                 .set("valDateCol", DATE)
-                .set("valDateTimeCol", DATE)
+                .set("valDateTimeCol", DATE_TIME)
                 .set("valTimeCol", TIME)
                 .set("valTimeStampCol", TIMESTAMP)
                 .set("valBitmask1Col", IgniteTestUtils.randomBitSet(rnd, 12))
