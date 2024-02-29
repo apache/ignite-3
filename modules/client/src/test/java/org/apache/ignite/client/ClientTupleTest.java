@@ -367,6 +367,7 @@ public class ClientTupleTest {
         var keyTuplePartialData = createFullSchemaTuple(TuplePart.KEY, true);
         var keyTupleUser = Tuple.create().set("I32", 3).set("I64", 4L).set("STR", "8");
 
+        assertEquals(keyTupleFullData, keyTuplePartialData);
         assertEquals(keyTupleUser, keyTupleFullData);
         assertEquals(keyTupleUser, keyTuplePartialData);
     }
@@ -377,6 +378,7 @@ public class ClientTupleTest {
         var valTuplePartialData = createFullSchemaTuple(TuplePart.VAL, true);
         var valTupleUser = Tuple.create().set("I32", 3).set("I64", 4L).set("STR", "8");
 
+        assertEquals(valTupleFullData, valTuplePartialData);
         assertEquals(valTupleUser, valTupleFullData);
         assertEquals(valTupleUser, valTuplePartialData);
     }
