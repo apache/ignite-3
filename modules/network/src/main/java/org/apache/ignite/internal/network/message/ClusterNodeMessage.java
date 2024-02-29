@@ -15,16 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery.message;
+package org.apache.ignite.internal.network.message;
 
+import static org.apache.ignite.internal.network.NetworkMessageTypes.CLUSTER_NODE_MESSAGE;
+
+import java.io.Serializable;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 
 /**
- * Message that does not need an acknowledgement from the remote node.
+ * {@link ClusterNode} as a network message class.
  */
-public interface InternalMessage extends NetworkMessage {
-    @Override
-    default boolean needAck() {
-        return false;
+@Transferable(CLUSTER_NODE_MESSAGE)
+public interface ClusterNodeMessage extends NetworkMessage, Serializable {
+    String id();
+
+    String name();
+
+    String host();
+
+    int port();
+
+    default ClusterNode asClusterNode() {
+        return new ClusterNodeImpl(id(), name(), new NetworkAddress(host(), port()));
     }
 }
