@@ -163,6 +163,18 @@ public class ClientTupleTest {
     }
 
     @Test
+    public void testColumnNameReturnsNameByIndexKeyOnly() {
+        assertEquals("I32", createFullSchemaTuple(TuplePart.KEY, false).columnName(0));
+        assertEquals("I64", createFullSchemaTuple(TuplePart.KEY, false).columnName(1));
+    }
+
+    @Test
+    public void testColumnNameReturnsNameByIndexValOnly() {
+        assertEquals("I8", createFullSchemaTuple(TuplePart.VAL, false).columnName(0));
+        assertEquals("I16", createFullSchemaTuple(TuplePart.VAL, false).columnName(1));
+    }
+
+    @Test
     public void testColumnNameThrowsOnInvalidIndex() {
         var ex = assertThrows(IndexOutOfBoundsException.class, () -> createTuple().columnName(-1));
         assertEquals("Index -1 out of bounds for length 2", ex.getMessage());
