@@ -364,11 +364,21 @@ public class ClientTupleTest {
     @Test
     public void testKeyOnlyTupleEquality() {
         var keyTupleFullData = createFullSchemaTuple(TuplePart.KEY, false);
-        var keyTupleKeyData = createFullSchemaTuple(TuplePart.KEY, true);
+        var keyTuplePartialData = createFullSchemaTuple(TuplePart.KEY, true);
         var keyTupleUser = Tuple.create().set("I32", 3).set("I64", 4L).set("STR", "8");
 
         assertEquals(keyTupleUser, keyTupleFullData);
-        assertEquals(keyTupleUser, keyTupleKeyData);
+        assertEquals(keyTupleUser, keyTuplePartialData);
+    }
+
+    @Test
+    public void testValOnlyTupleEquality() {
+        var valTupleFullData = createFullSchemaTuple(TuplePart.VAL, false);
+        var valTuplePartialData = createFullSchemaTuple(TuplePart.VAL, true);
+        var valTupleUser = Tuple.create().set("I32", 3).set("I64", 4L).set("STR", "8");
+
+        assertEquals(valTupleUser, valTupleFullData);
+        assertEquals(valTupleUser, valTuplePartialData);
     }
 
     private static Tuple createTuple() {
@@ -422,21 +432,23 @@ public class ClientTupleTest {
         }
 
         if (part == TuplePart.VAL && partialData) {
-            binTupleBuf = new BinaryTupleBuilder(15)
+            binTupleBuf = new BinaryTupleBuilder(16)
                     .appendByte((byte) 1)
                     .appendShort((short) 2)
-                    .appendInt(3)
-                    .appendLong(4)
                     .appendFloat(5.5f)
                     .appendDouble(6.6)
                     .appendUuid(GUID)
-                    .appendString("8")
                     .appendBitmask(new BitSet(3))
                     .appendDate(DATE)
                     .appendTime(TIME)
                     .appendDateTime(DATE_TIME)
                     .appendTimestamp(TIMESTAMP)
                     .appendByte((byte) 1)
+                    .appendDecimal(BigDecimal.valueOf(1.234), 3)
+                    .appendBytes(new byte[] {1, 2, 3})
+                    .appendPeriod(Period.ofDays(16))
+                    .appendDuration(Duration.ofDays(17))
+                    .appendNumber(BigInteger.valueOf(18))
                     .build();
 
             binTupleColumnCount = 15;
