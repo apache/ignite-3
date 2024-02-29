@@ -404,6 +404,7 @@ public class RebalanceUtil {
 
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
         Iif iif = iif(
                 notExists(partChangeTriggerKey).or(value(partChangeTriggerKey).lt(revisionBytes)),
@@ -411,7 +412,8 @@ public class RebalanceUtil {
                         value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, revisionBytes)
+                                put(partChangeTriggerKey, revisionBytes),
+                                remove(partAssignmentsPlannedKey)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
                 ),
