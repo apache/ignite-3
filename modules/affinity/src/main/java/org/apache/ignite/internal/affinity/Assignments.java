@@ -20,6 +20,8 @@ package org.apache.ignite.internal.affinity;
 import static java.util.Collections.unmodifiableSet;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -41,16 +43,18 @@ public class Assignments implements Serializable {
 
     /** Set of nodes. */
     @IgniteToStringInclude
-    private final Set<Assignment> nodes;
+    private final HashSet<Assignment> nodes;
 
-    /** Force flag. */
+    /** @see #force() */
     private final boolean force;
 
     /**
      * Constructor.
      */
-    private Assignments(Set<Assignment> nodes, boolean force) {
-        this.nodes = nodes;
+    private Assignments(Collection<Assignment> nodes, boolean force) {
+        // A set of nodes must be a HashSet in order for serialization to produce stable results,
+        // that could be compared as byte arrays.
+        this.nodes = nodes instanceof HashSet ? ((HashSet<Assignment>) nodes) : new HashSet<>(nodes);
         this.force = force;
     }
 
@@ -60,7 +64,7 @@ public class Assignments implements Serializable {
      * @param nodes Set of nodes.
      */
     public static Assignments of(Set<Assignment> nodes) {
-        return new Assignments(new HashSet<>(nodes), false);
+        return new Assignments(nodes, false);
     }
 
     /**
@@ -69,7 +73,7 @@ public class Assignments implements Serializable {
      * @param nodes Array of nodes.
      */
     public static Assignments of(Assignment... nodes) {
-        return new Assignments(Set.of(nodes), false);
+        return new Assignments(Arrays.asList(nodes), false);
     }
 
     /**
@@ -79,7 +83,7 @@ public class Assignments implements Serializable {
      * @see #force()
      */
     public static Assignments forced(Set<Assignment> nodes) {
-        return new Assignments(new HashSet<>(nodes), true);
+        return new Assignments(nodes, true);
     }
 
     /**
@@ -111,7 +115,7 @@ public class Assignments implements Serializable {
      * @see #toBytes()
      */
     public static byte[] toBytes(Set<Assignment> assignments) {
-        return new Assignments(new HashSet<>(assignments), false).toBytes();
+        return new Assignments(assignments, false).toBytes();
     }
 
     /**
