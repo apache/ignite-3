@@ -45,7 +45,7 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
      * @param tuple Tuple.
      * @param keyOnly Key only.
      */
-    ClientHandlerTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, boolean keyOnly) {
+    ClientHandlerTuple(SchemaDescriptor schema, @Nullable BitSet noValueSet, BinaryTupleReader tuple, boolean keyOnly) {
         super(tuple, tuple.elementCount(), noValueSet);
 
         this.schema = schema;
