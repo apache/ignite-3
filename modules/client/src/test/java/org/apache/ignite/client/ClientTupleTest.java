@@ -192,10 +192,18 @@ public class ClientTupleTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    public void testColumnIndexReturnsIndexByNameKeyOnly(boolean keyOnlyData) {
-        assertEquals(0, createFullSchemaTuple(TuplePart.KEY, keyOnlyData).columnIndex("I32"));
-        assertEquals(1, createFullSchemaTuple(TuplePart.KEY, keyOnlyData).columnIndex("I64"));
-        assertEquals(2, createFullSchemaTuple(TuplePart.KEY, keyOnlyData).columnIndex("STR"));
+    public void testColumnIndexReturnsIndexByNameKeyOnly(boolean partialData) {
+        assertEquals(0, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("I32"));
+        assertEquals(1, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("I64"));
+        assertEquals(2, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("STR"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testColumnIndexReturnsIndexByNameValOnly(boolean partialData) {
+        assertEquals(0, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("I8"));
+        assertEquals(1, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("I16"));
+        assertEquals(4, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("UUID"));
     }
 
     @Test
@@ -206,8 +214,14 @@ public class ClientTupleTest {
 
     @Test
     public void testColumnIndexForMissingColumnsKeyOnly() {
-        assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, false).columnIndex("UUID"));
+        assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, true).columnIndex("foo"));
         assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, true).columnIndex("UUID"));
+    }
+
+    @Test
+    public void testColumnIndexForMissingColumnsValOnly() {
+        assertEquals(-1, createFullSchemaTuple(TuplePart.VAL, true).columnIndex("foo"));
+        assertEquals(-1, createFullSchemaTuple(TuplePart.VAL, true).columnIndex("I32"));
     }
 
     @Test
