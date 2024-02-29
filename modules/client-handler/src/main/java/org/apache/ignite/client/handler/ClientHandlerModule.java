@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED;
+import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -338,8 +338,9 @@ public class ClientHandlerModule implements IgniteComponent {
             } else if (bindFut.cause() instanceof UnresolvedAddressException) {
                 result.completeExceptionally(
                         new IgniteException(
-                                ADDRESS_UNRESOLVED,
-                                "Failed to start thin connector endpoint, unresolved socket address \"" + address + "\""
+                                ADDRESS_UNRESOLVED_ERR,
+                                "Failed to start thin connector endpoint, unresolved socket address \"" + address + "\"",
+                                bindFut.cause()
                         )
                 );
             } else {

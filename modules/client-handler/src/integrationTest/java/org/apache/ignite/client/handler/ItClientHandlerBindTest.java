@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.ConnectException;
+import java.net.Socket;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -40,13 +42,28 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
     private NetworkConfiguration networkConfiguration;
 
     @Test
-    void listenSpecificAddress(
+    void listenOnlySpecificAddress(
             TestInfo testInfo,
-            @InjectConfiguration("mock.listenAddress=localhost") ClientConnectorConfiguration clientConnectorConfiguration
+            @InjectConfiguration("mock.listenAddress=127.0.0.7") ClientConnectorConfiguration clientConnectorConfiguration
     ) throws Exception {
         TestServer server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
 
         ClientHandlerModule serverModule = assertDoesNotThrow(() -> server.start(testInfo));
+
+        int port = serverModule.localAddress().getPort();
+
+        assertDoesNotThrow(
+                () -> {
+                    Socket socket = new Socket("127.0.0.7", port);
+                    socket.close();
+                });
+
+        assertThrows(
+                ConnectException.class,
+                () -> {
+                    Socket socket = new Socket("127.0.0.1", port);
+                    socket.close();
+                });
 
         serverModule.stop();
         server.tearDown();
