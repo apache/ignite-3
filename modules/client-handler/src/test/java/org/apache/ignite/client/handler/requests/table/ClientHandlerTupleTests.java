@@ -64,13 +64,6 @@ public class ClientHandlerTupleTests {
     private static final Instant TIMESTAMP = Instant.now();
 
     /** Schema descriptor. */
-    private final SchemaDescriptor schema = new SchemaDescriptor(
-            42,
-            new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-            new Column[]{new Column("name".toUpperCase(), NativeTypes.STRING, false)}
-    );
-
-    /** Schema descriptor. */
     private final SchemaDescriptor fullSchema = new SchemaDescriptor(42,
             new Column[]{new Column("keyUuidCol".toUpperCase(), NativeTypes.UUID, false)},
             new Column[]{
