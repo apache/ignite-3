@@ -43,10 +43,13 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
     void listenSpecificAddress(
             TestInfo testInfo,
             @InjectConfiguration("mock.listenAddress=localhost") ClientConnectorConfiguration clientConnectorConfiguration
-    ) {
+    ) throws Exception {
         TestServer server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
 
-        assertDoesNotThrow(() -> server.start(testInfo));
+        ClientHandlerModule serverModule = assertDoesNotThrow(() -> server.start(testInfo));
+
+        serverModule.stop();
+        server.tearDown();
     }
 
     @Test
