@@ -17,14 +17,27 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.Collection;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client tuple. Wraps {@link BinaryTupleReader} and allows mutability.
+ * <p>The following use cases are supported:
+ * <ul>
+ *     <li>Full binary tuple, TuplePart.KEY_AND_VAL - obvious one.</li>
+ *     <li>Key only binary tuple, TuplePart.KEY - key only part,
+ *     returned from methods like {@link org.apache.ignite.table.RecordView#deleteAll(Transaction, Collection)}.</li>
+ *     <li>Full binary tuple, TuplePart.KEY - key part of full tuple, returned from KV APIs -
+ *     single binary tuple is presented as a pair of {@link ClientTuple} instances.</li>
+ *     <li>Full binary tuple, TuplePart.VAL - same as above, value part.</li>
+ *     <li>Value only binary tuple, TuplePart.VAL - not used currently,
+ *     but we might optimize the protocol to return value-only data for key-based operations.</li>
+ * </ul>
  */
 public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
