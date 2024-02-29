@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
+import static org.apache.calcite.rel.core.TableModify.Operation.DELETE;
+import static org.apache.calcite.rel.core.TableModify.Operation.INSERT;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.replaceInputRefs;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
@@ -33,21 +38,29 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
+import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -135,6 +148,155 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         extractFromTable(rel.sourceId(), table, rel.requiredColumns(), condition, rexBuilder);
 
         return rel;
+    }
+
+    private static class ModifyNodeShuttle extends IgniteRelShuttle {
+        List<RexNode> projections = null;
+        IgniteValues values = null;
+        List<List<RexNode>> exprProjections = null;
+        boolean collectExprProjections = false;
+
+        /** {@inheritDoc} */
+        @Override
+        public IgniteRel visit(IgniteProject rel) {
+            if (projections == null && !collectExprProjections) {
+                projections = rel.getProjects();
+            } else {
+                if (exprProjections == null) {
+                    exprProjections = new ArrayList<>();
+                }
+                exprProjections.add(rel.getProjects());
+            }
+            return super.visit(rel);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IgniteRel visit(IgniteValues rel) {
+            if (!collectExprProjections) {
+                values = rel;
+            }
+            return super.visit(rel);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IgniteRel visit(IgniteUnionAll rel) {
+            collectExprProjections = true;
+            return super.visit(rel);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteTableModify rel) {
+        if (rel.getOperation() != INSERT && rel.getOperation() != DELETE) {
+            return super.visit(rel);
+        }
+
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+
+        RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
+
+        ModifyNodeShuttle modify = new ModifyNodeShuttle();
+        rel.accept(modify);
+
+        extractFromValues(rel.sourceId(), table, modify.values, modify.projections, modify.exprProjections, rexBuilder);
+
+        return super.visit(rel);
+    }
+
+    private void extractFromValues(
+            long sourceId,
+            IgniteTable table,
+            @Nullable IgniteValues vals,
+            @Nullable List<RexNode> projections,
+            @Nullable List<List<RexNode>> exprProjections,
+            RexBuilder rexBuilder
+    ) {
+        if (vals == null && exprProjections == null) {
+            return;
+        }
+
+        IgniteDistribution distribution = table.distribution();
+        if (!distribution.function().affinity()) {
+            return;
+        }
+
+        IntArrayList keysList = new IntArrayList(distribution.getKeys().size());
+        for (Integer key : distribution.getKeys()) {
+            keysList.add(key.intValue());
+        }
+
+        Mappings.TargetMapping mapping = null;
+
+        if (projections != null) {
+            IntArrayList projList = new IntArrayList();
+            for (RexNode node : projections) {
+                if (node instanceof RexInputRef) {
+                    int idx = ((RexInputRef) node).getIndex();
+                    if (keysList.contains(idx)) {
+                        projList.add(((RexInputRef) node).getIndex());
+                    }
+                } else {
+                    if (!isValueExpr(node)) {
+                        return;
+                    }
+                }
+            }
+
+            if (!projList.containsAll(keysList)) {
+                return;
+            }
+
+            projections = replaceInputRefs(projections);
+
+            mapping = RexUtils.inversePermutation(projections,
+                    table.getRowType(Commons.typeFactory()), true);
+        }
+
+        List<RexNode> andEqNodes = new ArrayList<>();
+
+        RelDataType rowTypes = table.getRowType(Commons.typeFactory());
+
+        assert exprProjections == null || vals == null;
+
+        List<List<RexNode>> dataRows = vals != null ? Commons.cast(vals.getTuples()) : exprProjections;
+
+        for (List<RexNode> items : dataRows) {
+            List<RexNode> andNodes = new ArrayList<>(keysList.size());
+            for (int key : keysList) {
+                RexLocalRef ref;
+                if (projections != null) {
+                    ref = (RexLocalRef) projections.get(mapping.getSourceOpt(key));
+                } else {
+                    ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(key).getType(), key);
+                }
+                RexNode lit = items.get(mapping != null ? mapping.getSourceOpt(key) : key);
+                if (!isValueExpr(lit)) {
+                    return;
+                }
+                RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, lit);
+                andNodes.add(eq);
+            }
+            if (andNodes.size() > 1) {
+                assert andNodes.size() % 2 == 0;
+                RexNode node0 = rexBuilder.makeCall(SqlStdOperatorTable.AND, andNodes);
+                andEqNodes.add(node0);
+            } else {
+                andEqNodes.add(andNodes.get(0));
+            }
+        }
+
+        if (!nullOrEmpty(andEqNodes)) {
+            RexNode call = rexBuilder.makeCall(SqlStdOperatorTable.OR, andEqNodes);
+
+            PartitionPruningColumns metadata = extractMetadata(keysList, call, rexBuilder);
+
+            if (metadata != null) {
+                result.put(sourceId, metadata);
+            }
+        }
     }
 
     private void extractFromTable(

@@ -38,7 +38,7 @@ public final class Partitioned<RowT> implements Destination<RowT> {
      */
     public Partitioned(List<String> assignments, RowPartitionExtractor<RowT> calc) {
         this.calc = calc;
-        this.assignments = Commons.transform(assignments, List::of);
+        this.assignments = Commons.transformNullAware(assignments, List::of);
     }
 
     /** {@inheritDoc} */

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
+import static org.apache.ignite.internal.util.IgniteUtils.newLinkedHashSet;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
@@ -89,6 +90,7 @@ public final class PartitionPruningPredicate {
 
         Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode = newHashMap(colocationGroup.nodeNames().size());
         Set<String> newNodes = new HashSet<>();
+        Set<NodeWithConsistencyToken> newAssignments = newLinkedHashSet(colocationGroup.assignments().size());
 
         for (String nodeName : colocationGroup.nodeNames()) {
             List<PartitionWithConsistencyToken> partsWithConsistencyTokens = new ArrayList<>();
@@ -96,8 +98,11 @@ public final class PartitionPruningPredicate {
             for (int p = 0; p < colocationGroup.assignments().size(); p++) {
                 NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(p);
                 if (!remainingPartitions.contains(p)) {
+                    newAssignments.add(null);
                     continue;
                 }
+
+                newAssignments.add(nodeWithConsistencyToken);
 
                 if (Objects.equals(nodeName, nodeWithConsistencyToken.name())) {
                     long t = nodeWithConsistencyToken.enlistmentConsistencyToken();
@@ -116,7 +121,7 @@ public final class PartitionPruningPredicate {
         return new ColocationGroup(
                 colocationGroup.sourceIds(),
                 List.copyOf(newNodes),
-                colocationGroup.assignments(),
+                new ArrayList<>(newAssignments),
                 partitionsPerNode
         );
     }
