@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.type.NativeTypes.datetime;
 import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -39,6 +40,7 @@ import java.time.LocalTime;
 import java.time.Month;
 import java.util.Random;
 import java.util.UUID;
+import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -88,9 +90,68 @@ public class ClientHandlerTupleTests {
 
     @Test
     public void testTupleEquality() throws TupleMarshallerException {
+        Tuple tuple = createTuple();
+
+        BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshal(tuple).binaryTuple();
+        Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, false);
+
+        assertEquals(tuple, clientHandlerTuple);
+    }
+
+    @Test
+    public void testTupleEqualityKeyOnly() throws TupleMarshallerException {
+        Tuple tuple = createKeyTuple();
+
+        BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshalKey(tuple).binaryTuple();
+        Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, true);
+
+        assertEquals(tuple, clientHandlerTuple);
+    }
+
+    @Test
+    public void testValueReturnsValueByName() {
+        Tuple tuple = createTuple();
+
+        assertEquals(1, (byte) tuple.value("valByteCol"));
+        assertEquals(DATE, tuple.value("valDateCol"));
+
+        assertThrows(IllegalArgumentException.class, () -> tuple.value("bad-name"));
+    }
+
+    @Test
+    public void testValueReturnsValueByNameKeyOnly() {
+        Tuple tuple = createKeyTuple();
+
+        assertEquals(GUID, tuple.value("keyUuidCol"));
+
+        assertThrows(IllegalArgumentException.class, () -> tuple.value("valDateCol"));
+    }
+
+    @Test
+    public void testValueReturnsValueByIndex() {
+        Tuple tuple = createTuple();
+
+        assertEquals(1, (byte) tuple.value(0));
+        assertEquals(4L, tuple.longValue(3));
+
+        assertThrows(IndexOutOfBoundsException.class, () -> tuple.value(123));
+    }
+
+    private static Tuple createTuple(TuplePart part) {
+        assert part != TuplePart.VAL;
+
+        return part == TuplePart.KEY ? createKeyTuple() : createTuple();
+    }
+
+    private static Tuple createKeyTuple() {
+        return Tuple.create()
+                .set("keyUuidCol", GUID);
+    }
+
+    private static Tuple createTuple() {
         Random rnd = new Random();
 
-        Tuple tuple = Tuple.create()
+        return Tuple.create()
                 .set("valByteCol", (byte) 1)
                 .set("valShortCol", (short) 2)
                 .set("valIntCol", 3)
@@ -107,21 +168,5 @@ public class ClientHandlerTupleTests {
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
-
-        BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshal(tuple).binaryTuple();
-        Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, false);
-
-        assertEquals(tuple, clientHandlerTuple);
-    }
-
-    @Test
-    public void testTupleEqualityKeyOnly() throws TupleMarshallerException {
-        Tuple tuple = Tuple.create()
-                .set("keyUuidCol", GUID);
-
-        BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshalKey(tuple).binaryTuple();
-        Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, true);
-
-        assertEquals(tuple, clientHandlerTuple);
     }
 }
