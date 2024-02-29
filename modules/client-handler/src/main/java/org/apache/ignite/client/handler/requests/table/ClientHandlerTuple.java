@@ -48,6 +48,8 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     ClientHandlerTuple(SchemaDescriptor schema, @Nullable BitSet noValueSet, BinaryTupleReader tuple, boolean keyOnly) {
         super(tuple, tuple.elementCount(), noValueSet);
 
+        assert tuple.elementCount() == (keyOnly ? schema.keyColumns().length() : schema.length()) : "Tuple element count mismatch";
+
         this.schema = schema;
         this.keyOnly = keyOnly;
     }
