@@ -245,7 +245,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 catalogManager
         );
 
-        //noinspection ThisEscapedInObjectConstruction
+        // noinspection ThisEscapedInObjectConstruction
         disasterRecoveryManager = new DisasterRecoveryManager(metaStorageManager, catalogManager, this);
     }
 
