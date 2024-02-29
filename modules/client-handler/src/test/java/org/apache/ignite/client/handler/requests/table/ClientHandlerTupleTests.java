@@ -42,11 +42,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Tuple;
@@ -97,10 +94,8 @@ public class ClientHandlerTupleTests {
 
 
     @Test
-    public void testVariousColumnTypes() throws TupleMarshallerException {
+    public void testTupleEquality() throws TupleMarshallerException {
         Random rnd = new Random();
-
-        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Tuple tuple = Tuple.create()
                 .set("valByteCol", (byte) 1)
@@ -120,8 +115,8 @@ public class ClientHandlerTupleTests {
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
 
-        BinaryTuple row = marshaller.marshal(tuple).binaryTuple();
-        Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, row, false);
+        BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshal(tuple).binaryTuple();
+        Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, false);
 
         assertEquals(tuple, clientHandlerTuple);
     }
