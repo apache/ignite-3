@@ -218,7 +218,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 .headers(FileHeader.fromPaths(messageFactory, paths))
                 .build();
 
-        messagingService.fairMessage(uploadRequest, TARGET_CONSISTENT_ID, correlationId);
+        messagingService.fireMessage(uploadRequest, TARGET_CONSISTENT_ID, correlationId);
 
         // Check that transfer was registered and canceled.
         assertThat(registeredTransferIdFuture, willCompleteSuccessfully());
@@ -295,7 +295,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 .build();
 
         // Send file transfer request.
-        messagingService.fairMessage(fileTransferInitMessage, TARGET_CONSISTENT_ID, 1L);
+        messagingService.fireMessage(fileTransferInitMessage, TARGET_CONSISTENT_ID, 1L);
 
         // Check that transfer was registered before response was sent.
         await().untilAtomic(transferLifecycleState, equalTo(2));

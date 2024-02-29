@@ -36,6 +36,7 @@ import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Manages job executions. Stores them in the TTL-based cache.
@@ -154,5 +155,10 @@ public class ExecutionManager {
             return execution.changePriorityAsync(newPriority);
         }
         return nullCompletedFuture();
+    }
+
+    @TestOnly
+    Set<UUID> executions() {
+        return executions.keySet();
     }
 }

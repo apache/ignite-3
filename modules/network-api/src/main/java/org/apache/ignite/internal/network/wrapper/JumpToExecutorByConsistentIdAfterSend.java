@@ -124,4 +124,9 @@ public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
     public void addMessageHandler(Class<?> messageGroup, NetworkMessageHandler handler) {
         messagingService.addMessageHandler(messageGroup, handler);
     }
+
+    @Override
+    public void addMessageHandler(Class<?> messageGroup, ExecutorChooser<NetworkMessage> executorChooser, NetworkMessageHandler handler) {
+        messagingService.addMessageHandler(messageGroup, executorChooser, handler);
+    }
 }

@@ -389,7 +389,8 @@ public class ItTxTestCluster {
 
             ReplicaService replicaSvc = spy(new ReplicaService(
                     clusterService.messagingService(),
-                    clock
+                    clock,
+                    partitionOperationsExecutor
             ));
 
             replicaServices.put(node.name(), replicaSvc);
@@ -443,8 +444,10 @@ public class ItTxTestCluster {
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         return new TxManagerImpl(
+                node.name(),
                 txConfiguration,
-                clusterService,
+                clusterService.messagingService(),
+                clusterService.topologyService(),
                 replicaSvc,
                 new HeapLockManager(),
                 clock,
@@ -900,7 +903,8 @@ public class ItTxTestCluster {
 
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
-                clientClock
+                clientClock,
+                partitionOperationsExecutor
         ));
 
         LOG.info("The client has been started");
@@ -908,8 +912,10 @@ public class ItTxTestCluster {
 
     private void initializeClientTxComponents() {
         clientTxManager = new TxManagerImpl(
+                "client",
                 txConfiguration,
-                client,
+                client.messagingService(),
+                client.topologyService(),
                 clientReplicaSvc,
                 new HeapLockManager(),
                 clientClock,
