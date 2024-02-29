@@ -17,9 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBitSet;
 import static org.apache.ignite.internal.type.NativeTypes.BYTES;
-import static org.apache.ignite.internal.type.NativeTypes.DATE;
 import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
 import static org.apache.ignite.internal.type.NativeTypes.INT16;
@@ -38,6 +36,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
@@ -45,11 +44,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.table.MutableRowTupleAdapter;
 import org.apache.ignite.internal.table.TableRow;
-import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -58,9 +54,15 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link ClientHandlerTuple}.
  */
 public class ClientHandlerTupleTests {
-    private static final int NANOS_IN_SECOND = 9;
-    private static final int TIMESTAMP_PRECISION = 6;
-    private static final int TIME_PRECISION = 0;
+    private static final UUID GUID = UUID.randomUUID();
+
+    private static final LocalDate DATE = LocalDate.of(1995, Month.MAY, 23);
+
+    private static final LocalTime TIME = LocalTime.of(17, 0, 1, 222_333_444);
+
+    private static final LocalDateTime DATE_TIME = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
+
+    private static final Instant TIMESTAMP = Instant.now();
 
     /** Schema descriptor. */
     private final SchemaDescriptor schema = new SchemaDescriptor(
@@ -79,10 +81,10 @@ public class ClientHandlerTupleTests {
                     new Column("valLongCol".toUpperCase(), INT64, true),
                     new Column("valFloatCol".toUpperCase(), FLOAT, true),
                     new Column("valDoubleCol".toUpperCase(), DOUBLE, true),
-                    new Column("valDateCol".toUpperCase(), DATE, true),
-                    new Column("valTimeCol".toUpperCase(), time(TIME_PRECISION), true),
-                    new Column("valDateTimeCol".toUpperCase(), datetime(TIMESTAMP_PRECISION), true),
-                    new Column("valTimeStampCol".toUpperCase(), timestamp(TIMESTAMP_PRECISION), true),
+                    new Column("valDateCol".toUpperCase(), NativeTypes.DATE, true),
+                    new Column("valTimeCol".toUpperCase(), time(NativeTypes.MAX_TIME_PRECISION), true),
+                    new Column("valDateTimeCol".toUpperCase(), datetime(NativeTypes.MAX_TIME_PRECISION), true),
+                    new Column("valTimeStampCol".toUpperCase(), timestamp(NativeTypes.MAX_TIME_PRECISION), true),
                     new Column("valBitmask1Col".toUpperCase(), NativeTypes.bitmaskOf(22), true),
                     new Column("valBytesCol".toUpperCase(), BYTES, false),
                     new Column("valStringCol".toUpperCase(), STRING, false),
@@ -105,12 +107,12 @@ public class ClientHandlerTupleTests {
                 .set("valLongCol", 4L)
                 .set("valFloatCol", 0.055f)
                 .set("valDoubleCol", 0.066d)
-                .set("keyUuidCol", UUID.randomUUID())
-                .set("valDateCol", LocalDate.now())
-                .set("valDateTimeCol", truncatedLocalDateTimeNow())
-                .set("valTimeCol", truncatedLocalTimeNow())
-                .set("valTimeStampCol", truncatedInstantNow())
-                .set("valBitmask1Col", randomBitSet(rnd, 12))
+                .set("keyUuidCol", GUID)
+                .set("valDateCol", DATE)
+                .set("valDateTimeCol", DATE)
+                .set("valTimeCol", TIME)
+                .set("valTimeStampCol", TIMESTAMP)
+                .set("valBitmask1Col", IgniteTestUtils.randomBitSet(rnd, 12))
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
@@ -124,18 +126,5 @@ public class ClientHandlerTupleTests {
         tuple.set("foo", "bar"); // Force row to tuple conversion.
 
         assertEquals(tuple, rowTuple);
-        TableTestUtils.createTable();
-    }
-
-    private Instant truncatedInstantNow() {
-        return truncateToDefaultPrecision(Instant.now());
-    }
-
-    private LocalTime truncatedLocalTimeNow() {
-        return truncateToDefaultPrecision(LocalTime.now());
-    }
-
-    private LocalDateTime truncatedLocalDateTimeNow() {
-        return truncateToDefaultPrecision(LocalDateTime.now());
     }
 }
