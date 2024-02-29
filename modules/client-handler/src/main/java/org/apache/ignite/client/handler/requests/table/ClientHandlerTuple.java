@@ -29,7 +29,8 @@ import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Server-side client Tuple.
+ * Server-side Tuple implementation, wraps binary data coming from the client to pass to the table internals. This tuple implementation
+ * does not normally end up in the user's hands.
  */
 class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware {
     private final SchemaDescriptor schema;
