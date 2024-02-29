@@ -76,7 +76,16 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     @Override
     protected int binaryTupleIndex(String columnName) {
         Column column = schema.column(columnName);
-        return column == null ? -1 : column.schemaIndex();
+
+        if (column == null) {
+            return -1;
+        }
+
+        if (keyOnly) {
+            return schema.keyIndex(column);
+        }
+
+        return column.schemaIndex();
     }
 
     /** {@inheritDoc} */
