@@ -26,6 +26,7 @@ import static org.mockito.Mockito.withSettings;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
@@ -51,9 +52,12 @@ public class AbstractMessagingServiceTest extends BaseIgniteAbstractTest {
         );
 
         // get the static inner class that is stored inside the handlers list
-        Class<?> handlerClass = AbstractMessagingService.class.getDeclaredClasses()[0];
+        Class<?> handlersClass = Arrays.stream(AbstractMessagingService.class.getDeclaredClasses())
+                .filter(clazz -> "Handlers".equals(clazz.getSimpleName()))
+                .findAny()
+                .orElseThrow();
 
-        Constructor<?> constructor = handlerClass.getDeclaredConstructor(Class.class, List.class);
+        Constructor<?> constructor = handlersClass.getDeclaredConstructor(Class.class, List.class);
         constructor.setAccessible(true);
         // create a dummy handler
         Object dummyHandler = constructor.newInstance(Object.class, List.of());

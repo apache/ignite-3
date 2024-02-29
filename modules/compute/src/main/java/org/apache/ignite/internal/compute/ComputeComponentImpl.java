@@ -53,6 +53,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link ComputeComponent}.
@@ -240,5 +241,10 @@ public class ComputeComponentImpl implements ComputeComponent {
                 ComputeUtils.jobClass(context.classLoader(), jobClassName),
                 args
         );
+    }
+
+    @TestOnly
+    ExecutionManager executionManager() {
+        return executionManager;
     }
 }
