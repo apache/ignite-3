@@ -78,6 +78,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private static final int ENTRIES = 2;
 
+    private static final int INITIAL_NODES = 1;
+
     /** Zone name, unique for each test. */
     private String zoneName;
 
@@ -89,7 +91,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Override
     protected int initialNodes() {
-        return 5;
+        return INITIAL_NODES;
     }
 
     @BeforeEach
@@ -101,6 +103,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         zoneName = "ZONE_" + testMethod.getName().toUpperCase();
 
         ZoneParams zoneParams = testMethod.getAnnotation(ZoneParams.class);
+
+        startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
+
         executeSql(format("CREATE ZONE %s with replicas=%d, partitions=%d,"
                         + " data_nodes_auto_adjust_scale_down=%d, data_nodes_auto_adjust_scale_up=%d",
                 zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1
@@ -108,7 +113,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         CatalogZoneDescriptor zone = node0.catalogManager().zone(zoneName, node0.clock().nowLong());
         zoneId = requireNonNull(zone).id();
-        waitForScale(node0, 5);
+        waitForScale(node0, zoneParams.nodes());
 
         executeSql(format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='%s'", TABLE_NAME, zoneName));
 
@@ -117,19 +122,21 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
-     * Tests the scenario in which a 5-nodes cluster loses 2 nodes, making one of its partitions unavailable for writes.
-     * In this situation write should not work, because "changePeers" cannot happen and group leader will not be elected.
-     * Partition 0 in this test is always assigned to nodes 0, 1 and 4, according to the {@link RendezvousAffinityFunction}.
+     * Tests the scenario in which a 5-nodes cluster loses 2 nodes, making one of its partitions unavailable for writes. In this situation
+     * write should not work, because "changePeers" cannot happen and group leader will not be elected. Partition 0 in this test is always
+     * assigned to nodes 0, 1 and 4, according to the {@link RendezvousAffinityFunction}.
      */
     @Test
-    @ZoneParams(replicas = 3, partitions = 1)
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     void testInsertFailsIfMajorityIsLost() throws Exception {
+        int partId = 0;
+
         IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 
-        awaitPrimaryReplica(node0, 0);
+        awaitPrimaryReplica(node0, partId);
 
-        List<Throwable> errors = insertValues(table, 0, 0);
+        List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
         stopNodesInParallel(1, 4);
@@ -152,40 +159,69 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             );
         });
 
-        errors = insertValues(table, 0, 10);
+        errors = insertValues(table, partId, 10);
 
         // We expect insertion errors, because group cannot change its peers.
         assertFalse(errors.isEmpty());
     }
 
     /**
-     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to
-     * recover partition using a disaster recovery API.
+     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a disaster
+     * recovery API. In this test, assignments will be (0, 3, 4)
      */
     @Test
-    @ZoneParams(replicas = 3, partitions = 1)
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     void testManualRebalanceIfMajorityIsLost() throws Exception {
+        int partId = 0;
+
         IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 
-        awaitPrimaryReplica(node0, 0);
+        awaitPrimaryReplica(node0, partId);
 
-        stopNodesInParallel(1, 4);
+        stopNodesInParallel(3, 4);
 
         waitForScale(node0, 3);
 
         CompletableFuture<?> updateFuture = node0.distributionZoneManager().resetPartitions(zoneId, tableId);
         assertThat(updateFuture, willCompleteSuccessfully());
 
-        awaitPrimaryReplica(node0, 0);
+        awaitPrimaryReplica(node0, partId);
 
-        List<Throwable> errors = insertValues(table, 0, 0);
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+    }
+
+    /**
+     * Tests a scenario where there's a single partition on a node 1, and the node that hosts it is lost. Reconfiguration of the zone should
+     * create new raft group on the remaining node, without any data.
+     */
+    @Test
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 3)
+    void testManualRebalanceIfPartitionIsLost() throws Exception {
+        int partId = 2;
+
+        IgniteImpl node0 = cluster.node(0);
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        stopNodesInParallel(1);
+
+        waitForScale(node0, 1);
+
+        CompletableFuture<?> updateFuture = node0.distributionZoneManager().resetPartitions(zoneId, tableId);
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        awaitPrimaryReplica(node0, partId);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
     }
 
     private void awaitPrimaryReplica(IgniteImpl node0, int partId) {
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture = node0.placementDriver()
-                .awaitPrimaryReplica(new TablePartitionId(tableId, partId), node0.clock().now(), 30, SECONDS);
+                .awaitPrimaryReplica(new TablePartitionId(tableId, partId), node0.clock().now(), 60, SECONDS);
 
         assertThat(awaitPrimaryReplicaFuture, willCompleteSuccessfully());
     }
@@ -199,13 +235,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         List<Throwable> errors = new ArrayList<>();
 
-        for (int i = 0; i < ENTRIES;) {
+        for (int i = 0, created = 0; created < ENTRIES; i++) {
             Tuple key = Tuple.create(of("id", i));
             if (((TableImpl) table).partition(key) != partitionId) {
                 continue;
             }
 
-            i++;
+            //noinspection AssignmentToForLoopParameter
+            created++;
 
             CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
 
@@ -233,6 +270,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {
         return cause.getMessage() != null && cause.getMessage().contains("The primary replica has changed");
+    }
+
+    private void startNodesInParallel(int... nodeIndexes) {
+        //noinspection resource
+        runRace(IntStream.of(nodeIndexes).<RunnableX>mapToObj(i -> () -> cluster.startNode(i)).toArray(RunnableX[]::new));
     }
 
     /**
@@ -271,5 +313,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int replicas();
 
         int partitions();
+
+        int nodes() default INITIAL_NODES;
     }
 }

@@ -23,8 +23,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -91,6 +93,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      */
     private final boolean notifyOnSubscription;
 
+    private final Map<Peer, CompletableFuture<?>> subscribers = new ConcurrentHashMap<>();
+
     /**
      * The constructor.
      *
@@ -127,16 +131,22 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode appearedNode, LogicalTopologySnapshot newTopology) {
-                for (Peer peer : peers()) {
+                Peer peer = new Peer(appearedNode.name(), 0);
+
+                if (peers().contains(peer)) {
                     if (serverEventHandler.isSubscribed() && appearedNode.name().equals(peer.consistentId())) {
                         LOG.info("New peer will be sending a leader elected notification [grpId={}, consistentId={}]", groupId(),
                                 peer.consistentId());
 
-                        sendSubscribeMessage(appearedNode, TopologyAwareRaftGroupService.this.factory.subscriptionLeaderChangeRequest()
-                                .groupId(groupId())
-                                .subscribe(true)
-                                .build())
-                                .thenComposeAsync(subscribed -> {
+                        CompletableFuture<Boolean> subscriptionFuture = sendSubscribeMessage(appearedNode,
+                                TopologyAwareRaftGroupService.this.factory.subscriptionLeaderChangeRequest()
+                                        .groupId(groupId())
+                                        .subscribe(true)
+                                        .build());
+
+                        subscribers.put(peer, subscriptionFuture);
+
+                        subscriptionFuture.thenComposeAsync(subscribed -> {
                                     if (subscribed) {
                                         return refreshAndGetLeaderWithTerm()
                                                 .thenAcceptAsync(leaderWithTerm -> {
@@ -151,6 +161,13 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                 }, executor);
                     }
                 }
+            }
+
+            @Override
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+                Peer peerToRemove = new Peer(leftNode.name(), 0);
+
+                subscribers.remove(peerToRemove);
             }
         });
     }
@@ -298,6 +315,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         .groupId(groupId())
                         .subscribe(true)
                         .build());
+
+                subscribers.put(peer, futs[i]);
             } else {
                 futs[i] = nullCompletedFuture();
             }
@@ -305,6 +324,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
         if (notifyOnSubscription) {
             return CompletableFuture.allOf(futs).whenCompleteAsync((unused, throwable) -> {
+                if (subscribers.isEmpty()) {
+                    return;
+                }
+
                 if (throwable != null) {
                     throw new IgniteException(Common.INTERNAL_ERR, throwable);
                 }
@@ -347,6 +370,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         .build()));
             }
         }
+
+        subscribers.clear();
 
         return CompletableFuture.allOf(futs.toArray(new CompletableFuture[futs.size()]));
     }
@@ -514,5 +539,55 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     @Override
     public void updateConfiguration(PeersAndLearners configuration) {
         this.raftClient.updateConfiguration(configuration);
+
+        List<CompletableFuture<?>> futures = new ArrayList<>();
+
+        for (Peer peer : peers()) {
+            // Subscribe to all new peers in configuration.
+            if (!subscribers.containsKey(peer)) {
+                ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
+
+                if (node != null) {
+                    CompletableFuture<Boolean> fut = sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
+                            .groupId(groupId())
+                            .subscribe(true)
+                            .build());
+
+                    subscribers.put(peer, fut);
+
+                    futures.add(fut);
+                }
+            }
+        }
+
+        for (Peer peer : subscribers.keySet()) {
+            // Unsubscribe from all peers that were removed from configuration.
+            if (!peers().contains(peer)) {
+                ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
+
+                assert node != null;
+
+                CompletableFuture<?> fut = subscribers.remove(peer);
+
+                futures.add(fut.thenCompose(ignore -> sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
+                        .groupId(groupId())
+                        .subscribe(false)
+                        .build())));
+            }
+        }
+
+        // Refresh leader when we're done.
+        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).thenAcceptAsync(unused -> {
+            if (notifyOnSubscription) {
+                refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
+                    if (!leaderWithTerm.isEmpty()) {
+                        serverEventHandler.onLeaderElected(
+                                clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
+                                leaderWithTerm.term()
+                        );
+                    }
+                }, executor);
+            }
+        }, executor);
     }
 }

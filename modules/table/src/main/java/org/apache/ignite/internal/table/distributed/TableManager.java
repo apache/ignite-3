@@ -156,6 +156,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
@@ -869,6 +870,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }
 
                 if (((Loza) raftMgr).isStarted(raftNodeId)) {
+                    if (newAssignments != null && newAssignments.force()) {
+                        ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(newAssignments.nodes()));
+                    }
+
                     return true;
                 }
 
@@ -896,12 +901,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         startGroupFut
                 .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
+                    TableRaftService tableRaftService = table.internalTable().tableRaftService();
+
                     try {
-                        //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-                        return raftMgr
-                                .startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
-                    } catch (NodeStoppingException ex) {
-                        return failedFuture(ex);
+                        // Return existing service if it's already started.
+                        return completedFuture(
+                                (TopologyAwareRaftGroupService) tableRaftService.partitionRaftGroupService(replicaGrpId.partitionId())
+                        );
+                    } catch (IgniteInternalException e) {
+                        // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
+                        try {
+                            //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
+                            return raftMgr
+                                    .startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
+                        } catch (NodeStoppingException ex) {
+                            return failedFuture(ex);
+                        }
                     }
                 }), ioExecutor)
                 .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
@@ -1837,6 +1852,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean isRecovery
     ) {
         ClusterNode localMember = localNode();
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode().name()));
 
         boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
@@ -1883,16 +1899,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             isRecovery
                     )), ioExecutor);
         } else {
-            localServicesStartFuture = nullCompletedFuture();
+            localServicesStartFuture = runAsync(() -> {
+                if (pendingAssignmentsAreForced && ((Loza) raftMgr).isStarted(raftNodeId)) {
+                    ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(newAssignmentsFinal.nodes()));
+                }
+            }, ioExecutor);
         }
-
-        localServicesStartFuture = localServicesStartFuture.thenRun(() -> {
-            RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode().name()));
-
-            if (!shouldStartLocalGroupNode && ((Loza) raftMgr).isStarted(raftNodeId) && pendingAssignmentsAreForced) {
-                ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(newAssignmentsFinal.nodes()));
-            }
-        });
 
         return localServicesStartFuture.thenRunAsync(() -> {
             Set<Assignment> cfg = pendingAssignmentsAreForced

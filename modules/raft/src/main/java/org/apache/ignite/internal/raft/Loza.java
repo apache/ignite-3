@@ -486,7 +486,7 @@ public class Loza implements RaftManager {
      * @param peersAndLearners New node configuration.
      */
     public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
-        LOG.warn("Reset pears for raft group {}, new configuration is {}", raftNodeId, peersAndLearners);
+        LOG.warn("Reset peers for raft group {}, new configuration is {}", raftNodeId, peersAndLearners);
 
         raftServer.resetPeers(raftNodeId, peersAndLearners);
     }

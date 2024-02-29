@@ -130,7 +130,7 @@ public class TableRaftServiceImpl implements TableRaftService {
             raftGroupServiceByPartitionId = newPartitionMap;
         }
 
-        if (oldSrvc != null) {
+        if (oldSrvc != null && oldSrvc != raftGrpSvc) {
             oldSrvc.shutdown();
         }
     }
