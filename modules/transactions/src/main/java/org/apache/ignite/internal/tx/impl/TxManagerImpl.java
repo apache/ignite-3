@@ -205,8 +205,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final Executor partitionOperationsExecutor;
 
-    private final ClosedTransactionTracker closedTransactionTracker;
+    /** Cleanup manager for tx resources. */
+    private final ResourceCleanupManager resourceCleanupManager;
 
+    /**
+     * Handler of cursor cleanup requests.
+     */
     private final CursorCleanupRequestHandler cursorCleanupRequestHandler;
 
     /**
@@ -234,7 +238,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            ResourceCleanupManager resourceCleanupManager
     ) {
         this(
                 clusterService.nodeName(),
@@ -249,7 +254,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
                 ForkJoinPool.commonPool(),
-                resourcesRegistry
+                resourcesRegistry,
+                resourceCleanupManager
         );
     }
 
@@ -282,7 +288,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
             Executor partitionOperationsExecutor,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            ResourceCleanupManager resourceCleanupManager
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -295,6 +302,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.primaryReplicaEventListener = this::primaryReplicaEventListener;
         this.localRwTxCounter = localRwTxCounter;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.resourceCleanupManager = resourceCleanupManager;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
 
@@ -324,8 +332,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         );
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
-
-        closedTransactionTracker = new ClosedTransactionTracker(clusterService, messagingService);
 
         this.cursorCleanupRequestHandler = new CursorCleanupRequestHandler(messagingService, resourcesRegistry);
     }
@@ -410,7 +416,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             );
         }
 
-        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, closedTransactionTracker);
+        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, resourceCleanupManager);
     }
 
     /**
@@ -752,8 +758,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
 
-        closedTransactionTracker.start();
-
         cursorCleanupRequestHandler.start();
 
         return nullCompletedFuture();
@@ -775,8 +779,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txStateVolatileStorage.stop();
 
         txCleanupRequestHandler.stop();
-
-        closedTransactionTracker.stop();
 
         cursorCleanupRequestHandler.stop();
 

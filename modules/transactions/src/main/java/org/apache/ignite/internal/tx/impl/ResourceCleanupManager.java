@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,9 +31,11 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNodeResolver;
+import org.apache.ignite.network.TopologyService;
 
 /**
  * Manager responsible from cleaning up the transaction resources.
@@ -49,6 +52,8 @@ public class ResourceCleanupManager implements IgniteComponent {
     private final int resourceCleanupIntervalMilliseconds = IgniteSystemProperties
             .getInteger(RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY, 30_000);
 
+    private final ClosedTransactionTracker closedTransactionTracker;
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final ScheduledExecutorService resourceCleanupExecutor;
@@ -62,25 +67,34 @@ public class ResourceCleanupManager implements IgniteComponent {
      *
      * @param nodeName Ignite node name.
      * @param resourceRegistry Resources registry.
-     * @param clusterNodeResolver Cluster node resolver.
+     * @param topologyService Topology service.
      */
     public ResourceCleanupManager(
             String nodeName,
             RemotelyTriggeredResourceRegistry resourceRegistry,
-            ClusterNodeResolver clusterNodeResolver
+            TopologyService topologyService,
+            MessagingService messagingService
     ) {
         this.resourceRegistry = resourceRegistry;
-        this.clusterNodeResolver = clusterNodeResolver;
+        this.clusterNodeResolver = topologyService;
         this.resourceCleanupExecutor = Executors.newScheduledThreadPool(
                 RESOURCE_CLEANUP_EXECUTOR_SIZE,
                 NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
         );
+        this.closedTransactionTracker = new ClosedTransactionTracker(topologyService, messagingService);
     }
 
     @Override
     public CompletableFuture<Void> start() {
         resourceCleanupExecutor.scheduleAtFixedRate(
                 this::runCleanupOperations,
+                0,
+                resourceCleanupIntervalMilliseconds,
+                TimeUnit.MILLISECONDS
+        );
+
+        resourceCleanupExecutor.scheduleAtFixedRate(
+                closedTransactionTracker::broadcastClosedTransactions,
                 0,
                 resourceCleanupIntervalMilliseconds,
                 TimeUnit.MILLISECONDS
@@ -94,6 +108,10 @@ public class ResourceCleanupManager implements IgniteComponent {
         busyLock.block();
 
         shutdownAndAwaitTermination(resourceCleanupExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    public void onTransactionFinished(UUID id) {
+        closedTransactionTracker.onTransactionFinished(id);
     }
 
     private void runCleanupOperations() {
