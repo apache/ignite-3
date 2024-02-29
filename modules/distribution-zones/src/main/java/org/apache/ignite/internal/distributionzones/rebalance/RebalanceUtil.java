@@ -402,7 +402,7 @@ public class RebalanceUtil {
         byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
         byte[] revisionBytes = ByteUtils.longToBytes(revision);
 
-        ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
+        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
         Iif iif = iif(
