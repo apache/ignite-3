@@ -40,7 +40,6 @@ import java.time.LocalTime;
 import java.time.Month;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
