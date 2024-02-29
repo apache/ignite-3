@@ -100,6 +100,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Success code for the MetaStorage tables counter decrement. */
     private static final int TABLES_COUNTER_DECREMENT_SUCCESS = 5;
 
+    /** Status for outdated MetaStorage update. */
+    private static final int OUTDATED_INVOKE_STATUS = 6;
+
     /** Failure code for the MetaStorage switch append assignments change. */
     private static final int SWITCH_APPEND_FAIL = -SWITCH_APPEND_SUCCESS;
 
@@ -417,7 +420,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
             long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null ? 0L : bytesToLong(stableChangeTriggerEntry.value());
 
-            if (!retrievedPending.equals(stableFromRaft) || stableChangeTriggerValue >= revision) {
+            if (!retrievedPending.equals(stableFromRaft)) {
                 return;
             }
 
@@ -515,16 +518,16 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 retryPreconditions = and(retryPreconditions, con5);
             }
 
-            retryPreconditions = and(
-                    or(
-                            notExists(stableChangeTriggerKey(tablePartitionId)),
-                            value(stableChangeTriggerKey(tablePartitionId)).lt(ByteUtils.longToBytes(revision))
-                    ),
-                    retryPreconditions
-            );
-
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
-            int res = metaStorageMgr.invoke(iif(retryPreconditions, successCase, failCase)).get().getAsInt();
+            int res = metaStorageMgr.invoke(
+                    iif(or(
+                                    notExists(stableChangeTriggerKey(tablePartitionId)),
+                                    value(stableChangeTriggerKey(tablePartitionId)).lt(ByteUtils.longToBytes(revision))
+                            ),
+                            iif(retryPreconditions, successCase, failCase),
+                            ops().yield(OUTDATED_INVOKE_STATUS)
+                    )
+            ).get().getAsInt();
 
             if (res < 0) {
                 switch (res) {
@@ -586,6 +589,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 case FINISH_REBALANCE_SUCCESS:
                     LOG.info("Rebalance finished [tablePartitionId={}, appliedPeers={}]", tablePartitionId, stableFromRaft);
                     break;
+
+                case OUTDATED_INVOKE_STATUS:
+                    LOG.debug("Stable switch skipped because event is outdated "
+                                    + "[tablePartitionId={}, stableChangeTriggerKey={}, revision={}]",
+                            tablePartitionId, stableChangeTriggerValue, revision
+                    );
+                    break;
+
                 default:
                     assert false : res;
                     break;
