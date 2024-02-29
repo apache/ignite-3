@@ -52,6 +52,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link ClientHandlerTuple}.
  */
+@SuppressWarnings("DataFlowIssue")
 public class ClientHandlerTupleTests {
     private static final UUID GUID = UUID.randomUUID();
 
@@ -85,7 +86,6 @@ public class ClientHandlerTupleTests {
             }
     );
 
-
     @Test
     public void testTupleEquality() throws TupleMarshallerException {
         Random rnd = new Random();
@@ -110,6 +110,17 @@ public class ClientHandlerTupleTests {
 
         BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshal(tuple).binaryTuple();
         Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, false);
+
+        assertEquals(tuple, clientHandlerTuple);
+    }
+
+    @Test
+    public void testTupleEqualityKeyOnly() throws TupleMarshallerException {
+        Tuple tuple = Tuple.create()
+                .set("keyUuidCol", GUID);
+
+        BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshalKey(tuple).binaryTuple();
+        Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, true);
 
         assertEquals(tuple, clientHandlerTuple);
     }
