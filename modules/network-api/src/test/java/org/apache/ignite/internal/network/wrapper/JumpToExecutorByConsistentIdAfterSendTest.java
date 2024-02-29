@@ -25,10 +25,12 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -306,6 +309,15 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
         wrapper.addMessageHandler(Void.class, messageHandler);
 
         verify(messagingService).addMessageHandler(Void.class, messageHandler);
+    }
+
+    @Test
+    void delegatesAddMessageHandlerWithChooser(@Mock NetworkMessageHandler messageHandler) {
+        ExecutorChooser<NetworkMessage> executorChooser = message -> mock(Executor.class);
+
+        wrapper.addMessageHandler(Void.class, executorChooser, messageHandler);
+
+        verify(messagingService).addMessageHandler(Void.class, executorChooser, messageHandler);
     }
 
     @SuppressWarnings("ClassExplicitlyExtendsThread")

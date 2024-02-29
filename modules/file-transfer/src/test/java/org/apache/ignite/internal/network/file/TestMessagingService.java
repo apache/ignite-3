@@ -75,7 +75,7 @@ public class TestMessagingService extends AbstractMessagingService {
      * @param senderConsistentId Sender consistent ID.
      * @param correlationId Correlation ID.
      */
-    public void fairMessage(NetworkMessage msg, String senderConsistentId, @Nullable Long correlationId) {
+    public void fireMessage(NetworkMessage msg, String senderConsistentId, @Nullable Long correlationId) {
         getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, senderConsistentId, correlationId));
     }
 }
