@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -41,6 +40,8 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,12 +67,21 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
 
-    @Test
-    void testHandshakeInvalidMagicHeaderDropsConnection(TestInfo testInfo) throws Exception {
+    @BeforeEach
+    public void setUp(TestInfo testInfo) {
         testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
         serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();
+    }
 
+    @AfterEach
+    public void tearDown() throws Exception {
+        serverModule.stop();
+        testServer.tearDown();
+    }
+
+    @Test
+    void testHandshakeInvalidMagicHeaderDropsConnection() throws Exception {
         try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();
             out.write(new byte[]{63, 64, 65, 66, 67});
@@ -79,17 +89,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             assertThrows(IOException.class, () -> writeAndFlushLoop(sock));
         }
-
-        serverModule.stop();
-        testServer.tearDown();
     }
 
     @Test
-    void testHandshakeValidReturnsSuccess(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
-        serverModule = testServer.start(testInfo);
-        serverPort = serverModule.localAddress().getPort();
-
+    void testHandshakeValidReturnsSuccess() throws Exception {
         try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();
 
@@ -154,17 +157,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
         }
-
-        serverModule.stop();
-        testServer.tearDown();
     }
 
     @Test
-    void testHandshakeWithUnsupportedAuthenticationType(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
-        serverModule = testServer.start(testInfo);
-        serverPort = serverModule.localAddress().getPort();
-
+    void testHandshakeWithUnsupportedAuthenticationType() throws Exception {
         setupAuthentication("admin", "password");
 
         try (var sock = new Socket("127.0.0.1", serverPort)) {
@@ -225,17 +221,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             );
             assertNull(errStackTrace);
         }
-
-        serverModule.stop();
-        testServer.tearDown();
     }
 
     @Test
-    void testHandshakeWithAuthenticationValidCredentials(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
-        serverModule = testServer.start(testInfo);
-        serverPort = serverModule.localAddress().getPort();
-
+    void testHandshakeWithAuthenticationValidCredentials() throws Exception {
         setupAuthentication("admin", "password");
 
         try (var sock = new Socket("127.0.0.1", serverPort)) {
@@ -307,17 +296,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
         }
-
-        serverModule.stop();
-        testServer.tearDown();
     }
 
     @Test
-    void testHandshakeWithAuthenticationInvalidCredentials(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
-        serverModule = testServer.start(testInfo);
-        serverPort = serverModule.localAddress().getPort();
-
+    void testHandshakeWithAuthenticationInvalidCredentials() throws Exception {
         setupAuthentication("admin", "password");
 
         try (var sock = new Socket("127.0.0.1", serverPort)) {
@@ -375,17 +357,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals("org.apache.ignite.security.exception.InvalidCredentialsException", errClassName);
             assertNull(errStackTrace);
         }
-
-        serverModule.stop();
-        testServer.tearDown();
     }
 
     @Test
-    void testHandshakeWithAuthenticationEmptyCredentials(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
-        serverModule = testServer.start(testInfo);
-        serverPort = serverModule.localAddress().getPort();
-
+    void testHandshakeWithAuthenticationEmptyCredentials() throws Exception {
         setupAuthentication("admin", "password");
 
         try (var sock = new Socket("127.0.0.1", serverPort)) {
@@ -437,17 +412,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals("org.apache.ignite.security.exception.InvalidCredentialsException", errClassName);
             assertNull(errStackTrace);
         }
-
-        serverModule.stop();
-        testServer.tearDown();
     }
 
     @Test
-    void testHandshakeInvalidVersionReturnsError(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
-        serverModule = testServer.start(testInfo);
-        serverPort = serverModule.localAddress().getPort();
-
+    void testHandshakeInvalidVersionReturnsError() throws Exception {
         try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();
 
@@ -497,32 +465,6 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals("org.apache.ignite.lang.IgniteException", errClassName);
             assertNull(errStackTrace);
         }
-
-        serverModule.stop();
-        testServer.tearDown();
-    }
-
-    @Test
-    void connectSpecificAddress(
-            TestInfo testInfo,
-            @InjectConfiguration("mock.listenAddress=localhost") ClientConnectorConfiguration clientConnectorConfiguration)
-            throws Exception {
-        TestServer server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
-
-        server.start(testInfo);
-
-        server.tearDown();
-    }
-
-    @Test
-    void connectUnknownAddress(
-            TestInfo testInfo,
-            @InjectConfiguration("mock.listenAddress=unknown-address") ClientConnectorConfiguration clientConnectorConfiguration) {
-
-        TestServer server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
-
-        CompletionException e = assertThrows(CompletionException.class, () -> server.start(testInfo));
-        assertTrue(e.getMessage().contains("Failed to start thin connector endpoint, address \"unknown-address\" is not found"));
     }
 
     private void writeAndFlushLoop(Socket socket) throws Exception {

@@ -26,7 +26,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -47,8 +46,6 @@ import org.mockito.Mockito;
 
 /** Test server that can be started with SSL configuration. */
 public class TestServer {
-    private final ConfigurationTreeGenerator generator;
-
     private NettyBootstrapFactory bootstrapFactory;
 
     private final TestSslConfig testSslConfig;
@@ -79,7 +76,6 @@ public class TestServer {
         this.authenticationManager = securityConfiguration == null
                 ? new DummyAuthenticationManager()
                 : new AuthenticationManagerImpl(securityConfiguration);
-        this.generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.networkConfiguration = networkConfiguration;
 
@@ -92,7 +88,6 @@ public class TestServer {
 
     void tearDown() throws Exception {
         bootstrapFactory.stop();
-        generator.close();
     }
 
     ClientHandlerModule start(TestInfo testInfo) {

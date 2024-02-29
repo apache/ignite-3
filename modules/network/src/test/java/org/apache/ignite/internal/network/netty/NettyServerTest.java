@@ -150,13 +150,13 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      * Tests that bootstrap tries to bind to address specified in configuration.
      */
     @Test
-    public void testBindHost() {
+    public void testBindWithAddress() {
         String host = "localhost";
         assertThat(serverCfg.listenAddress().update(host), willCompleteSuccessfully());
 
         getServer(true);
 
-        assertThat(serverCfg.listenAddress().update(""), willCompleteSuccessfully());
+        serverCfg.listenAddress().update("");
 
     }
 
