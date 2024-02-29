@@ -376,7 +376,24 @@ public class ClientTupleTest {
     public void testValOnlyTupleEquality() {
         var valTupleFullData = createFullSchemaTuple(TuplePart.VAL, false);
         var valTuplePartialData = createFullSchemaTuple(TuplePart.VAL, true);
-        var valTupleUser = Tuple.create().set("I32", 3).set("I64", 4L).set("STR", "8");
+
+        var valTupleUser = Tuple.create()
+                .set("I8", (byte)1)
+                .set("I16", (short)2)
+                .set("FLOAT", 5.5f)
+                .set("DOUBLE", 6.6)
+                .set("UUID", GUID)
+                .set("BITS", new BitSet(3))
+                .set("DATE", DATE)
+                .set("TIME", TIME)
+                .set("DATETIME", DATE_TIME)
+                .set("TIMESTAMP", TIMESTAMP)
+                .set("BOOL", true)
+                .set("DECIMAL", BigDecimal.valueOf(1234))
+                .set("BYTES", new byte[] {1, 2, 3})
+                .set("PERIOD", Period.ofDays(16))
+                .set("DURATION", Duration.ofDays(17))
+                .set("NUMBER", BigInteger.valueOf(18));
 
         assertEquals(valTupleFullData, valTuplePartialData);
         assertEquals(valTupleUser, valTupleFullData);

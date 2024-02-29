@@ -161,7 +161,10 @@ public interface Tuple extends Iterable<Object> {
                 return false;
             }
 
-            if (!Objects.deepEquals(firstTuple.value(idx), secondTuple.value(idx2))) {
+            Object firstVal = firstTuple.value(idx);
+            Object secondVal = secondTuple.value(idx2);
+
+            if (!Objects.deepEquals(firstVal, secondVal)) {
                 return false;
             }
         }
