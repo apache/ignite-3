@@ -147,18 +147,18 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         subscribers.put(peer, subscriptionFuture);
 
                         subscriptionFuture.thenComposeAsync(subscribed -> {
-                                    if (subscribed) {
-                                        return refreshAndGetLeaderWithTerm()
-                                                .thenAcceptAsync(leaderWithTerm -> {
-                                                    if (!leaderWithTerm.isEmpty()
-                                                            && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
-                                                        serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
-                                                    }
-                                                }, executor);
-                                    }
+                            if (subscribed) {
+                                return refreshAndGetLeaderWithTerm()
+                                        .thenAcceptAsync(leaderWithTerm -> {
+                                            if (!leaderWithTerm.isEmpty()
+                                                    && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
+                                                serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
+                                            }
+                                        }, executor);
+                            }
 
-                                    return nullCompletedFuture();
-                                }, executor);
+                            return nullCompletedFuture();
+                        }, executor);
                     }
                 }
             }
