@@ -904,7 +904,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     } catch (IgniteInternalException e) {
                         // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
                         try {
-                            //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
+                            // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
                             return raftMgr
                                     .startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
                         } catch (NodeStoppingException ex) {
