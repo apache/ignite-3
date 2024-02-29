@@ -44,7 +44,7 @@ public class SnapshotMetaUtils {
                 .requiredCatalogVersion(requiredCatalogVersion);
 
         if (!config.isStable()) {
-            //noinspection ConstantConditions
+            // noinspection ConstantConditions
             metaBuilder
                     .oldPeersList(config.oldPeers())
                     .oldLearnersList(config.oldLearners());

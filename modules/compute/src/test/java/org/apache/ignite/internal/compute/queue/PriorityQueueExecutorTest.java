@@ -78,7 +78,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch1 = new CountDownLatch(1);
         CountDownLatch latch2 = new CountDownLatch(1);
 
-        //Start two tasks
+        // Start two tasks
         CompletableFuture<Integer> task1 = submit(() -> {
             latch1.await();
             return 0;
@@ -92,12 +92,12 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task1.isDone(), is(false));
         assertThat(task2.isDone(), is(false));
 
-        //Current executing task is 1 and task 2 still on queue
+        // Current executing task is 1 and task 2 still on queue
         latch2.countDown();
         assertThat(task1, willTimeoutIn(100, TimeUnit.MILLISECONDS));
         assertThat(task2, willTimeoutIn(100, TimeUnit.MILLISECONDS));
 
-        //Task 1 should complete and task 2 also, because count down already.
+        // Task 1 should complete and task 2 also, because count down already.
         latch1.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2, willCompleteSuccessfully());
@@ -111,7 +111,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch2 = new CountDownLatch(1);
         CountDownLatch latch3 = new CountDownLatch(1);
 
-        //Start three tasks
+        // Start three tasks
         CompletableFuture<Integer> task1 = submit(() -> {
             latch1.await();
             return 0;
@@ -131,13 +131,13 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
 
-        //Task 1 should complete, task 2 and 3 still await latch.
+        // Task 1 should complete, task 2 and 3 still await latch.
         latch1.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
 
-        //Current executing task is 3 because of priority.
+        // Current executing task is 3 because of priority.
         latch2.countDown();
         assertThat(task2, willTimeoutIn(100, TimeUnit.MILLISECONDS));
         assertThat(task3, willTimeoutIn(100, TimeUnit.MILLISECONDS));
@@ -155,7 +155,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch2 = new CountDownLatch(1);
         CountDownLatch latch3 = new CountDownLatch(1);
 
-        //Start three tasks
+        // Start three tasks
         CompletableFuture<Integer> task1 = submit(() -> {
             latch1.await();
             return 0;
@@ -175,13 +175,13 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
 
-        //Task 1 should complete, task 2 and 3 still await latch.
+        // Task 1 should complete, task 2 and 3 still await latch.
         latch1.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
 
-        //Current executing task is 2 because it was added first.
+        // Current executing task is 2 because it was added first.
         latch3.countDown();
         assertThat(task2, willTimeoutIn(100, TimeUnit.MILLISECONDS));
         assertThat(task3, willTimeoutIn(100, TimeUnit.MILLISECONDS));
@@ -198,19 +198,19 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch1 = new CountDownLatch(1);
         CountDownLatch latch2 = new CountDownLatch(1);
 
-        //Submit task for executing
+        // Submit task for executing
         submit(() -> {
             latch1.await();
             return 0;
         }, 1);
 
-        //Submit task for executing, should be in queue
+        // Submit task for executing, should be in queue
         submit(() -> {
             latch2.await();
             return 1;
         }, 1);
 
-        //Submit task for execution should throw exception because queue is full.
+        // Submit task for execution should throw exception because queue is full.
         assertThat(
                 submit(() -> null),
                 willThrow(IgniteException.class, "Compute queue overflow")
@@ -372,7 +372,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch2 = new CountDownLatch(1);
         CountDownLatch latch3 = new CountDownLatch(1);
 
-        //Start three tasks
+        // Start three tasks
         CompletableFuture<Integer> task1 = submit(() -> {
             latch1.await();
             return 0;
@@ -394,16 +394,16 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
 
-        //Change priority on task3, it should be executed before task2
+        // Change priority on task3, it should be executed before task2
         assertThat(runningExecution3.changePriority(20), is(true));
 
-        //Task 1 should be completed
+        // Task 1 should be completed
         latch1.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
 
-        //Current executing task is 3 because we changed priority
+        // Current executing task is 3 because we changed priority
         latch2.countDown();
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
@@ -423,7 +423,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch3 = new CountDownLatch(1);
         CountDownLatch latch4 = new CountDownLatch(1);
 
-        //Start four tasks
+        // Start four tasks
         CompletableFuture<Integer> task1 = submit(() -> {
             latch1.await();
             return 0;
@@ -451,29 +451,29 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task3.isDone(), is(false));
         assertThat(task4.isDone(), is(false));
 
-        //Change priority on task3, it should be executed before task2 and task4
+        // Change priority on task3, it should be executed before task2 and task4
         assertThat(runningExecution.changePriority(20), is(true));
 
-        //Task 1 should be completed
+        // Task 1 should be completed
         latch1.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
         assertThat(task4.isDone(), is(false));
 
-        //Current executing task is 3 because we changed priority
+        // Current executing task is 3 because we changed priority
         latch2.countDown();
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
         assertThat(task4.isDone(), is(false));
 
-        //Current executing task is 3 because we changed priority
+        // Current executing task is 3 because we changed priority
         latch4.countDown();
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
         assertThat(task4.isDone(), is(false));
 
-        //Complete task3, task2 and task4 will be executed as well
+        // Complete task3, task2 and task4 will be executed as well
         latch3.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2, willCompleteSuccessfully());
@@ -488,7 +488,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch1 = new CountDownLatch(1);
         CountDownLatch latch2 = new CountDownLatch(1);
 
-        //Start two tasks
+        // Start two tasks
         QueueExecution<Integer> runningExecution1 =  priorityQueueExecutor.submit(() -> {
             latch1.await();
             return 2;
@@ -504,15 +504,15 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task1.isDone(), is(false));
         assertThat(task2.isDone(), is(false));
 
-        //Change priority on task1, it is already in executing stage, should return false
+        // Change priority on task1, it is already in executing stage, should return false
         assertThat(runningExecution1.changePriority(20), is(false));
 
-        //Task 1 should not be completed because change priority failed and task2 has higher priority
+        // Task 1 should not be completed because change priority failed and task2 has higher priority
         latch1.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2.isDone(), is(false));
 
-        //Complete task2 and task1 will be executed after task2
+        // Complete task2 and task1 will be executed after task2
         latch2.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2, willCompleteSuccessfully());
@@ -525,7 +525,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch1 = new CountDownLatch(1);
         CountDownLatch latch2 = new CountDownLatch(1);
 
-        //Start three tasks
+        // Start three tasks
         QueueExecution<Integer> runningExecution =  priorityQueueExecutor.submit(() -> {
             latch1.await();
             return 2;
@@ -541,15 +541,15 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task1.isDone(), is(false));
         assertThat(task2.isDone(), is(false));
 
-        //Change priority on task3, it should be executed before task2
+        // Change priority on task3, it should be executed before task2
         assertThat(runningExecution.changePriority(2), is(false));
 
-        //Task 1 should not be completed because of changed priority of task3
+        // Task 1 should not be completed because of changed priority of task3
         latch1.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2.isDone(), is(false));
 
-        //Current executing task is 3 because we changed priority
+        // Current executing task is 3 because we changed priority
         latch2.countDown();
         assertThat(task1, willCompleteSuccessfully());
         assertThat(task2, willCompleteSuccessfully());

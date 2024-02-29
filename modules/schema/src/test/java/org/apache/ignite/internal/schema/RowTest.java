@@ -409,15 +409,15 @@ public class RowTest {
 
     private static Stream<Arguments> provideStrOrderingAndNulls() {
         return Stream.of(
-                Arguments.of(true, true, true), //111
-                Arguments.of(true, true, false), //110
-                Arguments.of(true, false, true), //101
-                Arguments.of(true, false, false), //100
+                Arguments.of(true, true, true), // 111
+                Arguments.of(true, true, false), // 110
+                Arguments.of(true, false, true), // 101
+                Arguments.of(true, false, false), // 100
 
-                Arguments.of(false, true, true), //011
-                Arguments.of(false, true, false), //010
-                Arguments.of(false, false, true), //001
-                Arguments.of(false, false, false) //000
+                Arguments.of(false, true, true), // 011
+                Arguments.of(false, true, false), // 010
+                Arguments.of(false, false, true), // 001
+                Arguments.of(false, false, false) // 000
         );
     }
 

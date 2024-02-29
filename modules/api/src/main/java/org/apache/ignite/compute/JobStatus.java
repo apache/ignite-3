@@ -129,6 +129,17 @@ public class JobStatus implements Serializable {
         return new Builder(this);
     }
 
+    @Override
+    public String toString() {
+        return "JobStatus{"
+                + "id=" + id
+                + ", state=" + state
+                + ", createTime=" + createTime
+                + ", startTime=" + startTime
+                + ", finishTime=" + finishTime
+                + '}';
+    }
+
     /**
      * Builder.
      */

@@ -116,7 +116,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
         checkSimpleAggWithGroupByHash(TestCase.CASE_5B);
 
-        //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
+        // TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
         assumeRun("checkSimpleAggWithGroupByHash", TestCase.CASE_6A);
         assumeRun("checkSimpleAggWithGroupByHash", TestCase.CASE_6B);
 

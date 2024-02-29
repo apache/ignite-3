@@ -96,7 +96,6 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
         assertThat(tableStorage.getIndex(TEST_PARTITION, indexId), is(nullValue()));
 
         index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
-
         assertThat(getAll(index, row1), is(empty()));
         assertThat(getAll(index, row2), is(empty()));
         assertThat(getAll(index, row3), is(empty()));

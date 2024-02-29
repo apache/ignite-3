@@ -84,7 +84,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
     protected final TestInfo testInfo;
 
-    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
 

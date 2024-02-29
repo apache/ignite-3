@@ -375,7 +375,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         if (tuple == null) {
             tuple = Tuple.create(this);
 
-            //noinspection DataFlowIssue
+            // noinspection DataFlowIssue
             binaryTuple = null;
         }
 
@@ -397,7 +397,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return true;
         }
 
-        //noinspection SimplifiableIfStatement
+        // noinspection SimplifiableIfStatement
         if (obj instanceof Tuple) {
             return Tuple.equals(this, (Tuple) obj);
         }

@@ -97,6 +97,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -473,6 +474,7 @@ public class ItTxTestCluster {
         when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
 
         lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
@@ -572,6 +574,8 @@ public class ItTxTestCluster {
                         new RaftGroupEventsClientListener()
                 );
 
+                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+
                 PartitionListener partitionListener = new PartitionListener(
                         txManagers.get(assignment),
                         partitionDataStorage,
@@ -579,7 +583,8 @@ public class ItTxTestCluster {
                         txStateStorage,
                         safeTime,
                         storageIndexTracker,
-                        catalogService
+                        catalogService,
+                        schemaManager
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -591,8 +596,6 @@ public class ItTxTestCluster {
                 ).thenAccept(
                         raftSvc -> {
                             try {
-                                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
-
                                 PartitionReplicaListener listener = newReplicaListener(
                                         mvPartStorage,
                                         raftSvc,
@@ -614,7 +617,8 @@ public class ItTxTestCluster {
                                         catalogService,
                                         placementDriver,
                                         nodeResolver,
-                                        cursorRegistries.get(assignment)
+                                        cursorRegistries.get(assignment),
+                                        schemaManager
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -713,7 +717,8 @@ public class ItTxTestCluster {
             CatalogService catalogService,
             PlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            SchemaRegistry schemaRegistry
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -737,7 +742,8 @@ public class ItTxTestCluster {
                 catalogService,
                 placementDriver,
                 clusterNodeResolver,
-                resourcesRegistry
+                resourcesRegistry,
+                schemaRegistry
         );
     }
 

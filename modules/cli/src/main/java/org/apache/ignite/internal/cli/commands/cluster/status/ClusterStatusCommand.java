@@ -32,7 +32,7 @@ import picocli.CommandLine.Mixin;
  * Command that prints status of ignite cluster.
  */
 @Command(name = "status",
-        aliases = "cluster show", //TODO: https://issues.apache.org/jira/browse/IGNITE-18378
+        aliases = "cluster show", // TODO: https://issues.apache.org/jira/browse/IGNITE-18378
         description = "Prints status of the cluster")
 public class ClusterStatusCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */

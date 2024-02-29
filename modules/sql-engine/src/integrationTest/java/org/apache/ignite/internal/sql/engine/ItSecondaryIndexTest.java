@@ -595,30 +595,30 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT depid FROM Developer ORDER BY depId")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .matches(not(containsSubPlan("IgniteSort")))
-                .returns(1) //Bach
-                .returns(2) //Beethoven or Strauss
-                .returns(2) //Strauss or Beethoven
-                .returns(3) //Mozart
-                .returns(4) //Vagner
-                .returns(5) //Chaikovsky
-                .returns(6) //Verdy
-                .returns(7) //Stravinsky
-                .returns(8) //Rahmaninov
-                .returns(9) //Shubert
-                .returns(10) //Glinka
+                .returns(1) // Bach
+                .returns(2) // Beethoven or Strauss
+                .returns(2) // Strauss or Beethoven
+                .returns(3) // Mozart
+                .returns(4) // Vagner
+                .returns(5) // Chaikovsky
+                .returns(6) // Verdy
+                .returns(7) // Stravinsky
+                .returns(8) // Rahmaninov
+                .returns(9) // Shubert
+                .returns(10) // Glinka
 
-                .returns(11) //Einaudi
-                .returns(12) //Glass
-                .returns(13) //Rihter
-                .returns(14) //Marradi
-                .returns(15) //Zimmer
-                .returns(16) //Hasaishi
-                .returns(17) //Arnalds
-                .returns(18) //Yiruma
-                .returns(19) //O'Halloran
-                .returns(20) //Cacciapaglia
-                .returns(21) //Prokofiev
-                .returns(22) //Musorgskii
+                .returns(11) // Einaudi
+                .returns(12) // Glass
+                .returns(13) // Rihter
+                .returns(14) // Marradi
+                .returns(15) // Zimmer
+                .returns(16) // Hasaishi
+                .returns(17) // Arnalds
+                .returns(18) // Yiruma
+                .returns(19) // O'Halloran
+                .returns(20) // Cacciapaglia
+                .returns(21) // Prokofiev
+                .returns(22) // Musorgskii
 
                 .ordered()
                 .check();

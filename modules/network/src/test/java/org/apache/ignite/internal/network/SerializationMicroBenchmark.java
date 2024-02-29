@@ -136,7 +136,7 @@ public class SerializationMicroBenchmark {
      */
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
-                //.addProfiler("gc")
+                // .addProfiler("gc")
                 .include(SerializationMicroBenchmark.class.getName() + ".*").build();
 
         new Runner(build).run();

@@ -286,7 +286,7 @@ public class IndexManager implements IgniteComponent {
             for (int i = 0; i < indexedColumns.length; i++) {
                 Column column = descriptor.column(indexedColumns[i]);
 
-                assert column != null : indexedColumns[i];
+                assert column != null : "schemaVersion=" + descriptor.version() + ", column=" + indexedColumns[i];
 
                 result[i] = column.schemaIndex();
             }
@@ -460,25 +460,24 @@ public class IndexManager implements IgniteComponent {
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         var indexesByTableId = new Int2ObjectOpenHashMap<Int2ObjectMap<CatalogIndexDescriptor>>();
+        var tablesById = new Int2ObjectOpenHashMap<CatalogTableDescriptor>();
 
-        for (CatalogTableDescriptor table : catalogService.tables(latestCatalogVersion)) {
-            indexesByTableId.put(table.id(), new Int2ObjectOpenHashMap<>());
-        }
-
-        for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
+        for (int catalogVersion = latestCatalogVersion; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
+            for (CatalogTableDescriptor table : catalogService.tables(catalogVersion)) {
+                tablesById.putIfAbsent(table.id(), table);
+                indexesByTableId.computeIfAbsent(table.id(), Int2ObjectOpenHashMap::new);
+            }
             for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion)) {
                 Int2ObjectMap<CatalogIndexDescriptor> indexById = indexesByTableId.get(index.tableId());
 
-                if (indexById != null) {
-                    indexById.put(index.id(), index);
-                }
+                indexById.putIfAbsent(index.id(), index);
             }
         }
 
         return indexesByTableId.int2ObjectEntrySet()
                 .stream()
                 .collect(toMap(
-                        entry -> catalogService.table(entry.getIntKey(), latestCatalogVersion),
+                        entry -> tablesById.get(entry.getIntKey()),
                         entry -> entry.getValue().values()
                 ));
     }

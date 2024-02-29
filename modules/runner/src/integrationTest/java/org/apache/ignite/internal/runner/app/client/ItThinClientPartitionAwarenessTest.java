@@ -98,7 +98,7 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
             IgniteClientProxy proxy = proxies.get(i);
 
             if (proxy.requestCount() > 0) {
-                //noinspection resource
+                // noinspection resource
                 return server(i).name();
             }
         }
