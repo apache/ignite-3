@@ -441,6 +441,9 @@ public class ErrorGroups {
         /** Port is in use. */
         public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
 
+        /** Could not resolve address. */
+        public static final int ADDRESS_UNRESOLVED = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
+
         /** Recipient node has left the physical topology. */
         public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
     }

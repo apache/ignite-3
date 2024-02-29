@@ -60,6 +60,6 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
         TestServer server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
 
         CompletionException e = assertThrows(CompletionException.class, () -> server.start(testInfo));
-        assertTrue(e.getMessage().contains("Failed to start thin connector endpoint, address \"unknown-address\" is not found"));
+        assertTrue(e.getMessage().contains("Failed to start thin connector endpoint, unresolved socket address \"unknown-address\""));
     }
 }
