@@ -27,6 +27,7 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import java.net.SocketAddress;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -189,7 +190,7 @@ public class NettyServer {
      * @return Gets the local address of the server.
      */
     public SocketAddress address() {
-        return channel.localAddress();
+        return Objects.requireNonNull(channel, "Not started yet").localAddress();
     }
 
     /**

@@ -27,7 +27,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * Invocation response.
  * Used internally in the {@link DefaultMessagingService}.
  */
-@Transferable(value = INVOKE_RESPONSE)
+@Transferable(INVOKE_RESPONSE)
 public interface InvokeResponse extends NetworkMessage {
     /** Request's correlation id. */
     long correlationId();
