@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -271,8 +272,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     private HandshakeManager mockHandshakeManager() {
         HandshakeManager handshakeManager = mock(HandshakeManager.class);
 
-        when(handshakeManager.localHandshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
-        when(handshakeManager.finalHandshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
+        when(handshakeManager.localHandshakeFuture()).thenReturn(completedFuture(mock(NettySender.class)));
+        when(handshakeManager.finalHandshakeFuture()).thenReturn(completedFuture(mock(NettySender.class)));
 
         return handshakeManager;
     }
