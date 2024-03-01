@@ -38,11 +38,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -111,10 +111,10 @@ public class ConnectionManager implements ChannelCreationListener {
     private volatile @Nullable ClusterNode localNode;
 
     /**
-     * Released when local node is set; attempts to initiate a connection to this node from the outside will wait
-     * till it's released.
+     * Completed when local node is set; attempts to initiate a connection to this node from the outside will wait
+     * till it's completed.
      */
-    private final CountDownLatch localNodeSet = new CountDownLatch(1);
+    private final CompletableFuture<Void> localNodeSet = new CompletableFuture<>();
 
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -524,16 +524,15 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private void waitForLocalNodeToBeSet() {
-        boolean success;
         try {
-            success = localNodeSet.await(10, SECONDS);
+            localNodeSet.get(10, SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
             throw new RuntimeException("Interrupted while waiting for local node to be set", e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new RuntimeException("Could not finish awaiting for local node", e);
         }
-
-        assert success : "Did not observe local node set in time";
     }
 
     /**
@@ -671,6 +670,6 @@ public class ConnectionManager implements ChannelCreationListener {
     public void setLocalNode(ClusterNode localNode) {
         this.localNode = localNode;
 
-        localNodeSet.countDown();
+        localNodeSet.complete(null);
     }
 }
