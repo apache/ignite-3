@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.table.distributed.replicator.RemoteReso
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.beginRwTxTs;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
+import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -75,6 +76,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
@@ -106,6 +108,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NullBinaryRow;
@@ -287,6 +290,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Listener for {@link CatalogEvent#INDEX_BUILDING}. */
     private final EventListener<CatalogEventParameters> indexBuildingCatalogEventListener = this::onIndexBuilding;
 
+    private final SchemaRegistry schemaRegistry;
+
     /**
      * The constructor.
      *
@@ -332,7 +337,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             CatalogService catalogService,
             PlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
-            RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry
+            RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
+            SchemaRegistry schemaRegistry
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -353,6 +359,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.placementDriver = placementDriver;
         this.clusterNodeResolver = clusterNodeResolver;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
+        this.schemaRegistry = schemaRegistry;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -1091,9 +1098,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         IndexStorage indexStorage = schemaAwareIndexStorage.storage();
 
-        int batchCount = request.batchSize();
-        HybridTimestamp timestamp = request.readTimestamp();
-
         FullyQualifiedResourceId cursorId = cursorId(request.transactionId(), request.scanId());
 
         BinaryTuple key = request.exactKey().asBinaryTuple();
@@ -1104,12 +1108,22 @@ public class PartitionReplicaListener implements ReplicaListener {
                 () -> new CursorResource(indexStorage.get(key))
         ).cursor();
 
-        var result = new ArrayList<BinaryRow>(batchCount);
-
         Cursor<IndexRow> indexRowCursor = CursorUtils.map(cursor, rowId -> new IndexRowImpl(key, rowId));
 
-        return continueReadOnlyIndexScan(schemaAwareIndexStorage, indexRowCursor, timestamp, batchCount, result)
-                .thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
+        int batchCount = request.batchSize();
+
+        var result = new ArrayList<BinaryRow>(batchCount);
+
+        HybridTimestamp readTimestamp = request.readTimestamp();
+
+        return continueReadOnlyIndexScan(
+                schemaAwareIndexStorage,
+                indexRowCursor,
+                readTimestamp,
+                batchCount,
+                result,
+                tableVersionByTs(readTimestamp)
+        ).thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
     }
 
     private CompletableFuture<List<BinaryRow>> lookupIndex(
@@ -1161,7 +1175,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         var indexStorage = (SortedIndexStorage) schemaAwareIndexStorage.storage();
 
         UUID txId = request.transactionId();
-        int batchCount = request.batchSize();
 
         FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
@@ -1214,11 +1227,20 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
 
+                        int batchCount = request.batchSize();
+
                         var result = new ArrayList<BinaryRow>(batchCount);
 
-                        return continueIndexScan(txId, schemaAwareIndexStorage, indexLocker, cursor, batchCount, result,
-                                isUpperBoundAchieved)
-                                .thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
+                        return continueIndexScan(
+                                txId,
+                                schemaAwareIndexStorage,
+                                indexLocker,
+                                cursor,
+                                batchCount,
+                                result,
+                                isUpperBoundAchieved,
+                                tableVersionByTs(beginTimestamp(txId))
+                        ).thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
                     });
         });
     }
@@ -1236,11 +1258,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         var indexStorage = (SortedIndexStorage) schemaAwareIndexStorage.storage();
 
-        UUID txId = request.transactionId();
-        int batchCount = request.batchSize();
-        HybridTimestamp timestamp = request.readTimestamp();
-
-        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
+        FullyQualifiedResourceId cursorId = cursorId(request.transactionId(), request.scanId());
 
         BinaryTupleMessage lowerBoundMessage = request.lowerBoundPrefix();
         BinaryTupleMessage upperBoundMessage = request.upperBoundPrefix();
@@ -1257,18 +1275,29 @@ public class PartitionReplicaListener implements ReplicaListener {
                         flags
                 ))).cursor();
 
+        int batchCount = request.batchSize();
+
         var result = new ArrayList<BinaryRow>(batchCount);
 
-        return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, timestamp, batchCount, result)
-                .thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
+        HybridTimestamp readTimestamp = request.readTimestamp();
+
+        return continueReadOnlyIndexScan(
+                schemaAwareIndexStorage,
+                cursor,
+                readTimestamp,
+                batchCount,
+                result,
+                tableVersionByTs(readTimestamp)
+        ).thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
     }
 
     private CompletableFuture<Void> continueReadOnlyIndexScan(
             TableSchemaAwareIndexStorage schemaAwareIndexStorage,
             Cursor<IndexRow> cursor,
-            HybridTimestamp timestamp,
+            HybridTimestamp readTimestamp,
             int batchSize,
-            List<BinaryRow> result
+            List<BinaryRow> result,
+            int tableVersion
     ) {
         if (result.size() >= batchSize || !cursor.hasNext()) {
             return nullCompletedFuture();
@@ -1278,14 +1307,14 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         RowId rowId = indexRow.rowId();
 
-        return resolvePlainReadResult(rowId, null, timestamp).thenComposeAsync(resolvedReadResult -> {
-            if (resolvedReadResult != null
-                    && resolvedReadResult.binaryRow() != null
-                    && indexRowMatches(indexRow, resolvedReadResult.binaryRow(), schemaAwareIndexStorage)) {
-                result.add(resolvedReadResult.binaryRow());
+        return resolvePlainReadResult(rowId, null, readTimestamp).thenComposeAsync(resolvedReadResult -> {
+            BinaryRow binaryRow = upgrage(binaryRow(resolvedReadResult), tableVersion);
+
+            if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
+                result.add(binaryRow);
             }
 
-            return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, timestamp, batchSize, result);
+            return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, readTimestamp, batchSize, result, tableVersion);
         }, scanRequestExecutor);
     }
 
@@ -1299,6 +1328,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param batchSize Batch size.
      * @param result Result collection.
      * @param isUpperBoundAchieved Function to stop on upper bound.
+     * @param tableVersion Table schema version at begin timestamp.
      * @return Future.
      */
     private CompletableFuture<Void> continueIndexScan(
@@ -1308,7 +1338,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             Cursor<IndexRow> indexCursor,
             int batchSize,
             List<BinaryRow> result,
-            Predicate<IndexRow> isUpperBoundAchieved
+            Predicate<IndexRow> isUpperBoundAchieved,
+            int tableVersion
     ) {
         if (result.size() == batchSize) { // Batch is full, exit loop.
             return nullCompletedFuture();
@@ -1325,9 +1356,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
                             .thenComposeAsync(rowLock -> { // Table row S lock
                                 return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
-                                    if (resolvedReadResult != null
-                                            && resolvedReadResult.binaryRow() != null
-                                            && indexRowMatches(currentRow, resolvedReadResult.binaryRow(), schemaAwareIndexStorage)) {
+                                    BinaryRow binaryRow = upgrage(binaryRow(resolvedReadResult), tableVersion);
+
+                                    if (binaryRow != null && indexRowMatches(currentRow, binaryRow, schemaAwareIndexStorage)) {
                                         result.add(resolvedReadResult.binaryRow());
                                     }
 
@@ -1339,7 +1370,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             indexCursor,
                                             batchSize,
                                             result,
-                                            isUpperBoundAchieved
+                                            isUpperBoundAchieved,
+                                            tableVersion
                                     );
                                 });
                             }, scanRequestExecutor);
@@ -1355,7 +1387,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return {@code true} if index row matches the binary row, {@code false} otherwise.
      */
     private static boolean indexRowMatches(IndexRow indexRow, BinaryRow binaryRow, TableSchemaAwareIndexStorage schemaAwareIndexStorage) {
-        // TODO: IGNITE-21606 It is necessary to upgrade the tuple to the required schema version
         BinaryTuple actualIndexRow = schemaAwareIndexStorage.indexRowResolver().extractColumns(binaryRow);
 
         return indexRow.indexColumns().byteBuffer().equals(actualIndexRow.byteBuffer());
@@ -3813,5 +3844,23 @@ public class PartitionReplicaListener implements ReplicaListener {
         assert catalog != null : "indexId=" + request.indexId() + ", catalogVersion=" + catalogVersion;
 
         return hybridTimestamp(catalog.time());
+    }
+
+    private int tableVersionByTs(HybridTimestamp ts) {
+        int activeCatalogVersion = catalogService.activeCatalogVersion(ts.longValue());
+
+        CatalogTableDescriptor table = catalogService.table(tableId(), activeCatalogVersion);
+
+        assert table != null : "tableId=" + tableId() + ", catalogVersion=" + activeCatalogVersion;
+
+        return table.tableVersion();
+    }
+
+    private static @Nullable BinaryRow binaryRow(@Nullable TimedBinaryRow timedBinaryRow) {
+        return timedBinaryRow == null ? null : timedBinaryRow.binaryRow();
+    }
+
+    private @Nullable BinaryRow upgrage(@Nullable BinaryRow source, int targetSchemaVersion) {
+        return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
     }
 }

@@ -25,7 +25,7 @@ import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 /**
  * Get a value command.
  */
-//TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
+// TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
 @Transferable(TestMessageGroup.GET_VALUE_COMMAND)
 public interface GetValueCommand extends ReadCommand {
     static GetValueCommand getValueCommand() {

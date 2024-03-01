@@ -176,7 +176,7 @@ public class ClientSession implements AbstractSession {
 
         if (transaction != null) {
             try {
-                //noinspection resource
+                // noinspection resource
                 return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
             } catch (TransactionException e) {
                 return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));

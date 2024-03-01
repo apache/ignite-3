@@ -346,7 +346,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
         TIME(SqlTypeName.TIME.getName(), CHAR_AND_TS),
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21555
-        //TIME_TZ(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE.getName(), CHAR_AND_DT);
+        // TIME_TZ(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE.getName(), CHAR_AND_DT);
 
         TIMESTAMP(SqlTypeName.TIMESTAMP.getName(), CHAR_AND_DT),
 

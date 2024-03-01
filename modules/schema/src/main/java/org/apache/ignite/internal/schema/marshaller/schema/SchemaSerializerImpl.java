@@ -137,11 +137,11 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     /** {@inheritDoc} */
     @Override
     public int size(SchemaDescriptor desc) {
-        return SHORT                      //Assembler version
-                + INT                          //Descriptor version
+        return SHORT                      // Assembler version
+                + INT                          // Descriptor version
                 + getColumnsSize(desc.keyColumns())
                 + getColumnsSize(desc.valueColumns())
-                + ARRAY_HEADER_LENGTH          //Colocation columns length
+                + ARRAY_HEADER_LENGTH          // Collocation columns length
                 + getStringArraySize(desc.colocationColumns())
                 + getColumnMappingSize(desc.columnMapping(), desc.length());
     }
@@ -176,7 +176,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return Size of an array with column names.
      */
     private int getStringArraySize(Column[] cols) {
-        int size = ARRAY_HEADER_LENGTH;      //String array size header
+        int size = ARRAY_HEADER_LENGTH;      // String array size header
         for (Column column : cols) {
             size += getStringSize(column.name());
         }
@@ -191,7 +191,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return Size of column array, including column name and column native type.
      */
     private int getColumnsSize(Columns cols) {
-        int size = ARRAY_HEADER_LENGTH; //cols array length
+        int size = ARRAY_HEADER_LENGTH; // Cols array length
 
         for (Column column : cols.columns()) {
             size += getColumnSize(column);
@@ -315,19 +315,19 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
             case TIMESTAMP:
             case NUMBER:
             case BITMASK:
-                typeSize += INT; //For precision, len or bits
+                typeSize += INT; // For precision, len or bits
 
                 break;
             case DECIMAL:
-                typeSize += INT; //For precision
-                typeSize += INT; //For scale
+                typeSize += INT; // For precision
+                typeSize += INT; // For scale
 
                 break;
             default:
                 break;
         }
 
-        return getStringSize(type.spec().name()) //native type name
+        return getStringSize(type.spec().name()) // Native type name
                 + typeSize;
     }
 
@@ -338,7 +338,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return Byte array size.
      */
     private int getStringSize(String str) {
-        return STRING_HEADER //string byte array header
+        return STRING_HEADER // String byte array header
                 + stringBytes(str).length; // string byte array length
     }
 

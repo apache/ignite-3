@@ -97,6 +97,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -346,14 +347,16 @@ public class ItTxTestCluster {
         );
 
         for (int i = 0; i < nodes; i++) {
-            ClusterNode node = cluster.get(i).topologyService().localMember();
+            ClusterService clusterService = cluster.get(i);
+
+            ClusterNode node = clusterService.topologyService().localMember();
 
             HybridClock clock = new HybridClockImpl();
 
             clocks.put(node.name(), clock);
 
             var raftSrv = new Loza(
-                    cluster.get(i),
+                    clusterService,
                     raftConfig,
                     workDir.resolve("node" + i),
                     clock
@@ -370,7 +373,7 @@ public class ItTxTestCluster {
 
             ReplicaManager replicaMgr = new ReplicaManager(
                     node.name(),
-                    cluster.get(i),
+                    clusterService,
                     cmgManager,
                     clock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
@@ -385,18 +388,19 @@ public class ItTxTestCluster {
             LOG.info("Replica manager has been started, node=[" + node + ']');
 
             ReplicaService replicaSvc = spy(new ReplicaService(
-                    cluster.get(i).messagingService(),
-                    clock
+                    clusterService.messagingService(),
+                    clock,
+                    partitionOperationsExecutor
             ));
 
             replicaServices.put(node.name(), replicaSvc);
 
-            RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+            var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
             cursorRegistries.put(node.name(), resourcesRegistry);
 
             TxManagerImpl txMgr = newTxManager(
-                    cluster.get(i),
+                    clusterService,
                     replicaSvc,
                     clock,
                     new TransactionIdGenerator(i),
@@ -440,8 +444,10 @@ public class ItTxTestCluster {
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         return new TxManagerImpl(
+                node.name(),
                 txConfiguration,
-                clusterService,
+                clusterService.messagingService(),
+                clusterService.topologyService(),
                 replicaSvc,
                 new HeapLockManager(),
                 clock,
@@ -473,6 +479,7 @@ public class ItTxTestCluster {
         when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
 
         lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
@@ -615,7 +622,8 @@ public class ItTxTestCluster {
                                         catalogService,
                                         placementDriver,
                                         nodeResolver,
-                                        cursorRegistries.get(assignment)
+                                        cursorRegistries.get(assignment),
+                                        schemaManager
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -714,7 +722,8 @@ public class ItTxTestCluster {
             CatalogService catalogService,
             PlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            SchemaRegistry schemaRegistry
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -738,7 +747,8 @@ public class ItTxTestCluster {
                 catalogService,
                 placementDriver,
                 clusterNodeResolver,
-                resourcesRegistry
+                resourcesRegistry,
+                schemaRegistry
         );
     }
 
@@ -893,7 +903,8 @@ public class ItTxTestCluster {
 
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
-                clientClock
+                clientClock,
+                partitionOperationsExecutor
         ));
 
         LOG.info("The client has been started");
@@ -901,8 +912,10 @@ public class ItTxTestCluster {
 
     private void initializeClientTxComponents() {
         clientTxManager = new TxManagerImpl(
+                "client",
                 txConfiguration,
-                client,
+                client.messagingService(),
+                client.topologyService(),
                 clientReplicaSvc,
                 new HeapLockManager(),
                 clientClock,

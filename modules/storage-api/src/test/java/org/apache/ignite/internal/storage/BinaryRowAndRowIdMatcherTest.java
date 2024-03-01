@@ -27,7 +27,7 @@ import static org.hamcrest.Matchers.not;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.junit.jupiter.api.Test;
 
 /** For {@link BinaryRowAndRowIdMatcher} testing. */
@@ -72,11 +72,6 @@ public class BinaryRowAndRowIdMatcherTest {
     }
 
     private static BinaryRow binaryRow(int key, int val) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
-
-        rowBuilder.appendInt(key);
-        rowBuilder.appendInt(val);
-
-        return rowBuilder.build();
+        return SchemaTestUtils.binaryRow(SCHEMA, key, val);
     }
 }

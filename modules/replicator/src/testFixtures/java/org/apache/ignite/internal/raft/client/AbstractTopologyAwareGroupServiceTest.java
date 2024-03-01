@@ -431,7 +431,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
-            if (isServerAddress.test(addr)) { //RAFT server node
+            if (isServerAddress.test(addr)) { // RAFT server node
                 var localPeer = peersAndLearners.peers().stream()
                         .filter(peer -> peer.consistentId().equals(cluster.topologyService().localMember().name())).findAny().get();
 

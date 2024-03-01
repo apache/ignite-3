@@ -201,9 +201,10 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                     readWriteLock.readLock().unlock();
                 }
             } catch (IOException e) {
-                if (e instanceof ClosedChannelException) {
+                IOException cause = e;
+                if (cause instanceof ClosedChannelException) {
                     try {
-                        if (e instanceof ClosedByInterruptException) {
+                        if (cause instanceof ClosedByInterruptException) {
                             interrupted = true;
 
                             Thread.interrupted();
@@ -217,15 +218,15 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                         continue;
                     } catch (IOException e0) {
-                        e0.addSuppressed(e);
+                        e0.addSuppressed(cause);
 
-                        e = e0;
+                        cause = e0;
                     }
                 }
 
                 throw new IgniteInternalCheckedException(
                         "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + "]",
-                        e
+                        cause
                 );
             }
         }

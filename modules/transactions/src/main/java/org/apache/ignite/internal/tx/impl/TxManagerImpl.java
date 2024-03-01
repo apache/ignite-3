@@ -233,8 +233,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this(
+                clusterService.nodeName(),
                 txConfig,
-                clusterService,
+                clusterService.messagingService(),
+                clusterService.topologyService(),
                 replicaService,
                 lockManager,
                 clock,
@@ -251,7 +253,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * The constructor.
      *
      * @param txConfig Transaction configuration.
-     * @param clusterService Cluster service.
+     * @param messagingService Messaging service.
+     * @param topologyService Topology service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
      * @param clock A hybrid logical clock.
@@ -263,8 +266,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param resourcesRegistry Resources registry.
      */
     public TxManagerImpl(
+            String nodeName,
             TransactionConfiguration txConfig,
-            ClusterService clusterService,
+            MessagingService messagingService,
+            TopologyService topologyService,
             ReplicaService replicaService,
             LockManager lockManager,
             HybridClock clock,
@@ -281,8 +286,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.transactionIdGenerator = transactionIdGenerator;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
-        this.topologyService = clusterService.topologyService();
-        this.messagingService = clusterService.messagingService();
+        this.topologyService = topologyService;
+        this.messagingService = messagingService;
         this.primaryReplicaEventListener = this::primaryReplicaEventListener;
         this.localRwTxCounter = localRwTxCounter;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
@@ -297,7 +302,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(clusterService.nodeName(), "tx-async-cleanup", LOG, STORAGE_READ, STORAGE_WRITE)
+                IgniteThreadFactory.create(nodeName, "tx-async-cleanup", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
@@ -834,7 +839,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 res[0] = false;
                 return tuple;
             } else {
-                //noinspection NonAtomicOperationOnVolatileField
+                // noinspection NonAtomicOperationOnVolatileField
                 tuple.inflights++;
             }
 
@@ -849,7 +854,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
             assert ctx != null && ctx.inflights > 0 : ctx;
 
-            //noinspection NonAtomicOperationOnVolatileField
+            // noinspection NonAtomicOperationOnVolatileField
             ctx.inflights--;
 
             return ctx;
