@@ -161,6 +161,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -524,6 +525,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
+        LowWatermark lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -547,16 +550,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
-                vault,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
                 new HybridTimestampTracker(),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
-                failureProcessor,
                 resourcesRegistry,
-                rebalanceScheduler
+                rebalanceScheduler,
+                lowWatermark
         );
 
         var indexManager = new IndexManager(
@@ -603,6 +605,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         nodeCfgMgr.start();
 
+        lowWatermark.recover();
+
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
                 threadPoolsManager,
@@ -626,7 +630,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 tableManager,
                 indexManager,
                 qryEngine,
-                sqlRef.get()
+                sqlRef.get(),
+                lowWatermark
         );
 
         for (IgniteComponent component : otherComponents) {

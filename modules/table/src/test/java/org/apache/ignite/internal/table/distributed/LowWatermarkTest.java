@@ -46,7 +46,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
-import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -72,18 +71,19 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
     private final VaultManager vaultManager = mock(VaultManager.class);
 
-    private final MvGc mvGc = mock(MvGc.class);
+    private final LowWatermarkChangedListener listener = mock(LowWatermarkChangedListener.class);
 
     private LowWatermark lowWatermark;
 
     @BeforeEach
     void setUp() {
-        lowWatermark = new LowWatermark("test", lowWatermarkConfig, clock, txManager, vaultManager, mvGc, mock(FailureProcessor.class));
+        lowWatermark = new LowWatermark("test", lowWatermarkConfig, clock, txManager, vaultManager, mock(FailureProcessor.class));
+        lowWatermark.addUpdateListener(listener);
     }
 
     @AfterEach
     void tearDown() {
-        lowWatermark.close();
+        lowWatermark.stop();
     }
 
     @Test
@@ -91,7 +91,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
         // Let's check the start with no low watermark in vault.
         lowWatermark.start();
 
-        verify(mvGc, never()).updateLowWatermark(any(HybridTimestamp.class));
+        verify(listener, never()).onLwmChanged(any(HybridTimestamp.class));
         assertNull(lowWatermark.getLowWatermark());
     }
 
@@ -104,9 +104,13 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
         when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
+        this.lowWatermark.recover();
+
+        assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
+
         this.lowWatermark.start();
 
-        verify(mvGc).updateLowWatermark(lowWatermark);
+        verify(listener).onLwmChanged(lowWatermark);
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
     }
 
@@ -135,13 +139,13 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
         lowWatermark.updateLowWatermark();
 
-        InOrder inOrder = inOrder(txManager, vaultManager, mvGc);
+        InOrder inOrder = inOrder(txManager, vaultManager, listener);
 
         inOrder.verify(txManager).updateLowWatermark(newLowWatermarkCandidate);
 
         inOrder.verify(vaultManager, timeout(1000)).put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermarkCandidate));
 
-        inOrder.verify(mvGc).updateLowWatermark(newLowWatermarkCandidate);
+        inOrder.verify(listener).onLwmChanged(newLowWatermarkCandidate);
 
         assertEquals(newLowWatermarkCandidate, lowWatermark.getLowWatermark());
     }

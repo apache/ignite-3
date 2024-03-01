@@ -18,15 +18,19 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -35,8 +39,8 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
-import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -55,7 +59,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol">IEP-91</a>
  */
-public class LowWatermark implements ManuallyCloseable {
+public class LowWatermark implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermark.class);
 
     static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
@@ -68,7 +72,7 @@ public class LowWatermark implements ManuallyCloseable {
 
     private final VaultManager vaultManager;
 
-    private final MvGc mvGc;
+    private final List<LowWatermarkChangedListener> updateListeners = new CopyOnWriteArrayList<>();
 
     private final ScheduledExecutorService scheduledThreadPool;
 
@@ -76,7 +80,7 @@ public class LowWatermark implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private volatile HybridTimestamp lowWatermark;
+    private volatile @Nullable HybridTimestamp lowWatermark;
 
     private final AtomicReference<ScheduledFuture<?>> lastScheduledTaskFuture = new AtomicReference<>();
 
@@ -90,7 +94,6 @@ public class LowWatermark implements ManuallyCloseable {
      * @param clock A hybrid logical clock.
      * @param txManager Transaction manager.
      * @param vaultManager Vault manager.
-     * @param mvGc MVCC garbage collector.
      * @param failureProcessor Failure processor tha is used to handle critical errors.
      */
     public LowWatermark(
@@ -99,14 +102,12 @@ public class LowWatermark implements ManuallyCloseable {
             HybridClock clock,
             TxManager txManager,
             VaultManager vaultManager,
-            MvGc mvGc,
             FailureProcessor failureProcessor
     ) {
         this.lowWatermarkConfig = lowWatermarkConfig;
         this.clock = clock;
         this.txManager = txManager;
         this.vaultManager = vaultManager;
-        this.mvGc = mvGc;
         this.failureProcessor = failureProcessor;
 
         scheduledThreadPool = Executors.newSingleThreadScheduledExecutor(
@@ -114,14 +115,22 @@ public class LowWatermark implements ManuallyCloseable {
         );
     }
 
+    /** Recovery component state from the Vault. */
+    public void recover() {
+        inBusyLock(busyLock, () -> {
+            lowWatermark = readLowWatermarkFromVault();
+        });
+    }
+
     /**
      * Starts the watermark manager.
      */
-    public void start() {
+    @Override
+    public CompletableFuture<Void> start() {
         inBusyLock(busyLock, () -> {
-            HybridTimestamp lowWatermark = readLowWatermarkFromVault();
+            HybridTimestamp lowWatermarkCandidate = lowWatermark;
 
-            if (lowWatermark == null) {
+            if (lowWatermarkCandidate == null) {
                 LOG.info("Previous value of the low watermark was not found, will schedule to update it");
 
                 scheduleUpdateLowWatermarkBusy();
@@ -131,17 +140,15 @@ public class LowWatermark implements ManuallyCloseable {
 
             LOG.info(
                     "Low watermark has been successfully retrieved from the vault and is scheduled to be updated: {}",
-                    lowWatermark
+                    lowWatermarkCandidate
             );
 
-            txManager.updateLowWatermark(lowWatermark)
-                    .thenRun(() -> inBusyLock(busyLock, () -> {
-                        this.lowWatermark = lowWatermark;
-
-                        runGcAndScheduleUpdateLowWatermarkBusy(lowWatermark);
-                    }))
+            txManager.updateLowWatermark(lowWatermarkCandidate)
+                    .thenCompose(unused -> inBusyLock(busyLock, () -> notifyListeners(lowWatermarkCandidate)))
                     .whenComplete((unused, throwable) -> {
-                        if (throwable != null && !(throwable instanceof NodeStoppingException)) {
+                        if (throwable == null) {
+                            scheduleUpdateLowWatermarkBusy();
+                        } else if ((throwable instanceof NodeStoppingException)) {
                             LOG.error("Error during the Watermark manager start", throwable);
 
                             failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
@@ -150,6 +157,8 @@ public class LowWatermark implements ManuallyCloseable {
                         }
                     });
         });
+
+        return nullCompletedFuture();
     }
 
     private @Nullable HybridTimestamp readLowWatermarkFromVault() {
@@ -159,7 +168,7 @@ public class LowWatermark implements ManuallyCloseable {
     }
 
     @Override
-    public void close() {
+    public void stop() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
@@ -190,12 +199,12 @@ public class LowWatermark implements ManuallyCloseable {
             // created, then we can safely promote the candidate as a new low watermark, store it in vault, and we can safely start cleaning
             // up the stale/junk data in the tables.
             txManager.updateLowWatermark(lowWatermarkCandidate)
-                    .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                    .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
                         vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate));
 
                         lowWatermark = lowWatermarkCandidate;
 
-                        runGcAndScheduleUpdateLowWatermarkBusy(lowWatermarkCandidate);
+                        return notifyListeners(lowWatermarkCandidate);
                     }), scheduledThreadPool)
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
@@ -206,15 +215,32 @@ public class LowWatermark implements ManuallyCloseable {
                             }
                         } else {
                             LOG.info("Successful low watermark update: {}", lowWatermarkCandidate);
+
+                            scheduleUpdateLowWatermarkBusy();
                         }
                     });
         });
     }
 
-    private void runGcAndScheduleUpdateLowWatermarkBusy(HybridTimestamp lowWatermark) {
-        mvGc.updateLowWatermark(lowWatermark);
+    public void addUpdateListener(LowWatermarkChangedListener listener) {
+        updateListeners.add(listener);
+    }
 
-        scheduleUpdateLowWatermarkBusy();
+    public void removeUpdateListener(LowWatermarkChangedListener listener) {
+        updateListeners.remove(listener);
+    }
+
+    private CompletableFuture<Void> notifyListeners(HybridTimestamp lowWatermark) {
+        if (updateListeners.isEmpty()) {
+            return nullCompletedFuture();
+        }
+
+        ArrayList<CompletableFuture<?>> res = new ArrayList<>();
+        for (LowWatermarkChangedListener updateListener : updateListeners) {
+            res.add(updateListener.onLwmChanged(lowWatermark));
+        }
+
+        return CompletableFuture.allOf(res.toArray(CompletableFuture[]::new));
     }
 
     private void scheduleUpdateLowWatermarkBusy() {
