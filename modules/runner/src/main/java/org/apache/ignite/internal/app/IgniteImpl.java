@@ -993,7 +993,7 @@ public class IgniteImpl implements Ignite {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             // Recover low watermark first, because other components may require a valid watermark for proper recovery.
-                            lowWatermark.recover();
+                            lowWatermark.recoverFromVault();
 
                             lifecycleManager.startComponents(
                                     catalogManager,

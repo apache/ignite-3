@@ -1274,7 +1274,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             nodeComponents.addAll(firstComponents);
 
-            lowWatermark.recover();
+            lowWatermark.recoverFromVault();
 
             deployWatchesFut = CompletableFuture.supplyAsync(() -> {
                 List<IgniteComponent> secondComponents = List.of(

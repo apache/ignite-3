@@ -116,7 +116,7 @@ public class LowWatermark implements IgniteComponent {
     }
 
     /** Recovery component state from the Vault. */
-    public void recover() {
+    public void recoverFromVault() {
         inBusyLock(busyLock, () -> {
             lowWatermark = readLowWatermarkFromVault();
         });
@@ -148,7 +148,7 @@ public class LowWatermark implements IgniteComponent {
                     .whenComplete((unused, throwable) -> {
                         if (throwable == null) {
                             scheduleUpdateLowWatermarkBusy();
-                        } else if ((throwable instanceof NodeStoppingException)) {
+                        } else if (!(throwable instanceof NodeStoppingException)) {
                             LOG.error("Error during the Watermark manager start", throwable);
 
                             failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));

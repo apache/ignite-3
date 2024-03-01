@@ -605,7 +605,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         nodeCfgMgr.start();
 
-        lowWatermark.recover();
+        lowWatermark.recoverFromVault();
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(

@@ -104,7 +104,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
         when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
-        this.lowWatermark.recover();
+        this.lowWatermark.recoverFromVault();
 
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
 
