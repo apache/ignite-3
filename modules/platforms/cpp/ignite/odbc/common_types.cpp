@@ -237,6 +237,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
         case error::code::PORT_IN_USE:
         case error::code::RECIPIENT_LEFT:
+        case error::code::ADDRESS_UNRESOLVED:
             return sql_state::S08001_CANNOT_CONNECT;
 
         // NodeConfiguration group. Group code: 12
