@@ -165,7 +165,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             LeaseGrantedMessageResponse resp = null;
 
             if (leaseGrantHandler != null) {
-                resp = leaseGrantHandler.apply((LeaseGrantedMessage) msg, sender, handlerNode.name());
+                resp = leaseGrantHandler.apply((LeaseGrantedMessage) msg, sender.name(), handlerNode.name());
             }
 
             if (resp == null) {

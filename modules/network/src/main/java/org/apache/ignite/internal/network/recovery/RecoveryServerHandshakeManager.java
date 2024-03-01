@@ -420,7 +420,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
      * @return New message handler.
      */
     private MessageHandler createMessageHandler() {
-        return handler.createMessageHandler(remoteNode.id(), remoteNode.name(), remoteChannelId);
+        return handler.createMessageHandler(remoteNode, remoteChannelId);
     }
 
     /** {@inheritDoc} */

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.ChannelType.getChannel;
@@ -37,11 +38,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -108,6 +109,12 @@ public class ConnectionManager implements ChannelCreationListener {
     private final String consistentId;
 
     private volatile @Nullable ClusterNode localNode;
+
+    /**
+     * Released when local node is set; attempts to initiate a connection to this node from the outside will wait
+     * till it's released.
+     */
+    private final CountDownLatch localNodeSet = new CountDownLatch(1);
 
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -208,7 +215,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 0,
                 1,
                 1,
-                TimeUnit.SECONDS,
+                SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(consistentId, "connection-maintenance", LOG)
         );
@@ -456,7 +463,7 @@ public class ConnectionManager implements ChannelCreationListener {
             LOG.warn("Failed to stop connection manager [reason={}]", e.getMessage());
         }
 
-        IgniteUtils.shutdownAndAwaitTermination(connectionMaintenanceExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(connectionMaintenanceExecutor, 10, SECONDS);
     }
 
     private CompletableFuture<Void> disposeDescriptors() {
@@ -502,6 +509,8 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private HandshakeManager createServerHandshakeManager() {
+        waitForLocalNodeToBeSet();
+
         return new RecoveryServerHandshakeManager(
                 Objects.requireNonNull(localNode, "localNode not set"),
                 FACTORY,
@@ -512,6 +521,19 @@ public class ConnectionManager implements ChannelCreationListener {
                 stopping::get,
                 failureProcessor
         );
+    }
+
+    private void waitForLocalNodeToBeSet() {
+        boolean success;
+        try {
+            success = localNodeSet.await(10, SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new RuntimeException("Interrupted while waiting for local node to be set", e);
+        }
+
+        assert success : "Did not observe local node set in time";
     }
 
     /**
@@ -643,7 +665,12 @@ public class ConnectionManager implements ChannelCreationListener {
         return nullCompletedFuture();
     }
 
+    /**
+     * Sets the local node. Only after this this manager becomes able to accept incoming connections.
+     */
     public void setLocalNode(ClusterNode localNode) {
         this.localNode = localNode;
+
+        localNodeSet.countDown();
     }
 }

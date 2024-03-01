@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.netty;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Wrapper for the received network message.
@@ -28,10 +29,7 @@ public class InNetworkObject {
     /** Message. */
     private final NetworkMessage message;
 
-    private final String launchId;
-
-    /** Sender's consistent id. */
-    private final String consistentId;
+    private final ClusterNode sender;
 
     private final short connectionIndex;
 
@@ -39,16 +37,9 @@ public class InNetworkObject {
     private final DescriptorRegistry registry;
 
     /** Constructor. */
-    public InNetworkObject(
-            NetworkMessage message,
-            String launchId,
-            String consistentId,
-            short connectionIndex,
-            DescriptorRegistry registry
-    ) {
+    public InNetworkObject(NetworkMessage message, ClusterNode sender, short connectionIndex, DescriptorRegistry registry) {
         this.message = message;
-        this.launchId = launchId;
-        this.consistentId = consistentId;
+        this.sender = sender;
         this.connectionIndex = connectionIndex;
         this.registry = registry;
     }
@@ -63,10 +54,17 @@ public class InNetworkObject {
     }
 
     /**
+     * Returns a {@link ClusterNode} representing the sender.
+     */
+    public ClusterNode sender() {
+        return sender;
+    }
+
+    /**
      * Returns node ID of the sender that does not survive node restart (aka launch ID).
      */
     public String launchId() {
-        return launchId;
+        return sender.id();
     }
 
     /**
@@ -75,7 +73,7 @@ public class InNetworkObject {
      * @return Consistent id.
      */
     public String consistentId() {
-        return consistentId;
+        return sender.name();
     }
 
     /**
