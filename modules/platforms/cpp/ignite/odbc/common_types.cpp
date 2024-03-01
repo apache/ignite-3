@@ -112,7 +112,8 @@ environment_attribute environment_attribute_to_internal(int32_t attr) {
 sql_state error_code_to_sql_state(error::code code) {
     switch (code) {
         // Common group. Group code: 1
-        case error::code::CURSOR_CLOSED:
+        case error::code::CURSOR_ALREADY_CLOSED:
+        case error::code::RESOURCE_CLOSING:
             return sql_state::S24000_INVALID_CURSOR_STATE;
         case error::code::NODE_STOPPING:
         case error::code::COMPONENT_NOT_STARTED:
@@ -236,6 +237,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
         case error::code::PORT_IN_USE:
         case error::code::RECIPIENT_LEFT:
+        case error::code::ADDRESS_UNRESOLVED:
             return sql_state::S08001_CANNOT_CONNECT;
 
         // NodeConfiguration group. Group code: 12

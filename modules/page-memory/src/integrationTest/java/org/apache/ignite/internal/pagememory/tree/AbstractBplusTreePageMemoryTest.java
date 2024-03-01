@@ -179,7 +179,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                     asyncRunFut.cancel(true);
                     asyncRunFut.get(60_000, MILLISECONDS);
                 } catch (Throwable ex) {
-                    //Ignore
+                    // Ignore
                 }
             }
 
@@ -2160,7 +2160,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     @Test
     public void testConcurrentGrowDegenerateTreeAndConcurrentRemove() throws Exception {
-        //calculate tree size when split happens
+        // Calculate tree size when split happens.
         final TestTree t = createTestTree(true);
         long i = 0;
 
@@ -2777,7 +2777,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
 
         static Object threadId() {
-            return Thread.currentThread().getId(); //.getName();
+            return Thread.currentThread().getId(); // .getName();
         }
 
         private static void printLocks(IgniteStringBuilder b, ConcurrentMap<Object, Map<Long, Long>> locks, Map<Object, Long> beforeLock) {

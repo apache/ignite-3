@@ -169,7 +169,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         types.addAll(SqlTypeName.NUMERIC_TYPES);
         types.addAll(SqlTypeName.STRING_TYPES);
         types.addAll(SqlTypeName.DATETIME_TYPES);
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-17373
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
         // types.addAll(SqlTypeName.INTERVAL_TYPES);
 
         List<RelDataType> relDataTypes = new ArrayList<>();

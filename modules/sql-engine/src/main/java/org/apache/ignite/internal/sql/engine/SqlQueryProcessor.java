@@ -32,6 +32,7 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -94,6 +95,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
@@ -134,6 +136,9 @@ import org.jetbrains.annotations.TestOnly;
  *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor {
+    /** Default time zone ID. */
+    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
@@ -151,6 +156,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
             .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+            .set(QueryProperty.TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
             .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
@@ -329,16 +335,19 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         };
 
+        var partitionPruner = new PartitionPrunerImpl();
+
         var mappingService = new MappingServiceImpl(
                 nodeName,
                 executionTargetProvider,
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
+                partitionPruner,
                 taskExecutor
         );
 
         logicalTopologyService.addEventListener(mappingService);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, ignore) -> mappingService.onPrimaryReplicaExpired(evt));
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -537,6 +546,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
+        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
 
         QueryCancel queryCancel = new QueryCancel();
 
@@ -550,7 +560,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
 
-            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, params, null);
+            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, timeZoneId, params, null);
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
@@ -573,6 +583,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
+        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
 
         CompletableFuture<?> start = new CompletableFuture<>();
 
@@ -580,7 +591,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, txCtx, parsedResults, params);
+                            schemaName, txCtx, parsedResults, params, timeZoneId);
 
                     return handler.processNext();
                 });
@@ -614,6 +625,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             ParsedResult parsedResult,
             QueryTransactionWrapper txWrapper,
             QueryCancel queryCancel,
+            ZoneId timeZoneId,
             Object[] params,
             @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement
     ) {
@@ -627,6 +639,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .prefetchCallback(callback)
                             .parameters(params)
+                            .timeZoneId(timeZoneId)
                             .build();
 
                     return prepareSvc.prepareAsync(parsedResult, ctx)
@@ -762,6 +775,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private class MultiStatementHandler {
+        private final ZoneId timeZoneId;
         private final String schemaName;
         private final Queue<ScriptStatement> statements;
         private final ScriptTransactionContext txCtx;
@@ -781,8 +795,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                 String schemaName,
                 QueryTransactionContext txCtx,
                 List<ParsedResult> parsedResults,
-                Object[] params
+                Object[] params,
+                ZoneId timeZoneId
         ) {
+            this.timeZoneId = timeZoneId;
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
             this.txCtx = new ScriptTransactionContext(txCtx);
@@ -863,7 +879,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     txCtx.registerCursorFuture(parsedResult.queryType(), cursorFuture);
 
-                    fut = executeParsedStatement(schemaName, parsedResult, txWrapper, new QueryCancel(), params, nextCurFut);
+                    fut = executeParsedStatement(schemaName, parsedResult, txWrapper, new QueryCancel(), timeZoneId, params, nextCurFut);
                 }
 
                 fut.whenComplete((cursor, ex) -> {

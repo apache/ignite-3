@@ -29,12 +29,13 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -582,9 +583,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         AtomicBoolean reached = new AtomicBoolean();
 
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) ->  {
-            assert exception == null : parameters;
-
+        catalogManager.listen(ZONE_CREATE, parameters ->  {
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
 
             return CompletableFuture.runAsync(() -> {
@@ -1484,7 +1483,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     if (startsWith(e.key(), zoneDataNodesKey().bytes())) {
                         revision = e.revision();
 
-                        zoneId = extractZoneId(e.key());
+                        zoneId = extractZoneId(e.key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
 
                         byte[] dataNodesBytes = e.value();
 
@@ -1512,7 +1511,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     private void addCatalogZoneEventListeners() {
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> {
+        catalogManager.listen(ZONE_CREATE, parameters -> {
             String zoneName = ((CreateZoneEventParameters) parameters).zoneDescriptor().name();
 
             completeRevisionFuture(createZoneRevisions.remove(zoneName), parameters.causalityToken());
@@ -1520,7 +1519,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             return falseCompletedFuture();
         });
 
-        catalogManager.listen(ZONE_DROP, (parameters, exception) -> {
+        catalogManager.listen(ZONE_DROP, parameters -> {
             completeRevisionFuture(dropZoneRevisions.remove(((DropZoneEventParameters) parameters).zoneId()), parameters.causalityToken());
 
             return falseCompletedFuture();

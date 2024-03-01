@@ -34,6 +34,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * <p>After having been stopped, it never executes anything.
  */
 abstract class LazyStripedExecutor implements ManuallyCloseable {
+    private static final Executor NO_OP_EXECUTOR = task -> {};
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReferenceArray<ExecutorService> array = new AtomicReferenceArray<>(Short.MAX_VALUE + 1);
@@ -52,6 +54,25 @@ abstract class LazyStripedExecutor implements ManuallyCloseable {
 
         try {
             executorFor(index).execute(command);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Executes a command on a stripe with the given index. If the executor is stopped, returns a special executor that executes nothing.
+     *
+     * @param index Index of the stripe.
+     */
+    public Executor stripeFor(short index) {
+        assert index >= 0 : "Index is negative: " + index;
+
+        if (!busyLock.enterBusy()) {
+            return NO_OP_EXECUTOR;
+        }
+
+        try {
+            return executorFor(index);
         } finally {
             busyLock.leaveBusy();
         }

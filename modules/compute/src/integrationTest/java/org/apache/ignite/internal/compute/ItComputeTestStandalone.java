@@ -54,7 +54,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @BeforeEach
     void setUp() throws IOException {
         IgniteImpl entryNode = node(0);
-        //TODO https://issues.apache.org/jira/browse/IGNITE-19757
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19757
         try {
             entryNode.deployment().undeployAsync(unit.name(), unit.version()).join();
         } catch (Exception ignored) {

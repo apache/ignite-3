@@ -782,7 +782,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
 
         // Columns - not ambiguous.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4915
-        //assertQuery("SELECT c1, c2, c3 FROM t1 NATURAL JOIN t2 ORDER BY c1, c2, c3")
+        // assertQuery("SELECT c1, c2, c3 FROM t1 NATURAL JOIN t2 ORDER BY c1, c2, c3")
         //    .returns(1, 1, 1)
         //    .returns(2, 2, 2)
         //    .returns(3, 3, 3)

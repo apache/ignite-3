@@ -144,7 +144,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      *
      * @throws StorageRebalanceException If there was an error when aborting the rebalance.
      */
-    public void abortReblance(WriteBatch writeBatch) {
+    public void abortRebalance(WriteBatch writeBatch) {
         if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
@@ -314,7 +314,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         private boolean advanceIfNeededBusy() throws StorageException {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
-            //noinspection ArrayEquality
+            // noinspection ArrayEquality
             key = (peekedKey == BYTE_EMPTY_ARRAY) ? peekBusy() : peekedKey;
             peekedKey = BYTE_EMPTY_ARRAY;
 

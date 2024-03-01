@@ -132,7 +132,7 @@ void compute_impl::submit_colocated(const std::string &table_name, const ignite_
         }
 
         auto table = table_impl::from_facade(*table_opt);
-        table->template with_latest_schema_async<std::optional<primitive>>(
+        table->template with_proper_schema_async<std::optional<primitive>>(
             callback, [table, key, units, job, args, conn](const schema &sch, auto callback) mutable {
                 auto writer_func = [&key, &units, &sch, &table, &job, &args](protocol::writer &writer) {
                     writer.write(table->get_id());

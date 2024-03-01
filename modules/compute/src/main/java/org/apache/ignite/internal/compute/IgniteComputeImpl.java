@@ -61,6 +61,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link IgniteCompute}.
@@ -387,5 +388,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
         return computeComponent.changePriorityAsync(jobId, newPriority);
+    }
+
+    @TestOnly
+    ComputeComponent computeComponent() {
+        return computeComponent;
     }
 }

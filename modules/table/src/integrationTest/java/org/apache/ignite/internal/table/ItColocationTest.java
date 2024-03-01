@@ -89,6 +89,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -96,6 +97,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
@@ -170,7 +172,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TransactionIdGenerator(0xdeadbeef),
                 new TestPlacementDriver(clusterNode),
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                new RemotelyTriggeredResourceRegistry()
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -269,7 +272,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         intTable = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
-                partRafts,
                 PARTS,
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
@@ -278,7 +280,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HybridClockImpl(),
                 observableTimestampTracker,
-                new TestPlacementDriver(clusterNode)
+                new TestPlacementDriver(clusterNode),
+                new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode))
         );
     }
 
@@ -437,7 +440,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class));
+        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), -1);
 
         marshaller = new TupleMarshallerImpl(schema);
     }

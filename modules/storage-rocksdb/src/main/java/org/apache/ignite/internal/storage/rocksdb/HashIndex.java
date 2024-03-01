@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
+import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -60,8 +64,11 @@ class HashIndex {
     /**
      * Removes all data associated with the index.
      */
-    void destroy() {
-        storages.values().forEach(RocksDbHashIndexStorage::destroy);
+    void destroy(WriteBatch writeBatch) throws RocksDBException {
+        close();
+
+        // Every index storage uses an "index ID" + "partition ID" prefix. We can remove everything by just using the index ID prefix.
+        deleteByPrefix(writeBatch, indexCf, createKey(BYTE_EMPTY_ARRAY, descriptor.id()));
     }
 
     /**

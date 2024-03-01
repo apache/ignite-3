@@ -381,7 +381,7 @@ public class CatalogUtils {
      * @param precision Type precision.
      */
     public static int defaultLength(ColumnType columnType, int precision) {
-        //TODO IGNITE-20432: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
+        // TODO IGNITE-20432: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
         switch (columnType) {
             case BITMASK:
             case STRING:
@@ -469,7 +469,7 @@ public class CatalogUtils {
      * @throws IndexNotFoundValidationException If index does not exist.
      */
     public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
-        CatalogIndexDescriptor index = schema.index(name);
+        CatalogIndexDescriptor index = schema.aliveIndex(name);
 
         if (index == null) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));

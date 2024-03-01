@@ -182,7 +182,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     } else {
                         assert indexDescriptor == null;
 
-                        //TODO: IGNITE-17626 Drop the index synchronously.
+                        // TODO: IGNITE-21583 Drop the index synchronously.
                     }
                 }
 

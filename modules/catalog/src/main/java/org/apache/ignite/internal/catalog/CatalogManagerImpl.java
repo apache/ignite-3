@@ -37,9 +37,12 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
@@ -213,8 +216,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogIndexDescriptor index(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
+    public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
+        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).aliveIndex(indexName);
     }
 
     @Override
@@ -454,21 +457,25 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             // Use reverse order to find latest descriptors.
             Collection<Catalog> droppedCatalogVersions = catalogByVer.headMap(catalog.version(), false).descendingMap().values();
 
-            // Collect destroy events for dropped tables/indexes.
-            IntSet droppedObjects = new IntOpenHashSet();
             List<Fireable> events = new ArrayList<>();
+            IntSet objectToSkip = new IntOpenHashSet();
+            Predicate<CatalogObjectDescriptor> filter = obj -> objectToSkip.add(obj.id());
 
+            // At first, add alive indexes to filter.
+            applyToAliveIndexesFrom(catalog.version(), filter::test);
+
+            // Create destroy events for dropped indexes.
             droppedCatalogVersions.forEach(oldCatalog -> oldCatalog.indexes().stream()
-                    .filter(idx -> catalog.index(idx.id()) == null)
-                    .filter(idx -> droppedObjects.add(idx.id()))
+                    .filter(filter)
                     .forEach(idx -> events.add(
                             new DestroyIndexEvent(idx.id(), idx.tableId(), tableZoneDescriptor(oldCatalog, idx.tableId()).partitions()))
                     ));
 
-            droppedObjects.clear();
+            objectToSkip.clear();
+            // At last, create destroy events for dropped tables.
             droppedCatalogVersions.forEach(oldCatalog -> oldCatalog.tables().stream()
                     .filter(tbl -> catalog.table(tbl.id()) == null)
-                    .filter(tbl -> droppedObjects.add(tbl.id()))
+                    .filter(filter)
                     .forEach(tbl -> events.add(new DestroyTableEvent(tbl.id(), tableZoneDescriptor(oldCatalog, tbl.id()).partitions()))));
 
             // On recovery phase, we must register catalog from the snapshot.
@@ -488,7 +495,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
                             LOG.warn("Failed to compact catalog.", err);
-                            //TODO: IGNITE-14611 Pass exception to an error handler?
+                            // TODO: IGNITE-14611 Pass exception to an error handler?
                         } else {
                             truncateUpTo(catalog);
                         }
@@ -531,12 +538,36 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
                             LOG.warn("Failed to apply catalog update.", err);
-                            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+                            // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
                         }
 
                         versionTracker.update(version, null);
                     });
         }
+    }
+
+    /**
+     * Scans Catalog versions from given version and preform an action to alive indexes.
+     * Index considered to be alive if any Catalog version has the index in {@link CatalogIndexStatus#AVAILABLE} state,
+     * or index is present in the latest Catalog version.
+     *
+     * @param startVersion Earliest Catalog version to start scan from.
+     * @param action A action to perform.
+     */
+    private void applyToAliveIndexesFrom(int startVersion, Consumer<CatalogIndexDescriptor> action) {
+        // All indexes from latest version.
+        int latestCatalogVersion = latestCatalogVersion();
+        catalogByVer.get(latestCatalogVersion).indexes().forEach(action);
+
+        if (startVersion == latestCatalogVersion) {
+            return;
+        }
+
+        // All indexes, which were ever in available state.
+        catalogByVer.tailMap(startVersion, true).values().stream()
+                .flatMap(c -> c.indexes().stream())
+                .filter(idx -> idx.status() == CatalogIndexStatus.AVAILABLE)
+                .forEach(action);
     }
 
     private static CatalogZoneDescriptor tableZoneDescriptor(Catalog catalog, int tableId) {

@@ -37,7 +37,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
     public void testCorrelatesAssignedBeforeAccess() {
         sql("create table test_tbl(k INTEGER primary key, v INTEGER)");
 
-        //TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
+        // TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
         CLUSTER.aliveNode().tables().tables();
 
         sql("INSERT INTO test_tbl VALUES (1, 1)");

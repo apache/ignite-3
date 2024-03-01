@@ -112,10 +112,10 @@ public class ClassDescriptorFactory {
         int descriptorId = registry.getId(clazz);
 
         if (Classes.isExternalizable(clazz)) {
-            //noinspection unchecked
+            // noinspection unchecked
             return externalizable(descriptorId, (Class<? extends Externalizable>) clazz);
         } else if (Classes.isSerializable(clazz)) {
-            //noinspection unchecked
+            // noinspection unchecked
             return serializable(descriptorId, (Class<? extends Serializable>) clazz);
         } else {
             return arbitrary(descriptorId, clazz);

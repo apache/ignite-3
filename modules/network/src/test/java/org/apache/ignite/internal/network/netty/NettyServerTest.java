@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,6 +41,8 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import java.net.ConnectException;
+import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -53,12 +59,14 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.mockito.verification.VerificationMode;
+import org.opentest4j.AssertionFailedError;
 
 /**
  * Tests for {@link NettyServer}.
@@ -80,8 +88,10 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     @AfterEach
     final void tearDown() throws Exception {
-        server.stop().join();
-        bootstrapFactory.stop();
+        IgniteUtils.closeAll(
+                server == null ? null : () -> server.stop().join(),
+                bootstrapFactory == null ? null : () -> bootstrapFactory.stop()
+        );
     }
 
     /**
@@ -138,6 +148,44 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         server = getServer(true);
 
         assertThrows(IgniteInternalException.class, server::start);
+    }
+
+    /**
+     * Tests that bootstrap tries to bind to address specified in configuration.
+     */
+    @Test
+    public void testBindWithAddress() {
+        String host = "127.0.0.7";
+        assertThat(serverCfg.listenAddress().update(host), willCompleteSuccessfully());
+
+        assertDoesNotThrow(() -> getServer(true));
+
+        assertDoesNotThrow(
+                () -> {
+                    Socket socket = new Socket(host, serverCfg.port().value());
+                    socket.close();
+                });
+
+        assertThrows(
+                ConnectException.class,
+                () -> {
+                    Socket socket = new Socket("127.0.0.1", serverCfg.port().value());
+                    socket.close();
+                });
+    }
+
+    /**
+     * Tests the case when couldn't bind to the address provided.
+     */
+    @Test
+    public void testBindUnknownAddressFailed() {
+        String address = "unknown-address";
+        assertThat(serverCfg.listenAddress().update(address), willCompleteSuccessfully());
+
+        AssertionFailedError e = assertThrows(AssertionFailedError.class, () -> getServer(true));
+
+        String expectedError = String.format("Address %s:%d is not available", address, serverCfg.port().value());
+        assertThat(e.getCause().getMessage(), containsString(expectedError));
     }
 
     /**

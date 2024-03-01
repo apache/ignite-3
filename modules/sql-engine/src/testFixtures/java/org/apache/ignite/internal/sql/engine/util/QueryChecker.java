@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Type;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -296,6 +297,8 @@ public interface QueryChecker {
     QueryChecker withParams(Object... params);
 
     QueryChecker withParam(Object param);
+
+    QueryChecker withTimeZoneId(ZoneId timeZoneId);
 
     QueryChecker disableRules(String... rules);
 

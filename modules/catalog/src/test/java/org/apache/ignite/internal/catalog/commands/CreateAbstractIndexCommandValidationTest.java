@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -218,5 +220,20 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
                 CatalogValidationException.class,
                 "Unique index must include all colocation columns"
         );
+    }
+
+    @Test
+    void noExceptionIsThrownIfStoppingIndexWithGivenNameAlreadyExists() {
+        String indexName = "IDX";
+
+        Catalog catalog = catalogWithIndex(indexName);
+
+        CatalogCommand createIndexCommand = prefilledBuilder().indexName(indexName).build();
+
+        assertThrows(CatalogValidationException.class, () -> applyCommandsToCatalog(catalog, createIndexCommand));
+
+        Catalog newCatalog = transitionIndexToStoppingState(catalog, indexName);
+
+        assertDoesNotThrow(() -> applyCommandsToCatalog(newCatalog, createIndexCommand));
     }
 }

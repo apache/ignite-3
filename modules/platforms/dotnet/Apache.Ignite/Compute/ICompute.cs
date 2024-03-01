@@ -33,6 +33,7 @@ public interface ICompute
     /// <param name="nodes">Nodes to use for the job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
+    /// <param name="options">Job execution options.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
@@ -40,6 +41,7 @@ public interface ICompute
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
+        JobExecutionOptions options,
         params object?[]? args);
 
     /// <summary>
@@ -49,6 +51,7 @@ public interface ICompute
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
+    /// <param name="options">Job execution options.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
@@ -57,6 +60,7 @@ public interface ICompute
         IIgniteTuple key,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
+        JobExecutionOptions options,
         params object?[]? args);
 
     /// <summary>
@@ -66,6 +70,7 @@ public interface ICompute
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
+    /// <param name="options">Job execution options.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <typeparam name="TKey">Key type.</typeparam>
@@ -75,6 +80,7 @@ public interface ICompute
         TKey key,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
+        JobExecutionOptions options,
         params object?[]? args)
         where TKey : notnull;
 
@@ -84,6 +90,7 @@ public interface ICompute
     /// <param name="nodes">Nodes to use for the job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
+    /// <param name="options">Job execution options.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
@@ -91,5 +98,6 @@ public interface ICompute
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
+        JobExecutionOptions options,
         params object?[]? args);
 }

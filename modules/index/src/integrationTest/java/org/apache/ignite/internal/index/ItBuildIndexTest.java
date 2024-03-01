@@ -17,23 +17,17 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,8 +39,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
@@ -54,11 +46,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -67,17 +55,13 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
-import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -128,190 +112,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 .returns(4, 4)
                 .returns(5, 5)
                 .check();
-    }
-
-    @Test
-    void testDropIndexDuringTransaction() throws Exception {
-        int partitions = initialNodes();
-
-        int replicas = initialNodes();
-
-        createAndPopulateTable(replicas, partitions);
-
-        createIndex(INDEX_NAME);
-
-        checkIndexBuild(partitions, replicas, INDEX_NAME);
-
-        CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
-
-        IgniteImpl node = CLUSTER.aliveNode();
-
-        // Start a transaction. We expect that the index will not be removed until this transaction completes.
-        node.transactions().runInTransaction(tx -> {
-            dropIndex(INDEX_NAME);
-
-            CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, INDEX_NAME);
-
-            assertThat(indexDescriptor, is(notNullValue()));
-            assertThat(indexDescriptor.status(), is(CatalogIndexStatus.STOPPING));
-            assertThat(indexRemovedFuture, willTimeoutFast());
-        }, new TransactionOptions().readOnly(false));
-
-        assertThat(indexRemovedFuture, willCompleteSuccessfully());
-    }
-
-    @Test
-    void testWritingIntoStoppingIndex() throws Exception {
-        int partitions = initialNodes();
-
-        int replicas = initialNodes();
-
-        createAndPopulateTable(replicas, partitions);
-
-        createIndex(INDEX_NAME);
-
-        checkIndexBuild(partitions, replicas, INDEX_NAME);
-
-        IgniteImpl node = CLUSTER.aliveNode();
-
-        // Latch for waiting for the RW transaction to start before dropping the index.
-        var startTransactionLatch = new CountDownLatch(1);
-        // Latch for waiting for the index to be dropped, before inserting data in the transaction.
-        var dropIndexLatch = new CountDownLatch(1);
-
-        CompletableFuture<Void> dropIndexFuture = runAsync(() -> {
-            try {
-                startTransactionLatch.await(1, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                throw new CompletionException(e);
-            }
-
-            dropIndex(INDEX_NAME);
-
-            CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, INDEX_NAME);
-
-            assertThat(indexDescriptor, is(notNullValue()));
-            assertThat(indexDescriptor.status(), is(CatalogIndexStatus.STOPPING));
-
-            dropIndexLatch.countDown();
-        });
-
-        CompletableFuture<Void> insertDataIntoIndexTransaction = runAsync(() -> {
-            node.transactions().runInTransaction(tx -> {
-                startTransactionLatch.countDown();
-
-                try {
-                    dropIndexLatch.await(1, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    throw new CompletionException(e);
-                }
-
-                // Insert data into a STOPPING index. We expect it to be inserted.
-                sql(tx, format("INSERT INTO {} VALUES {}", TABLE_NAME, toValuesString(List.of(239, 239))));
-
-                assertQuery((InternalTransaction) tx, format("SELECT * FROM {} WHERE i1 > 10", TABLE_NAME))
-                        .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
-                        .returns(239, 239)
-                        .check();
-            }, new TransactionOptions().readOnly(false));
-        });
-
-        assertThat(dropIndexFuture, willCompleteSuccessfully());
-        assertThat(insertDataIntoIndexTransaction, willCompleteSuccessfully());
-    }
-
-    @Test
-    void testDropIndexAfterRegistering() {
-        int partitions = initialNodes();
-
-        int replicas = initialNodes();
-
-        createAndPopulateTable(replicas, partitions);
-
-        CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
-
-        CLUSTER.aliveNode().transactions().runInTransaction(tx -> {
-            // Create an index inside a transaction, this will prevent the index from building.
-            try {
-                createIndex(INDEX_NAME);
-
-                dropIndex(INDEX_NAME);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }, new TransactionOptions().readOnly(false));
-
-        assertThat(indexRemovedFuture, willCompleteSuccessfully());
-    }
-
-    @Test
-    void testDropIndexDuringBuilding() throws Exception {
-        int partitions = initialNodes();
-
-        int replicas = initialNodes();
-
-        createAndPopulateTable(replicas, partitions);
-
-        // Block index building messages, this way index will never become AVAILABLE.
-        CLUSTER.runningNodes().forEach(ignite -> ignite.dropMessages((id, message) -> message instanceof BuildIndexReplicaRequest));
-
-        CompletableFuture<Void> indexBuildingFuture = indexBuildingFuture();
-
-        CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
-
-        createIndex(INDEX_NAME);
-
-        assertThat(indexBuildingFuture, willCompleteSuccessfully());
-
-        dropIndex(INDEX_NAME);
-
-        assertThat(indexRemovedFuture, willCompleteSuccessfully());
-    }
-
-    private static CompletableFuture<Void> indexBuildingFuture() {
-        IgniteImpl node = CLUSTER.aliveNode();
-
-        var indexBuildingFuture = new CompletableFuture<Void>();
-
-        node.catalogManager().listen(CatalogEvent.INDEX_BUILDING, (StartBuildingIndexEventParameters parameters, Throwable e) -> {
-            if (e == null) {
-                CatalogIndexDescriptor indexDescriptor = node.catalogManager().index(parameters.indexId(), parameters.catalogVersion());
-
-                if (indexDescriptor != null && indexDescriptor.name().equals(INDEX_NAME)) {
-                    indexBuildingFuture.complete(null);
-                }
-            } else {
-                indexBuildingFuture.completeExceptionally(e);
-            }
-
-            return falseCompletedFuture();
-        });
-
-        return indexBuildingFuture;
-    }
-
-    private static CompletableFuture<Void> indexRemovedFuture() {
-        IgniteImpl node = CLUSTER.aliveNode();
-
-        var indexRemovedFuture = new CompletableFuture<Void>();
-
-        node.catalogManager().listen(CatalogEvent.INDEX_REMOVED, (RemoveIndexEventParameters parameters, Throwable e) -> {
-            if (e == null) {
-                node.catalogManager()
-                        .catalog(parameters.catalogVersion() - 1)
-                        .indexes()
-                        .stream()
-                        .filter(index -> index.name().equals(INDEX_NAME))
-                        .findAny()
-                        .ifPresent(index -> indexRemovedFuture.complete(null));
-            } else {
-                indexRemovedFuture.completeExceptionally(e);
-            }
-
-            return falseCompletedFuture();
-        });
-
-        return indexRemovedFuture;
     }
 
     @Test
@@ -422,7 +222,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
-        return table.internalTable().partitionRaftGroupService(partitionId);
+        return table.internalTable().tableRaftService().partitionRaftGroupService(partitionId);
     }
 
     /**
@@ -480,7 +280,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void checkIndexBuild(int partitions, int replicas, String indexName) throws Exception {
-        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        // TODO: IGNITE-20525 We are waiting for schema synchronization to avoid races to create and destroy indexes
         Map<Integer, List<Ignite>> nodesWithBuiltIndexesByPartitionId = waitForIndexBuild(TABLE_NAME, indexName);
 
         // Check that the number of nodes with built indexes is equal to the number of replicas.
@@ -517,26 +317,19 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param tableName Table name.
      * @param indexName Index name.
      * @return Nodes on which the partition index was built.
-     * @throws Exception If failed.
      */
     private static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) {
         Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
 
         CLUSTER.runningNodes().forEach(clusterNode -> {
             try {
-                TableViewInternal table = getTableView(clusterNode, tableName);
+                InternalTable internalTable = getTableView(clusterNode, tableName).internalTable();
+                CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(clusterNode, indexName);
 
-                assertNotNull(table, clusterNode.name() + " : " + tableName);
-
-                InternalTable internalTable = table.internalTable();
-
-                assertTrue(
-                        waitForCondition(() -> getIndexDescriptor(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
-                        String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
-                );
+                assertNotNull(indexDescriptor);
 
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                    RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
+                    RaftGroupService raftGroupService = internalTable.tableRaftService().partitionRaftGroupService(partitionId);
 
                     List<Peer> allPeers = raftGroupService.peers();
 
@@ -545,20 +338,14 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                         continue;
                     }
 
-                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(clusterNode, tableName);
-                    CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(clusterNode, indexName);
-
-                    IndexStorage index = internalTable.storage().getOrCreateIndex(
-                            partitionId,
-                            StorageIndexDescriptor.create(tableDescriptor, indexDescriptor)
-                    );
+                    IndexStorage index = internalTable.storage().getIndex(partitionId, indexDescriptor.id());
 
                     assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
 
                     partitionIdToNodes.computeIfAbsent(partitionId, p -> new ArrayList<>()).add(clusterNode);
                 }
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new RuntimeException("Node operation failed: node=" + clusterNode.name(), e);
             }
         });
 
@@ -600,7 +387,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static @Nullable CatalogIndexDescriptor getIndexDescriptor(Ignite node, String indexName) {
         IgniteImpl nodeImpl = (IgniteImpl) node;
 
-        return nodeImpl.catalogManager().index(indexName, nodeImpl.clock().nowLong());
+        return nodeImpl.catalogManager().aliveIndex(indexName, nodeImpl.clock().nowLong());
     }
 
     /**
@@ -617,7 +404,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }

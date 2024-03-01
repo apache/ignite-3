@@ -56,8 +56,10 @@ import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -100,6 +103,7 @@ import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCom
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -140,6 +144,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             new Column[]{new Column("key", NativeTypes.INT32, false)},
             new Column[]{new Column("value", NativeTypes.INT32, false)}
     );
+
+    private static final SchemaRegistry SCHEMA_REGISTRY = new DummySchemaManagerImpl(SCHEMA);
 
     private PartitionListener commandListener;
 
@@ -183,6 +189,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private CatalogService catalogService;
 
+    private CatalogIndexDescriptor indexDescriptor;
+
     /**
      * Initializes a table listener before tests.
      */
@@ -196,8 +204,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
+        int indexId = pkStorage.id();
+
         indexUpdateHandler = spy(new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(indexId, pkStorage))
         ));
 
         storageUpdateHandler = spy(new StorageUpdateHandler(
@@ -209,10 +219,21 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         catalogService = mock(CatalogService.class);
 
-        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+        Catalog catalog = mock(Catalog.class);
 
-        lenient().when(indexDescriptor.id()).thenReturn(pkStorage.id());
+        lenient().when(catalog.index(indexId)).thenReturn(indexDescriptor);
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
+
+        indexDescriptor = mock(CatalogIndexDescriptor.class);
+
+        lenient().when(indexDescriptor.id()).thenReturn(indexId);
         lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
+        lenient().when(catalogService.index(anyInt(), anyInt())).thenReturn(indexDescriptor);
+
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+
+        lenient().when(tableDescriptor.tableVersion()).thenReturn(SCHEMA.version());
+        lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
 
         commandListener = new PartitionListener(
                 mock(TxManager.class),
@@ -221,7 +242,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 txStateStorage,
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
-                catalogService
+                catalogService,
+                SCHEMA_REGISTRY
         );
     }
 
@@ -321,7 +343,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 txStateStorage,
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
-                catalogService
+                catalogService,
+                SCHEMA_REGISTRY
         );
 
         txStateStorage.lastApplied(3L, 1L);
@@ -493,7 +516,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testBuildIndexCommand() {
-        int indexId = 1;
+        int indexId = pkStorage.id();
 
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
 

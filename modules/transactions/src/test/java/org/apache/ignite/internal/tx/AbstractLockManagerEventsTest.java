@@ -54,7 +54,7 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         }
     }
 
-    private CompletableFuture<Boolean> lockEventListener(LockEventParameters params, Throwable e) {
+    private CompletableFuture<Boolean> lockEventListener(LockEventParameters params) {
         eventParamsRef.set(params);
 
         return falseCompletedFuture();

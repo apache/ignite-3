@@ -111,7 +111,7 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
-//TODO Simplify code generation process: https://issues.apache.org/jira/browse/IGNITE-18366
+// TODO Simplify code generation process: https://issues.apache.org/jira/browse/IGNITE-18366
 class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link Consumer#accept(Object)}. */
     private static final Method ACCEPT;

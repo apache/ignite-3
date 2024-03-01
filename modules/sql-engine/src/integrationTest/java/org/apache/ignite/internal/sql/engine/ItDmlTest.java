@@ -500,12 +500,12 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     public void testInsertDefaultValue() {
         checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
-        checkWrongDefault("VARCHAR", "10");
+        checkWrongDefault("VARCHAR(1)", "10");
         checkWrongDefault("INT", "'10'");
         checkWrongDefault("INT", "TRUE");
         checkWrongDefault("DATE", "10");
         checkWrongDefault("DATE", "TIME '01:01:01'");
-        checkWrongDefault("TIME", "TIMESTAMP '2021-01-01 01:01:01'");
+        checkWrongDefault("TIMESTAMP", "TIME '01:01:01'");
         checkWrongDefault("BOOLEAN", "1");
 
         // TODO: IGNITE-17373
@@ -521,7 +521,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
                 // TODO: uncomment after https://issues.apache.org/jira/browse/IGNITE-21243
-                //.map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                // .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
                 .collect(Collectors.toList()));
     }
 
@@ -583,7 +583,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         try {
             assertThrowsSqlException(
                     Sql.STMT_VALIDATION_ERR,
-                    "Unable convert literal",
+                    "Invalid default value for column 'VAL'",
                     () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val " + sqlType + " DEFAULT " + sqlVal + ")")
             );
         } finally {

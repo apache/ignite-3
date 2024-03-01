@@ -31,6 +31,14 @@
 namespace ignite::protocol {
 
 /**
+ * Error data extensions. When the server returns an error response, it may contain additional data in a map.
+ * Keys are defined here.
+ */
+namespace error_extensions {
+const std::string EXPECTED_SCHEMA_VERSION{"expected-schema-ver"};
+}
+
+/**
  * Check if int value fits in @c T.
  *
  * @tparam T Int type to fit value to.
@@ -223,7 +231,21 @@ ignite_error read_error(reader &reader) {
         err_msg_builder << ": " << *message;
     err_msg_builder << " (" << code << ", " << trace_id << ")";
 
-    return ignite_error{error::code(code), err_msg_builder.str()};
+    std::optional<std::int32_t> ver{};
+    if (!reader.try_read_nil()) {
+        // Reading extensions
+        auto num = reader.read_int32();
+        for (std::int32_t i = 0; i < num; ++i) {
+            auto key = reader.read_string();
+            if (key == error_extensions::EXPECTED_SCHEMA_VERSION) {
+                ver = reader.read_int32();
+            } else {
+                reader.skip();
+            }
+        }
+    }
+
+    return ignite_error{error::code(code), err_msg_builder.str(), ver};
 }
 
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {

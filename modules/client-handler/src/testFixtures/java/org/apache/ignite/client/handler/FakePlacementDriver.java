@@ -115,7 +115,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {
-        //noinspection serial
+        // noinspection serial
         return new ReplicaMeta() {
             @Override
             public String getLeaseholder() {

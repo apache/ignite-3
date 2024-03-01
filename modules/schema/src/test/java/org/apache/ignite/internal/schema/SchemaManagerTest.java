@@ -20,19 +20,16 @@ package org.apache.ignite.internal.schema;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
@@ -49,7 +46,7 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -95,8 +92,6 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     private ArgumentCaptor<EventListener<CatalogEventParameters>> tableAlteredListener;
     private ArgumentCaptor<EventListener<CatalogEventParameters>> tableDestroyedListener;
 
-    private final Exception cause = new Exception("Oops");
-
     @BeforeEach
     void setUp() {
         metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
@@ -108,7 +103,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), tableCreatedListener.capture());
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
-        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_DROP), tableDestroyedListener.capture());
+        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_DESTROY), tableDestroyedListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService, metaStorageManager);
         schemaManager.start();
@@ -133,7 +128,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         );
 
         CompletableFuture<Boolean> future = tableCreatedListener()
-                .notify(new CreateTableEventParameters(CAUSALITY_TOKEN_1, CATALOG_VERSION_1, tableDescriptor), null);
+                .notify(new CreateTableEventParameters(CAUSALITY_TOKEN_1, CATALOG_VERSION_1, tableDescriptor));
 
         assertThat(future, willBe(false));
 
@@ -179,34 +174,6 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     private void completeCausalityToken(long causalityToken) {
         assertThat(onMetastoreRevisionCompleteHolder.get().apply(causalityToken), willCompleteSuccessfully());
-    }
-
-    @Test
-    void propagatesExceptionFromCatalogOnTableCreation() {
-        CompletableFuture<Boolean> future = tableCreatedListener().notify(mock(CreateTableEventParameters.class), cause);
-
-        assertThat(future, willThrow(equalTo(cause)));
-    }
-
-    @Test
-    void propagatesExceptionFromCatalogOnColumnAddition() {
-        CompletableFuture<Boolean> future = tableAlteredListener().notify(mock(AddColumnEventParameters.class), cause);
-
-        assertThat(future, willThrow(equalTo(cause)));
-    }
-
-    @Test
-    void propagatesExceptionFromCatalogOnColumnRemoval() {
-        CompletableFuture<Boolean> future = tableAlteredListener().notify(mock(DropColumnEventParameters.class), cause);
-
-        assertThat(future, willThrow(equalTo(cause)));
-    }
-
-    @Test
-    void propagatesExceptionFromCatalogOnColumnAlteration() {
-        CompletableFuture<Boolean> future = tableAlteredListener().notify(mock(AddColumnEventParameters.class), cause);
-
-        assertThat(future, willThrow(equalTo(cause)));
     }
 
     @Test
@@ -277,7 +244,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 List.of(new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null))
         );
 
-        CompletableFuture<Boolean> future = tableAlteredListener().notify(event, null);
+        CompletableFuture<Boolean> future = tableAlteredListener().notify(event);
 
         assertThat(future, willBe(false));
 
@@ -288,16 +255,20 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void destroyTableMakesRegistryUnavailable() {
         createSomeTable();
 
-        assertThat(schemaManager.dropRegistry(CAUSALITY_TOKEN_2, TABLE_ID), willCompleteSuccessfully());
+        DestroyTableEventParameters event = new DestroyTableEventParameters(
+                CAUSALITY_TOKEN_2,
+                CATALOG_VERSION_2,
+                TABLE_ID,
+                1
+        );
+
+        assertThat(tableDestroyedListener().notify(event), willBe(false));
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 
         CompletableFuture<SchemaRegistry> future = schemaManager.schemaRegistry(CAUSALITY_TOKEN_2, TABLE_ID);
         assertThat(future, is(completedFuture()));
-
-        SchemaRegistry schemaRegistry = future.join();
-
-        assertThat(schemaRegistry, is(nullValue()));
+        assertThat(future, willBe(nullValue()));
     }
 
     @Test

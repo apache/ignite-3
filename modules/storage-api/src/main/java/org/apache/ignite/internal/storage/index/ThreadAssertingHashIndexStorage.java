@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
-
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 
 /**
@@ -40,12 +37,5 @@ public class ThreadAssertingHashIndexStorage extends ThreadAssertingIndexStorage
     @Override
     public StorageHashIndexDescriptor indexDescriptor() {
         return indexStorage.indexDescriptor();
-    }
-
-    @Override
-    public void destroy() throws StorageException {
-        assertThreadAllowsToWrite();
-
-        indexStorage.destroy();
     }
 }

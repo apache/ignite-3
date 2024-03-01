@@ -73,6 +73,13 @@ public enum CatalogIndexStatus {
         return id;
     }
 
+    /**
+     * Returns {@code true} if this index is alive, i.e. not in the {@link #STOPPING} state.
+     */
+    public boolean isAlive() {
+        return this != STOPPING;
+    }
+
     static {
         for (CatalogIndexStatus status : values()) {
             assert VALS[status.id] == null : "Found duplicate id " + status.id;

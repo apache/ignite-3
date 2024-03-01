@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -356,13 +357,14 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      *
      * @param node Ignite instance to run a query.
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
+     * @param zoneId Client time zone.
      * @param sql Query to be run.
      * @param args Dynamic parameters for a given query.
      * @return List of lists, where outer list represents a rows, internal lists represents a columns.
      */
-    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, String sql, Object... args) {
+    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object... args) {
         try (
-                Session session = node.sql().createSession();
+                Session session = node.sql().sessionBuilder().timeZoneId(zoneId).build();
                 ResultSet<SqlRow> rs = session.execute(tx, sql, args)
         ) {
             return getAllResultSet(rs);
@@ -374,12 +376,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, String sql, Object[] args) {
+        return sql(nodeIndex, tx, null, sql, args);
+    }
+
+    protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object[] args) {
         IgniteImpl node = CLUSTER.node(nodeIndex);
 
         if (!AWAIT_INDEX_AVAILABILITY.get()) {
-            return sql(node, tx, sql, args);
+            return sql(node, tx, zoneId, sql, args);
         } else {
-            return executeAwaitingIndexes(node, (n) -> sql(n, tx, sql, args));
+            return executeAwaitingIndexes(node, (n) -> sql(n, tx, zoneId, sql, args));
         }
     }
 
@@ -511,7 +517,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }

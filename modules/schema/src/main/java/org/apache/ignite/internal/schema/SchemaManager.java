@@ -39,6 +39,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -85,6 +86,7 @@ public class SchemaManager implements IgniteComponent {
     public CompletableFuture<Void> start() {
         catalogService.listen(CatalogEvent.TABLE_CREATE, this::onTableCreated);
         catalogService.listen(CatalogEvent.TABLE_ALTER, this::onTableAltered);
+        catalogService.listen(CatalogEvent.TABLE_DESTROY, this::onTableDestroyed);
 
         registerExistingTables();
 
@@ -128,21 +130,13 @@ public class SchemaManager implements IgniteComponent {
         }
     }
 
-    private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
-        if (ex != null) {
-            return failedFuture(ex);
-        }
-
+    private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event) {
         CreateTableEventParameters creationEvent = (CreateTableEventParameters) event;
 
         return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken());
     }
 
-    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
-        if (ex != null) {
-            return failedFuture(ex);
-        }
-
+    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event) {
         assert event instanceof TableEventParameters;
 
         TableEventParameters tableEvent = ((TableEventParameters) event);
@@ -191,6 +185,12 @@ public class SchemaManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private CompletableFuture<Boolean> onTableDestroyed(CatalogEventParameters event) {
+        DestroyTableEventParameters creationEvent = (DestroyTableEventParameters) event;
+
+        return dropRegistry(creationEvent.causalityToken(), creationEvent.tableId()).thenApply(ignored -> false);
     }
 
     private void setColumnMapping(SchemaDescriptor schema, int tableId) throws ExecutionException, InterruptedException {
@@ -333,7 +333,7 @@ public class SchemaManager implements IgniteComponent {
      * @param causalityToken Causality token.
      * @param tableId Table id.
      */
-    public CompletableFuture<?> dropRegistry(long causalityToken, int tableId) {
+    private CompletableFuture<?> dropRegistry(long causalityToken, int tableId) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -365,7 +365,7 @@ public class SchemaManager implements IgniteComponent {
 
         busyLock.block();
 
-        //noinspection ConstantConditions
+        // noinspection ConstantConditions
         IgniteUtils.closeAllManually(registriesVv.latest().values());
     }
 }

@@ -457,7 +457,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         // Timeout first waiter, and assert that timeout occurred.
         primaryReplicaFuture1.orTimeout(1, TimeUnit.MILLISECONDS);
 
-        //noinspection ThrowableNotThrown
+        // noinspection ThrowableNotThrown
         assertThrowsWithCause(primaryReplicaFuture1::get, TimeoutException.class);
         assertFalse(primaryReplicaFuture2.isDone());
 
@@ -656,13 +656,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private CompletableFuture<PrimaryReplicaEventParameters> listenReplicaBecomePrimaryEvent(@Nullable ReplicationGroupId groupId) {
         var eventParametersFuture = new CompletableFuture<PrimaryReplicaEventParameters>();
 
-        placementDriver.listen(PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
+        placementDriver.listen(PRIMARY_REPLICA_ELECTED, parameters -> {
             if (groupId == null || groupId.equals(parameters.groupId())) {
-                if (exception != null) {
-                    eventParametersFuture.completeExceptionally(exception);
-                } else {
-                    eventParametersFuture.complete(parameters);
-                }
+                eventParametersFuture.complete(parameters);
             }
 
             return falseCompletedFuture();
