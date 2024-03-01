@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
@@ -520,7 +521,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         try {
             Map<Integer, UUID> nextRowIdToBuildByIndexId = snapshotMeta.nextRowIdToBuildByIndexId();
 
-            if (!nextRowIdToBuildByIndexId.isEmpty()) {
+            if (!nullOrEmpty(nextRowIdToBuildByIndexId)) {
                 Map<Integer, RowId> nextRowIdToBuildByIndexId0 = nextRowIdToBuildByIndexId.entrySet().stream()
                         .collect(toMap(Entry::getKey, e -> new RowId(partId(), e.getValue())));
 
