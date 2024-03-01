@@ -64,6 +64,7 @@ namespace Apache.Ignite.Internal.Compute
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
+            JobExecutionOptions options,
             params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes);
@@ -81,6 +82,7 @@ namespace Apache.Ignite.Internal.Compute
             IIgniteTuple key,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
+            JobExecutionOptions options,
             params object?[]? args) =>
             await ExecuteColocatedAsync<T, IIgniteTuple>(
                     tableName,
@@ -97,6 +99,7 @@ namespace Apache.Ignite.Internal.Compute
             TKey key,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
+            JobExecutionOptions options,
             params object?[]? args)
             where TKey : notnull =>
             await ExecuteColocatedAsync<T, TKey>(
@@ -113,6 +116,7 @@ namespace Apache.Ignite.Internal.Compute
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
+            JobExecutionOptions options,
             params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes);
