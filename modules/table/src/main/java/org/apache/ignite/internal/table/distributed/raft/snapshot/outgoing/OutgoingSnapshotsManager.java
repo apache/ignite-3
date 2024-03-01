@@ -47,6 +47,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -161,7 +162,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void handleMessage(NetworkMessage networkMessage, String senderConsistentId, @Nullable Long correlationId) {
+    private void handleMessage(NetworkMessage networkMessage, ClusterNode sender, @Nullable Long correlationId) {
         // Ignore all messages that we can't handle.
         if (!(networkMessage instanceof SnapshotRequestMessage)) {
             return;
@@ -183,7 +184,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
                 .supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
                 .whenCompleteAsync((response, throwable) -> {
                     if (response != null) {
-                        respond(response, throwable, senderConsistentId, correlationId);
+                        respond(response, throwable, sender, correlationId);
                     }
                 }, executor);
     }
@@ -204,19 +205,14 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void respond(
-            NetworkMessage response,
-            Throwable throwable,
-            String senderConsistentId,
-            Long correlationId
-    ) {
+    private void respond(NetworkMessage response, Throwable throwable, ClusterNode sender, Long correlationId) {
         if (throwable != null) {
             LOG.warn("Something went wrong while handling a request", throwable);
             return;
         }
 
         try {
-            messagingService.respond(senderConsistentId, response, correlationId);
+            messagingService.respond(sender, response, correlationId);
         } catch (RuntimeException e) {
             LOG.warn("Could not send a response with correlationId=" + correlationId, e);
         }

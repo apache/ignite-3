@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -50,6 +51,7 @@ import org.jetbrains.annotations.Nullable;
 public class ClusterServiceFactory {
     private final List<String> allNodes;
 
+    private final Map<String, ClusterNode> nodeByName = new ConcurrentHashMap<>();
     private final Map<String, LocalMessagingService> messagingServicesByNode = new ConcurrentHashMap<>();
     private final Map<String, LocalTopologyService> topologyServicesByNode = new ConcurrentHashMap<>();
 
@@ -60,6 +62,13 @@ public class ClusterServiceFactory {
      */
     ClusterServiceFactory(List<String> allNodes) {
         this.allNodes = allNodes;
+    }
+
+    private ClusterNode nodeByName(String name) {
+        return nodeByName.computeIfAbsent(
+                name,
+                key -> new ClusterNodeImpl(UUID.randomUUID().toString(), name, new NetworkAddress(name + "-host", 1000))
+        );
     }
 
     /**
@@ -84,7 +93,7 @@ public class ClusterServiceFactory {
             /** {@inheritDoc} */
             @Override
             public MessagingService messagingService() {
-                return messagingServicesByNode.computeIfAbsent(nodeName, LocalMessagingService::new);
+                return messagingServicesByNode.computeIfAbsent(nodeName, key -> new LocalMessagingService(nodeByName(nodeName)));
             }
 
             /** {@inheritDoc} */
@@ -170,10 +179,10 @@ public class ClusterServiceFactory {
     }
 
     private class LocalMessagingService extends AbstractMessagingService {
-        private final String localNodeName;
+        private final ClusterNode localNode;
 
-        private LocalMessagingService(String localNodeName) {
-            this.localNodeName = localNodeName;
+        private LocalMessagingService(ClusterNode localNode) {
+            this.localNode = localNode;
         }
 
         /** {@inheritDoc} */
@@ -186,7 +195,7 @@ public class ClusterServiceFactory {
         @Override
         public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
             for (var handler : messagingServicesByNode.get(recipient.name()).messageHandlers(msg.groupType())) {
-                handler.onReceived(msg, localNodeName, null);
+                handler.onReceived(msg, localNode, null);
             }
 
             return nullCompletedFuture();
@@ -195,7 +204,7 @@ public class ClusterServiceFactory {
         @Override
         public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
             for (var handler : messagingServicesByNode.get(recipientConsistentId).messageHandlers(msg.groupType())) {
-                handler.onReceived(msg, localNodeName, null);
+                handler.onReceived(msg, localNode, null);
             }
 
             return nullCompletedFuture();

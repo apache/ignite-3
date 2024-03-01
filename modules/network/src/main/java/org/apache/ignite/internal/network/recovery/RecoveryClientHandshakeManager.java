@@ -415,7 +415,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * @return New message handler.
      */
     private MessageHandler createMessageHandler() {
-        return handler.createMessageHandler(remoteNode.id(), remoteNode.name(), connectionId);
+        return handler.createMessageHandler(remoteNode, connectionId);
     }
 
     /**
