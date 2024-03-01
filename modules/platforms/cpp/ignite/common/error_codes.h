@@ -154,8 +154,8 @@ enum class code : underlying_t {
     // Network group. Group code: 11
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
     PORT_IN_USE = 0xb0002,
-    ADDRESS_UNRESOLVED = 0xb0003,
     RECIPIENT_LEFT = 0xb0005,
+    ADDRESS_UNRESOLVED = 0xb0006,
 
     // NodeConfiguration group. Group code: 12
     CONFIG_READ = 0xc0001,

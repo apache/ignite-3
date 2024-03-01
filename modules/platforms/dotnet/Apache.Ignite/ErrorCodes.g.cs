@@ -386,11 +386,11 @@ namespace Apache.Ignite
             /// <summary> PortInUse error. </summary>
             public const int PortInUse = (GroupCode << 16) | (2 & 0xFFFF);
 
-            /// <summary> AddressUnresolved error. </summary>
-            public const int AddressUnresolved = (GroupCode << 16) | (3 & 0xFFFF);
-
             /// <summary> RecipientLeft error. </summary>
             public const int RecipientLeft = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> AddressUnresolved error. </summary>
+            public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> NodeConfiguration errors. </summary>
