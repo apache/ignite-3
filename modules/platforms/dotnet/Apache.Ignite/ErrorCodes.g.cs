@@ -388,6 +388,9 @@ namespace Apache.Ignite
 
             /// <summary> RecipientLeft error. </summary>
             public const int RecipientLeft = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> AddressUnresolved error. </summary>
+            public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> NodeConfiguration errors. </summary>

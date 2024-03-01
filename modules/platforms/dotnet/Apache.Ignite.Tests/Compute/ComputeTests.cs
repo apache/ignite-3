@@ -116,7 +116,13 @@ namespace Apache.Ignite.Tests.Compute
         {
             var nodes = await GetNodeAsync(0);
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, Units, NodeNameJob, "123");
+            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.BroadcastAsync<string>(
+                nodes,
+                Units,
+                NodeNameJob,
+                JobExecutionOptions.Default,
+                "123");
+
             var res = await taskMap[nodes[0]];
 
             Assert.AreEqual(1, taskMap.Count);
@@ -130,7 +136,13 @@ namespace Apache.Ignite.Tests.Compute
         {
             var nodes = await Client.GetClusterNodesAsync();
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, Units, NodeNameJob, "123");
+            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.BroadcastAsync<string>(
+                nodes,
+                Units,
+                NodeNameJob,
+                JobExecutionOptions.Default,
+                "123");
+
             var res1 = await taskMap[nodes[0]];
             var res2 = await taskMap[nodes[1]];
             var res3 = await taskMap[nodes[2]];
@@ -147,7 +159,15 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteWithArgs()
         {
-            var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), Units, ConcatJob, 1.1, Guid.Empty, "3", null);
+            var res = await Client.Compute.ExecuteAsync<string>(
+                await Client.GetClusterNodesAsync(),
+                Units,
+                ConcatJob,
+                JobExecutionOptions.Default,
+                1.1,
+                Guid.Empty,
+                "3",
+                null);
 
             Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3_null", await res.GetResultAsync());
         }
@@ -559,11 +579,41 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestChangePriority()
         {
-            var jobExecution = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, 5000);
+            var jobExecution = await Client.Compute.ExecuteAsync<string>(
+                await GetNodeAsync(1),
+                Units,
+                SleepJob,
+                new JobExecutionOptions(Priority: 10, MaxRetries: 11),
+                5000);
             var res = await jobExecution.ChangePriorityAsync(123);
 
             // Job exists, but is already executing.
             Assert.IsFalse(res);
+        }
+
+        [Test]
+        public async Task TestJobExecutionOptionsPropagation()
+        {
+            // ReSharper disable once WithExpressionModifiesAllMembers
+            var options = JobExecutionOptions.Default with { Priority = 999, MaxRetries = 66 };
+            var units = new DeploymentUnit[] { new("unit1", "1.0.0") };
+
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var defaultRes = await client.Compute.ExecuteAsync<string>(
+                await GetNodeAsync(1), units, FakeServer.GetDetailsJob, JobExecutionOptions.Default);
+            StringAssert.Contains("priority = 0, maxRetries = 0", await defaultRes.GetResultAsync());
+
+            var res = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), units, FakeServer.GetDetailsJob, options);
+            StringAssert.Contains("priority = 999, maxRetries = 66", await res.GetResultAsync());
+
+            // Colocated.
+            var keyTuple = new IgniteTuple { ["ID"] = 1 };
+            var colocatedRes = await client.Compute.ExecuteColocatedAsync<string>(
+                FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob, options);
+
+            StringAssert.Contains("priority = 999, maxRetries = 66", await colocatedRes.GetResultAsync());
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobState state, Instant beforeStart)

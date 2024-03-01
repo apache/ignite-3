@@ -52,6 +52,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -192,6 +193,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -361,6 +363,12 @@ public class IgniteImpl implements Ignite {
 
     /** Local node RW transaction completion checker for indexes. */
     private final IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker;
+
+    /** Cleanup manager for tx resources. */
+    private final ResourceCleanupManager resourceCleanupManager;
+
+    /** Remote triggered resources registry. */
+    private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
     /**
      * The Constructor.
@@ -652,7 +660,9 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
-        RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+        resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
+        resourceCleanupManager = new ResourceCleanupManager(name, resourcesRegistry, clusterSvc.topologyService());
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -784,12 +794,13 @@ public class IgniteImpl implements Ignite {
 
         authenticationManager = createAuthenticationManager();
 
+        ClientConnectorConfiguration clientConnectorConfiguration = nodeConfigRegistry.getConfiguration(ClientConnectorConfiguration.KEY);
+
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
                 // TODO: IGNITE-20232 The observable timestamp should be different for each client.
                 new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
-                nodeConfigRegistry,
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
@@ -801,7 +812,8 @@ public class IgniteImpl implements Ignite {
                 clock,
                 schemaSyncService,
                 catalogManager,
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                clientConnectorConfiguration
         );
 
         restComponent = createRestComponent(name);
@@ -997,7 +1009,8 @@ public class IgniteImpl implements Ignite {
                                     qryEngine,
                                     clientHandlerModule,
                                     deploymentManager,
-                                    sql
+                                    sql,
+                                    resourceCleanupManager
                             );
 
                             // The system view manager comes last because other components
@@ -1422,5 +1435,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ClusterService clusterService() {
         return clusterSvc;
+    }
+
+    /** Returns resources registry. */
+    @TestOnly
+    public RemotelyTriggeredResourceRegistry resourcesRegistry() {
+        return resourcesRegistry;
     }
 }

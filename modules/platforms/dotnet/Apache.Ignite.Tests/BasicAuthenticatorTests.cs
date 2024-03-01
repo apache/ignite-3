@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Threading.Tasks;
+using Compute;
 using Ignite.Compute;
 using NUnit.Framework;
 using Security.Exception;

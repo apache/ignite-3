@@ -23,10 +23,14 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
+import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -38,6 +42,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.AbstractClusterService;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -137,7 +142,6 @@ public class ScaleCubeClusterServiceFactory {
                 ConnectionManager connectionMgr = new ConnectionManager(
                         configView,
                         serializationService,
-                        launchId,
                         consistentId,
                         nettyBootstrapFactory,
                         staleIds,
@@ -148,6 +152,8 @@ public class ScaleCubeClusterServiceFactory {
                 connectionMgr.start();
                 messagingService.start();
 
+                Address scalecubeLocalAddress = prepareAddress(connectionMgr.localAddress());
+
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
                     public void onDisappeared(ClusterNode member) {
@@ -156,14 +162,15 @@ public class ScaleCubeClusterServiceFactory {
                 });
 
                 var transport = new ScaleCubeDirectMarshallerTransport(
-                        connectionMgr.localAddress(),
+                        scalecubeLocalAddress,
                         messagingService,
                         topologyService,
                         messageFactory
                 );
 
+                ClusterConfig clusterConfig = clusterConfig(configView.membership());
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
-                ClusterImpl cluster = new ClusterImpl(clusterConfig(configView.membership()))
+                ClusterImpl cluster = new ClusterImpl(clusterConfig)
                         .handler(cl -> new ClusterMessageHandler() {
                             @Override
                             public void onMembershipEvent(MembershipEvent event) {
@@ -178,6 +185,14 @@ public class ScaleCubeClusterServiceFactory {
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
+                Member localMember = createLocalMember(scalecubeLocalAddress, launchId, clusterConfig);
+                ClusterNode localNode = new ClusterNodeImpl(
+                        localMember.id(),
+                        consistentId,
+                        new NetworkAddress(localMember.address().host(), localMember.address().port())
+                );
+                connectionMgr.setLocalNode(localNode);
+
                 this.shutdownFuture = cluster.onShutdown().toFuture();
 
                 // resolve cyclic dependencies
@@ -185,6 +200,9 @@ public class ScaleCubeClusterServiceFactory {
                 messagingService.setConnectionManager(connectionMgr);
 
                 cluster.startAwait();
+
+                assert cluster.member().equals(localMember) : "Expected local member from cluster " + cluster.member()
+                        + " to be equal to the precomputed one " + localMember;
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
                 var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
@@ -248,6 +266,37 @@ public class ScaleCubeClusterServiceFactory {
             }
 
         };
+    }
+
+    /**
+     * Convert {@link InetSocketAddress} to {@link Address}.
+     *
+     * @param addr Address.
+     * @return ScaleCube address.
+     */
+    private static Address prepareAddress(InetSocketAddress addr) {
+        InetAddress address = addr.getAddress();
+
+        String host = address.isAnyLocalAddress() ? Address.getLocalIpAddress().getHostAddress() : address.getHostAddress();
+
+        return Address.create(host, addr.getPort());
+    }
+
+    // This is copied from ClusterImpl#creeateLocalMember() and adjusted to always use launchId as member ID.
+    private Member createLocalMember(Address address, UUID launchId, ClusterConfig config) {
+        int port = Optional.ofNullable(config.externalPort()).orElse(address.port());
+
+        // calculate local member cluster address
+        Address memberAddress =
+                Optional.ofNullable(config.externalHost())
+                        .map(host -> Address.create(host, port))
+                        .orElseGet(() -> Address.create(address.host(), port));
+
+        return new Member(
+                launchId.toString(),
+                config.memberAlias(),
+                memberAddress,
+                config.membershipConfig().namespace());
     }
 
     /**
