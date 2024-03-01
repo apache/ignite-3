@@ -19,6 +19,8 @@ package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,6 +41,8 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import java.net.ConnectException;
+import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -86,7 +90,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 server == null ? null : () -> server.stop().join(),
-                () -> bootstrapFactory.stop()
+                bootstrapFactory == null ? null : () -> bootstrapFactory.stop()
         );
     }
 
@@ -151,13 +155,23 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testBindWithAddress() {
-        String host = "localhost";
+        String host = "127.0.0.7";
         assertThat(serverCfg.listenAddress().update(host), willCompleteSuccessfully());
 
-        getServer(true);
+        assertDoesNotThrow(() -> getServer(true));
 
-        serverCfg.listenAddress().update("");
+        assertDoesNotThrow(
+                () -> {
+                    Socket socket = new Socket(host, serverCfg.port().value());
+                    socket.close();
+                });
 
+        assertThrows(
+                ConnectException.class,
+                () -> {
+                    Socket socket = new Socket("127.0.0.1", serverCfg.port().value());
+                    socket.close();
+                });
     }
 
     /**
@@ -171,9 +185,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         AssertionFailedError e = assertThrows(AssertionFailedError.class, () -> getServer(true));
 
         String expectedError = String.format("Address %s:%d is not available", address, serverCfg.port().value());
-        assertTrue(e.getCause().getMessage().contains(expectedError));
-
-        assertThat(serverCfg.listenAddress().update(""), willCompleteSuccessfully());
+        assertThat(e.getCause().getMessage(), containsString(expectedError));
     }
 
     /**

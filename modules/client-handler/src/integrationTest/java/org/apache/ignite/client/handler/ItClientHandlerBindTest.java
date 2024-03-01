@@ -29,6 +29,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,14 +43,26 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
 
+    private TestServer server;
+
+    private ClientHandlerModule serverModule;
+
+    @AfterEach
+    final void tearDown() throws Exception {
+        IgniteUtils.closeAll(
+                server == null ? null : () -> server.tearDown(),
+                serverModule == null ? null : () -> serverModule.stop()
+        );
+    }
+
     @Test
     void listenOnlySpecificAddress(
             TestInfo testInfo,
             @InjectConfiguration("mock.listenAddress=127.0.0.7") ClientConnectorConfiguration clientConnectorConfiguration
     ) throws Exception {
-        TestServer server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
+        server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
 
-        ClientHandlerModule serverModule = assertDoesNotThrow(() -> server.start(testInfo));
+        serverModule = assertDoesNotThrow(() -> server.start(testInfo));
 
         int port = serverModule.localAddress().getPort();
 
@@ -64,9 +78,6 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
                     Socket socket = new Socket("127.0.0.1", port);
                     socket.close();
                 });
-
-        serverModule.stop();
-        server.tearDown();
     }
 
     @Test
@@ -74,7 +85,7 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
             TestInfo testInfo,
             @InjectConfiguration("mock.listenAddress=unknown-address") ClientConnectorConfiguration clientConnectorConfiguration
     ) {
-        TestServer server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
+        server = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
 
         CompletionException e = assertThrows(CompletionException.class, () -> server.start(testInfo));
         assertTrue(e.getMessage().contains("Failed to start thin connector endpoint, unresolved socket address \"unknown-address\""));
