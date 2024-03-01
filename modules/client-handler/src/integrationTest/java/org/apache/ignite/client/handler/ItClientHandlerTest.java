@@ -33,8 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -59,9 +61,15 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(rootName = "security")
     private SecurityConfiguration securityConfiguration;
 
+    @InjectConfiguration
+    private ClientConnectorConfiguration clientConnectorConfiguration;
+
+    @InjectConfiguration
+    private NetworkConfiguration networkConfiguration;
+
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        testServer = new TestServer(null, securityConfiguration);
+        testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
         serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();
     }

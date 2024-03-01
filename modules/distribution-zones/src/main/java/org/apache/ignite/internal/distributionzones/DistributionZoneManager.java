@@ -79,7 +79,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -194,6 +196,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Catalog manager. */
     private final CatalogManager catalogManager;
 
+    /** Executor for scheduling rebalances. */
+    private final ScheduledExecutorService rebalanceScheduler;
+
     /**
      * Creates a new distribution zone manager.
      *
@@ -208,13 +213,16 @@ public class DistributionZoneManager implements IgniteComponent {
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
-            CatalogManager catalogManager
+            CatalogManager catalogManager,
+            ScheduledExecutorService rebalanceScheduler
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.catalogManager = catalogManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
+
+        this.rebalanceScheduler = rebalanceScheduler;
 
         executor = createZoneManagerExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
@@ -228,7 +236,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 busyLock,
                 metaStorageManager,
                 this,
-                catalogManager
+                catalogManager,
+                rebalanceScheduler
         );
 
         // noinspection ThisEscapedInObjectConstruction
@@ -282,6 +291,7 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
+        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
     }
 
     /**

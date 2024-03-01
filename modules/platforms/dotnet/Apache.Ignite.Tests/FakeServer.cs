@@ -650,13 +650,17 @@ namespace Apache.Ignite.Tests
             }
 
             var jobClassName = reader.ReadString();
+            var priority = reader.ReadInt32();
+            var maxRetries = reader.ReadInt64();
 
             object? resObj = jobClassName == GetDetailsJob
                 ? new
                 {
                     NodeName = Node.Name,
                     Units = units.Select(u => $"{u.Name}|{u.Version}").StringJoin(),
-                    jobClassName
+                    jobClassName,
+                    priority,
+                    maxRetries
                 }.ToString()
                 : Node.Name;
 
