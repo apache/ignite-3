@@ -25,6 +25,7 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Threading.Tasks;
+using Compute;
 using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
