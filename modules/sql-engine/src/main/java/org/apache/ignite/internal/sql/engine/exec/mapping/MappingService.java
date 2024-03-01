@@ -32,5 +32,5 @@ public interface MappingService {
      * @param multiStepPlan A plan to map.
      * @return A list of fragments with metadata related to a fragment topology.
      */
-    CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan);
+    CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters);
 }

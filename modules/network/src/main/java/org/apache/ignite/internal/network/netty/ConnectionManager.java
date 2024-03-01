@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -105,8 +107,7 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Node consistent id. */
     private final String consistentId;
 
-    /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
-    private final UUID launchId;
+    private volatile @Nullable ClusterNode localNode;
 
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -141,7 +142,6 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
-     * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param staleIdDetector               Detects stale member IDs.
@@ -149,7 +149,6 @@ public class ConnectionManager implements ChannelCreationListener {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            UUID launchId,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
@@ -158,7 +157,6 @@ public class ConnectionManager implements ChannelCreationListener {
         this(
                 networkConfiguration,
                 serializationService,
-                launchId,
                 consistentId,
                 bootstrapFactory,
                 staleIdDetector,
@@ -172,7 +170,6 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
-     * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param staleIdDetector               Detects stale member IDs.
@@ -181,7 +178,6 @@ public class ConnectionManager implements ChannelCreationListener {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            UUID launchId,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
@@ -189,7 +185,6 @@ public class ConnectionManager implements ChannelCreationListener {
             FailureProcessor failureProcessor
     ) {
         this.serializationService = serializationService;
-        this.launchId = launchId;
         this.consistentId = consistentId;
         this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
@@ -447,7 +442,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
         assert stopping.get();
 
-        //noinspection FuseStreamOperations
+        // noinspection FuseStreamOperations
         List<CompletableFuture<Void>> stopFutures = new ArrayList<>(clients.values().stream().map(NettyClient::stop).collect(toList()));
         stopFutures.add(server.stop());
         stopFutures.addAll(channels.values().stream().map(NettySender::closeAsync).collect(toList()));
@@ -488,8 +483,7 @@ public class ConnectionManager implements ChannelCreationListener {
     private HandshakeManager createClientHandshakeManager(short connectionId) {
         if (clientHandshakeManagerFactory == null) {
             return new RecoveryClientHandshakeManager(
-                    launchId,
-                    consistentId,
+                    Objects.requireNonNull(localNode, "localNode not set"),
                     connectionId,
                     descriptorProvider,
                     bootstrapFactory,
@@ -501,8 +495,7 @@ public class ConnectionManager implements ChannelCreationListener {
         }
 
         return clientHandshakeManagerFactory.create(
-                launchId,
-                consistentId,
+                Objects.requireNonNull(localNode, "localNode not set"),
                 connectionId,
                 descriptorProvider
         );
@@ -510,8 +503,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private HandshakeManager createServerHandshakeManager() {
         return new RecoveryServerHandshakeManager(
-                launchId,
-                consistentId,
+                Objects.requireNonNull(localNode, "localNode not set"),
                 FACTORY,
                 descriptorProvider,
                 bootstrapFactory,
@@ -649,5 +641,9 @@ public class ConnectionManager implements ChannelCreationListener {
         descriptor.dispose(exceptionToFailSendFutures);
 
         return nullCompletedFuture();
+    }
+
+    public void setLocalNode(ClusterNode localNode) {
+        this.localNode = localNode;
     }
 }

@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -82,7 +81,7 @@ public class AbstractMultiNodeBenchmark {
         try {
             var queryEngine = clusterNode.queryEngine();
 
-            var createZoneStatement = "CREATE ZONE " + ZONE_NAME + " WITH partitions=" + partitionCount();
+            var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount();
 
             getAllFromCursor(
                     await(queryEngine.querySingleAsync(
@@ -99,19 +98,36 @@ public class AbstractMultiNodeBenchmark {
     }
 
     protected void createTable(String tableName) {
-        var createTableStatement = "CREATE TABLE " + tableName + "(\n"
-                + "    ycsb_key int PRIMARY KEY,\n"
-                + "    field1   varchar(100),\n"
-                + "    field2   varchar(100),\n"
-                + "    field3   varchar(100),\n"
-                + "    field4   varchar(100),\n"
-                + "    field5   varchar(100),\n"
-                + "    field6   varchar(100),\n"
-                + "    field7   varchar(100),\n"
-                + "    field8   varchar(100),\n"
-                + "    field9   varchar(100),\n"
-                + "    field10  varchar(100)\n"
-                + ") WITH primary_zone='" + ZONE_NAME + "'";
+        createTable(tableName,
+                List.of(
+                        "ycsb_key int",
+                        "field1   varchar(100)",
+                        "field2   varchar(100)",
+                        "field3   varchar(100)",
+                        "field4   varchar(100)",
+                        "field5   varchar(100)",
+                        "field6   varchar(100)",
+                        "field7   varchar(100)",
+                        "field8   varchar(100)",
+                        "field9   varchar(100)",
+                        "field10  varchar(100)"
+                ),
+                List.of("ycsb_key"),
+                List.of()
+        );
+    }
+
+    protected static void createTable(String tableName, List<String> columns, List<String> primaryKeys, List<String> colocationKeys) {
+        var createTableStatement = "CREATE TABLE " + tableName + "(\n";
+
+        createTableStatement += String.join(",\n", columns);
+        createTableStatement += "\n, PRIMARY KEY (" + String.join(", ", primaryKeys) + ")\n)";
+
+        if (!colocationKeys.isEmpty()) {
+            createTableStatement += "\nCOLOCATE BY (" + String.join(", ", colocationKeys) + ")";
+        }
+
+        createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
 
         getAllFromCursor(
                 await(clusterNode.queryEngine().querySingleAsync(
@@ -162,8 +178,8 @@ public class AbstractMultiNodeBenchmark {
         IgniteUtils.closeAll(closeables);
     }
 
-    private void startCluster() throws IOException {
-        Path workDir = Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
+    private void startCluster() throws Exception {
+        Path workDir = workDir();
 
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
@@ -215,6 +231,10 @@ public class AbstractMultiNodeBenchmark {
 
     private static String nodeName(int port) {
         return "node_" + port;
+    }
+
+    protected Path workDir() throws Exception {
+        return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
     }
 
     protected int nodes() {

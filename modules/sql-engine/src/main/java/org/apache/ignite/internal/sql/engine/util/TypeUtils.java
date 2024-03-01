@@ -285,8 +285,7 @@ public class TypeUtils {
         } else if (storageType == LocalTime.class && val instanceof Integer) {
             return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(Long.valueOf((Integer) val)));
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
-            return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
-                    (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli((long) val), ZoneOffset.UTC);
         } else if (storageType == Instant.class && val instanceof Long) {
             return Instant.ofEpochMilli((long) val);
         } else if (storageType == Duration.class && val instanceof Long) {

@@ -314,7 +314,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         private boolean advanceIfNeededBusy() throws StorageException {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
-            //noinspection ArrayEquality
+            // noinspection ArrayEquality
             key = (peekedKey == BYTE_EMPTY_ARRAY) ? peekBusy() : peekedKey;
             peekedKey = BYTE_EMPTY_ARRAY;
 

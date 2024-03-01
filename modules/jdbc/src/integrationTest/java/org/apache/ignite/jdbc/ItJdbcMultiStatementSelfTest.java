@@ -137,7 +137,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         boolean res = stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
         assertTrue(res);
         assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
-        //next after exception
+        // Next after exception.
         assertFalse(stmt.getMoreResults());
 
         stmt.closeOnCompletion();

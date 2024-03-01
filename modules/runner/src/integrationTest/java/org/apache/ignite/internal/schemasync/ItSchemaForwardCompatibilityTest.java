@@ -134,7 +134,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
         ADD_NULLABLE_COLUMN("ALTER TABLE " + TABLE_NAME + " ADD COLUMN new_col INT"),
         ADD_COLUMN_WITH_DEFAULT("ALTER TABLE " + TABLE_NAME + " ADD COLUMN new_col INT NOT NULL DEFAULT 42"),
         // TODO: IGNITE-19485, IGNITE-20315 - Uncomment this after column rename support gets aded.
-        //RENAME_COLUMN("ALTER TABLE " + TABLE_NAME + " RENAME COLUMN not_null_int to new_col"),
+        // RENAME_COLUMN("ALTER TABLE " + TABLE_NAME + " RENAME COLUMN not_null_int to new_col"),
         DROP_NOT_NULL("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int DROP NOT NULL"),
         WIDEN_COLUMN_TYPE("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DATA TYPE BIGINT");
 
@@ -153,7 +153,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
 
     private enum ForwardIncompatibleDdl {
         // TODO: Enable after https://issues.apache.org/jira/browse/IGNITE-19484 is fixed.
-        //RENAME_TABLE("RENAME TABLE " + TABLE_NAME + " to new_table"),
+        // RENAME_TABLE("RENAME TABLE " + TABLE_NAME + " to new_table"),
         DROP_COLUMN("ALTER TABLE " + TABLE_NAME + " DROP COLUMN not_null_int"),
         ADD_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DEFAULT 102"),
         CHANGE_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default SET DEFAULT 102"),

@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.waitCatalogCompaction;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
@@ -32,6 +33,7 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.PK_INDEX
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.removeIndex;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -45,6 +47,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -60,6 +63,7 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -226,7 +230,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         int tableId = indexDescriptor.tableId();
 
         dropIndex(INDEX_NAME);
-        CatalogTestUtils.waitCatalogCompaction(catalogManager, Long.MAX_VALUE);
+        assertTrue(waitCatalogCompaction(catalogManager, Long.MAX_VALUE));
 
         long causalityToken = 0L; // Use last token.
         MvTableStorage mvTableStorage = indexManager.getMvTableStorage(causalityToken, tableId).get();
@@ -244,7 +248,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         int tableId = indexDescriptor.tableId();
 
         dropTable(TABLE_NAME);
-        CatalogTestUtils.waitCatalogCompaction(catalogManager, Long.MAX_VALUE);
+        assertTrue(waitCatalogCompaction(catalogManager, Long.MAX_VALUE));
 
         long causalityToken = 0L; // Use last token.
         MvTableStorage mvTableStorage = indexManager.getMvTableStorage(causalityToken, tableId).get();
@@ -272,118 +276,129 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testCollectIndexesForRecoveryForCreatedAndDroppedAndBuildingIndexes() {
-        createTable(OTHER_TABLE_NAME);
-
-        String indexName0 = INDEX_NAME + 0;
-        String indexName1 = INDEX_NAME + 1;
-        String indexName2 = INDEX_NAME + 2;
-        String indexName3 = INDEX_NAME + 3;
-        String indexName4 = INDEX_NAME + 4;
-
-        String indexNameOtherTable0 = INDEX_NAME + "-other" + 0;
-        String indexNameOtherTable1 = INDEX_NAME + "-other" + 1;
-        String indexNameOtherTable2 = INDEX_NAME + "-other" + 2;
-        String indexNameOtherTable3 = INDEX_NAME + "-other" + 3;
-        String indexNameOtherTable4 = INDEX_NAME + "-other" + 4;
-
-        createIndexes(
-                TABLE_NAME,
-                indexName0, indexName1, indexName2, indexName3, indexName4
-        );
-
-        createIndexes(
-                OTHER_TABLE_NAME,
-                indexNameOtherTable0, indexNameOtherTable1, indexNameOtherTable2, indexNameOtherTable3, indexNameOtherTable4
-        );
-
-        startBuildingIndexes(indexName0, indexName2, indexName4, indexNameOtherTable1, indexNameOtherTable3, indexNameOtherTable4);
-        makeIndexesAvailable(indexName0, indexName2, indexNameOtherTable1, indexNameOtherTable3);
-
-        List<CatalogIndexDescriptor> droppedIndexes = dropIndexes(indexName1, indexName2);
-        List<CatalogIndexDescriptor> droppedIndexesOtherTable = dropIndexes(indexNameOtherTable0, indexNameOtherTable1);
-
-        Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectedIndexes = collectIndexesForRecovery();
-
-        int latestCatalogVersion = catalogManager.latestCatalogVersion();
-
-        CatalogTableDescriptor table = table(latestCatalogVersion, TABLE_NAME);
-        CatalogTableDescriptor otherTable = table(latestCatalogVersion, OTHER_TABLE_NAME);
-
-        assertThat(collectedIndexes, hasKey(table));
-        assertThat(collectedIndexes, hasKey(otherTable));
-
-        assertThat(
-                collectedIndexes.get(table),
-                hasItems(
-                        index(latestCatalogVersion, PK_INDEX_NAME),
-                        index(latestCatalogVersion, indexName0),
-                        index(latestCatalogVersion, indexName3),
-                        index(latestCatalogVersion, indexName4),
-                        droppedIndexes.get(0),
-                        droppedIndexes.get(1)
-                )
-        );
-
-        assertThat(
-                collectedIndexes.get(otherTable),
-                hasItems(
-                        index(latestCatalogVersion, PK_INDEX_NAME_OTHER_TABLE),
-                        index(latestCatalogVersion, indexNameOtherTable2),
-                        index(latestCatalogVersion, indexNameOtherTable3),
-                        index(latestCatalogVersion, indexNameOtherTable4),
-                        droppedIndexesOtherTable.get(0),
-                        droppedIndexesOtherTable.get(1)
-                )
-        );
-    }
-
-    @Test
     void testCollectIndexesForDroppedTable() {
         createTable(OTHER_TABLE_NAME);
         dropTable(OTHER_TABLE_NAME);
 
         Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectedIndexes = collectIndexesForRecovery();
 
-        CatalogTableDescriptor table = table(catalogManager.latestCatalogVersion(), TABLE_NAME);
-
-        assertThat(collectedIndexes, aMapWithSize(1));
-        assertThat(collectedIndexes, hasKey(table));
+        assertThat(collectedIndexes, aMapWithSize(2));
+        assertThat(collectedIndexes.keySet().stream().map(CatalogTableDescriptor::name).collect(toList()),
+                hasItems(TABLE_NAME, OTHER_TABLE_NAME));
+        assertThat(collectedIndexes.values().stream().flatMap(Collection::stream).map(CatalogIndexDescriptor::name).collect(toList()),
+                hasItems(PK_INDEX_NAME, PK_INDEX_NAME_OTHER_TABLE));
     }
 
     @Test
-    void testStartAllIndexesOnNodeRecovery() throws Exception {
-        String indexName0 = INDEX_NAME + 0;
-        String indexName1 = INDEX_NAME + 1;
-        String indexName2 = INDEX_NAME + 2;
-        String indexName3 = INDEX_NAME + 3;
-        String indexName4 = INDEX_NAME + 4;
+    void testCollectIndexesForDroppedTableAfterCompaction() {
+        createTable(OTHER_TABLE_NAME);
+        dropTable(OTHER_TABLE_NAME);
 
-        createIndexes(TABLE_NAME, indexName0, indexName1, indexName2, indexName3, indexName4);
+        assertTrue(waitCatalogCompaction(catalogManager, Long.MAX_VALUE));
 
-        startBuildingIndexes(indexName0, indexName2, indexName4);
+        Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectedIndexes = collectIndexesForRecovery();
 
-        makeIndexesAvailable(indexName0, indexName2);
+        assertThat(collectedIndexes, aMapWithSize(1));
+        assertThat(collectedIndexes.values().stream().flatMap(Collection::stream).map(CatalogIndexDescriptor::name).collect(toList()),
+                hasItems(PK_INDEX_NAME));
+    }
 
-        dropIndexes(indexName1, indexName2);
+    @Test
+    void testStartAliveIndexesOnNodeRecovery() throws Exception {
+        String indexName0 = INDEX_NAME + "_registered";
+        String indexName1 = INDEX_NAME + "_building";
+        String indexName2 = INDEX_NAME + "_available";
+        String indexName3 = INDEX_NAME + "_stopping";
+        String indexName4 = INDEX_NAME + "_removed"; // Dropped being in available state
+        String indexName5 = INDEX_NAME + "_destroyed"; // Never was in available state.
+
+        createIndexes(TABLE_NAME, indexName0, indexName1, indexName2, indexName3, indexName4, indexName5);
+
+        int removedIndexId = index(catalogManager.latestCatalogVersion(), indexName4).id();
+
+        startBuildingIndexes(indexName1, indexName2, indexName3, indexName4, indexName5);
+        makeIndexesAvailable(indexName2, indexName3, indexName4);
+        dropIndexes(indexName3, indexName4, indexName5);
+        removeIndex(catalogManager, removedIndexId);
 
         TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
-
         clearInvocations(tableViewInternal);
 
         IgniteUtils.stopAll(indexManager, catalogManager, metaStorageManager);
-
         createAndStartComponents();
 
         ArgumentCaptor<StorageHashIndexDescriptor> captor = ArgumentCaptor.forClass(StorageHashIndexDescriptor.class);
-
         verify(tableViewInternal, times(6)).registerHashIndex(captor.capture(), anyBoolean(), any(), any());
+
+        Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> indexesForRecovery = collectIndexesForRecovery();
 
         CatalogTableDescriptor table = table(catalogManager.latestCatalogVersion(), TABLE_NAME);
 
+        // Ensure recovered all indexes from the latest catalog version, and the ones, which were ever in available state.
+        assertThat(indexesForRecovery.get(table).stream().map(CatalogObjectDescriptor::name).collect(toList()),
+                hasItems(
+                        indexName0,
+                        indexName1,
+                        indexName2,
+                        indexName3,
+                        indexName4,
+                        PK_INDEX_NAME
+                ));
+
+        // Ensure all alive indexes were started.
         assertThat(
                 captor.getAllValues().stream().map(StorageHashIndexDescriptor::id).sorted().collect(toList()),
-                equalTo(collectIndexesForRecovery().get(table).stream().map(CatalogObjectDescriptor::id).sorted().collect(toList()))
+                equalTo(indexesForRecovery.get(table).stream().map(CatalogObjectDescriptor::id).sorted().collect(toList()))
+        );
+    }
+
+    @Test
+    void testStartAliveIndexesOnNodeRecoveryAfterCatalogCompaction() throws Exception {
+        String indexName0 = INDEX_NAME + "_registered";
+        String indexName1 = INDEX_NAME + "_building";
+        String indexName2 = INDEX_NAME + "_available";
+        String indexName3 = INDEX_NAME + "_stopping";
+        String indexName4 = INDEX_NAME + "_removed"; // Dropped being in available state
+        String indexName5 = INDEX_NAME + "_destoroyed"; // Never was in available state.
+
+        createIndexes(TABLE_NAME, indexName0, indexName1, indexName2, indexName3, indexName4, indexName5);
+
+        int removedIndexId = index(catalogManager.latestCatalogVersion(), indexName4).id();
+
+        startBuildingIndexes(indexName1, indexName2, indexName3, indexName4, indexName5);
+        makeIndexesAvailable(indexName2, indexName3, indexName4);
+        dropIndexes(indexName3, indexName4, indexName5);
+        removeIndex(catalogManager, removedIndexId);
+
+        assertTrue(waitCatalogCompaction(catalogManager, Long.MAX_VALUE));
+
+        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
+        clearInvocations(tableViewInternal);
+
+        IgniteUtils.stopAll(indexManager, catalogManager, metaStorageManager);
+        createAndStartComponents();
+
+        ArgumentCaptor<StorageHashIndexDescriptor> captor = ArgumentCaptor.forClass(StorageHashIndexDescriptor.class);
+        verify(tableViewInternal, times(5)).registerHashIndex(captor.capture(), anyBoolean(), any(), any());
+
+        Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> indexesForRecovery = collectIndexesForRecovery();
+
+        CatalogTableDescriptor table = table(catalogManager.latestCatalogVersion(), TABLE_NAME);
+
+        // Ensure recovered all indexes from the latest catalog version, and the ones, which were ever in available state.
+        assertThat(indexesForRecovery.get(table).stream().map(CatalogObjectDescriptor::name).collect(toList()),
+                hasItems(
+                        indexName0,
+                        indexName1,
+                        indexName2,
+                        indexName3,
+                        PK_INDEX_NAME
+                ));
+
+        // Ensure all alive indexes were started.
+        assertThat(
+                captor.getAllValues().stream().map(StorageHashIndexDescriptor::id).sorted().collect(toList()),
+                equalTo(indexesForRecovery.get(table).stream().map(CatalogObjectDescriptor::id).sorted().collect(toList()))
         );
     }
 
@@ -532,6 +547,10 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectIndexesForRecovery() {
-        return IndexManager.collectIndexesForRecovery(catalogManager);
+        Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> res = new HashMap<>();
+
+        IndexManager.acceptAliveIndexes(catalogManager, (k, v) -> res.computeIfAbsent(k, ignore -> new ArrayList<>()).add(v));
+
+        return res;
     }
 }

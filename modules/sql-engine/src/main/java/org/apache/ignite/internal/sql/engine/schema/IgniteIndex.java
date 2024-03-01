@@ -206,7 +206,7 @@ public class IgniteIndex {
         }
     }
 
-    //TODO: cache rowType as it can't be changed.
+    // TODO: cache rowType as it can't be changed.
 
     /**
      * Returns index row type.

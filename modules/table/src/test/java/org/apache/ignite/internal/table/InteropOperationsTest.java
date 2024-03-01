@@ -133,8 +133,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        intTable = new DummyInternalTableImpl(
-                mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration, storageUpdateConfiguration);
+        intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration,
+                storageUpdateConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 
@@ -601,6 +601,46 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     && Objects.equals(fdecimal, value.fdecimal) && Objects.equals(fdecimalN, value.fdecimalN)
                     && Objects.equals(fbitmask, value.fbitmask) && Objects.equals(fbitmaskN, value.fbitmaskN);
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                    fboolean,
+                    fbooleanN,
+                    fint8,
+                    fint8N,
+                    fint16,
+                    fint16N,
+                    fint32,
+                    fint32N,
+                    fint64,
+                    fint64N,
+                    ffloat,
+                    ffloatN,
+                    fdouble,
+                    fdoubleN,
+                    fuuid,
+                    fuuidN,
+                    fstring,
+                    fstringN,
+                    fbytes,
+                    fbytesN,
+                    fdate,
+                    fdateN,
+                    ftime,
+                    ftimeN,
+                    fdatetime,
+                    fdatetimeN,
+                    ftimestamp,
+                    ftimestampN,
+                    fnumber,
+                    fnumberN,
+                    fdecimal,
+                    fdecimalN,
+                    fbitmask,
+                    fbitmaskN
+            );
+        }
     }
 
     /**
@@ -717,6 +757,47 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     && Objects.equals(fnumberN, row.fnumberN) && Objects.equals(fdecimal, row.fdecimal)
                     && Objects.equals(fdecimalN, row.fdecimalN) && Objects.equals(fbitmask, row.fbitmask)
                     && Objects.equals(fbitmaskN, row.fbitmaskN);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                    id,
+                    fboolean,
+                    fbooleanN,
+                    fint8,
+                    fint8N,
+                    fint16,
+                    fint16N,
+                    fint32,
+                    fint32N,
+                    fint64,
+                    fint64N,
+                    ffloat,
+                    ffloatN,
+                    fdouble,
+                    fdoubleN,
+                    fuuid,
+                    fuuidN,
+                    fstring,
+                    fstringN,
+                    fbytes,
+                    fbytesN,
+                    fdate,
+                    fdateN,
+                    ftime,
+                    ftimeN,
+                    fdatetime,
+                    fdatetimeN,
+                    ftimestamp,
+                    ftimestampN,
+                    fnumber,
+                    fnumberN,
+                    fdecimal,
+                    fdecimalN,
+                    fbitmask,
+                    fbitmaskN
+            );
         }
     }
 }

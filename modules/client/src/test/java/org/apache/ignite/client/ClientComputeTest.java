@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -83,9 +84,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1, server2, server3, server1, server2)) {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
-            JobExecution<String> execution1 = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
-            JobExecution<String> execution2 = client.compute().executeAsync(getClusterNodes("s2"), List.of(), "job");
-            JobExecution<String> execution3 = client.compute().executeAsync(getClusterNodes("s3"), List.of(), "job");
+            JobExecution<String> execution1 = client.compute().submit(getClusterNodes("s1"), List.of(), "job");
+            JobExecution<String> execution2 = client.compute().submit(getClusterNodes("s2"), List.of(), "job");
+            JobExecution<String> execution3 = client.compute().submit(getClusterNodes("s3"), List.of(), "job");
 
             assertThat(execution1.resultAsync(), willBe("s1"));
             assertThat(execution2.resultAsync(), willBe("s2"));
@@ -102,9 +103,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server3)) {
-            JobExecution<String> execution1 = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
-            JobExecution<String> execution2 = client.compute().executeAsync(getClusterNodes("s2"), List.of(), "job");
-            JobExecution<String> execution3 = client.compute().executeAsync(getClusterNodes("s3"), List.of(), "job");
+            JobExecution<String> execution1 = client.compute().submit(getClusterNodes("s1"), List.of(), "job");
+            JobExecution<String> execution2 = client.compute().submit(getClusterNodes("s2"), List.of(), "job");
+            JobExecution<String> execution3 = client.compute().submit(getClusterNodes("s3"), List.of(), "job");
 
             assertThat(execution1.resultAsync(), willBe("s3"));
             assertThat(execution2.resultAsync(), willBe("s3"));
@@ -125,8 +126,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 var nodeId = i % 3 + 1;
                 var nodeName = "s" + nodeId;
 
-                CompletableFuture<String> fut = client.compute()
-                        .<String>executeAsync(getClusterNodes(nodeName), List.of(), "job").resultAsync();
+                CompletableFuture<String> fut = client.compute().executeAsync(getClusterNodes(nodeName), List.of(), "job");
 
                 assertThat(fut, willBe("s3"));
             }
@@ -156,10 +156,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             Tuple key = Tuple.create().set("key", "k");
 
             JobExecution<String> execution1 = client.compute()
-                    .executeColocatedAsync(TABLE_NAME, key, List.of(), "job");
+                    .submitColocated(TABLE_NAME, key, List.of(), "job");
 
             JobExecution<String> execution2 = client.compute()
-                    .executeColocatedAsync(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
+                    .submitColocated(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
 
             assertThat(execution1.resultAsync(), willBe("s2"));
             assertThat(execution2.resultAsync(), willBe("s2"));
@@ -177,7 +177,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             Tuple key = Tuple.create().set("key", "k");
 
             var ex = assertThrows(CompletionException.class,
-                    () -> client.compute().executeColocatedAsync("bad-tbl", key, List.of(), "job").resultAsync().join());
+                    () -> client.compute().executeColocatedAsync("bad-tbl", key, List.of(), "job").join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
             assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-tbl\"]"));
@@ -196,8 +196,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server3)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            String res1 = client.compute()
-                    .<String>executeColocatedAsync(tableName, key, List.of(), "job").resultAsync().join();
+            String res1 = client.compute().executeColocated(tableName, key, List.of(), "job");
 
             // Drop table and create a new one with a different ID.
             ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
@@ -210,8 +209,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 IgniteTestUtils.setFieldValue(table, "partitionAssignment", null);
             }
 
-            String res2 = client.compute()
-                    .<Long, String>executeColocatedAsync(tableName, 1L, Mapper.of(Long.class), List.of(), "job").resultAsync().join();
+            String res2 = client.compute().executeColocated(tableName, 1L, Mapper.of(Long.class), List.of(), "job");
 
             assertEquals("s3", res1);
             assertEquals("s3", res2);
@@ -223,19 +221,18 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
-            assertThat(getUnits(client, List.of()), willBe(""));
-            assertThat(getUnits(client, List.of(new DeploymentUnit("u1", "1.2.3"))), willBe("u1:1.2.3"));
-            assertThat(getUnits(client, List.of(new DeploymentUnit("u", "LaTeSt"))), willBe("u:latest"));
+            assertThat(getUnits(client, List.of()), is(""));
+            assertThat(getUnits(client, List.of(new DeploymentUnit("u1", "1.2.3"))), is("u1:1.2.3"));
+            assertThat(getUnits(client, List.of(new DeploymentUnit("u", "LaTeSt"))), is("u:latest"));
             assertThat(
                     getUnits(client, List.of(new DeploymentUnit("u1", "1.2.3"), new DeploymentUnit("unit2", Version.LATEST))),
-                    willBe("u1:1.2.3,unit2:latest")
+                    is("u1:1.2.3,unit2:latest")
             );
         }
     }
 
-    private static CompletableFuture<String> getUnits(IgniteClient client, List<DeploymentUnit> units) {
-        return client.compute()
-                .<String>executeAsync(getClusterNodes("s1"), units, FakeCompute.GET_UNITS).resultAsync();
+    private static String getUnits(IgniteClient client, List<DeploymentUnit> units) {
+        return client.compute().execute(getClusterNodes("s1"), units, FakeCompute.GET_UNITS);
     }
 
     @Test
@@ -245,7 +242,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1)) {
             FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
 
-            JobExecution<String> execution = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+            JobExecution<String> execution = client.compute().submit(getClusterNodes("s1"), List.of(), "job");
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
             assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));

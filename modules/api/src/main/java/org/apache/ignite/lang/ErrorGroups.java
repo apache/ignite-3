@@ -134,7 +134,10 @@ public class ErrorGroups {
         public static final int NODE_LEFT_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Cursor is already closed error. */
-        public static final int CURSOR_CLOSED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 6);
+        public static final int CURSOR_ALREADY_CLOSED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Resource closing error. */
+        public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
@@ -440,6 +443,9 @@ public class ErrorGroups {
 
         /** Recipient node has left the physical topology. */
         public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Could not resolve address. */
+        public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Node configuration error group. */

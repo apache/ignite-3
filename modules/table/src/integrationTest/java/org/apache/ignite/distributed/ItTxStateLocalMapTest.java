@@ -61,7 +61,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     private static final int NODES = 3;
 
-    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfig;
 

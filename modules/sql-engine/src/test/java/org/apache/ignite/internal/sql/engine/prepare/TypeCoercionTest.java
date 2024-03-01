@@ -564,8 +564,8 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         return TYPE_FACTORY.createTypeWithNullability(relDataType, true);
     }
 
-    //TODO https://issues.apache.org/jira/browse/IGNITE-15200 Replace with TestTable from test framework.
-    //TODO: https://issues.apache.org/jira/browse/IGNITE-17373: Remove when INTERVAL type will be supported natively,
+    // TODO https://issues.apache.org/jira/browse/IGNITE-15200 Replace with TestTable from test framework.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373: Remove when INTERVAL type will be supported natively,
     // or this issue is resolved.
 
     /** Test table. */

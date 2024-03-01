@@ -186,7 +186,7 @@ class ClientSqlCommon {
         var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
 
         for (int i = 0; i < propCount; i++) {
-            //noinspection DataFlowIssue
+            // noinspection DataFlowIssue
             sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
         }
     }

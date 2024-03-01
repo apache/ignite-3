@@ -1195,7 +1195,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         verifyNoMoreInteractions(eventListener);
     }
 
-    //TODO IGNITE-20121 check correct events fired when dropping index in various states.
     @Test
     public void testIndexEvents() {
         CatalogCommand createIndexCmd = createHashIndexCommand(INDEX_NAME, List.of("ID"));

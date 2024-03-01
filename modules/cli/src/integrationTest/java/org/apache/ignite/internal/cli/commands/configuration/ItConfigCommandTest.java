@@ -128,7 +128,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
 
-        //Emulate config with spaces
+        // Emulate config with spaces
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
                 "security.authentication.providers.default", "=", "{", "type=basic,", "users=[{", "username=asd,", "password=pass2}]}");
 
@@ -142,7 +142,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @Test
     @DisplayName("Test different types of quoted parameters")
     void updateClusterWithQuotedArgs() {
-        //Emulate quoting config
+        // Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
                 "\"security.authentication.providers.default={type=basic,users=[{username=asd,password=pass3}]}\"");
 
@@ -152,7 +152,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertOutputIsNotEmpty
         );
 
-        //Emulate quoting config
+        // Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
                 "\"security.authentication.providers.default\"", "\"={type=basic,users=[{username=asd,password=pass4}]}\"");
 
@@ -162,7 +162,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertOutputIsNotEmpty
         );
 
-        //Emulate quoting config
+        // Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
                 "security.authentication.providers.default", "\"={type=basic,users=[{username=asd,password=pass5}]}\"");
 

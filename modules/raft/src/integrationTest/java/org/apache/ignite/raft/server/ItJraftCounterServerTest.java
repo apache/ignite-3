@@ -143,7 +143,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         Set<String> threadNamesBefore = threads.stream().map(Thread::getName).collect(toSet());
 
-        assertEquals(NodeOptions.DEFAULT_STRIPES * 4/*services*/, threadsBefore, "Started thread names: " + threadNamesBefore);
+        assertEquals(NodeOptions.DEFAULT_STRIPES * 4/* services */, threadsBefore, "Started thread names: " + threadNamesBefore);
 
         servers.forEach(srv -> {
             String localNodeName = srv.clusterService().topologyService().localMember().name();

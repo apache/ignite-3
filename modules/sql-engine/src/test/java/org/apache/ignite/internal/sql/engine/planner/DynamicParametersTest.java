@@ -174,8 +174,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
     @TestFactory
     public Stream<DynamicTest> testCase() {
-        //CREATE TABLE TBL1(ID INT PRIMARY KEY, VAL VARCHAR, NUM INT)
-        //select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end
+        // CREATE TABLE TBL1(ID INT PRIMARY KEY, VAL VARCHAR, NUM INT)
+        // select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end
 
         IgniteTypeFactory tf = Commons.typeFactory();
         RelDataType nullableStr = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.VARCHAR), true);

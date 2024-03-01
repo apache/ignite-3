@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -71,6 +73,11 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
     private static final UUID LOWER_UUID = new UUID(100, 200);
     private static final UUID HIGHER_UUID = new UUID(300, 400);
+
+    private static final String SERVER_HOST = "server-host";
+    private static final String CLIENT_HOST = "client-host";
+
+    private static final int PORT = 1000;
 
     /** Serialization registry. */
     private static final MessageSerializationRegistry MESSAGE_REGISTRY = defaultSerializationRegistry();
@@ -682,8 +689,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryClientHandshakeManager(
-                launchId,
-                consistentId,
+                new ClusterNodeImpl(launchId.toString(), consistentId, new NetworkAddress(CLIENT_HOST, PORT)),
                 CONNECTION_ID,
                 provider,
                 () -> List.of(clientSideChannel.eventLoop()),
@@ -718,8 +724,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryServerHandshakeManager(
-                launchId,
-                consistentId,
+                new ClusterNodeImpl(launchId.toString(), consistentId, new NetworkAddress(SERVER_HOST, PORT)),
                 MESSAGE_FACTORY,
                 provider,
                 () -> List.of(serverSideChannel.eventLoop()),

@@ -82,7 +82,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
                 .flatMap(AlterTableDropColumnCommand::indexColumnNames)
                 .collect(Collectors.toSet());
 
-        //To validate always in the same order let's sort given columns
+        // To validate always in the same order let's sort given columns
         columns.stream().sorted().forEach(columnName -> {
             if (table.column(columnName) == null) {
                 throw new CatalogValidationException(format(

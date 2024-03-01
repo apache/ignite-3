@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -175,7 +176,7 @@ public class ClientSession implements AbstractSession {
 
         if (transaction != null) {
             try {
-                //noinspection resource
+                // noinspection resource
                 return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
             } catch (TransactionException e) {
                 return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
@@ -281,6 +282,13 @@ public class ClientSession implements AbstractSession {
     @Override
     public int defaultPageSize() {
         return defaultPageSize == null ? 0 : defaultPageSize;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ZoneId timeZoneId() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

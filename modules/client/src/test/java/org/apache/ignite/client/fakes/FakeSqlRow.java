@@ -49,7 +49,7 @@ public class FakeSqlRow implements SqlRow {
         assert row != null;
         assert meta != null;
 
-        //noinspection AssignmentOrReturnOfFieldWithMutableType
+        // noinspection AssignmentOrReturnOfFieldWithMutableType
         this.row = row;
         this.metadata = meta;
     }

@@ -400,7 +400,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsANSI92EntryLevelSQL() {
-        //TODO IGNITE-15527
+        // TODO IGNITE-15527
         return true;
     }
 
@@ -1581,7 +1581,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         ));
     }
 
-    //TODO IGNITE-15529 List all supported functions
+    // TODO IGNITE-15529 List all supported functions
 
     /** {@inheritDoc} */
     @Override

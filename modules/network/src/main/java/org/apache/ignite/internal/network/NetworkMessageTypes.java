@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
+import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -89,4 +90,9 @@ public class NetworkMessageTypes {
      * Type for {@link ClassDescriptorListMessage}.
      */
     public static final short CLASS_DESCRIPTOR_LIST_MESSAGE = 10;
+
+    /**
+     * Type for {@link ClusterNodeMessage}.
+     */
+    public static final short CLUSTER_NODE_MESSAGE = 11;
 }

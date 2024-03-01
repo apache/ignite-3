@@ -67,7 +67,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * If {@code false}, this stripe will always pass {@code true} into {@link EventHandler#onEvent(Object, long, boolean)}.
      * Otherwise, the data will be provided with batches.
      */
-    //TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
+    // TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
     private final boolean supportsBatches;
 
     /**

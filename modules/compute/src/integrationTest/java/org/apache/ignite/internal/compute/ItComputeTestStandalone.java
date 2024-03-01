@@ -54,7 +54,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @BeforeEach
     void setUp() throws IOException {
         IgniteImpl entryNode = node(0);
-        //TODO https://issues.apache.org/jira/browse/IGNITE-19757
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19757
         try {
             entryNode.deployment().undeployAsync(unit.name(), unit.version()).join();
         } catch (Exception ignored) {
@@ -114,8 +114,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
         CompletableFuture<String> result = entryNode.compute()
-                .<String>executeAsync(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42)
-                .resultAsync();
+                .executeAsync(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42);
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 
@@ -136,16 +135,14 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         deployJar(entryNode, firstVersion.name(), firstVersion.version(), "ignite-ut-job1-1.0-SNAPSHOT.jar");
 
         CompletableFuture<Integer> result1 = entryNode.compute()
-                .<Integer>executeAsync(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob")
-                .resultAsync();
+                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
         assertThat(result1, willBe(1));
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
         deployJar(entryNode, secondVersion.name(), secondVersion.version(), "ignite-ut-job2-1.0-SNAPSHOT.jar");
 
         CompletableFuture<String> result2 = entryNode.compute()
-                .<String>executeAsync(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob")
-                .resultAsync();
+                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
         assertThat(result2, willBe("Hello World!"));
     }
 
@@ -153,8 +150,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     void undeployAcquiredUnit() {
         IgniteImpl entryNode = node(0);
         CompletableFuture<Void> job = entryNode.compute()
-                .<Void>executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 3L)
-                .resultAsync();
+                .executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 3L);
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
@@ -176,14 +172,12 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     void executeJobWithObsoleteUnit() {
         IgniteImpl entryNode = node(0);
         CompletableFuture<Void> successJob = entryNode.compute()
-                .<Void>executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L)
-                .resultAsync();
+                .executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
         CompletableFuture<Void> failedJob = entryNode.compute()
-                .<Void>executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L)
-                .resultAsync();
+                .executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
 
         CompletionException ex0 = assertThrows(CompletionException.class, failedJob::join);
         assertComputeException(
