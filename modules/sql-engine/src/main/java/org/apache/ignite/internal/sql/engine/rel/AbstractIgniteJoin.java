@@ -292,4 +292,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
                 (left2Right ? right : left).getRowType().getFieldCount()
         );
     }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
+    }
 }

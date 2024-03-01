@@ -217,4 +217,8 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
 
         return RexUtil.composeConjunction(builder(getCluster()), conjunctions, true);
     }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
+    }
 }

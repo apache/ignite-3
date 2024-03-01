@@ -831,4 +831,14 @@ public final class Commons {
                 return null;
         }
     }
+
+    /** Removes 'Ignite' prefix from type name. */
+    public static String trimRelTypeName(String typeName) {
+        // TODO improve
+        if (typeName.startsWith("Ignite")) {
+            return typeName.substring(6);
+        }
+
+        return typeName;
+    }
 }

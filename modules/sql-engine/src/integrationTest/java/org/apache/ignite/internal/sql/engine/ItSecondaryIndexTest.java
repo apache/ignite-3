@@ -122,7 +122,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testIndexLoopJoin() {
         assertQuery("SELECT /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
                 + "FROM Developer d1, Developer d2 WHERE d1.id = d2.id")
-                .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
+                .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns("Bach", "Bach")
                 .returns("Beethoven", "Beethoven")
                 .returns("Mozart", "Mozart")
@@ -186,7 +186,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-                .matches(containsSubPlan("IgniteKeyValueGet(table=[[PUBLIC, DEVELOPER]]"))
+                .matches(containsSubPlan("KeyValueGet(table=[[PUBLIC, DEVELOPER]]"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
@@ -581,7 +581,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testOrderByKey() {
         assertQuery("SELECT * FROM Developer WHERE id<=4 ORDER BY id")
                 .matches(containsTableScan("PUBLIC", "DEVELOPER"))
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsSubPlan("Sort"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .returns(3, "Bach", 1, "Leipzig", 55)
@@ -594,7 +594,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testOrderByDepId() {
         assertQuery("SELECT depid FROM Developer ORDER BY depId")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(not(containsSubPlan("Sort")))
                 .returns(1) // Bach
                 .returns(2) // Beethoven or Strauss
                 .returns(2) // Strauss or Beethoven
@@ -629,7 +629,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT * FROM Developer ORDER BY name, city")
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER"))
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER"))
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsSubPlan("Sort"))
                 .returns(18, "Arnalds", 17, "", -1)
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
@@ -661,7 +661,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testOrderByNameCityDesc() {
         assertQuery("SELECT ID, NAME, DEPID, CITY, AGE FROM Developer ORDER BY name DESC, city DESC")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(not(containsSubPlan("Sort")))
                 .returns(16, "Zimmer", 15, "", -1)
                 .returns(19, "Yiruma", 18, "", -1)
                 .returns(7, "Verdy", 6, "Rankola", 88)
@@ -693,7 +693,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testOrderByNoIndexedColumn() {
         assertQuery("SELECT * FROM Developer ORDER BY age DESC, depid ASC")
                 .matches(containsAnyProject("PUBLIC", "DEVELOPER"))
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsSubPlan("Sort"))
                 .returns(8, "Stravinsky", 7, "Spt", 89)
                 .returns(7, "Verdy", 6, "Rankola", 88)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
@@ -912,7 +912,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
             assertQuery(sql)
                     .disableRules("NestedLoopJoinConverter", "MergeJoinConverter")
-                    .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
+                    .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0, null)
                     .returns(1, null)

@@ -22,6 +22,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.Spool;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Relational operator that returns the contents of a table.
@@ -47,5 +48,9 @@ public abstract class AbstractIgniteSpool extends Spool implements IgniteRel {
                 .input("input", getInput())
                 .item("readType", readType.name())
                 .item("writeType", writeType.name());
+    }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
     }
 }

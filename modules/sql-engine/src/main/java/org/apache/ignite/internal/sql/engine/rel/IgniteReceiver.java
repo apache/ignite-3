@@ -29,6 +29,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Relational expression that receives elements from remote {@link IgniteSender}.
@@ -146,5 +147,9 @@ public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteReceiver(cluster, getTraitSet(), rowType, exchangeId, sourceFragmentId, collation);
+    }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
     }
 }

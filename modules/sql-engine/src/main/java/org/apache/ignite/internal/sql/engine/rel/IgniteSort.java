@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Ignite sort operator.
@@ -186,5 +187,9 @@ public class IgniteSort extends Sort implements IgniteRel {
                 : 0;
 
         return Math.min(inputRows, fetch + offset);
+    }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
     }
 }

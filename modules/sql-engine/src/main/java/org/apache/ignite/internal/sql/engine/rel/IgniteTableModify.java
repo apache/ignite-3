@@ -182,4 +182,8 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
     public long sourceId() {
         return sourceId;
     }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
+    }
 }

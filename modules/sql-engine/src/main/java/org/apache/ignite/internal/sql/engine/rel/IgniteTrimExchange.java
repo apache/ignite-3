@@ -33,6 +33,7 @@ import org.apache.calcite.rel.core.Exchange;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * IgniteTrimExchange.
@@ -134,5 +135,9 @@ public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTrimExchange(sourceId, cluster, getTraitSet(), sole(inputs), getDistribution());
+    }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
     }
 }

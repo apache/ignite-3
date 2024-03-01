@@ -34,6 +34,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Relational operator for table function scan.
@@ -139,5 +140,9 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {
         return ESTIMATE_ROW_COUNT;
+    }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
     }
 }

@@ -29,6 +29,7 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Relational expression that iterates over its input and sends elements to remote {@link IgniteReceiver}.
@@ -154,5 +155,9 @@ public class IgniteSender extends SingleRel implements IgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteSender(cluster, getTraitSet(), sole(inputs), exchangeId(), targetFragmentId(), distribution());
+    }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
     }
 }

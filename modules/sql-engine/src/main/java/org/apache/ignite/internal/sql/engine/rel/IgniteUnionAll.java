@@ -127,4 +127,8 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteUnionAll(cluster, getTraitSet(), Commons.cast(inputs));
     }
+
+    @Override public String getRelTypeName() {
+        return Commons.trimRelTypeName(super.getRelTypeName());
+    }
 }
