@@ -116,13 +116,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
 
     private final ClusterNode senderNode = new ClusterNodeImpl(
-            "sender",
+            UUID.randomUUID().toString(),
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
     private final ClusterNode receiverNode = new ClusterNodeImpl(
-            "receiver",
+            UUID.randomUUID().toString(),
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
     );
@@ -499,11 +499,9 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
         bootstrapFactory.start();
 
-        UUID launchId = UUID.randomUUID();
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),
                 serializationService,
-                launchId,
                 node.name(),
                 bootstrapFactory,
                 staleIdDetector,
@@ -511,6 +509,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 failureProcessor
         );
         connectionManager.start();
+        connectionManager.setLocalNode(node);
 
         messagingService.setConnectionManager(connectionManager);
 
@@ -525,14 +524,12 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
             public RecoveryClientHandshakeManager create(
-                    UUID launchId,
-                    String consistentId,
+                    ClusterNode localNode,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider
             ) {
                 return new RecoveryClientHandshakeManager(
-                        launchId,
-                        consistentId,
+                        localNode,
                         connectionId,
                         recoveryDescriptorProvider,
                         bootstrapFactory,
