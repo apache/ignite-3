@@ -108,13 +108,11 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Node consistent id. */
     private final String consistentId;
 
-    private volatile @Nullable ClusterNode localNode;
-
     /**
      * Completed when local node is set; attempts to initiate a connection to this node from the outside will wait
      * till it's completed.
      */
-    private final CompletableFuture<Void> localNodeSet = new CompletableFuture<>();
+    private final CompletableFuture<ClusterNode> localNodeFuture = new CompletableFuture<>();
 
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -488,9 +486,11 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
+        ClusterNode localNode = Objects.requireNonNull(localNodeFuture.getNow(null), "localNode not set");
+
         if (clientHandshakeManagerFactory == null) {
             return new RecoveryClientHandshakeManager(
-                    Objects.requireNonNull(localNode, "localNode not set"),
+                    localNode,
                     connectionId,
                     descriptorProvider,
                     bootstrapFactory,
@@ -502,17 +502,18 @@ public class ConnectionManager implements ChannelCreationListener {
         }
 
         return clientHandshakeManagerFactory.create(
-                Objects.requireNonNull(localNode, "localNode not set"),
+                localNode,
                 connectionId,
                 descriptorProvider
         );
     }
 
     private HandshakeManager createServerHandshakeManager() {
+        // Do not just use localNodeFuture.join() to make sure the wait is time-limited.
         waitForLocalNodeToBeSet();
 
         return new RecoveryServerHandshakeManager(
-                Objects.requireNonNull(localNode, "localNode not set"),
+                localNodeFuture.join(),
                 FACTORY,
                 descriptorProvider,
                 bootstrapFactory,
@@ -525,7 +526,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private void waitForLocalNodeToBeSet() {
         try {
-            localNodeSet.get(10, SECONDS);
+            localNodeFuture.get(10, SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -668,8 +669,6 @@ public class ConnectionManager implements ChannelCreationListener {
      * Sets the local node. Only after this this manager becomes able to accept incoming connections.
      */
     public void setLocalNode(ClusterNode localNode) {
-        this.localNode = localNode;
-
-        localNodeSet.complete(null);
+        localNodeFuture.complete(localNode);
     }
 }
