@@ -58,7 +58,7 @@ public class TestTopologyService extends AbstractTopologyService {
      *
      * @param member Member.
      */
-    public void fairAppearedEvent(ClusterNode member) {
+    public void fireAppearedEvent(ClusterNode member) {
         getEventHandlers().forEach(it -> it.onAppeared(member));
     }
 
