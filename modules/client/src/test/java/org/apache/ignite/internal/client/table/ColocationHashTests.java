@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
@@ -45,13 +48,22 @@ public class ColocationHashTests {
         person.val2 = 3;
         person.key2 = 4;
 
-        Integer hash = ClientTupleSerializer.getColocationHash(SCHEMA, Mapper.of(Person.class), person);
+        var tuple = Tuple.create()
+            .set("VAL1", person.val1)
+            .set("KEY1", person.key1)
+            .set("VAL2", person.val2)
+            .set("KEY2", person.key2);
+
+        Integer pojoHash = ClientTupleSerializer.getColocationHash(SCHEMA, Mapper.of(Person.class), person);
+        Integer tupleHash = ClientTupleSerializer.getColocationHash(SCHEMA, tuple);
+
+        assertEquals(tupleHash, pojoHash);
     }
 
-    public class Person {
-        public int val1;
-        public int key1;
-        public int val2;
-        public int key2;
+    public static class Person {
+        int val1;
+        int key1;
+        int val2;
+        int key2;
     }
 }
