@@ -48,16 +48,28 @@ public class ColocationHashTests {
         pojo.val2 = 3;
         pojo.key2 = 4;
 
+        var keyPojo = new Pojo();
+        keyPojo.key1 = pojo.key1;
+        keyPojo.key2 = pojo.key2;
+
         var tuple = Tuple.create()
                 .set("VAL1", pojo.val1)
                 .set("KEY1", pojo.key1)
                 .set("VAL2", pojo.val2)
                 .set("KEY2", pojo.key2);
 
-        Integer tupleHash = ClientTupleSerializer.getColocationHash(SCHEMA, tuple);
-        Integer pojoHash = ClientTupleSerializer.getColocationHash(SCHEMA, Mapper.of(Pojo.class), pojo);
+        var keyTuple = Tuple.create()
+                .set("KEY1", pojo.key1)
+                .set("KEY2", pojo.key2);
 
+        Integer tupleHash = ClientTupleSerializer.getColocationHash(SCHEMA, tuple);
+        Integer keyTupleHash = ClientTupleSerializer.getColocationHash(SCHEMA, keyTuple);
+        Integer pojoHash = ClientTupleSerializer.getColocationHash(SCHEMA, Mapper.of(Pojo.class), pojo);
+        Integer keyPojoHash = ClientTupleSerializer.getColocationHash(SCHEMA, Mapper.of(Pojo.class), keyPojo);
+
+        assertEquals(tupleHash, keyTupleHash);
         assertEquals(tupleHash, pojoHash);
+        assertEquals(tupleHash, keyPojoHash);
     }
 
     static class Pojo {
