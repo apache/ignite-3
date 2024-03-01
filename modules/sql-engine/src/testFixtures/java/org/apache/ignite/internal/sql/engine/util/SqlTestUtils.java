@@ -106,7 +106,7 @@ public class SqlTestUtils {
             try (PrintWriter pw = new PrintWriter(sw)) {
                 StringDescription description = new StringDescription();
 
-                if (errorMatches) {
+                if (!errorMatches) {
                     description.appendText("Error code does not match. Expected: ");
                     description.appendValue(expectedError);
                     description.appendText(" actual: ");
