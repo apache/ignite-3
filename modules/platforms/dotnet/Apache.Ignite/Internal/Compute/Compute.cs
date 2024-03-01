@@ -73,7 +73,7 @@ namespace Apache.Ignite.Internal.Compute
             var nodesCol = GetNodesCollection(nodes);
             IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
 
-            return await ExecuteOnNodes<T>(nodesCol, units, jobClassName, args).ConfigureAwait(false);
+            return await ExecuteOnNodes<T>(nodesCol, units, jobClassName, options, args).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -90,6 +90,7 @@ namespace Apache.Ignite.Internal.Compute
                     serializerHandlerFunc: static _ => TupleSerializerHandler.Instance,
                     units,
                     jobClassName,
+                    options,
                     args)
                 .ConfigureAwait(false);
 
@@ -108,6 +109,7 @@ namespace Apache.Ignite.Internal.Compute
                     serializerHandlerFunc: table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
                     units,
                     jobClassName,
+                    options,
                     args)
                 .ConfigureAwait(false);
 
@@ -128,7 +130,7 @@ namespace Apache.Ignite.Internal.Compute
 
             foreach (var node in nodes)
             {
-                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units0, jobClassName, args);
+                Task<IJobExecution<T>> task = ExecuteOnNodes<T>(new[] { node }, units0, jobClassName, options, args);
 
                 res[node] = task;
             }
@@ -299,6 +301,7 @@ namespace Apache.Ignite.Internal.Compute
             ICollection<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
+            JobExecutionOptions options,
             object?[]? args)
         {
             IClusterNode node = GetRandomNode(nodes);
@@ -319,10 +322,8 @@ namespace Apache.Ignite.Internal.Compute
                 WriteNodeNames(nodes, writer);
                 WriteUnits(units, writer);
                 w.Write(jobClassName);
-
-                // TODO: IGNITE-21334
-                w.Write(0); // Priority.
-                w.Write(0); // Max retries.
+                w.Write(options.Priority);
+                w.Write(options.MaxRetries);
 
                 w.WriteObjectCollectionAsBinaryTuple(args);
             }
@@ -355,6 +356,7 @@ namespace Apache.Ignite.Internal.Compute
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
+            JobExecutionOptions options,
             params object?[]? args)
             where TKey : notnull
         {
@@ -413,10 +415,8 @@ namespace Apache.Ignite.Internal.Compute
 
                 WriteUnits(units0, bufferWriter);
                 w.Write(jobClassName);
-
-                // TODO: IGNITE-21334
-                w.Write(0); // Priority.
-                w.Write(0); // Max retries.
+                w.Write(options.Priority);
+                w.Write(options.MaxRetries);
 
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
