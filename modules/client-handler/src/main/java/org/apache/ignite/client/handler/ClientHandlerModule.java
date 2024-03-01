@@ -328,7 +328,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
                 result.complete(bindFut.channel());
             } else if (bindFut.cause() instanceof BindException) {
-                //TODO IGNITE-21614
+                // TODO IGNITE-21614
                 result.completeExceptionally(
                         new IgniteException(
                                 PORT_IN_USE_ERR,
