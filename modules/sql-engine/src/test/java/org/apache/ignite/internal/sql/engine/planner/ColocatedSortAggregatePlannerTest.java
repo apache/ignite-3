@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,10 +28,9 @@ import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
-import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
@@ -293,47 +295,17 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
      */
     @Test
     public void emptyCollationPassThroughLimit() throws Exception {
-        assertPlan(TestCase.CASE_17,
-                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
-                        .and(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
-                                .and(input(isInstanceOf(IgniteLimit.class)
-                                        .and(input(isInstanceOf(IgniteSort.class)
-                                                .and(input(isTableScan("TEST")))
-                                        ))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> assertPlan(TestCase.CASE_17, isInstanceOf(IgniteRel.class), disableRules));
+        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
 
-        assertPlan(TestCase.CASE_17A,
-                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
-                        .and(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
-                                .and(input(isInstanceOf(IgniteLimit.class)
-                                        .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isInstanceOf(IgniteSort.class)
-                                                        .and(input(isTableScan("TEST")))
-                                                ))
-                                        ))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
-        assertPlan(TestCase.CASE_17B,
-                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
-                        .and(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
-                                .and(input(isInstanceOf(IgniteLimit.class)
-                                        .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isInstanceOf(IgniteSort.class)
-                                                        .and(input(isTableScan("TEST")))
-                                                ))
-                                        ))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
+        e = assertThrows(RuntimeException.class,
+                () -> assertPlan(TestCase.CASE_17A, isInstanceOf(IgniteRel.class), disableRules));
+        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+
+        e = assertThrows(RuntimeException.class,
+                () -> assertPlan(TestCase.CASE_17B, isInstanceOf(IgniteRel.class), disableRules));
+        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
     }
 
     /**

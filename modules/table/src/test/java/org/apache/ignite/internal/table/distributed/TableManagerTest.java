@@ -67,6 +67,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -776,7 +777,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
                 mock(FailureProcessor.class),
-                new RemotelyTriggeredResourceRegistry()
+                new RemotelyTriggeredResourceRegistry(),
+                mock(ScheduledExecutorService.class)
         ) {
 
             @Override

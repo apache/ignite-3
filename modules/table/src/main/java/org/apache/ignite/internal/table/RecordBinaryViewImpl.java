@@ -116,6 +116,24 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     /** {@inheritDoc} */
     @Override
+    public boolean contains(@Nullable Transaction tx, Tuple keyRec) {
+        return sync(containsAsync(tx, keyRec));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, Tuple keyRec) {
+        Objects.requireNonNull(keyRec);
+
+        return withSchemaSync(tx, (schemaVersion) -> {
+            Row keyRow = marshal(keyRec, schemaVersion, true); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void upsert(@Nullable Transaction tx, Tuple rec) {
         sync(upsertAsync(tx, rec));
     }

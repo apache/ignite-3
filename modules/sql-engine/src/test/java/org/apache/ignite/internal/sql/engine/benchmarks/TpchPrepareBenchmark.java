@@ -25,6 +25,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
+import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -77,7 +78,9 @@ public class TpchPrepareBenchmark {
 
         gatewayNode = testCluster.node("N1");
 
-        gatewayNode.initSchema(TpchHelper.getSchemaDefinitionScript());
+        for (TpchTables table : TpchTables.values()) {
+            gatewayNode.initSchema(table.ddlScript());
+        }
 
         String query = TpchHelper.getQuery(queryId);
         parsedResult = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
