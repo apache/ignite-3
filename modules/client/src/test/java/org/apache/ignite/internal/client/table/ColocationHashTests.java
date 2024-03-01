@@ -42,6 +42,7 @@ public class ColocationHashTests {
 
     @Test
     public void testPojoInterleavedColumns() {
+        // TODO: POJO can't be key-only?
         var person = new Person();
         person.val1 = 1;
         person.key1 = 2;
@@ -54,8 +55,8 @@ public class ColocationHashTests {
             .set("VAL2", person.val2)
             .set("KEY2", person.key2);
 
-        Integer pojoHash = ClientTupleSerializer.getColocationHash(SCHEMA, Mapper.of(Person.class), person);
         Integer tupleHash = ClientTupleSerializer.getColocationHash(SCHEMA, tuple);
+        Integer pojoHash = ClientTupleSerializer.getColocationHash(SCHEMA, Mapper.of(Person.class), person);
 
         assertEquals(tupleHash, pojoHash);
     }
