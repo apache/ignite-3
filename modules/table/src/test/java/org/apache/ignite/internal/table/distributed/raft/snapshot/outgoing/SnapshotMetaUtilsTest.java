@@ -35,6 +35,8 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
+import static org.mockito.quality.Strictness.LENIENT;
 
 import java.util.List;
 import java.util.Map;
@@ -109,7 +111,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
             startBuildingIndex(catalogManager, indexId1);
             startBuildingIndex(catalogManager, indexId2);
 
-            PartitionAccess partitionAccess = mock(PartitionAccess.class);
+            PartitionAccess partitionAccess = mock(PartitionAccess.class, withSettings().strictness(LENIENT));
 
             int tableId = getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
             int partitionId = 0;
