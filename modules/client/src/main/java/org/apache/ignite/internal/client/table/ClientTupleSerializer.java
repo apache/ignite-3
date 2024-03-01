@@ -470,6 +470,7 @@ public class ClientTupleSerializer {
         var marsh = schema.getMarshaller(mapper, TuplePart.KEY, true);
 
         for (ClientColumn col : schema.colocationColumns()) {
+            // TODO IGNITE-21525: rec can be full or key-only, we should use schemaIndex or keyIndex.
             Object value = marsh.value(rec, col.schemaIndex());
             hashCalc.append(value, col.scale(), col.precision());
         }
