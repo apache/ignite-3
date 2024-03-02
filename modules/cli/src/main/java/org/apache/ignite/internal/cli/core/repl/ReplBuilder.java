@@ -23,6 +23,8 @@ import org.apache.ignite.internal.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
 import org.apache.ignite.internal.cli.core.repl.terminal.TerminalCustomizer;
 import org.jline.reader.Completer;
+import org.jline.reader.Highlighter;
+import org.jline.reader.Parser;
 import picocli.CommandLine.IDefaultValueProvider;
 
 /**
@@ -55,6 +57,10 @@ public class ReplBuilder {
 
     private EventListeningActivationPoint eventListeningActivationPoint;
 
+    private Highlighter highlighter;
+
+    private Parser parser;
+
     /**
      * Build methods.
      *
@@ -73,7 +79,9 @@ public class ReplBuilder {
                 tailTipWidgetsEnabled,
                 autosuggestionsWidgetsEnabled,
                 onStart,
-                eventListeningActivationPoint
+                eventListeningActivationPoint,
+                highlighter,
+                parser
         );
     }
 
@@ -164,6 +172,16 @@ public class ReplBuilder {
      */
     public ReplBuilder withEventSubscriber(EventListeningActivationPoint eventListeningActivationPoint) {
         this.eventListeningActivationPoint = eventListeningActivationPoint;
+        return this;
+    }
+
+    public ReplBuilder withHighlighter(Highlighter highlighter) {
+        this.highlighter = highlighter;
+        return this;
+    }
+
+    public ReplBuilder withParser(Parser parser) {
+        this.parser = parser;
         return this;
     }
 }
