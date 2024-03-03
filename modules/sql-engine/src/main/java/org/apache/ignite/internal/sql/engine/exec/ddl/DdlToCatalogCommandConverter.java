@@ -82,10 +82,6 @@ class DdlToCatalogCommandConverter {
     }
 
     static CatalogCommand convert(CreateZoneCommand cmd) {
-        if (cmd.storageProfiles() == null) {
-            throw new IllegalArgumentException("Storage profile cannot be null");
-        }
-
         return org.apache.ignite.internal.catalog.commands.CreateZoneCommand.builder()
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())

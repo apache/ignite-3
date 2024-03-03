@@ -99,7 +99,7 @@ public interface ConfigurationModule {
      * Patches the provided configuration with dynamic default values. This method is called
      * <ul>
      *     <li>for cluster-wide configuration on cluster initialization.</li>
-     *     <li>for node-local configuration on configuration read.</li>
+     *     <li>for node-local configuration on the node start during the process of local configs reading.</li>
      * </ul>
      *
      * <p>Dynamic defaults are default values that are not specified in the configuration source,

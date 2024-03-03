@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Structure that represents node with the attributes and which we store in Meta Storage when we store logical topology.
@@ -42,7 +43,7 @@ public class NodeWithAttributes implements Serializable {
      * @param nodeId Node consistent identifier.
      * @param userAttributes Key value map of user's node's attributes.
      */
-    public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> userAttributes) {
+    public NodeWithAttributes(String nodeName, String nodeId, @Nullable Map<String, String> userAttributes) {
         this(nodeName, nodeId, userAttributes, List.of());
     }
 
@@ -54,7 +55,11 @@ public class NodeWithAttributes implements Serializable {
      * @param userAttributes Key value map of user's node's attributes.
      * @param storageProfiles List of supported storage profiles on the node.
      */
-    public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> userAttributes, List<String> storageProfiles) {
+    public NodeWithAttributes(
+            String nodeName,
+            String nodeId,
+            @Nullable Map<String, String> userAttributes,
+            @Nullable List<String> storageProfiles) {
         this.node = new Node(nodeName, nodeId);
         this.userAttributes = userAttributes == null ? Map.of() : userAttributes;
         this.storageProfiles = storageProfiles == null ? List.of() : storageProfiles;
