@@ -65,7 +65,6 @@ public class DataStorageModules {
         assert !modules.isEmpty();
 
         this.modules = modules;
-
     }
 
     /**

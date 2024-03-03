@@ -94,8 +94,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         return nodeFilter;
     }
 
-    public void nodeFilter(String nodeFiler) {
-        this.nodeFilter = nodeFiler;
+    public void nodeFilter(String nodeFilter) {
+        this.nodeFilter = nodeFilter;
     }
 
     @Nullable public Integer dataNodesAutoAdjust() {

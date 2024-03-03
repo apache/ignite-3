@@ -19,12 +19,13 @@ package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -58,11 +59,8 @@ public class DataStorageManager implements IgniteComponent {
     public CompletableFuture<Void> start() throws StorageException {
         engines.values().forEach(StorageEngine::start);
 
-        profilesToEngines = new HashMap<>();
-
-        storageConfiguration.value().profiles().forEach(profile -> {
-            profilesToEngines.put(profile.name(), profile.engine());
-        });
+        profilesToEngines = storageConfiguration.value().profiles().stream()
+                .collect(Collectors.toMap(StorageProfileView::name, StorageProfileView::engine));
 
         return nullCompletedFuture();
     }

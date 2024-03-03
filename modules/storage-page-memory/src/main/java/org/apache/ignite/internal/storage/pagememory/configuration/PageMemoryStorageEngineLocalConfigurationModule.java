@@ -31,7 +31,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-page-memory.
+ * {@link ConfigurationModule} for local node configuration provided by ignite-storage-page-memory.
  */
 @AutoService(ConfigurationModule.class)
 public class PageMemoryStorageEngineLocalConfigurationModule implements ConfigurationModule {
