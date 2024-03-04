@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -260,6 +261,22 @@ public class PartitionAccessImpl implements PartitionAccess {
                 mvTableStorage.finishRebalancePartition(partitionId(), lastAppliedIndex, lastAppliedTerm, configBytes),
                 txStateStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm)
         ).thenAccept(unused -> mvGc.addStorage(toTablePartitionId(partitionKey), gcUpdateHandler));
+    }
+
+    @Override
+    public @Nullable RowId getNextRowIdToBuildIndex(int indexId) {
+        return indexUpdateHandler.getNextRowIdToBuildIndex(indexId);
+    }
+
+    @Override
+    public void setNextRowIdToBuildIndex(Map<Integer, RowId> nextRowIdToBuildByIndexId) {
+        MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
+
+        mvPartitionStorage.runConsistently(locker -> {
+            nextRowIdToBuildByIndexId.forEach(indexUpdateHandler::setNextRowIdToBuildIndex);
+
+            return null;
+        });
     }
 
     private MvPartitionStorage getMvPartitionStorage(int partitionId) {
