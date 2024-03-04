@@ -86,7 +86,7 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
         var buf = builder.Build().ToArray();
         var schema = Schema.CreateInstance(0, 0, cols);
 
-        return new BinaryTupleIgniteTupleAdapter(buf, schema, cols.Count);
+        return new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: false);
 
         static ColumnType GetColumnType(object? obj)
         {
