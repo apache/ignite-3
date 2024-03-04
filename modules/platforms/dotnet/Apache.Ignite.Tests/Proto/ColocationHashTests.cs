@@ -265,7 +265,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
 
-        return new Schema(Version: 0, 0, arr.Count, arr.Count, columns);
+        return Schema.CreateInstance(version: 0, tableId: 0, columns);
     }
 
     private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
@@ -301,7 +301,16 @@ public class ColocationHashTests : IgniteTestsBase
 
         var scale = value is decimal d ? BitConverter.GetBytes(decimal.GetBits(d)[3])[2] : 0;
 
-        return new Column("m_Item" + (schemaIndex + 1), colType, false, true, schemaIndex, schemaIndex, Scale: scale, precision);
+        return new Column(
+            Name: "m_Item" + (schemaIndex + 1),
+            Type: colType,
+            IsNullable: false,
+            KeyIndex: schemaIndex,
+            ValIndex: -1,
+            ColocationIndex: schemaIndex,
+            SchemaIndex: schemaIndex,
+            Scale: scale,
+            Precision: precision);
     }
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
