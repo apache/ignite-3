@@ -93,6 +93,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
     void testStartWithEmptyVault() {
         // Let's check the start with no low watermark in vault.
         lowWatermark.start();
+        lowWatermark.scheduleUpdates();
 
         verify(listener, never()).onLwmChanged(any(HybridTimestamp.class));
         assertNull(lowWatermark.getLowWatermark());
@@ -107,13 +108,13 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
         when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
-        this.lowWatermark.recoverFromVault();
+        this.lowWatermark.start();
 
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
 
-        this.lowWatermark.start();
+        this.lowWatermark.scheduleUpdates();
 
-        verify(listener).onLwmChanged(lowWatermark);
+        verify(listener, timeout(1_000)).onLwmChanged(lowWatermark);
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
     }
 
@@ -148,7 +149,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
         inOrder.verify(vaultManager, timeout(1000)).put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermarkCandidate));
 
-        inOrder.verify(listener).onLwmChanged(newLowWatermarkCandidate);
+        inOrder.verify(listener, timeout(1_000)).onLwmChanged(newLowWatermarkCandidate);
 
         assertEquals(newLowWatermarkCandidate, lowWatermark.getLowWatermark());
     }
@@ -174,6 +175,7 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
             });
 
             lowWatermark.start();
+            this.lowWatermark.scheduleUpdates();
 
             // Let's check that it hasn't been called more than once.
             assertFalse(startGetAllReadOnlyTransactions.await(1, TimeUnit.SECONDS));

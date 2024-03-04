@@ -963,7 +963,8 @@ public class IgniteImpl implements Ignite {
                     restComponent,
                     raftMgr,
                     clusterStateStorage,
-                    cmgMgr
+                    cmgMgr,
+                    lowWatermark
             );
 
             clusterSvc.updateMetadata(new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
@@ -992,9 +993,6 @@ public class IgniteImpl implements Ignite {
 
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
-                            // Recover low watermark first, because other components may require a valid watermark for proper recovery.
-                            lowWatermark.recoverFromVault();
-
                             lifecycleManager.startComponents(
                                     catalogManager,
                                     clusterCfgMgr,
@@ -1043,7 +1041,7 @@ public class IgniteImpl implements Ignite {
                     .thenRunAsync(() -> {
                         try {
                             // Enable watermark events.
-                            lifecycleManager.startComponent(lowWatermark);
+                            lowWatermark.scheduleUpdates();
 
                             // Enable REST component on start complete.
                             restComponent.enable();

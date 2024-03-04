@@ -1274,10 +1274,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             nodeComponents.addAll(firstComponents);
 
-            lowWatermark.recoverFromVault();
-
             deployWatchesFut = CompletableFuture.supplyAsync(() -> {
                 List<IgniteComponent> secondComponents = List.of(
+                        lowWatermark,
                         metaStorageManager,
                         clusterCfgMgr,
                         clockWaiter,
@@ -1288,8 +1287,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         dataStorageMgr,
                         schemaManager,
                         tableManager,
-                        indexManager,
-                        lowWatermark
+                        indexManager
                 );
 
                 secondComponents.forEach(IgniteComponent::start);
@@ -1305,6 +1303,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 });
 
                 assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
+
+                lowWatermark.scheduleUpdates();
 
                 return metaStorageManager.deployWatches();
             }).thenCompose(identity());

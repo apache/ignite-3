@@ -605,8 +605,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         nodeCfgMgr.start();
 
-        lowWatermark.recoverFromVault();
-
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
                 threadPoolsManager,
@@ -620,6 +618,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 cmgManager,
                 replicaMgr,
                 txManager,
+                lowWatermark,
                 metaStorageMgr,
                 clusterCfgMgr,
                 dataStorageManager,
@@ -630,8 +629,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 tableManager,
                 indexManager,
                 qryEngine,
-                sqlRef.get(),
-                lowWatermark
+                sqlRef.get()
         );
 
         for (IgniteComponent component : otherComponents) {
@@ -639,6 +637,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             components.add(component);
         }
+
+        lowWatermark.scheduleUpdates();
 
         PartialNode partialNode = partialNode(
                 name,

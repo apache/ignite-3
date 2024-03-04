@@ -31,7 +31,7 @@ public interface LowWatermarkChangedListener {
      * Low watermark changed callback.
      *
      * @param ts New low watermark.
-     * @return A future, which completes when event sill be processed.
+     * @return A future, which completes after the event has been processed.
      */
     CompletableFuture<Void> onLwmChanged(HybridTimestamp ts);
 }

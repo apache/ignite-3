@@ -115,18 +115,22 @@ public class LowWatermark implements IgniteComponent {
         );
     }
 
-    /** Recovery component state from the Vault. */
-    public void recoverFromVault() {
-        inBusyLock(busyLock, () -> {
-            lowWatermark = readLowWatermarkFromVault();
-        });
-    }
-
     /**
      * Starts the watermark manager.
      */
     @Override
     public CompletableFuture<Void> start() {
+        inBusyLock(busyLock, () -> {
+            lowWatermark = readLowWatermarkFromVault();
+        });
+
+        return nullCompletedFuture();
+    }
+
+    /**
+     * Schedule watermark updates.
+     */
+    public void scheduleUpdates() {
         inBusyLock(busyLock, () -> {
             HybridTimestamp lowWatermarkCandidate = lowWatermark;
 
@@ -138,13 +142,10 @@ public class LowWatermark implements IgniteComponent {
                 return;
             }
 
-            LOG.info(
-                    "Low watermark has been successfully retrieved from the vault and is scheduled to be updated: {}",
-                    lowWatermarkCandidate
-            );
+            LOG.info("Low watermark has been scheduled to be updated: {}", lowWatermarkCandidate);
 
             txManager.updateLowWatermark(lowWatermarkCandidate)
-                    .thenCompose(unused -> inBusyLock(busyLock, () -> notifyListeners(lowWatermarkCandidate)))
+                    .thenComposeAsync(unused -> inBusyLock(busyLock, () -> notifyListeners(lowWatermarkCandidate)), scheduledThreadPool)
                     .whenComplete((unused, throwable) -> {
                         if (throwable == null) {
                             inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
@@ -157,8 +158,6 @@ public class LowWatermark implements IgniteComponent {
                         }
                     });
         });
-
-        return nullCompletedFuture();
     }
 
     private @Nullable HybridTimestamp readLowWatermarkFromVault() {
