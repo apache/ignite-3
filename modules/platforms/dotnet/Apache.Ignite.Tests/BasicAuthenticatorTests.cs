@@ -99,7 +99,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
 
         try
         {
-            await client.Compute.ExecuteAsync<object>(nodes, Array.Empty<DeploymentUnit>(), EnableAuthnJob, enable ? 1 : 0);
+            await client.Compute.Submit<object>(nodes, Array.Empty<DeploymentUnit>(), EnableAuthnJob, enable ? 1 : 0);
         }
         catch (IgniteClientConnectionException)
         {

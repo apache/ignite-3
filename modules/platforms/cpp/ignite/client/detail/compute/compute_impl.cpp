@@ -83,7 +83,7 @@ void write_units(protocol::writer &writer, const std::vector<deployment_unit> &u
     }
 }
 
-void compute_impl::execute_on_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
+void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
     std::string_view job_class_name, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
 
@@ -117,7 +117,7 @@ void compute_impl::execute_on_nodes(const std::vector<cluster_node> &nodes, cons
         std::move(notification_reader_func), std::move(callback));
 }
 
-void compute_impl::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
+void compute_impl::submit_colocated(const std::string &table_name, const ignite_tuple &key,
     const std::vector<deployment_unit> &units, const std::string &job, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
     auto on_table_get = [table_name, key, units, job, args, conn = m_connection, callback](auto &&res) mutable {

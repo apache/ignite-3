@@ -252,7 +252,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     ((StopLeaseProlongationMessage) msg).redirectProposal());
 
             if (denyLeaseHandler != null) {
-                denyLeaseHandler.accept((StopLeaseProlongationMessage) msg, sender, handlerNode.name());
+                denyLeaseHandler.accept((StopLeaseProlongationMessage) msg, sender.name(), handlerNode.name());
             }
         };
     }

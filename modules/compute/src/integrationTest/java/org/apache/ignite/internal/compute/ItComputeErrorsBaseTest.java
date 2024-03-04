@@ -117,7 +117,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         InteractiveJobs.initChannels(nodes.stream().map(ClusterNode::name).collect(Collectors.toList()));
 
         // When broadcast a job
-        Map<ClusterNode, JobExecution<Object>> executions = compute().broadcastAsync(
+        Map<ClusterNode, JobExecution<Object>> executions = compute().submitBroadcast(
                 nodes, List.of(), InteractiveJobs.interactiveJobName()
         );
 
@@ -136,6 +136,6 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract IgniteCompute compute();
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute().executeAsync(nodes, List.of(), InteractiveJobs.globalJob().name()));
+        return new TestingJobExecution<>(compute().submit(nodes, List.of(), InteractiveJobs.globalJob().name()));
     }
 }

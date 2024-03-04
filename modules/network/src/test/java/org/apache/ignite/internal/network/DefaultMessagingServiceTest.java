@@ -268,7 +268,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         operation.respondAction.respond(
                                 receiverServices.messagingService,
                                 message,
-                                Objects.requireNonNull(topologyService.getByConsistentId(sender)),
+                                sender,
                                 Objects.requireNonNull(correlationId)
                         );
                     }
@@ -316,7 +316,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             Instant sentInstant = Instant.now();
             CompletableFuture<Instant> receivedInstant = new CompletableFuture<>();
 
-            receiverServices.messagingService.addMessageHandler(TestMessageTypes.class, (message, senderConsistentId, correlationId) -> {
+            receiverServices.messagingService.addMessageHandler(TestMessageTypes.class, (message, sender, correlationId) -> {
                 if (message instanceof MessageWithInstant) {
                     receivedInstant.complete(((MessageWithInstant) message).instantContainer().instant());
                 }
@@ -339,7 +339,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         ) {
             CompletableFuture<Thread> handlerThreadFuture = new CompletableFuture<>();
 
-            receiverServices.messagingService.addMessageHandler(TestMessageTypes.class, (message, senderConsistentId, correlationId) -> {
+            receiverServices.messagingService.addMessageHandler(TestMessageTypes.class, (message, sender, correlationId) -> {
                 handlerThreadFuture.complete(Thread.currentThread());
             });
 
@@ -363,7 +363,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             receiverServices.messagingService.addMessageHandler(
                     TestMessageTypes.class,
                     message -> executor,
-                    (message, senderConsistentId, correlationId) -> handlerThreadFuture.complete(Thread.currentThread())
+                    (message, sender, correlationId) -> handlerThreadFuture.complete(Thread.currentThread())
             );
 
             senderServices.messagingService.send(receiverNode, testMessage("test"));
@@ -389,11 +389,11 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
             receiverServices.messagingService.addMessageHandler(
                     TestMessageTypes.class,
-                    (message, senderConsistentId, correlationId) -> handler1ThreadFuture.complete(Thread.currentThread())
+                    (message, sender, correlationId) -> handler1ThreadFuture.complete(Thread.currentThread())
             );
             receiverServices.messagingService.addMessageHandler(
                     TestMessageTypes.class,
-                    (message, senderConsistentId, correlationId) -> {
+                    (message, sender, correlationId) -> {
                         if (!handler1ThreadFuture.isDone()) {
                             handler2ThreadFuture.completeExceptionally(new AssertionError("Second handler invoked before first handler"));
                         } else {
@@ -404,7 +404,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             receiverServices.messagingService.addMessageHandler(
                     TestMessageTypes.class,
                     message -> customExecutor,
-                    (message, senderConsistentId, correlationId) -> handler3ThreadFuture.complete(Thread.currentThread())
+                    (message, sender, correlationId) -> handler3ThreadFuture.complete(Thread.currentThread())
             );
 
             senderServices.messagingService.send(receiverNode, testMessage("test"));
@@ -432,9 +432,9 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
             receiverServices.messagingService.addMessageHandler(
                     TestMessageTypes.class,
-                    (message, senderConsistentId, correlationId) -> {
+                    (message, sender, correlationId) -> {
                         if (correlationId != null) {
-                            receiverServices.messagingService.respond(senderConsistentId, message, correlationId);
+                            receiverServices.messagingService.respond(sender, message, correlationId);
                         }
                     }
             );

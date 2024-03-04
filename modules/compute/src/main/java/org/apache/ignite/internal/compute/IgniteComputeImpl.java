@@ -96,7 +96,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeAsync(
+    public <R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -160,7 +160,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(nodes, units, jobClassName, options, args).resultAsync().join();
+            return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
@@ -216,7 +216,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeColocatedAsync(
+    public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple tuple,
             List<DeploymentUnit> units,
@@ -243,7 +243,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> JobExecution<R> executeColocatedAsync(
+    public <K, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -281,7 +281,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, options, args).resultAsync().join();
+            return this.<R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
@@ -299,7 +299,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync()
+            return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync()
                     .join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
@@ -345,7 +345,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
+    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,

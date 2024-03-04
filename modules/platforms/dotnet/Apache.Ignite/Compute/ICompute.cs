@@ -28,7 +28,7 @@ using Table;
 public interface ICompute
 {
     /// <summary>
-    /// Executes a compute job represented by the given class on one of the specified nodes.
+    /// Submits a compute job represented by the given class for an execution on one of the specified nodes.
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
@@ -37,7 +37,7 @@ public interface ICompute
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> ExecuteAsync<T>(
+    Task<IJobExecution<T>> Submit<T>(
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
@@ -45,7 +45,7 @@ public interface ICompute
         params object?[]? args);
 
     /// <summary>
-    /// Executes a job represented by the given class on one node where the given key is located.
+    /// Submits a compute job represented by the given class for an execution on one of the nodes where the given key is located.
     /// </summary>
     /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
@@ -55,7 +55,7 @@ public interface ICompute
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> ExecuteColocatedAsync<T>(
+    Task<IJobExecution<T>> SubmitColocated<T>(
         string tableName,
         IIgniteTuple key,
         IEnumerable<DeploymentUnit> units,
@@ -64,7 +64,7 @@ public interface ICompute
         params object?[]? args);
 
     /// <summary>
-    /// Executes a job represented by the given class on one node where the given key is located.
+    /// Submits a compute job represented by the given class for an execution on one of the nodes where the given key is located.
     /// </summary>
     /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
@@ -75,7 +75,7 @@ public interface ICompute
     /// <typeparam name="T">Job result type.</typeparam>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> ExecuteColocatedAsync<T, TKey>(
+    Task<IJobExecution<T>> SubmitColocated<T, TKey>(
         string tableName,
         TKey key,
         IEnumerable<DeploymentUnit> units,
@@ -85,7 +85,7 @@ public interface ICompute
         where TKey : notnull;
 
     /// <summary>
-    /// Executes a compute job represented by the given class on all of the specified nodes.
+    /// Submits a compute job represented by the given class for an execution on all of the specified nodes.
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
@@ -94,7 +94,7 @@ public interface ICompute
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
-    IDictionary<IClusterNode, Task<IJobExecution<T>>> BroadcastAsync<T>(
+    IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,

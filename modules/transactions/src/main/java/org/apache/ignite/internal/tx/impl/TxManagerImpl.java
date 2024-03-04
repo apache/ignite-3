@@ -870,7 +870,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+    public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
         if (!(message instanceof ReplicaResponse) || correlationId != null) {
             return;
         }
