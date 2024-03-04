@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.replicator;
 
-dependencies {
-    annotationProcessor project(":ignite-configuration-annotation-processor")
-    annotationProcessor libs.auto.service
+/**
+ * Constants for replication protocol.
+ */
+public final class ReplicatorConstants {
+    /** Default Idle safe time propagation period. */
+    public static final int DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
 
-    implementation project(':ignite-configuration-api')
-    implementation libs.jetbrains.annotations
-    implementation libs.auto.service.annotations
+    private ReplicatorConstants() {}
 }
-
-description = 'ignite-storage-configuration'

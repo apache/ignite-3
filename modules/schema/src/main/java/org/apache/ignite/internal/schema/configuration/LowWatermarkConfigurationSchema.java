@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;

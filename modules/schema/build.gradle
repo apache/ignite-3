@@ -33,7 +33,6 @@ dependencies {
     implementation project(':ignite-bytecode')
     implementation project(':ignite-catalog')
     implementation project(':ignite-core')
-    implementation project(':ignite-replicator')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-metastorage-api')
     implementation libs.jetbrains.annotations

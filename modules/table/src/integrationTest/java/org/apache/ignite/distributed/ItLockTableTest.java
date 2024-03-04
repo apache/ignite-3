@@ -17,7 +17,7 @@
 
 package org.apache.ignite.distributed;
 
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
