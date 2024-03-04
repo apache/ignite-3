@@ -43,5 +43,5 @@ internal record Column(
     /// </summary>
     /// <param name="keyOnly">Whether a key-only binary tuple is used.</param>
     /// <returns>Index within a binary tuple.</returns>
-    public int GetBinaryTupleIndex(bool keyOnly) => keyOnly ? KeyIndex : ValIndex;
+    public int GetBinaryTupleIndex(bool keyOnly) => keyOnly ? KeyIndex : SchemaIndex;
 }
