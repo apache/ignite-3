@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import java.util.HashSet;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -28,6 +30,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 
 /** Auxiliary class for working with indexes that can contain useful methods and constants. */
+// TODO: IGNITE-21635 проверить может SchemaRegistry можно будет доставить из TableViewInternal
 public class IndexUtils {
     /**
      * Registers an index to a table.
@@ -38,7 +41,7 @@ public class IndexUtils {
      * @param partitionSet Partitions for which index storages will need to be created if they are missing.
      * @param schemaRegistry Table schema register.
      */
-    public static void registerIndexInTable(
+    public static void registerIndexToTable(
             TableViewInternal table,
             CatalogTableDescriptor tableDescriptor,
             CatalogIndexDescriptor indexDescriptor,
@@ -65,6 +68,42 @@ public class IndexUtils {
                     tableRowConverter,
                     partitionSet
             );
+        }
+    }
+
+    /**
+     * Registers indexes to a table on node recovery..
+     *
+     * @param table Table into which the index will be registered.
+     * @param catalogService Catalog service.
+     * @param partitionSet Partitions for which index storages will need to be created if they are missing.
+     * @param schemaRegistry Table schema register.
+     */
+    public static void registerIndexesToTableOnNodeRecovery(
+            TableViewInternal table,
+            CatalogService catalogService,
+            PartitionSet partitionSet,
+            SchemaRegistry schemaRegistry
+    ) {
+        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
+        int tableId = table.tableId();
+
+        var indexIds = new HashSet<Integer>();
+
+        for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+
+            if (tableDescriptor == null) {
+                continue;
+            }
+
+            for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, tableId)) {
+                if (indexIds.add(indexDescriptor.id())) {
+                    registerIndexToTable(table, tableDescriptor, indexDescriptor, partitionSet, schemaRegistry);
+                }
+            }
         }
     }
 }

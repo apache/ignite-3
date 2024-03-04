@@ -50,6 +50,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTableOnNodeRecovery;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -154,6 +155,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -649,7 +651,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
-        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor());
+        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false);
     }
 
     /**
@@ -1158,12 +1160,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version on which the table was created.
      * @param tableDescriptor Catalog table descriptor.
+     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(
             long causalityToken,
             int catalogVersion,
-            CatalogTableDescriptor tableDescriptor
+            CatalogTableDescriptor tableDescriptor,
+            boolean onNodeRecovery
     ) {
         return inBusyLockAsync(busyLock, () -> {
             int tableId = tableDescriptor.id();
@@ -1200,7 +1204,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     causalityToken,
                     tableDescriptor,
                     zoneDescriptor,
-                    assignmentsFutureAfterInvoke
+                    assignmentsFutureAfterInvoke,
+                    onNodeRecovery
             );
         });
     }
@@ -1212,13 +1217,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
      * @param assignmentsFuture Future with assignments.
+     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<Void> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            CompletableFuture<List<Assignments>> assignmentsFuture
+            CompletableFuture<List<Assignments>> assignmentsFuture,
+            boolean onNodeRecovery
     ) {
         String tableName = tableDescriptor.name();
         int tableId = tableDescriptor.id();
@@ -1272,7 +1279,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }));
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
-        CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
+        CompletableFuture<Map<Integer, PartitionSet>> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
                 (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
@@ -1301,11 +1308,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return failedFuture(e);
             }
 
-            return localPartsUpdateFuture.thenCompose(unused ->
-                    tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(
-                            busyLock,
-                            () -> startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id())
-                    ), ioExecutor)
+            return localPartsUpdateFuture.thenCompose(localPartsByTableId ->
+                    tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(busyLock, () -> {
+                        if (onNodeRecovery) {
+                            PartitionSet partitionSet = localPartsByTableId.get(tableId);
+                            SchemaRegistry schemaRegistry = table.schemaView();
+
+                            registerIndexesToTableOnNodeRecovery(table, catalogService, partitionSet, schemaRegistry);
+                        }
+
+                        return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id());
+                    }), ioExecutor)
             );
         });
 
@@ -2411,7 +2424,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int ver0 = ver;
             catalogService.tables(ver).stream()
                     .filter(tbl -> startedTables.add(tbl.id()))
-                    .forEach(tableDescriptor -> startTableFutures.add(createTableLocally(recoveryRevision, ver0, tableDescriptor)));
+                    .forEach(tableDescriptor -> startTableFutures.add(createTableLocally(recoveryRevision, ver0, tableDescriptor, true)));
         }
 
         // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.

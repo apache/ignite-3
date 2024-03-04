@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DESTROY;
-import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexInTable;
+import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -129,7 +129,7 @@ public class IndexManager implements IgniteComponent {
         LOG.debug("Index manager is about to start");
 
         // TODO: IGNITE-21635 По идее нам уже не нужно, тейбл менеджер будет сам делать на старте и на ребалансе надо тоже
-        startIndexes();
+        // startIndexes();
 
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
         catalogService.listen(INDEX_DESTROY, (DestroyIndexEventParameters parameters) -> onIndexDestroy(parameters));
@@ -220,6 +220,7 @@ public class IndexManager implements IgniteComponent {
         });
     }
 
+    @SuppressWarnings("unused")
     private void startIndexes() {
         CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -273,7 +274,7 @@ public class IndexManager implements IgniteComponent {
     ) {
         TableViewInternal tableView = getTableViewStrict(table.id());
 
-        registerIndexInTable(tableView, table, index, partitionSet, schemaRegistry);
+        registerIndexToTable(tableView, table, index, partitionSet, schemaRegistry);
     }
 
     private static Int2ObjectMap<MvTableStorage> addMvTableStorageIfAbsent(
