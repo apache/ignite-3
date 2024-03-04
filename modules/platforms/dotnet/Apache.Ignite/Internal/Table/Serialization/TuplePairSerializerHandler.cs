@@ -80,7 +80,7 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
         ref BinaryTupleBuilder tupleBuilder,
         KvPair<IIgniteTuple, IIgniteTuple> record,
         Schema schema,
-        int columnCount,
+        bool keyOnly,
         Span<byte> noValueSet)
     {
         var key = record.Key;
@@ -88,17 +88,17 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
 
         IgniteArgumentCheck.NotNull(key);
 
-        if (columnCount > schema.KeyColumnCount)
+        if (!keyOnly)
         {
             IgniteArgumentCheck.NotNull(val);
         }
 
         int written = 0;
+        var columns = schema.GetColumnsFor(keyOnly);
 
-        for (var index = 0; index < columnCount; index++)
+        foreach (var col in columns)
         {
-            var col = schema.Columns[index];
-            var rec = index < schema.KeyColumnCount ? key : val;
+            var rec = col.IsKey ? key : val;
             var colIdx = rec.GetOrdinal(col.Name);
 
             if (colIdx >= 0)
@@ -112,7 +112,7 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
             }
         }
 
-        ValidateMappedCount(record, schema, columnCount, written);
+        ValidateMappedCount(record, schema, columns.Count, written);
     }
 
     private static void ValidateMappedCount(KvPair<IIgniteTuple, IIgniteTuple> record, Schema schema, int columnCount, int written)
