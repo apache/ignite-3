@@ -104,6 +104,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -154,6 +155,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -214,6 +216,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -270,6 +273,9 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         // Channel 2.
         setupChannel(channel2Src, chm2, noMessageListener);
         setupChannel(channel2Dst, shm1, noMessageListener);
+
+        exchangeClientToServer(channel2Dst, channel2Src);
+        exchangeClientToServer(channel1Dst, channel1Src);
 
         exchangeServerToClient(channel2Dst, channel2Src);
         exchangeServerToClient(channel1Dst, channel1Src);
@@ -332,10 +338,12 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         setupChannel(channel2Dst, shm1, noMessageListener);
 
         // Channel 2's handshake acquires both locks.
+        exchangeClientToServer(channel2Dst, channel2Src);
         exchangeServerToClient(channel2Dst, channel2Src);
         exchangeClientToServer(channel2Dst, channel2Src);
 
         // Now Channel 1's handshake cannot acquire even first lock.
+        exchangeClientToServer(channel1Dst, channel1Src);
         exchangeServerToClient(channel1Dst, channel1Src);
 
         // 2 -> 1 is alive, while 1 -> 2 closes because it is late.
@@ -401,6 +409,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         setupChannel(serverSideChannel, serverHandshakeManager, serverDidntReceiveAck ?  noMessageListener : listener1);
 
         // Normal handshake
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -446,6 +455,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         setupChannel(serverSideChannel, serverHandshakeManager, serverDidntReceiveAck ? noMessageListener : listener2);
 
         // Handshake
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -495,6 +505,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -534,6 +545,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
 
