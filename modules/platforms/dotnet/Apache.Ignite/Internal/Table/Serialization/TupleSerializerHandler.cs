@@ -130,12 +130,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     var name = record.GetName(i);
 
-                    if (extraColumns.Contains(name))
+                    if (!extraColumns.Add(name))
                     {
                         throw new ArgumentException("Duplicate column in Tuple: " + name, nameof(record));
                     }
-
-                    extraColumns.Add(name);
                 }
 
                 for (var i = 0; i < columnCount; i++)
