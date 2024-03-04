@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using Proto.BinaryTuple;
 
@@ -57,9 +58,9 @@ namespace Apache.Ignite.Internal.Table
 
             foreach (var column in columns)
             {
-                // TODO: Add assertions for column indexes - see Java code.
                 if (column.IsKey)
                 {
+                    Debug.Assert(keyColumns[column.KeyIndex] == null, "Duplicate key index: " + column);
                     keyColumns[column.KeyIndex] = column;
                 }
                 else
@@ -72,6 +73,9 @@ namespace Apache.Ignite.Internal.Table
                     hashedColumnCount++;
                 }
             }
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            Debug.Assert(keyColumns.All(x => x != null), "Some key columns are missing");
 
             return new Schema(version, tableId, hashedColumnCount, columns, keyColumns, valColumns);
         }
