@@ -755,7 +755,8 @@ public class IgniteImpl implements Ignite {
                 systemViewManager,
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
-                nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY)
+                nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),
+                txManager
         );
 
         sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));

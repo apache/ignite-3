@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
@@ -66,7 +68,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -331,13 +332,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
 
             for (Map.Entry<UUID, TxContext> ctxEntry : txCtxMap.entrySet()) {
-                TxContext txContext = ctxEntry.getValue();
+                if (ctxEntry.getValue() instanceof ReadWriteTxContext) {
+                    ReadWriteTxContext txContext = (ReadWriteTxContext) ctxEntry.getValue();
 
-                if (txContext.isTxFinishing()) {
-                    IgniteBiTuple<ClusterNode, Long> nodeAndToken = txContext.enlistedGroups.get(groupId);
+                    if (txContext.isTxFinishing()) {
+                        IgniteBiTuple<ClusterNode, Long> nodeAndToken = txContext.enlistedGroups.get(groupId);
 
-                    if (nodeAndToken != null) {
-                        txContext.cancelWaitingInflights(groupId, nodeAndToken.get2());
+                        if (nodeAndToken != null) {
+                            txContext.cancelWaitingInflights(groupId, nodeAndToken.get2());
+                        }
                     }
                 }
             }
@@ -504,7 +507,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             }
         }
 
-        TxContext txContext = lockTxForNewUpdates(txId, enlistedGroups);
+        ReadWriteTxContext txContext = lockTxForNewUpdates(txId, enlistedGroups);
 
         // Wait for commit acks first, then proceed with the finish request.
         return txContext.performFinish(commitIntent, commit ->
@@ -523,10 +526,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         });
     }
 
-    private TxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
-        return txCtxMap.compute(txId, (uuid, tuple0) -> {
+    private ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
-                tuple0 = new TxContext(placementDriver); // No writes enlisted.
+                tuple0 = new ReadWriteTxContext(placementDriver); // No writes enlisted.
             }
 
             assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
@@ -830,20 +833,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public boolean addInflight(UUID txId) {
         boolean[] res = {true};
 
-        txCtxMap.compute(txId, (uuid, tuple) -> {
-            if (tuple == null) {
-                tuple = new TxContext(placementDriver);
+        txCtxMap.compute(txId, (uuid, ctx) -> {
+            if (ctx == null) {
+                ctx = new ReadWriteTxContext(placementDriver);
             }
 
-            if (tuple.isTxFinishing()) {
-                res[0] = false;
-                return tuple;
-            } else {
-                // noinspection NonAtomicOperationOnVolatileField
-                tuple.inflights++;
-            }
+            res[0] = ctx.addInflight();
 
-            return tuple;
+            return ctx;
         });
 
         return res[0];
@@ -852,16 +849,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public void removeInflight(UUID txId) {
         TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-            assert ctx != null && ctx.inflights > 0 : ctx;
+            assert ctx != null : format("No tx context found on removing inflight [txId={}]", txId);
 
-            // noinspection NonAtomicOperationOnVolatileField
-            ctx.inflights--;
+            ctx.removeInflight(txId);
 
             return ctx;
         });
 
         // Avoid completion under lock.
         tuple.onRemovedInflights();
+    }
+
+    @Override
+    public boolean isReadyToFinish(UUID txId) {
+        TxContext ctx = requireNonNull(txCtxMap.get(txId));
+
+        return ctx.isReadyToFinish();
     }
 
     @Override
@@ -922,7 +925,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             );
                         } else {
                             assert commitTimestamp.compareTo(currentPrimaryReplica.getExpirationTime()) <= 0 :
-                                    IgniteStringFormatter.format(
+                                    format(
                                             "Commit timestamp is greater than primary replica expiration timestamp:"
                                                     + " [groupId = {}, commit timestamp = {}, primary replica expiration timestamp = {}]",
                                             groupId, commitTimestamp, currentPrimaryReplica.getExpirationTime());
@@ -933,14 +936,71 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return allOf(verificationFutures);
     }
 
-    private static class TxContext {
+    private static abstract class TxContext {
         volatile long inflights = 0; // Updated under lock.
+
+        boolean addInflight() {
+            if (isTxFinishing()) {
+                return false;
+            } else {
+                // noinspection NonAtomicOperationOnVolatileField
+                inflights++;
+                return true;
+            }
+        }
+
+        void removeInflight(UUID txId) {
+            assert inflights > 0 : format("No inflights, cannot remove any [txId={}, ctx={}]", txId, this);
+
+            // noinspection NonAtomicOperationOnVolatileField
+            inflights--;
+        }
+
+        abstract void onRemovedInflights();
+
+        abstract void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
+
+        abstract boolean isTxFinishing();
+
+        abstract boolean isReadyToFinish();
+    }
+
+    private static class ReadOnlyTxContext extends TxContext {
+        volatile boolean markedFinished;
+
+        @Override
+        public void onRemovedInflights() {
+            // No-op.
+        }
+
+        @Override
+        public void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+            markedFinished = true;
+        }
+
+        @Override
+        public boolean isTxFinishing() {
+            return markedFinished;
+        }
+
+        @Override
+        public boolean isReadyToFinish() {
+            return markedFinished && inflights == 0;
+        }
+
+        @Override
+        public String toString() {
+            return "ReadOnlyTxContext [inflights=" + inflights + ']';
+        }
+    }
+
+    private static class ReadWriteTxContext extends TxContext {
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
         private final PlacementDriver placementDriver;
         volatile CompletableFuture<Void> finishInProgressFuture = null;
         volatile Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
 
-        private TxContext(PlacementDriver placementDriver) {
+        private ReadWriteTxContext(PlacementDriver placementDriver) {
             this.placementDriver = placementDriver;
         }
 
@@ -1004,23 +1064,31 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return waitRepFut;
         }
 
-        private void cancelWaitingInflights(TablePartitionId groupId, Long enlistmentConsistencyToken) {
+        public void cancelWaitingInflights(TablePartitionId groupId, Long enlistmentConsistencyToken) {
             waitRepFut.completeExceptionally(new PrimaryReplicaExpiredException(groupId, enlistmentConsistencyToken, null, null));
         }
 
-        void onRemovedInflights() {
+        @Override
+        public void onRemovedInflights() {
             if (inflights == 0 && finishInProgressFuture != null) {
                 waitRepFut.complete(null);
             }
         }
 
-        void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        @Override
+        public void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
             this.enlistedGroups = enlistedGroups;
             finishInProgressFuture = new CompletableFuture<>();
         }
 
-        boolean isTxFinishing() {
+        @Override
+        public boolean isTxFinishing() {
             return finishInProgressFuture != null;
+        }
+
+        @Override
+        public boolean isReadyToFinish() {
+            return waitRepFut.isDone();
         }
 
         @Override

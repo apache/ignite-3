@@ -226,6 +226,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public boolean isReadyToFinish(UUID txId) {
+        return false;
+    }
+
+    @Override
     public HybridClock clock() {
         return clock;
     }

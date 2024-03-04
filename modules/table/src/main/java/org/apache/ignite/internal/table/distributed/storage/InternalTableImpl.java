@@ -533,6 +533,8 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
             boolean retryOnLockConflict
     ) {
+        assert !tx.isReadOnly() : format("Tracking invoke is available only for read-write transactions [tx={}].", tx);
+
         ReplicaRequest request = mapFunc.apply(primaryReplicaAndConsistencyToken.get2());
 
         boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
@@ -1802,6 +1804,8 @@ public class InternalTableImpl implements InternalTable {
         /** True when the publisher has a subscriber, false otherwise. */
         private final AtomicBoolean subscribed;
 
+        //private final InternalTransaction transaction;
+
         /**
          * The constructor.
          *
@@ -1926,6 +1930,17 @@ public class InternalTableImpl implements InternalTable {
                 if (canceled.get()) {
                     return;
                 }
+
+                // Track only write requests from explicit transactions.
+                /*if (!txManager.addInflight(tx.id())) {
+                    return failedFuture(
+                            new TransactionException(TX_ALREADY_FINISHED_ERR, format(
+                                    "Transaction is already finished [tableName={}, partId={}, txState={}].",
+                                    tableName,
+                                    partId,
+                                    tx.state()
+                            )));
+                }*/
 
                 retrieveBatch.apply(scanId, n).thenAccept(binaryRows -> {
                     assert binaryRows != null;

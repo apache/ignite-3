@@ -206,6 +206,8 @@ public interface TxManager extends IgniteComponent {
      */
     void removeInflight(UUID txId);
 
+    boolean isReadyToFinish(UUID txId);
+
     /** Returns the node's hybrid clock. */
     HybridClock clock();
 }

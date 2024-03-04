@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -40,6 +41,8 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** The tracker is used to track an observable timestamp. */
     private final HybridTimestampTracker observableTsTracker;
+
+    private volatile AtomicInteger inflightRequestCount = new AtomicInteger();
 
     /**
      * The constructor.
@@ -117,5 +120,17 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         observableTsTracker.update(executionTimestamp);
 
         return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
+    }
+
+    public void addInflight() {
+        inflightRequestCount.incrementAndGet();
+    }
+
+    public void removeInflight() {
+        inflightRequestCount.decrementAndGet();
+    }
+
+    public boolean inflightCompleted() {
+        return finishGuard.get() && inflightRequestCount.get() == 0;
     }
 }

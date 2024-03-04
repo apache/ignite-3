@@ -586,7 +586,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new SystemViewManagerImpl(name, catalogManager),
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
-                nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY)
+                nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
+                txManager
         );
 
         sqlRef.set(new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, new HybridTimestampTracker())));

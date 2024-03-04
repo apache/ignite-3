@@ -119,6 +119,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -221,6 +222,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Node SQL configuration. */
     private final SqlLocalConfiguration nodeCfg;
 
+    private final TxManager txManager;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -238,7 +241,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             SystemViewManager systemViewManager,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration clusterCfg,
-            SqlLocalConfiguration nodeCfg
+            SqlLocalConfiguration nodeCfg,
+            TxManager txManager
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -255,6 +259,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
+        this.txManager = txManager;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
