@@ -303,16 +303,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var local = il.DeclareAndInitLocal(type);
 
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var columns = schema.GetColumnsFor(keyOnly);
             var columnMap = type.GetFieldsByColumnName();
 
-            for (var i = 0; i < count; i++)
+            foreach (var col in columns)
             {
-                var col = columns[i];
                 var fieldInfo = columnMap.TryGetValue(col.Name, out var columnInfo) ? columnInfo.Field : null;
+                var idx = col.GetBinaryTupleIndex(keyOnly);
 
-                EmitFieldRead(fieldInfo, il, col, i, local);
+                EmitFieldRead(fieldInfo, il, col, idx, local);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
