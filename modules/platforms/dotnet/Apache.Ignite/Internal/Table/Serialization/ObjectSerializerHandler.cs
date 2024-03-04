@@ -334,22 +334,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var keyLocal = keyMethod == null ? il.DeclareAndInitLocal(keyType) : null;
             var valLocal = valMethod == null ? il.DeclareAndInitLocal(valType) : null;
 
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var columns = schema.GetColumnsFor(keyOnly);
 
-            for (var i = 0; i < count; i++)
+            foreach (var col in columns)
             {
-                var col = columns[i];
                 FieldInfo? fieldInfo;
                 LocalBuilder? local;
 
-                if (i == 0 && keyMethod != null)
+                if (col.IsKey && keyMethod != null)
                 {
                     fieldInfo = keyField;
                     local = kvLocal;
                     ValidateSingleFieldMappingType(keyType, col);
                 }
-                else if (i == schema.KeyColumnCount && valMethod != null)
+                else if (!col.IsKey && valMethod != null)
                 {
                     fieldInfo = valField;
                     local = kvLocal;
@@ -365,7 +363,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                             : null;
                 }
 
-                EmitFieldRead(fieldInfo, il, col, i, local);
+                var idx = col.GetBinaryTupleIndex(keyOnly);
+                EmitFieldRead(fieldInfo, il, col, idx, local);
             }
 
             // Copy Key to KvPair.
