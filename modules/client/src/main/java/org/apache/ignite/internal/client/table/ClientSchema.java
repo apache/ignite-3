@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
@@ -106,9 +108,6 @@ public class ClientSchema {
                 assert this.keyColumns[col.keyIndex()] == null : "Duplicate key index: name=" + col.name() + ", keyIndex=" + col.keyIndex()
                         + ", other.name=" + this.keyColumns[col.keyIndex()].name();
 
-                assert col.keyIndex() == 0 || this.keyColumns[col.keyIndex() - 1] != null : "Key index is out of order: name="
-                        + col.name() + ", keyIndex=" + col.keyIndex();
-
                 this.keyColumns[col.keyIndex()] = col;
             } else {
                 assert this.valColumns[col.valIndex()] == null : "Duplicate val index: name=" + col.name() + ", valIndex=" + col.valIndex()
@@ -125,6 +124,10 @@ public class ClientSchema {
                 this.colocationColumns[col.colocationIndex()] = col;
             }
         }
+
+        assert Arrays.stream(keyColumns).allMatch(Objects::nonNull) : "Some key columns are missing";
+        assert Arrays.stream(valColumns).allMatch(Objects::nonNull) : "Some val columns are missing";
+        assert Arrays.stream(colocationColumns).allMatch(Objects::nonNull) : "Some colocation columns are missing";
     }
 
     /**
