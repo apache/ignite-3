@@ -179,21 +179,19 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var il = method.GetILGenerator();
 
-            var columns = schema.Columns;
+            var columns = schema.GetColumnsFor(keyOnly);
 
             int mappedCount = 0;
 
-            for (var index = 0; index < count; index++)
+            foreach (var col in columns)
             {
-                var col = columns[index];
-
                 FieldInfo? fieldInfo;
 
-                if (keyWriteMethod != null && index == 0)
+                if (keyWriteMethod != null && col.IsKey)
                 {
                     fieldInfo = keyField;
                 }
-                else if (valWriteMethod != null && index == schema.KeyColumnCount)
+                else if (valWriteMethod != null && !col.IsKey)
                 {
                     fieldInfo = valField;
                 }
@@ -218,7 +216,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     ValidateFieldType(fieldInfo, col);
 
-                    var field = index < schema.KeyColumnCount ? keyField : valField;
+                    var field = col.IsKey ? keyField : valField;
 
                     if (field != fieldInfo)
                     {
