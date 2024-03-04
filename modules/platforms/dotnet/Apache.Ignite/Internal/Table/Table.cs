@@ -334,6 +334,7 @@ namespace Apache.Ignite.Internal.Table
             var columnCount = r.ReadInt32();
 
             var columns = new Column[columnCount];
+            int valCount = 0;
 
             for (var i = 0; i < columnCount; i++)
             {
@@ -345,6 +346,7 @@ namespace Apache.Ignite.Internal.Table
                 var name = r.ReadString();
                 var type = r.ReadInt32();
                 var keyIndex = r.ReadInt32();
+                var valIndex = keyIndex < 0 ? valCount++ : -1;
                 var isNullable = r.ReadBoolean();
                 var colocationIndex = r.ReadInt32();
                 var scale = r.ReadInt32();
@@ -352,7 +354,7 @@ namespace Apache.Ignite.Internal.Table
 
                 r.Skip(propertyCount - expectedCount);
 
-                columns[i] = new Column(name, (ColumnType)type, isNullable, keyIndex, colocationIndex, i, scale, precision);
+                columns[i] = new Column(name, (ColumnType)type, isNullable, keyIndex, valIndex, colocationIndex, i, scale, precision);
             }
 
             var schema = Schema.CreateInstance(schemaVersion, Id, columns);

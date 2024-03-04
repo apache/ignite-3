@@ -77,14 +77,14 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
             var name = source.GetName(i);
             var val = source[i]!;
             var type = GetColumnType(val);
-            var col = new Column(name, type, true, false, 0, i, 0, 0);
+            var col = new Column(Name: name, Type: type, IsNullable: true, KeyIndex: -1, ValIndex: i, ColocationIndex: i, SchemaIndex: i, Scale: 0, Precision: 0);
 
             cols.Add(col);
             builder.AppendObject(val, type);
         }
 
         var buf = builder.Build().ToArray();
-        var schema = new Schema(0, 0, 0, 0, cols);
+        var schema = Schema.CreateInstance(0, 0, cols);
 
         return new BinaryTupleIgniteTupleAdapter(buf, schema, cols.Count);
 

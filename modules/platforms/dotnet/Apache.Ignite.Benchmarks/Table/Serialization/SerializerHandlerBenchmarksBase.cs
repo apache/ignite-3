@@ -49,9 +49,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             tableId: 1,
             columns: new[]
             {
-                new Column(nameof(Car.Id), ColumnType.Uuid, IsNullable: false, ColocationIndex: 0, KeyIndex: 0, SchemaIndex: 0, Scale: 0, Precision: 0),
-                new Column(nameof(Car.BodyType), ColumnType.String, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, SchemaIndex: 1, Scale: 0, Precision: 0),
-                new Column(nameof(Car.Seats), ColumnType.Int32, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, SchemaIndex: 2, Scale: 0, Precision: 0)
+                new Column(nameof(Car.Id), ColumnType.Uuid, IsNullable: false, ColocationIndex: 0, KeyIndex: 0, ValIndex: -1, SchemaIndex: 0, Scale: 0, Precision: 0),
+                new Column(nameof(Car.BodyType), ColumnType.String, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, ValIndex: 0, SchemaIndex: 1, Scale: 0, Precision: 0),
+                new Column(nameof(Car.Seats), ColumnType.Int32, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, ValIndex: 1, SchemaIndex: 2, Scale: 0, Precision: 0)
             });
 
         internal static readonly byte[] SerializedData = GetSerializedData();

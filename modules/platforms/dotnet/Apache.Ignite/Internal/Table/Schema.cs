@@ -55,6 +55,7 @@ namespace Apache.Ignite.Internal.Table
 
             foreach (var column in columns)
             {
+                // TODO: Add assertions for column indexes - see Java code.
                 if (column.KeyIndex >= 0)
                 {
                     keyColumns.Add(column);
