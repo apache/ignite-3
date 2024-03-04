@@ -73,5 +73,12 @@ namespace Apache.Ignite.Internal.Table
 
             return new Schema(version, tableId, hashedColumnCount, columns, keyColumns, valColumns);
         }
+
+        /// <summary>
+        /// Gets columns.
+        /// </summary>
+        /// <param name="keyOnly">Key only flag.</param>
+        /// <returns>Columns according to the key flag.</returns>
+        public IReadOnlyCollection<Column> GetColumns(bool keyOnly) => keyOnly ? KeyColumns : Columns;
     }
 }

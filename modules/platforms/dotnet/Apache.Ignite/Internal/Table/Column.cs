@@ -37,4 +37,11 @@ internal record Column(
     /// Gets a value indicating whether this column is a part of the key.
     /// </summary>
     public bool IsKey => KeyIndex >= 0;
+
+    /// <summary>
+    /// Gets the column index within a binary tuple.
+    /// </summary>
+    /// <param name="keyOnly">Whether a key-only binary tuple is used.</param>
+    /// <returns>Index within a binary tuple.</returns>
+    public int GetBinaryTupleIndex(bool keyOnly) => keyOnly ? KeyIndex : ValIndex;
 }

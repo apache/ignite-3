@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Linq;
     using Common;
     using Ignite.Table;
@@ -49,20 +48,17 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="buf">Buffer.</param>
         /// <param name="schema">Schema.</param>
-        /// <param name="count">Column count to read.</param>
+        /// <param name="keyOnly">Whether to read only the key columns.</param>
         /// <returns>Tuple.</returns>
-        public static IgniteTuple ReadTuple(ReadOnlySpan<byte> buf, Schema schema, int count)
+        public static IgniteTuple ReadTuple(ReadOnlySpan<byte> buf, Schema schema, bool keyOnly)
         {
-            Debug.Assert(count <= schema.Columns.Count, "count <= schema.Columns.Count");
+            var columns = schema.GetColumns(keyOnly);
+            var tuple = new IgniteTuple(columns.Count);
+            var tupleReader = new BinaryTupleReader(buf, columns.Count);
 
-            var tuple = new IgniteTuple(count);
-            var tupleReader = new BinaryTupleReader(buf, count);
-            var columns = schema.Columns;
-
-            for (var index = 0; index < count; index++)
+            foreach (var column in columns)
             {
-                var column = columns[index];
-                tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
+                tuple[column.Name] = tupleReader.GetObject(column.GetBinaryTupleIndex(keyOnly), column.Type, column.Scale);
             }
 
             return tuple;
@@ -89,7 +85,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             new BinaryTupleIgniteTupleAdapter(
                 data: reader.ReadBinary().ToArray(),
                 schema: schema,
-                fieldCount: keyOnly ? schema.KeyColumnCount : schema.Columns.Count);
+                keyOnly);
 
         /// <inheritdoc/>
         public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, bool keyOnly, Span<byte> noValueSet)
