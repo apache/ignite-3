@@ -183,7 +183,7 @@ internal static class DataStreamer
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
-            writer.Handler.Write(ref tupleBuilder, item, schema0, columnCount, noValueSetRef);
+            writer.Handler.Write(ref tupleBuilder, item, schema0, keyOnly: false, noValueSetRef);
 
             // ReSharper disable once AccessToModifiedClosure (reviewed)
             var partitionAssignment0 = partitionAssignment;
