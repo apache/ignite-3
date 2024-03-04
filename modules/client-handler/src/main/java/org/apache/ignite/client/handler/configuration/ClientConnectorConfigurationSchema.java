@@ -36,6 +36,10 @@ public class ClientConnectorConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = 10800;
 
+    /** Address (IP or hostname) to listen on. Will listen on all interfaces if empty. */
+    @Value(hasDefault = true)
+    public String listenAddress = "";
+
     /** Connect timeout. */
     @Range(min = 0)
     @Value(hasDefault = true)

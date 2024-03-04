@@ -364,6 +364,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
         lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
         lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
@@ -393,7 +394,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 catalogService,
                 new TestPlacementDriver(LOCAL_NODE),
                 mock(ClusterNodeResolver.class),
-                resourcesRegistry
+                resourcesRegistry,
+                schemaManager
         );
 
         partitionListener = new PartitionListener(
@@ -403,7 +405,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
                 new PendingComparableValuesTracker<>(0L),
-                catalogService
+                catalogService,
+                schemaManager
         );
     }
 
@@ -453,7 +456,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         ClusterService clusterService = mock(ClusterService.class);
 
-        when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE.name()));
+        when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
         var txManager = new TxManagerImpl(
@@ -505,12 +508,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Dummy messaging service for tests purposes. It does not provide any messaging functionality, but allows to trigger events.
      */
     private static class DummyMessagingService extends AbstractMessagingService {
-        private final String localNodeName;
+        private final ClusterNode localNode;
 
         private final AtomicLong correlationIdGenerator = new AtomicLong();
 
-        DummyMessagingService(String localNodeName) {
-            this.localNodeName = localNodeName;
+        DummyMessagingService(ClusterNode localNode) {
+            this.localNode = localNode;
         }
 
         /** {@inheritDoc} */
@@ -551,7 +554,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<NetworkMessage> invoke(String recipientNodeId, ChannelType type, NetworkMessage msg, long timeout) {
-            getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, localNodeName, correlationIdGenerator.getAndIncrement()));
+            getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, localNode, correlationIdGenerator.getAndIncrement()));
 
             return nullCompletedFuture();
         }

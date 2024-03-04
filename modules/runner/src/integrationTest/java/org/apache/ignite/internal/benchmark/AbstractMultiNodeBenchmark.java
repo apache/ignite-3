@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -83,7 +82,7 @@ public class AbstractMultiNodeBenchmark {
         try {
             var queryEngine = clusterNode.queryEngine();
 
-            var createZoneStatement = "CREATE ZONE " + ZONE_NAME + " WITH partitions=" + partitionCount()
+            var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
                     + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
 
             getAllFromCursor(
@@ -181,8 +180,8 @@ public class AbstractMultiNodeBenchmark {
         IgniteUtils.closeAll(closeables);
     }
 
-    private void startCluster() throws IOException {
-        Path workDir = Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
+    private void startCluster() throws Exception {
+        Path workDir = workDir();
 
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
@@ -234,6 +233,10 @@ public class AbstractMultiNodeBenchmark {
 
     private static String nodeName(int port) {
         return "node_" + port;
+    }
+
+    protected Path workDir() throws Exception {
+        return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
     }
 
     protected int nodes() {

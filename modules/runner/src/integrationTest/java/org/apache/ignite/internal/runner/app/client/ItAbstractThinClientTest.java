@@ -193,7 +193,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
      */
     protected static class TestPojo {
         public TestPojo() {
-            //No-op.
+            // No-op.
         }
 
         public TestPojo(int key) {

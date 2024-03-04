@@ -351,7 +351,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
-        //Check that pending are null, so there wasn't any rebalance.
+        // Check that pending are null, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
     }
 
@@ -397,7 +397,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
-        //Check that stable and pending are null, so there wasn't any rebalance.
+        // Check that stable and pending are null, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
         session.execute(null, alterZoneSql(2));
@@ -417,7 +417,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         assertTrue(latch.await(10_000, MILLISECONDS));
 
-        //Check that stable and pending are null, so there wasn't any rebalance.
+        // Check that stable and pending are null, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
     }
 

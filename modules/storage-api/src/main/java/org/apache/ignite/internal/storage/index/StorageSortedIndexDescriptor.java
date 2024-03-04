@@ -65,7 +65,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
         @Override
         @Deprecated
-        //TODO IGNITE-19758 Remove this method and fix the test that uses it.
+        // TODO IGNITE-19758 Remove this method and fix the test that uses it.
         public String name() {
             return name;
         }

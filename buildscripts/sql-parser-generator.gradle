@@ -47,6 +47,10 @@ task extractParserTemplate(type: Copy) {
         include 'codegen/default_config.fmpp'
     }
     into("${buildDir}")
+
+    // TODO: IGNITE-21638 - remove this.
+    if (System.getProperty("os.name").toLowerCase().contains("windows"))
+        doNotTrackState("IGNITE-21638 - do not track state in extractParserTemplate on Windows")
 }
 
 task generateFmppSources() {

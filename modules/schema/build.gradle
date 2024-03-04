@@ -68,4 +68,5 @@ dependencies {
     testFixturesImplementation libs.junit5.api
     testFixturesImplementation libs.junit5.impl
     testFixturesImplementation libs.junit5.params
+    testFixturesImplementation libs.mockito.core
 }

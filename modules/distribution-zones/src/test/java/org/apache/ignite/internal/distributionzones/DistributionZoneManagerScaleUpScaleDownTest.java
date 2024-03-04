@@ -683,8 +683,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(zoneId, 1009);
 
         DistributionZonesTestUtil.assertDataNodesInStorage(zoneId, Set.of(A, B, C, D), keyValueStorage);
-
-        //waitForCondition(() -> false, 10_000);
     }
 
     @Test

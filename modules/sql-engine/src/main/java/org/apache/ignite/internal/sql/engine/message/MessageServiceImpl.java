@@ -29,6 +29,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -112,7 +113,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void onMessage(NetworkMessage msg, String senderConsistentId, @Nullable Long correlationId) {
+    private void onMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -120,7 +121,7 @@ public class MessageServiceImpl implements MessageService {
         try {
             assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
-            onMessage(senderConsistentId, msg);
+            onMessage(sender.name(), msg);
         } finally {
             busyLock.leaveBusy();
         }

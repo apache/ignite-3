@@ -79,7 +79,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -194,6 +196,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Catalog manager. */
     private final CatalogManager catalogManager;
 
+    /** Executor for scheduling rebalances. */
+    private final ScheduledExecutorService rebalanceScheduler;
+
     /**
      * Creates a new distribution zone manager.
      *
@@ -208,13 +213,16 @@ public class DistributionZoneManager implements IgniteComponent {
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
-            CatalogManager catalogManager
+            CatalogManager catalogManager,
+            ScheduledExecutorService rebalanceScheduler
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.catalogManager = catalogManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
+
+        this.rebalanceScheduler = rebalanceScheduler;
 
         executor = createZoneManagerExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
@@ -223,15 +231,16 @@ public class DistributionZoneManager implements IgniteComponent {
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
-        //noinspection ThisEscapedInObjectConstruction
+        // noinspection ThisEscapedInObjectConstruction
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 busyLock,
                 metaStorageManager,
                 this,
-                catalogManager
+                catalogManager,
+                rebalanceScheduler
         );
 
-        //noinspection ThisEscapedInObjectConstruction
+        // noinspection ThisEscapedInObjectConstruction
         causalityDataNodesEngine = new CausalityDataNodesEngine(
                 busyLock,
                 registry,
@@ -282,6 +291,7 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
+        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -458,7 +468,7 @@ public class DistributionZoneManager implements IgniteComponent {
             // Max revision from the {@link ZoneState#topologyAugmentationMap()} for node joins.
             Optional<Long> maxScaleUpRevisionOptional = zoneState.highestRevision(true);
 
-            //Max revision from the {@link ZoneState#topologyAugmentationMap()} for node removals.
+            // Max revision from the {@link ZoneState#topologyAugmentationMap()} for node removals.
             Optional<Long> maxScaleDownRevisionOptional = zoneState.highestRevision(false);
 
             maxScaleUpRevisionOptional.ifPresent(
@@ -853,7 +863,7 @@ public class DistributionZoneManager implements IgniteComponent {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         if ((nodesAdded || nodesRemoved) && autoAdjust != INFINITE_TIMER_VALUE) {
-            //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
+            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
             throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
         } else {
             if (nodesAdded) {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptyMap;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
@@ -36,7 +37,6 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,8 +45,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
@@ -72,7 +74,7 @@ public class DistributionZonesUtil {
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
     /** Key prefix for zone's data nodes. */
-    private static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
+    public static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
 
     /** Key prefix for zone's scale up change trigger key. */
     private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX =
@@ -173,18 +175,6 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
-    }
-
-    /**
-     * Extract zone id from a distribution zone data nodes key.
-     *
-     * @param key Key.
-     * @return Zone id.
-     */
-    public static int extractZoneId(byte[] key) {
-        var strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.length()));
     }
 
     /**
@@ -591,6 +581,21 @@ public class DistributionZonesUtil {
                 namedThreadFactory,
                 new ThreadPoolExecutor.DiscardPolicy()
         );
+    }
+
+
+    /**
+     * Returns list of table descriptors bound to the zone.
+     *
+     * @param zoneId Zone id.
+     * @param catalogVersion Catalog version.
+     * @param catalogService Catalog service
+     * @return List of table descriptors from the zone.
+     */
+    public static List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, int catalogVersion, CatalogService catalogService) {
+        return catalogService.tables(catalogVersion).stream()
+                .filter(table -> table.zoneId() == zoneId)
+                .collect(toList());
     }
 
     /** Key prefix for zone's scale up change trigger key. */

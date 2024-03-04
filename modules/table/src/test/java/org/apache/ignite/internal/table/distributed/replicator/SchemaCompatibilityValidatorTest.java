@@ -163,7 +163,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         List<ColumnTypeChange> changes = new ArrayList<>();
 
         for (IgniteBiTuple<ColumnType, ColumnType> pair : simpleTypeCompatibleChanges()) {
-            //noinspection ConstantConditions
+            // noinspection ConstantConditions
             changes.add(new ColumnTypeChange(pair.get1(), pair.get2()));
         }
 
@@ -432,14 +432,14 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 ))
         )),
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - uncomment this.
-        //RENAME_COLUMN(List.of(
+        // RENAME_COLUMN(List.of(
         //        tableSchema(1, List.of(
         //                intColumn("col1")
         //        )),
         //        tableSchema(2, List.of(
         //                intColumn("col2")
         //        ))
-        //)),
+        // )),
         DROP_NOT_NULL(List.of(
                 tableSchema(1, List.of(
                         intColumn("col1")

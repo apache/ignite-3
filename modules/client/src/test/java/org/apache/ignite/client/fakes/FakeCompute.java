@@ -70,7 +70,7 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> executeAsync(
+    public <R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -114,14 +114,14 @@ public class FakeCompute implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(nodes, units, jobClassName, options, args).resultAsync().join();
+            return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
     }
 
     @Override
-    public <R> JobExecution<R> executeColocatedAsync(
+    public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -133,7 +133,7 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <K, R> JobExecution<R> executeColocatedAsync(
+    public <K, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -156,7 +156,7 @@ public class FakeCompute implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, options, args).resultAsync().join();
+            return this.<R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
@@ -174,14 +174,14 @@ public class FakeCompute implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync().join();
+            return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.wrap(e);
         }
     }
 
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
+    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,

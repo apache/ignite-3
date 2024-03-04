@@ -92,7 +92,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         return new SchemaDescriptor(
                 SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, true)}
         );
     }
 
@@ -341,6 +341,30 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
                 ));
 
         assertThat(res, contains(rec1, null, rec3));
+    }
+
+    @Test
+    public void testContains() {
+        SchemaDescriptor schema = schemaDescriptor();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
+
+        final long keyId = 1L;
+        Tuple rec = Tuple.create()
+                .set("id", keyId)
+                .set("val", 11L);
+        Tuple keyRec = Tuple.create()
+                .set("id", keyId);
+
+        tbl.insert(null, rec);
+        assertTrue(tbl.contains(null, keyRec));
+        assertFalse(tbl.contains(null, Tuple.create().set("id", -1L)));
+
+        tbl.delete(null, keyRec);
+        assertFalse(tbl.contains(null, keyRec));
+
+        Tuple nullValRec = Tuple.create().set("id", 1L).set("val", null);
+        tbl.insert(null, nullValRec);
+        assertTrue(tbl.contains(null, keyRec));
     }
 
     @Test

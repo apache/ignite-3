@@ -216,7 +216,8 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         when(checkpointManager.lastCheckpointProgress()).thenReturn(checkpointProgress);
 
-        ByteBuffer pageBuf = mock(ByteBuffer.class);
+        // Spying because mocking ByteBuffer does not work on Java 21.
+        ByteBuffer pageBuf = spy(ByteBuffer.wrap(new byte[deltaFilePageStoreIo.pageSize()]));
 
         checkpointManager.writePageToDeltaFilePageStore(pageMemory, dirtyPageId, pageBuf, true);
 

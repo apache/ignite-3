@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -34,7 +35,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
@@ -80,7 +80,7 @@ class IndexChooser implements ManuallyCloseable {
      *
      * <p>Updated on {@link #recover() node recovery} and a catalog events processing.</p>
      */
-    // TODO: IGNITE-20121 We may need to worry about parallel map changes when deleting catalog version
+    // TODO: IGNITE-21608 We may need to worry about parallel map changes when deleting catalog version
     // TODO: IGNITE-20934 Worry about cleaning up removed indexes earlier
     private final NavigableMap<TableIdCatalogVersion, List<CatalogIndexDescriptor>> removedAvailableTableIndexes
             = new ConcurrentSkipListMap<>();
@@ -103,32 +103,14 @@ class IndexChooser implements ManuallyCloseable {
             int earliestCatalogVersion = catalogService.earliestCatalogVersion();
             int latestCatalogVersion = catalogService.latestCatalogVersion();
 
-            // At the moment, we will only use tables from the latest version (not dropped), since so far only replicas for them are started
-            // on the node.
-            for (CatalogTableDescriptor table : catalogService.tables(latestCatalogVersion)) {
-                int tableId = table.id();
+            var processedIndexes = new IntOpenHashSet();
 
-                for (int catalogVersion = earliestCatalogVersion; catalogVersion < latestCatalogVersion; catalogVersion++) {
-                    int nextCatalogVersion = catalogVersion + 1;
-
-                    List<CatalogIndexDescriptor> tableIndexes = catalogService.indexes(catalogVersion, tableId);
-
-                    if (tableIndexes.isEmpty()) {
-                        // Table does not exist yet.
-                        continue;
-                    }
-
-                    List<CatalogIndexDescriptor> nextCatalogVersionTableIndexes = catalogService.indexes(nextCatalogVersion, tableId);
-
-                    assert !nextCatalogVersionTableIndexes.isEmpty()
-                            : String.format("Table should not be dropped: [catalogVersion=%s, tableId=%s]", nextCatalogVersion, tableId);
-
-                    for (CatalogIndexDescriptor tableIndex : tableIndexes) {
-                        if (tableIndex.status() == STOPPING && !contains(nextCatalogVersionTableIndexes, tableIndex)) {
-                            addRemovedAvailableIndex(tableIndex, nextCatalogVersion);
-                        }
-                    }
-                }
+            for (int ver = earliestCatalogVersion; ver < latestCatalogVersion; ver++) {
+                int nextVer = ver + 1;
+                catalogService.indexes(ver).stream()
+                        .filter(idx -> idx.status() == STOPPING && catalogService.index(idx.id(), nextVer) == null)
+                        .filter(idx -> processedIndexes.add(idx.id()))
+                        .forEach(idx -> addRemovedAvailableIndex(idx, nextVer));
             }
         });
     }
@@ -174,7 +156,7 @@ class IndexChooser implements ManuallyCloseable {
     private void addListeners() {
         catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
-        catalogService.listen(CatalogEvent.TABLE_DROP, EventListener.fromConsumer(this::onDropTable));
+        catalogService.listen(CatalogEvent.INDEX_DESTROY, EventListener.fromConsumer(this::onIndexDestroy));
     }
 
     private void onIndexRemoved(RemoveIndexEventParameters parameters) {
@@ -193,7 +175,7 @@ class IndexChooser implements ManuallyCloseable {
         });
     }
 
-    private void onDropTable(DropTableEventParameters parameters) {
+    private void onIndexDestroy(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
             // We can remove removed indexes on table drop as we need such indexes only for writing, and write operations will be denied
             // right after a table drop has been activated.
@@ -230,7 +212,7 @@ class IndexChooser implements ManuallyCloseable {
 
         // For now, there is no need to worry about parallel changes to the map, it will change on recovery and in catalog event listeners
         // and won't interfere with each other.
-        // TODO: IGNITE-20121 We may need to worry about parallel map changes when deleting catalog version
+        // TODO: IGNITE-21608 We may need to worry about parallel map changes when deleting catalog version
         List<CatalogIndexDescriptor> previousCatalogVersionRemovedIndexes = getRemovedAvailableIndexes(catalogVersion - 1, tableId);
 
         removedAvailableTableIndexes.compute(

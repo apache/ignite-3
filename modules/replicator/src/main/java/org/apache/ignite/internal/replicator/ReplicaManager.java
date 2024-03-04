@@ -22,6 +22,8 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -73,7 +75,9 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -223,16 +227,35 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         );
     }
 
-    private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+    private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
         if (!(message instanceof ReplicaRequest)) {
             return;
         }
+
+        String senderConsistentId = sender.name();
 
         assert correlationId != null;
 
         ReplicaRequest request = (ReplicaRequest) message;
 
-        requestsExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
+        // If the request actually came from the network, we are already in the correct thread that has permissions to do storage reads
+        // and writes.
+        // But if this is a local call (in the same Ignite instance), we might still be in a thread that does not have those permissions.
+        if (currentThreadCannotDoStorageReadsAndWrites()) {
+            requestsExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
+        } else {
+            handleReplicaRequest(request, senderConsistentId, correlationId);
+        }
+    }
+
+    private boolean currentThreadCannotDoStorageReadsAndWrites() {
+        if (Thread.currentThread() instanceof ThreadAttributes) {
+            ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
+            return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE);
+        } else {
+            // We don't know for sure.
+            return false;
+        }
     }
 
     private void handleReplicaRequest(ReplicaRequest request, String senderConsistentId, @Nullable Long correlationId) {
@@ -374,10 +397,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return ex instanceof TimeoutException || ex instanceof IOException;
     }
 
-    private void onPlacementDriverMessageReceived(NetworkMessage msg0, String senderConsistentId, @Nullable Long correlationId) {
+    private void onPlacementDriverMessageReceived(NetworkMessage msg0, ClusterNode sender, @Nullable Long correlationId) {
         if (!(msg0 instanceof PlacementDriverReplicaMessage)) {
             return;
         }
+
+        String senderConsistentId = sender.name();
 
         assert correlationId != null;
 
@@ -422,7 +447,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
 
                 if (node != null) {
-                    //TODO: IGNITE-19441 Stop lease prolongation message might be sent several
+                    // TODO: IGNITE-19441 Stop lease prolongation message might be sent several
                     clusterNetSvc.messagingService().send(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                             .groupId(groupId)
                             .redirectProposal(redirectNodeId)
@@ -591,9 +616,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> start() {
-        clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
+        ExecutorChooser<NetworkMessage> replicaMessagesExecutorChooser = message -> requestsExecutor;
+
+        clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, replicaMessagesExecutorChooser, handler);
         clusterNetSvc.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, placementDriverMessageHandler);
-        messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler));
+        messageGroupsToHandle.forEach(
+                mg -> clusterNetSvc.messagingService().addMessageHandler(mg, replicaMessagesExecutorChooser, handler)
+        );
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,

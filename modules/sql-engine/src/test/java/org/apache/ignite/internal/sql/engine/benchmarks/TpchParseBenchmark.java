@@ -82,7 +82,7 @@ public class TpchParseBenchmark {
      */
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
-                //.addProfiler("gc")
+                // .addProfiler("gc")
                 .include(TpchParseBenchmark.class.getName())
                 .build();
 

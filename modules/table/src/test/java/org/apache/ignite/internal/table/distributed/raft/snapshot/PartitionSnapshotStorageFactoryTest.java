@@ -21,9 +21,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
@@ -52,11 +54,16 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
 
         when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
+        CatalogService catalogService = mock(CatalogService.class);
+        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of());
+
+        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(1, 1));
+
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
-                mock(CatalogService.class),
+                catalogService,
                 mock(Executor.class)
         );
 

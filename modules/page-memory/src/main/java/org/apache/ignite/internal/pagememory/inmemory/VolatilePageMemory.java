@@ -318,7 +318,7 @@ public class VolatilePageMemory implements PageMemory {
                     + "  ^-- Enable eviction or expiration policies"
             );
 
-            //TODO Fail node with failure handler.
+            // TODO Fail node with failure handler.
 
             throw oom;
         }

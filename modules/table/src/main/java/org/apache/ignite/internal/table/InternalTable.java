@@ -457,7 +457,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     TableRaftService tableRaftService();
 
-    //TODO: IGNITE-14488. Add invoke() methods.
+    // TODO: IGNITE-14488. Add invoke() methods.
 
     /**
      * Closes the table.

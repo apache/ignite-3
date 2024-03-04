@@ -210,7 +210,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         InteractiveJobs.initChannels(allNodeNames());
 
         // When start broadcast job.
-        Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).broadcastAsync(
+        Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).submitBroadcast(
                 clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
                 List.of(),
                 InteractiveJobs.interactiveJobName()
@@ -288,7 +288,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         // When start colocated job on node that is not primary replica.
         IgniteImpl entryNode = anyNodeExcept(primaryReplica);
-        TestingJobExecution<Object> execution = new TestingJobExecution<>(compute(entryNode).executeColocatedAsync(
+        TestingJobExecution<Object> execution = new TestingJobExecution<>(compute(entryNode).submitColocated(
                 TABLE_NAME,
                 Tuple.create(1).set("K", 1),
                 List.of(),
@@ -362,7 +362,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
         return new TestingJobExecution<>(
-                compute(entryNode).executeAsync(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
+                compute(entryNode).submit(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
         );
     }
 

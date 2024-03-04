@@ -239,6 +239,13 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("provideRules")
     public void testMultipleRowsFromSingleAggr(String[] rules) {
+        Assumptions.assumeTrue(
+                Arrays.stream(rules).noneMatch(rule -> rule.contains("ColocatedHash"))
+                        || Arrays.stream(rules).noneMatch(rule -> rule.contains("MapReduceHash")),
+                "Sorted aggregates are currently disabled on correlated path because "
+                        + "they may cause deadlock"
+        );
+
         assertThrows(
                 IgniteException.class,
                 () -> assertQuery("SELECT (SELECT name FROM person)").disableRules(rules).check()

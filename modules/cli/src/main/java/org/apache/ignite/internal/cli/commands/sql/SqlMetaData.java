@@ -26,7 +26,7 @@ public class SqlMetaData {
     /**
      * SQL reserved keywords.
      */
-    public static String[] KEYWORDS = { //TODO: https://issues.apache.org/jira/browse/IGNITE-16973
+    public static String[] KEYWORDS = { // TODO: https://issues.apache.org/jira/browse/IGNITE-16973
             "ABSOLUTE", "ACTION", "ADD", "ALL", "ALLOCATE", "ALTER", "AND", "ANY", "ARE", "AS", "ASC", "ASSERTION", "AT", "AUTHORIZATION",
             "AVG", "BEGIN", "BETWEEN", "BIT", "BIT_LENGTH", "BOTH", "BY", "CASCADE", "CASCADED", "CASE", "CAST", "CATALOG", "CHAR",
             "CHARACTER", "CHAR_LENGTH", "CHARACTER_LENGTH", "CHECK", "CLOSE", "COALESCE", "COLLATE", "COLLATION", "COLUMN", "COMMIT",

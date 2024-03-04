@@ -71,7 +71,7 @@ public class RocksDbStorageEngine implements StorageEngine {
      * Mapping from the data region name to the shared RocksDB instance. Map is filled lazily.
      * Most likely, the association of shared instances with regions will be removed/revisited in the future.
      */
-    //TODO IGNITE-19762 Think of proper way to use regions and storages.
+    // TODO IGNITE-19762 Think of proper way to use regions and storages.
     private final Map<String, SharedRocksDbInstance> sharedInstances = new ConcurrentHashMap<>();
 
     /**

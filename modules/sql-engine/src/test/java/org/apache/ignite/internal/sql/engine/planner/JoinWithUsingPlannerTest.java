@@ -105,7 +105,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
         // For now we can't select system columns with "star", since when "star" is used, tables of join are rewrite to
         // subqueries without system columns.
-        //assertPlan("SELECT *, T2._KEY FROM T1 JOIN T2 USING (DEPTID)", schemas,
+        // assertPlan("SELECT *, T2._KEY FROM T1 JOIN T2 USING (DEPTID)", schemas,
         //    hasColumns("DEPTID", "EMPID", "NAME", "NAME0", "PARENTID", "_KEY"));
     }
 
@@ -125,7 +125,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Double join.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4921
-        //assertPlan("SELECT * FROM T1 NATURAL JOIN T2 NATURAL JOIN OTHER.T3", schemas,
+        // assertPlan("SELECT * FROM T1 NATURAL JOIN T2 NATURAL JOIN OTHER.T3", schemas,
         //    hasColumns("DEPTID", "EMPTID", "NAME", "PARENTID", "D"));
 
         // Join table with subquery.
@@ -138,7 +138,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Select explicit columns, system columns. Columns not ambiguous.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4915
-        //assertPlan("SELECT DEPTID, T1._KEY, T2.NAME FROM T1 NATURAL JOIN T2", schemas,
+        // assertPlan("SELECT DEPTID, T1._KEY, T2.NAME FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("DEPTID", "_KEY", "NAME"));
 
         // Select all tables columns.
@@ -147,12 +147,12 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Select system columns and all table columns.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
-        //assertPlan("SELECT T1.*, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
+        // assertPlan("SELECT T1.*, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("EMPID", "DEPTID", "NAME", "_KEY"));
 
         // System columns with "star".
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
-        //assertPlan("SELECT *, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
+        // assertPlan("SELECT *, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("DEPTID", "NAME", "EMPID", "PARENTID", "_KEY"));
     }
 }

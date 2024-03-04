@@ -102,7 +102,7 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
         Ignite node = CLUSTER.aliveNode();
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19162 Trim all less than millisecond information from timestamp
-        //String tsStr = "2023-03-29T08:22:33.005007Z";
+        // String tsStr = "2023-03-29T08:22:33.005007Z";
         String tsStr = "2023-03-29T08:22:33.005Z";
 
         LocalDateTime localDate = LocalDateTime.parse(tsStr, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));

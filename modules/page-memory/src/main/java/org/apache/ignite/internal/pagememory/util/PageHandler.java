@@ -263,7 +263,7 @@ public interface PageHandler<X, R> {
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
-    //TODO IGNITE-16350 Consider splitting into two separate methods for init and regular locking.
+    // TODO IGNITE-16350 Consider splitting into two separate methods for init and regular locking.
     static <X, R> R writePage(
             PageMemory pageMem,
             int groupId,
