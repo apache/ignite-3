@@ -71,12 +71,15 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
     private final VaultManager vaultManager = mock(VaultManager.class);
 
-    private final LowWatermarkChangedListener listener = mock(LowWatermarkChangedListener.class);
+    private LowWatermarkChangedListener listener;
 
     private LowWatermark lowWatermark;
 
     @BeforeEach
     void setUp() {
+        listener = mock(LowWatermarkChangedListener.class);
+        when(listener.onLwmChanged(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
+
         lowWatermark = new LowWatermark("test", lowWatermarkConfig, clock, txManager, vaultManager, mock(FailureProcessor.class));
         lowWatermark.addUpdateListener(listener);
     }

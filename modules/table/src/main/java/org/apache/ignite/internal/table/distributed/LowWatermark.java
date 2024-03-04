@@ -147,7 +147,7 @@ public class LowWatermark implements IgniteComponent {
                     .thenCompose(unused -> inBusyLock(busyLock, () -> notifyListeners(lowWatermarkCandidate)))
                     .whenComplete((unused, throwable) -> {
                         if (throwable == null) {
-                            scheduleUpdateLowWatermarkBusy();
+                            inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                         } else if (!(throwable instanceof NodeStoppingException)) {
                             LOG.error("Error during the Watermark manager start", throwable);
 
