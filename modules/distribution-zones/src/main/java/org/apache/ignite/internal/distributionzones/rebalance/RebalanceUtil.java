@@ -61,6 +61,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -342,13 +343,15 @@ public class RebalanceUtil {
 
         CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
 
+        Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
+
         for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
 
             futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
                     tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
                             replicaGrpId,
-                            dataNodes,
+                            aliveDataNodes,
                             aliveNodesConsistentIds,
                             zoneDescriptor.replicas(),
                             revision,
@@ -365,15 +368,13 @@ public class RebalanceUtil {
 
     private static CompletableFuture<Integer> manualPartitionUpdate(
             TablePartitionId partId,
-            Collection<String> dataNodes,
+            Collection<String> aliveDataNodes,
             Set<String> aliveNodesConsistentIds,
             int replicas,
             long revision,
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments
     ) {
-        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
-
         // TODO https://issues.apache.org/jira/browse/IGNITE-21303
         //  This is a naive approach that doesn't exclude nodes in error state, if they exist.
         Set<Assignment> partAssignments = new HashSet<>();
@@ -386,6 +387,8 @@ public class RebalanceUtil {
         if (partAssignments.size() >= (replicas / 2 + 1)) {
             return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
         }
+
+        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
 
         for (Assignment calcAssignment : calcAssignments) {
             if (partAssignments.size() == replicas) {

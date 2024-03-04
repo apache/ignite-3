@@ -803,8 +803,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> startPartitionAndStartClient(
             TableImpl table,
             int partId,
-            Assignments realAssignments,
-            @Nullable Assignments newAssignments,
+            Assignments assignments,
+            @Nullable Assignments nonStableNodeAssignments,
             int zoneId,
             boolean isRecovery
     ) {
@@ -814,14 +814,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTable internalTbl = table.internalTable();
 
-        Assignment localMemberAssignment = realAssignments.nodes().stream()
+        Assignment localMemberAssignment = assignments.nodes().stream()
                 .filter(a -> a.consistentId().equals(localNode().name()))
                 .findAny()
                 .orElse(null);
 
-        PeersAndLearners realConfiguration = configurationFromAssignments(realAssignments.nodes());
-        PeersAndLearners newConfiguration = newAssignments == null
-                ? realConfiguration : configurationFromAssignments(newAssignments.nodes());
+        PeersAndLearners realConfiguration = configurationFromAssignments(assignments.nodes());
+        PeersAndLearners newConfiguration = nonStableNodeAssignments == null
+                ? realConfiguration : configurationFromAssignments(nonStableNodeAssignments.nodes());
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
@@ -875,8 +875,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }
 
                 if (((Loza) raftMgr).isStarted(raftNodeId)) {
-                    if (newAssignments != null && newAssignments.force()) {
-                        ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(newAssignments.nodes()));
+                    if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
+                        ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
                     }
 
                     return true;
@@ -1837,15 +1837,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int zoneId = getTableDescriptor(tableId, catalogService.latestCatalogVersion()).zoneId();
 
-        Assignments newAssignments = pendingAssignmentsAreForced
+        // This is a set of assignments for nodes that are not the part of stable assignments, i.e. unstable part of the distribution.
+        // For regular pending assignments we use (old) stable set, so that none of new nodes would be able to propose itself as a leader.
+        // For forced assignments, we should do the same thing, but only for the subset of stable set that is alive right now. Dead nodes
+        // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
+        Assignments nonStableNodeAssignments = pendingAssignmentsAreForced
                 ? Assignments.forced(intersect(stableAssignments, pendingAssignmentsNodes))
                 : Assignments.of(stableAssignments);
 
-        if (newAssignments.nodes().isEmpty()) {
-            newAssignments = Assignments.forced(pendingAssignmentsNodes);
+        // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
+        // In this case new initial configuration must match new forced assignments.
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21661 Something might not work, extensive testing is required.
+        if (nonStableNodeAssignments.nodes().isEmpty()) {
+            nonStableNodeAssignments = Assignments.forced(pendingAssignmentsNodes);
         }
 
-        Assignments newAssignmentsFinal = newAssignments;
+        Assignments nonStableNodeAssignmentsFinal = nonStableNodeAssignments;
 
         if (shouldStartLocalGroupNode) {
             localServicesStartFuture = localPartsByTableIdVv.get(revision)
@@ -1866,19 +1873,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             tbl,
                             replicaGrpId.partitionId(),
                             pendingAssignments,
-                            newAssignmentsFinal,
+                            nonStableNodeAssignmentsFinal,
                             zoneId,
                             isRecovery
                     )), ioExecutor);
         } else {
             localServicesStartFuture = runAsync(() -> {
                 if (pendingAssignmentsAreForced && ((Loza) raftMgr).isStarted(raftNodeId)) {
-                    ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(newAssignmentsFinal.nodes()));
+                    ((Loza) raftMgr).resetPeers(raftNodeId, configurationFromAssignments(nonStableNodeAssignmentsFinal.nodes()));
                 }
             }, ioExecutor);
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
+            // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
+            // Union is not required in such a case.
             Set<Assignment> cfg = pendingAssignmentsAreForced
                     ? pendingAssignmentsNodes
                     : union(pendingAssignmentsNodes, stableAssignments);

@@ -85,6 +85,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -325,7 +326,8 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Manual zone configuration update.
+     * Manual zone configuration update. This method sets {@link Assignments#forced(Set)} assignments to all partitions, for which majority
+     * if offline at the moment. Should be used in disaster recovery scenarios only.
      *
      * @param zoneId Zone ID.
      * @param tableId Table ID.

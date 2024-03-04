@@ -62,7 +62,12 @@ public class DisasterRecoveryManager implements IgniteComponent {
     /** Watch listener for {@link #RECOVERY_TRIGGER_KEY}. */
     private final WatchListener watchListener;
 
-    /** Map of operations, triggered by local node, that have not yet been processed by {@link #watchListener}. */
+    /**
+     * Map of operations, triggered by local node, that have not yet been processed by {@link #watchListener}. Values in the map are the
+     * futures, returned from the {@link #processNewRequest(ManualGroupUpdateRequest)}, they are completed by
+     * {@link #handleTriggerKeyUpdate(WatchEvent)} when node receives corresponding events from the metastorage (or if it doesn't receive
+     * this event within a 30 seconds window).
+     */
     private final Map<UUID, CompletableFuture<Void>> ongoingOperationsById = new ConcurrentHashMap<>();
 
     /**
