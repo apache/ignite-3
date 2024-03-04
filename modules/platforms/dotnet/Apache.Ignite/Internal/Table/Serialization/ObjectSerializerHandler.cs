@@ -93,7 +93,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var il = method.GetILGenerator();
 
-            var columns = schema.Columns;
+            var columns = schema.GetColumnsFor(keyOnly);
             var columnMap = type.GetFieldsByColumnName();
 
             if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
@@ -116,7 +116,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 il.Emit(OpCodes.Call, directWriteMethod);
 
-                for (var index = 1; index < count; index++)
+                for (var index = 1; index < columns.Count; index++)
                 {
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_1); // noValueSet
@@ -130,9 +130,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             int mappedCount = 0;
 
-            for (var index = 0; index < count; index++)
+            foreach (var col in columns)
             {
-                var col = columns[index];
                 var fieldInfo = columnMap.TryGetValue(col.Name, out var columnInfo) ? columnInfo.Field : null;
 
                 if (fieldInfo == null)
