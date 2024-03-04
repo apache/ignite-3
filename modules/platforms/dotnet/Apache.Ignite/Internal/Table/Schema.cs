@@ -77,6 +77,9 @@ namespace Apache.Ignite.Internal.Table
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             Debug.Assert(keyColumns.All(x => x != null), "Some key columns are missing");
 
+            // TODO: Use key columns when colocation columns are missing? Better handle this on the server.
+            Debug.Assert(hashedColumnCount > 0, "No hashed columns");
+
             return new Schema(version, tableId, hashedColumnCount, columns, keyColumns, valColumns);
         }
 

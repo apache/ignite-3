@@ -65,6 +65,16 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
         Assert.IsNull(tuple.GetFieldValue<object>("_schema"));
     }
 
+    [Test]
+    public void TestKeyOnlyReverseOrder()
+    {
+        // TODO
+        var cols = new[]
+        {
+            new Column("val1", ColumnType.String, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 0, 0, 0),
+        };
+    }
+
     protected override string GetShortClassName() => nameof(BinaryTupleIgniteTupleAdapter);
 
     protected override IIgniteTuple CreateTuple(IIgniteTuple source)
