@@ -166,7 +166,7 @@ public class IgniteSort extends Sort implements IgniteRel {
 
         // Distributed sorting is more preferable than sorting on the single node.
         if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(traitSet).satisfies(IgniteDistributions.single())) {
-            cost.plus(costFactory.makeTinyCost());
+            cost = cost.plus(costFactory.makeTinyCost());
         }
 
         return cost;
