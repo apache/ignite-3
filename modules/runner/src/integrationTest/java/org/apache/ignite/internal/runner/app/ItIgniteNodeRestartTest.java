@@ -496,7 +496,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        SchemaManager schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
+        SchemaManager schemaManager = new SchemaManager(registry, catalogManager);
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
 
@@ -1069,7 +1069,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param tableName Table name.
      */
     private void assertTablePresent(TableManager tableManager, String tableName) {
-        Collection<TableImpl> tables = tableManager.latestTables().values();
+        Collection<TableImpl> tables = tableManager.startedTables().values();
 
         boolean isPresent = false;
 

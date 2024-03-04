@@ -683,7 +683,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n ->
                         n.tableManager
-                                .latestTables()
+                                .startedTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
                                 .tableRaftService()
@@ -739,7 +739,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n ->
                         n.tableManager
-                                .latestTables()
+                                .startedTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
                                 .tableRaftService()
@@ -824,7 +824,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     try {
                         return nodes.stream().allMatch(n ->
                                 n.tableManager
-                                        .latestTables()
+                                        .startedTables()
                                         .get(getTableId(n, tableName))
                                         .internalTable()
                                         .tableRaftService()
@@ -1153,7 +1153,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
-            schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);
+            schemaManager = new SchemaManager(registry, catalogManager);
 
             schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
