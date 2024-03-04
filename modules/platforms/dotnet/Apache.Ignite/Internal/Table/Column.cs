@@ -31,4 +31,10 @@ internal record Column(
     int ColocationIndex,
     int SchemaIndex,
     int Scale,
-    int Precision);
+    int Precision)
+{
+    /// <summary>
+    /// Gets a value indicating whether this column is a part of the key.
+    /// </summary>
+    public bool IsKey => KeyIndex >= 0;
+}
