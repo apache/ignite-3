@@ -44,7 +44,6 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -70,18 +69,10 @@ public class SchemaManager implements IgniteComponent {
     /** Schema registries by table ID. */
     private final Map<Integer, SchemaRegistryImpl> registriesById = new ConcurrentHashMap<>();
 
-    /** Meta storage manager. */
-    private final MetaStorageManager metastorageMgr;
-
     /** Constructor. */
-    public SchemaManager(
-            Consumer<LongFunction<CompletableFuture<?>>> registry,
-            CatalogService catalogService,
-            MetaStorageManager metastorageMgr
-    ) {
+    public SchemaManager(Consumer<LongFunction<CompletableFuture<?>>> registry, CatalogService catalogService) {
         this.registriesVv = new IncrementalVersionedValue<>(registry);
         this.catalogService = catalogService;
-        this.metastorageMgr = metastorageMgr;
     }
 
     @Override

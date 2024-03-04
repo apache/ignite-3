@@ -496,7 +496,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        SchemaManager schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
+        SchemaManager schemaManager = new SchemaManager(registry, catalogManager);
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
 

@@ -1153,7 +1153,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
-            schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);
+            schemaManager = new SchemaManager(registry, catalogManager);
 
             schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 

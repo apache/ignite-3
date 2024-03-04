@@ -762,7 +762,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,
                 msm,
-                sm = new SchemaManager(revisionUpdater, catalogManager, msm),
+                sm = new SchemaManager(revisionUpdater, catalogManager),
                 budgetView -> new LocalLogStorageFactory(),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
