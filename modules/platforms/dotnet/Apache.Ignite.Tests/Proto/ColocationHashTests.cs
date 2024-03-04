@@ -239,7 +239,7 @@ public class ColocationHashTests : IgniteTestsBase
             var schema = GetSchema(arr, timePrecision, timestampPrecision);
             var noValueSet = new byte[arr.Count].AsSpan();
 
-            TupleSerializerHandler.Instance.Write(ref builder, igniteTuple, schema, arr.Count, noValueSet);
+            TupleSerializerHandler.Instance.Write(ref builder, igniteTuple, schema, keyOnly: false, noValueSet);
             return builder.GetHash();
         }
         finally
