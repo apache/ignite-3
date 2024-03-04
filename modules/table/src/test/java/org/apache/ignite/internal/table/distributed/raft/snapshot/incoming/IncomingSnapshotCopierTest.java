@@ -106,7 +106,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -136,8 +135,6 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
-
-    private static final RaftMessagesFactory RAFT_MSG_FACTORY = new RaftMessagesFactory();
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
