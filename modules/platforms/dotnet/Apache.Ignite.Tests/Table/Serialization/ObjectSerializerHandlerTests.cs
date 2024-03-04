@@ -37,8 +37,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
             tableId: 1,
             columns: new[]
             {
-                new Column("Key", ColumnType.Int64, IsNullable: false, ColocationIndex: 0, KeyIndex: 0, ValIndex: -1, SchemaIndex: 0, Scale: 0, Precision: 0),
-                new Column("Val", ColumnType.String, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, ValIndex: 0, SchemaIndex: 1, Scale: 0, Precision: 0)
+                new Column("Key", ColumnType.Int64, IsNullable: false, ColocationIndex: 0, KeyIndex: 0, SchemaIndex: 0, Scale: 0, Precision: 0),
+                new Column("Val", ColumnType.String, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, SchemaIndex: 1, Scale: 0, Precision: 0)
             });
 
         [Test]

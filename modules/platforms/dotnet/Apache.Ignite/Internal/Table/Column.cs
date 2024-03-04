@@ -27,7 +27,6 @@ internal record Column(
     ColumnType Type,
     bool IsNullable,
     int KeyIndex,
-    int ValIndex,
     int ColocationIndex,
     int SchemaIndex,
     int Scale,

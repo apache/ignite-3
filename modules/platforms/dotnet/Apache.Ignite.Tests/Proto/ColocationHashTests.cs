@@ -306,7 +306,6 @@ public class ColocationHashTests : IgniteTestsBase
             Type: colType,
             IsNullable: false,
             KeyIndex: schemaIndex,
-            ValIndex: -1,
             ColocationIndex: schemaIndex,
             SchemaIndex: schemaIndex,
             Scale: scale,
