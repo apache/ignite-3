@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
+    using System.Linq;
     using Proto.BinaryTuple;
 
     /// <summary>
@@ -49,7 +50,8 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Schema.</returns>
         public static Schema CreateInstance(int version, int tableId, IReadOnlyList<Column> columns)
         {
-            var keyColumns = new List<Column>();
+            var keyColumnCount = columns.Count(static x => x.IsKey);
+            var keyColumns = new Column[keyColumnCount];
             var valColumns = new List<Column>();
             int hashedColumnCount = 0;
 
@@ -58,14 +60,14 @@ namespace Apache.Ignite.Internal.Table
                 // TODO: Add assertions for column indexes - see Java code.
                 if (column.IsKey)
                 {
-                    keyColumns.Add(column);
+                    keyColumns[column.KeyIndex] = column;
                 }
                 else
                 {
                     valColumns.Add(column);
                 }
 
-                if (column.ColocationIndex >= 0)
+                if (column.IsColocation)
                 {
                     hashedColumnCount++;
                 }

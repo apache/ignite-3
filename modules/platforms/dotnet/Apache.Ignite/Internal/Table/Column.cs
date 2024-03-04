@@ -38,6 +38,11 @@ internal record Column(
     public bool IsKey => KeyIndex >= 0;
 
     /// <summary>
+    /// Gets a value indicating whether this column is a part of the colocation key.
+    /// </summary>
+    public bool IsColocation => ColocationIndex >= 0;
+
+    /// <summary>
     /// Gets the column index within a binary tuple.
     /// </summary>
     /// <param name="keyOnly">Whether a key-only binary tuple is used.</param>
