@@ -79,6 +79,6 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="keyOnly">Key only flag.</param>
         /// <returns>Columns according to the key flag.</returns>
-        public IReadOnlyCollection<Column> GetColumns(bool keyOnly) => keyOnly ? KeyColumns : Columns;
+        public IReadOnlyCollection<Column> GetColumnsFor(bool keyOnly) => keyOnly ? KeyColumns : Columns;
     }
 }

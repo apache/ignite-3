@@ -52,7 +52,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Tuple.</returns>
         public static IgniteTuple ReadTuple(ReadOnlySpan<byte> buf, Schema schema, bool keyOnly)
         {
-            var columns = schema.GetColumns(keyOnly);
+            var columns = schema.GetColumnsFor(keyOnly);
             var tuple = new IgniteTuple(columns.Count);
             var tupleReader = new BinaryTupleReader(buf, columns.Count);
 

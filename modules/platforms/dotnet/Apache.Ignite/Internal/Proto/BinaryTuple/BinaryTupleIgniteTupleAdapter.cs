@@ -56,7 +56,7 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
     /// <inheritdoc/>
     public int FieldCount => _tuple?.FieldCount ?? Columns.Count;
 
-    private IReadOnlyCollection<Column> Columns => _schema!.GetColumns(_keyOnly);
+    private IReadOnlyCollection<Column> Columns => _schema!.GetColumnsFor(_keyOnly);
 
     /// <inheritdoc/>
     public object? this[int ordinal]
