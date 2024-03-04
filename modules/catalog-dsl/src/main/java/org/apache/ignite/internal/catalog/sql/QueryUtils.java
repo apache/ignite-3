@@ -52,4 +52,17 @@ class QueryUtils {
     static boolean isGreaterThanZero(Integer n) {
         return n != null && n > 0;
     }
+
+    /**
+     * Converts comma-separated string to a list of strings, leading and trailing spaces are trimmed.
+     *
+     * @param commaSeparatedString Comma-separated string.
+     * @return List of strings.
+     */
+    static List<String> splitByComma(String commaSeparatedString) {
+        return Arrays.stream(commaSeparatedString.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+    }
 }

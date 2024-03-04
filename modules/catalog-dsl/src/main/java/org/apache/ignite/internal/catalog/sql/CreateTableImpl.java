@@ -98,7 +98,7 @@ class CreateTableImpl extends AbstractCatalogQuery {
     }
 
     CreateTableImpl colocateBy(String columnList) {
-        return colocateBy(columnList.split("\\s*,\\s*"));
+        return colocateBy(QueryUtils.splitByComma(columnList));
     }
 
     CreateTableImpl colocateBy(String... columns) {

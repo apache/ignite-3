@@ -52,7 +52,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
     CreateFromAnnotationsImpl processKeyValueClasses(Class<?> keyClass, Class<?> valueClass) {
         if (keyClass.getAnnotation(Table.class) == null && valueClass.getAnnotation(Table.class) == null) {
             throw new IllegalArgumentException(
-                    "Cannot find @Table annotation on " + keyClass.getName() + " or " + valueClass.getName()
+                    "Cannot find @Table annotation neither on " + keyClass.getName() + " nor on " + valueClass.getName()
                             + ". At least one of these classes must be annotated in order to create a query object."
             );
         }
