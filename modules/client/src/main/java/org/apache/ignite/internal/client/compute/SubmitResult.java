@@ -15,16 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery.message;
+package org.apache.ignite.internal.client.compute;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 
 /**
- * Message that does not need an acknowledgement from the remote node.
+ * Result of the job submission. Contains unpacked job id and notification future.
  */
-public interface InternalMessage extends NetworkMessage {
-    @Override
-    default boolean needAck() {
-        return false;
+class SubmitResult {
+    private final UUID jobId;
+    private final CompletableFuture<PayloadInputChannel> notificationFuture;
+
+    SubmitResult(UUID jobId, CompletableFuture<PayloadInputChannel> notificationFuture) {
+        this.jobId = jobId;
+        this.notificationFuture = notificationFuture;
+    }
+
+    UUID jobId() {
+        return jobId;
+    }
+
+    CompletableFuture<PayloadInputChannel> notificationFuture() {
+        return notificationFuture;
     }
 }

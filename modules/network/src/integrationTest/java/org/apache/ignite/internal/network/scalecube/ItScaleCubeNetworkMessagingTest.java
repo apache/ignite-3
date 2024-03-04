@@ -229,7 +229,7 @@ class ItScaleCubeNetworkMessagingTest {
         member.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, sender, correlationId) ->
-                        dataFuture.complete(new Data((TestMessage) message, sender, correlationId))
+                        dataFuture.complete(new Data((TestMessage) message, sender.name(), correlationId))
         );
 
         TestMessage requestMessage = testMessage("request");
@@ -367,7 +367,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         member1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> receivedTestMessages.countDown()
+                (message, sender, correlationId) -> receivedTestMessages.countDown()
         );
 
         // The registered message listener on the receiving side does not send responses, so all "invoke"s should timeout.
@@ -414,7 +414,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         member1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> {
+                (message, sender, correlationId) -> {
                     startedBlocking.countDown();
 
                     try {
@@ -436,7 +436,7 @@ class ItScaleCubeNetworkMessagingTest {
 
             member1.messagingService().addMessageHandler(
                     NetworkMessageTypes.class,
-                    (message, senderConsistentId, correlationId) -> receivedScalecubeMessage.countDown()
+                    (message, sender, correlationId) -> receivedScalecubeMessage.countDown()
             );
 
             assertTrue(
@@ -589,7 +589,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         receiver.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> {
+                (message, senderParam, correlationId) -> {
                     if (correlationId != null) {
                         receiver.messagingService().respond(sender.topologyService().localMember(), message, correlationId);
                     }
@@ -662,7 +662,7 @@ class ItScaleCubeNetworkMessagingTest {
     private static void collectReceivedPayloads(ClusterService sender, ClusterService receiver, List<String> receivedPayloads) {
         receiver.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> {
+                (message, senderParam, correlationId) -> {
                     if (message instanceof TestMessage) {
                         receivedPayloads.add(((TestMessage) message).msg());
                     }
@@ -893,7 +893,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         receiver.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> {
+                (message, senderParam, correlationId) -> {
                     if (first.compareAndSet(true, false)) {
                         blockingStarted.countDown();
 
@@ -973,9 +973,9 @@ class ItScaleCubeNetworkMessagingTest {
     private static void echoMessagesBackAt(ClusterService clusterService) {
         clusterService.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> {
+                (message, sender, correlationId) -> {
                     if (correlationId != null) {
-                        clusterService.messagingService().respond(senderConsistentId, message, correlationId);
+                        clusterService.messagingService().respond(sender, message, correlationId);
                     }
                 }
         );

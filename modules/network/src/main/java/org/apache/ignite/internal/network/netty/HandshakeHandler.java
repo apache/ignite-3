@@ -26,6 +26,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Netty handler of the handshake operation.
@@ -113,11 +114,11 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     /**
      * Creates a {@link MessageHandler} for the current pipeline.
      *
-     * @param remoteConsistentId Remote node's consistent id.
+     * @param remoteNode Remote node.
      * @param connectionIndex Index of the connection (corresponds to the channel ID).
      * @return Message handler.
      */
-    public MessageHandler createMessageHandler(String remoteLaunchId, String remoteConsistentId, short connectionIndex) {
-        return new MessageHandler(messageListener, remoteLaunchId, remoteConsistentId, connectionIndex, serializationService);
+    public MessageHandler createMessageHandler(ClusterNode remoteNode, short connectionIndex) {
+        return new MessageHandler(messageListener, remoteNode, connectionIndex, serializationService);
     }
 }

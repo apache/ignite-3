@@ -33,6 +33,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -94,7 +95,7 @@ public class TxCleanupRequestHandler {
     public void stop() {
     }
 
-    private void processTxCleanup(TxCleanupMessage txCleanupMessage, String senderId, @Nullable Long correlationId) {
+    private void processTxCleanup(TxCleanupMessage txCleanupMessage, ClusterNode sender, @Nullable Long correlationId) {
         assert correlationId != null;
 
         Map<TablePartitionId, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
@@ -141,7 +142,7 @@ public class TxCleanupRequestHandler {
                         });
                     }
 
-                    messagingService.respond(senderId, msg, correlationId);
+                    messagingService.respond(sender, msg, correlationId);
                 });
     }
 

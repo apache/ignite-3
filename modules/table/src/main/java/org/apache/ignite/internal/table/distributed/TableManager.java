@@ -112,7 +112,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -207,7 +206,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -410,11 +408,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *     will be executed.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
-     * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
-     * @param failureProcessor Failure processor that is used to process critical errors.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
+     * @param lowWatermark Low watermark.
      */
     public TableManager(
             String nodeName,
@@ -439,16 +436,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
-            VaultManager vaultManager,
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
-            FailureProcessor failureProcessor,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
-            ScheduledExecutorService rebalanceScheduler
+            ScheduledExecutorService rebalanceScheduler,
+            LowWatermark lowWatermark
     ) {
         this.topologyService = topologyService;
         this.raftMgr = raftMgr;
@@ -472,6 +468,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.storageUpdateConfig = storageUpdateConfig;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.rebalanceScheduler = rebalanceScheduler;
+        this.lowWatermark = lowWatermark;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -523,8 +520,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         mvGc = new MvGc(nodeName, gcConfig);
 
-        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc, failureProcessor);
-
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(messageSerializationRegistry);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
@@ -550,8 +545,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     public CompletableFuture<Void> start() {
         return inBusyLockAsync(busyLock, () -> {
             mvGc.start();
-
-            lowWatermark.start();
+            lowWatermark.addUpdateListener(mvGc);
 
             transactionStateResolver.start();
 
@@ -1076,6 +1070,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
+        lowWatermark.removeUpdateListener(mvGc);
+
         cleanUpTablesResources(tables);
     }
 
@@ -1088,7 +1084,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         IgniteUtils.closeAllManually(
-                lowWatermark,
                 mvGc,
                 fullStateTransferIndexChooser,
                 sharedTxStateStorage,

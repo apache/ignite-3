@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery.message;
+package org.apache.ignite.internal.table.distributed;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Message that does not need an acknowledgement from the remote node.
+ * LWM event listener interface.
+ *
+ * @see LowWatermark
  */
-public interface InternalMessage extends NetworkMessage {
-    @Override
-    default boolean needAck() {
-        return false;
-    }
+@FunctionalInterface
+public interface LowWatermarkChangedListener {
+    /**
+     * Low watermark changed callback.
+     *
+     * @param ts New low watermark.
+     * @return A future, which completes after the event has been processed.
+     */
+    CompletableFuture<Void> onLwmChanged(HybridTimestamp ts);
 }

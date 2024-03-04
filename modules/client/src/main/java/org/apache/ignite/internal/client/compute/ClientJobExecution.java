@@ -48,13 +48,13 @@ class ClientJobExecution<R> implements JobExecution<R> {
     // Local status cache
     private final CompletableFuture<@Nullable JobStatus> statusFuture = new CompletableFuture<>();
 
-    ClientJobExecution(ReliableChannel ch, CompletableFuture<PayloadInputChannel> reqFuture) {
+    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture) {
         this.ch = ch;
 
-        jobIdFuture = reqFuture.thenApply(r -> r.in().unpackUuid());
+        jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
 
         resultAsync = reqFuture
-                .thenCompose(PayloadInputChannel::notificationFuture)
+                .thenCompose(SubmitResult::notificationFuture)
                 .thenApply(r -> {
                     // Notifications require explicit input close.
                     try (r) {

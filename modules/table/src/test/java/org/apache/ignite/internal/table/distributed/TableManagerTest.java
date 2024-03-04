@@ -769,16 +769,15 @@ public class TableManagerTest extends IgniteAbstractTest {
                 clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                vaultManager,
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
-                mock(FailureProcessor.class),
                 new RemotelyTriggeredResourceRegistry(),
-                mock(ScheduledExecutorService.class)
+                mock(ScheduledExecutorService.class),
+                new LowWatermark(NODE_NAME, gcConfig.lowWatermark(), clock, tm, vaultManager, mock(FailureProcessor.class))
         ) {
 
             @Override

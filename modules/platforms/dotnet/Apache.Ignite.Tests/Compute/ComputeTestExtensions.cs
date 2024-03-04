@@ -28,24 +28,24 @@ using Network;
 /// </summary>
 public static class ComputeTestExtensions
 {
-    public static async Task<IJobExecution<T>> ExecuteAsync<T>(
+    public static async Task<IJobExecution<T>> Submit<T>(
         this ICompute compute,
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
         params object?[]? args) =>
-        await compute.ExecuteAsync<T>(nodes, units, jobClassName, JobExecutionOptions.Default, args);
+        await compute.Submit<T>(nodes, units, jobClassName, JobExecutionOptions.Default, args);
 
-    public static async Task<IJobExecution<T>> ExecuteColocatedAsync<T>(
+    public static async Task<IJobExecution<T>> SubmitColocated<T>(
         this ICompute compute,
         string tableName,
         IIgniteTuple key,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
         params object?[]? args) =>
-        await compute.ExecuteColocatedAsync<T>(tableName, key, units, jobClassName, JobExecutionOptions.Default, args);
+        await compute.SubmitColocated<T>(tableName, key, units, jobClassName, JobExecutionOptions.Default, args);
 
-    public static async Task<IJobExecution<T>> ExecuteColocatedAsync<T, TKey>(
+    public static async Task<IJobExecution<T>> SubmitColocated<T, TKey>(
         this ICompute compute,
         string tableName,
         TKey key,
@@ -53,13 +53,13 @@ public static class ComputeTestExtensions
         string jobClassName,
         params object?[]? args)
         where TKey : notnull =>
-        await compute.ExecuteColocatedAsync<T, TKey>(tableName, key, units, jobClassName, JobExecutionOptions.Default, args);
+        await compute.SubmitColocated<T, TKey>(tableName, key, units, jobClassName, JobExecutionOptions.Default, args);
 
-    public static IDictionary<IClusterNode, Task<IJobExecution<T>>> BroadcastAsync<T>(
+    public static IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
         this ICompute compute,
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
         params object?[]? args) =>
-        compute.BroadcastAsync<T>(nodes, units, jobClassName, JobExecutionOptions.Default, args);
+        compute.SubmitBroadcast<T>(nodes, units, jobClassName, JobExecutionOptions.Default, args);
 }
