@@ -29,7 +29,7 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Handles Cursor Cleanup request ({@link FinishedTransactionsBatchMessage}).
  */
-public class CursorCleanupRequestHandler {
+public class FinishedTransactionBatchRequestHandler {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -52,7 +52,7 @@ public class CursorCleanupRequestHandler {
      * @param hybridClock Hybrid clock.
      * @param asyncExecutor Executor to run cleanup commands.
      */
-    public CursorCleanupRequestHandler(
+    public FinishedTransactionBatchRequestHandler(
             MessagingService messagingService,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             HybridClock hybridClock,

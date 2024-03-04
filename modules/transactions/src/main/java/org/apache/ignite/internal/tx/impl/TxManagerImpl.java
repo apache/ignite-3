@@ -126,8 +126,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Lock manager. */
     private final LockManager lockManager;
 
-    /** Executor that runs async transaction cleanup actions. */
-    private final ExecutorService cleanupExecutor;
+    /** Executor that runs async write intent switch actions. */
+    private final ExecutorService writeIntentSwitchPool;
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
@@ -207,11 +207,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Cleanup manager for tx resources. */
     private final ResourceCleanupManager resourceCleanupManager;
-
-    /**
-     * Handler of cursor cleanup requests.
-     */
-    private final CursorCleanupRequestHandler cursorCleanupRequestHandler;
 
     /**
      * Test-only constructor.
@@ -308,7 +303,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
-        cleanupExecutor = new ThreadPoolExecutor(
+        writeIntentSwitchPool = new ThreadPoolExecutor(
                 cpus,
                 cpus,
                 100,
@@ -332,9 +327,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         );
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
-
-        cursorCleanupRequestHandler =
-                new CursorCleanupRequestHandler(messagingService, resourcesRegistry, clock, this::executeCleanupAsync);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters) {
@@ -759,8 +751,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
 
-        cursorCleanupRequestHandler.start();
-
         return nullCompletedFuture();
     }
 
@@ -781,11 +771,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler.stop();
 
-        cursorCleanupRequestHandler.stop();
-
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
 
-        shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
     }
 
     @Override
@@ -810,7 +798,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
-        return runAsync(runnable, cleanupExecutor);
+        return runAsync(runnable, writeIntentSwitchPool);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {

@@ -3458,13 +3458,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Schedules an async cleanup action for the given write intent.
+     * Schedules an async write intent switch action for the given write intent.
      *
      * @param txId Transaction id.
      * @param rowId Id of a row that we want to clean up.
      * @param meta Resolved transaction state.
      */
-    private void scheduleTransactionRowAsyncCleanup(UUID txId, RowId rowId, TransactionMeta meta) {
+    private void scheduleAsyncWriteIntentSwitch(UUID txId, RowId rowId, TransactionMeta meta) {
         TxState txState = meta.txState();
 
         assert isFinalState(txState) : "Unexpected state [txId=" + txId + ", txState=" + txState + ']';
@@ -3519,7 +3519,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         timestamp)
                 .thenApply(transactionMeta -> {
                     if (isFinalState(transactionMeta.txState())) {
-                        scheduleTransactionRowAsyncCleanup(txId, writeIntent.rowId(), transactionMeta);
+                        scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
                     }
 
                     return canReadFromWriteIntent(txId, transactionMeta, timestamp);

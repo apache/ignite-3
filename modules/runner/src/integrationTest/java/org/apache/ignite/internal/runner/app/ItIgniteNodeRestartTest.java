@@ -451,6 +451,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 name,
+                hybridClock,
                 resourcesRegistry,
                 clusterSvc.topologyService(),
                 clusterSvc.messagingService()

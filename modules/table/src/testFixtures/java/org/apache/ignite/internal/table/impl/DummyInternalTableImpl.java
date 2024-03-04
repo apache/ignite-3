@@ -462,6 +462,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 LOCAL_NODE.name(),
+                CLOCK,
                 resourcesRegistry,
                 clusterService.topologyService(),
                 clusterService.messagingService()

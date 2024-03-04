@@ -400,6 +400,7 @@ public class ItTxTestCluster {
 
             ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                     node.name(),
+                    clock,
                     resourcesRegistry,
                     clusterService.topologyService(),
                     clusterService.messagingService()
@@ -926,6 +927,7 @@ public class ItTxTestCluster {
 
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 "client",
+                clientClock,
                 resourceRegistry,
                 client.topologyService(),
                 client.messagingService()

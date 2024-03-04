@@ -166,8 +166,11 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+        HybridClockImpl clock = new HybridClockImpl();
+
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 clusterNode.name(),
+                clock,
                 resourcesRegistry,
                 clusterService.topologyService(),
                 clusterService.messagingService()
@@ -178,7 +181,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 clusterService,
                 replicaService,
                 new HeapLockManager(),
-                new HybridClockImpl(),
+                clock,
                 new TransactionIdGenerator(0xdeadbeef),
                 new TestPlacementDriver(clusterNode),
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,

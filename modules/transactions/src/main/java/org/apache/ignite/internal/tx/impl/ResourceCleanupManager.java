@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -54,6 +55,11 @@ public class ResourceCleanupManager implements IgniteComponent {
 
     private final FinishedReadOnlyTransactionTracker finishedReadOnlyTransactionTracker;
 
+    /**
+     * Handler of RO closed requests.
+     */
+    private final FinishedTransactionBatchRequestHandler finishedTransactionBatchRequestHandler;
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final ScheduledExecutorService resourceCleanupExecutor;
@@ -66,11 +72,14 @@ public class ResourceCleanupManager implements IgniteComponent {
      * Constructor.
      *
      * @param nodeName Ignite node name.
+     * @param clock Hybrid clock.
      * @param resourceRegistry Resources registry.
      * @param topologyService Topology service.
+     * @param messagingService Messaging service.
      */
     public ResourceCleanupManager(
             String nodeName,
+            HybridClock clock,
             RemotelyTriggeredResourceRegistry resourceRegistry,
             TopologyService topologyService,
             MessagingService messagingService
@@ -82,6 +91,8 @@ public class ResourceCleanupManager implements IgniteComponent {
                 NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
         );
         this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(topologyService, messagingService);
+        this.finishedTransactionBatchRequestHandler =
+                new FinishedTransactionBatchRequestHandler(messagingService, resourceRegistry, clock, resourceCleanupExecutor);
     }
 
     @Override
@@ -99,6 +110,8 @@ public class ResourceCleanupManager implements IgniteComponent {
                 resourceCleanupIntervalMilliseconds,
                 TimeUnit.MILLISECONDS
         );
+
+        finishedTransactionBatchRequestHandler.start();
 
         return nullCompletedFuture();
     }
