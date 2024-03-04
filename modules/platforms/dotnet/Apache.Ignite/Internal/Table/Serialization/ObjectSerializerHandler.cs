@@ -37,7 +37,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// <typeparam name="T">Object type.</typeparam>
     internal sealed class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
     {
-        private readonly ConcurrentDictionary<(int, int), WriteDelegate<T>> _writers = new();
+        private readonly ConcurrentDictionary<(int, bool), WriteDelegate<T>> _writers = new();
 
         private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
 
@@ -56,7 +56,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _readers.GetOrAdd(cacheKey, EmitReader(schema, keyOnly));
 
-            var columnCount = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
+            var columnCount = keyOnly ? schema.KeyColumns.Count : schema.Columns.Count;
 
             var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columnCount);
 
@@ -64,18 +64,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, int columnCount, Span<byte> noValueSet)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, Span<byte> noValueSet)
         {
-            var cacheKey = (schema.Version, columnCount);
+            var cacheKey = (schema.Version, keyOnly);
 
             var writeDelegate = _writers.TryGetValue(cacheKey, out var w)
                 ? w
-                : _writers.GetOrAdd(cacheKey, EmitWriter(schema, columnCount));
+                : _writers.GetOrAdd(cacheKey, EmitWriter(schema, keyOnly));
 
             writeDelegate(ref tupleBuilder, noValueSet, record);
         }
 
-        private static WriteDelegate<T> EmitWriter(Schema schema, int count)
+        private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
 
@@ -88,7 +88,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>))
             {
-                return EmitKvWriter(schema, count, method);
+                return EmitKvWriter(schema, keyOnly, method);
             }
 
             var il = method.GetILGenerator();
@@ -164,14 +164,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(mappedCount, type, schema, count);
+            ValidateMappedCount(mappedCount, type, schema, keyOnly);
 
             il.Emit(OpCodes.Ret);
 
             return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
         }
 
-        private static WriteDelegate<T> EmitKvWriter(Schema schema, int count, DynamicMethod method)
+        private static WriteDelegate<T> EmitKvWriter(Schema schema, bool keyOnly, DynamicMethod method)
         {
             var (keyType, valType, keyField, valField, keyColumnMap, valColumnMap) = GetKeyValTypes();
 
@@ -262,7 +262,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 keyWriteMethod != null ? null : keyType,
                 valWriteMethod != null ? null : valType,
                 schema,
-                count);
+                keyOnly);
 
             il.Emit(OpCodes.Ret);
 
@@ -475,7 +475,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
         }
 
-        private static void ValidateMappedCount(int mappedCount, Type type, Schema schema, int columnCount)
+        private static void ValidateMappedCount(int mappedCount, Type type, Schema schema, bool keyOnly)
         {
             if (mappedCount == 0)
             {
@@ -483,7 +483,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 throw new ArgumentException($"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
             }
 
-            if (columnCount < schema.Columns.Count)
+            if (keyOnly)
             {
                 // Key-only mode - skip "all fields are mapped" validation.
                 // It will be performed anyway when using the whole schema.
@@ -501,9 +501,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     extraColumns.Add(field.Name);
                 }
 
-                for (var index = 0; index < columnCount; index++)
+                foreach (var column in schema.GetColumnsFor(keyOnly))
                 {
-                    var column = schema.Columns[index];
                     extraColumns.Remove(column.Name);
                 }
 
@@ -511,7 +510,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
         }
 
-        private static void ValidateKvMappedCount(int mappedCount, Type? keyType, Type? valType, Schema schema, int columnCount)
+        private static void ValidateKvMappedCount(int mappedCount, Type? keyType, Type? valType, Schema schema, bool keyOnly)
         {
             if (mappedCount == 0)
             {
@@ -520,7 +519,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             var keyFields = keyType?.GetColumns() ?? Array.Empty<ReflectionUtils.ColumnInfo>();
-            var valFields = valType != null && columnCount > schema.KeyColumnCount
+            var valFields = valType != null && !keyOnly
                 ? valType.GetColumns()
                 : Array.Empty<ReflectionUtils.ColumnInfo>();
 
@@ -544,9 +543,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     extraColumns.Add(field.Name);
                 }
 
-                for (var index = 0; index < columnCount; index++)
+                foreach (var column in schema.GetColumnsFor(keyOnly))
                 {
-                    var column = schema.Columns[index];
                     extraColumns.Remove(column.Name);
                 }
 
