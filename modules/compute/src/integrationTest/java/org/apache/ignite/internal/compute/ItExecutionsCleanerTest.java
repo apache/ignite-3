@@ -237,6 +237,6 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(CLUSTER.node(0).compute().executeAsync(nodes, List.of(), InteractiveJobs.globalJob().name()));
+        return new TestingJobExecution<>(CLUSTER.node(0).compute().submit(nodes, List.of(), InteractiveJobs.globalJob().name()));
     }
 }

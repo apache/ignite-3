@@ -279,6 +279,18 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testContains() {
+        RecordView<PersonPojo> recordView = defaultTable().recordView(PersonPojo.class);
+        PersonPojo pojo = new PersonPojo(DEFAULT_ID, DEFAULT_NAME);
+
+        recordView.insert(null, pojo);
+
+        assertTrue(recordView.contains(null, pojo));
+        assertTrue(recordView.contains(null, new PersonPojo(DEFAULT_ID, "")));
+        assertFalse(recordView.contains(null, new PersonPojo(DEFAULT_ID - 1, DEFAULT_NAME)));
+    }
+
+    @Test
     public void testUpsertAll() {
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 

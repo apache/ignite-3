@@ -20,8 +20,6 @@ package org.apache.ignite.internal.network.scalecube;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.cluster.transport.api.Transport;
 import io.scalecube.net.Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -89,12 +87,12 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      * @param messageFactory  Message factory.
      */
     ScaleCubeDirectMarshallerTransport(
-            InetSocketAddress localAddress,
+            Address localAddress,
             MessagingService messagingService,
             ScaleCubeTopologyService topologyService,
             NetworkMessagesFactory messageFactory
     ) {
-        this.address = prepareAddress(localAddress);
+        this.address = localAddress;
         this.messagingService = messagingService;
         this.topologyService = topologyService;
         this.messageFactory = messageFactory;
@@ -107,20 +105,6 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
                         null,
                         ex -> LOG.warn("Failed to stop [address={}, reason={}]", address, ex.toString())
                 );
-    }
-
-    /**
-     * Convert {@link InetSocketAddress} to {@link Address}.
-     *
-     * @param addr Address.
-     * @return ScaleCube address.
-     */
-    private static Address prepareAddress(InetSocketAddress addr) {
-        InetAddress address = addr.getAddress();
-
-        String host = address.isAnyLocalAddress() ? Address.getLocalIpAddress().getHostAddress() : address.getHostAddress();
-
-        return Address.create(host, addr.getPort());
     }
 
     /**

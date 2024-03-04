@@ -45,7 +45,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
@@ -63,9 +62,6 @@ import org.jetbrains.annotations.Nullable;
  * Client handler module for tests.
  */
 public class TestClientHandlerModule implements IgniteComponent {
-    /** Configuration registry. */
-    private final ConfigurationRegistry registry;
-
     /** Ignite. */
     private final Ignite ignite;
 
@@ -102,11 +98,13 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Security configuration. */
     private final AuthenticationManager authenticationManager;
 
+    /** Configuration of the client connector. */
+    private final ClientConnectorConfiguration clientConnectorConfiguration;
+
     /**
      * Constructor.
      *
      * @param ignite Ignite.
-     * @param registry Configuration registry.
      * @param bootstrapFactory Bootstrap factory.
      * @param shouldDropConnection Connection drop condition.
      * @param responseDelay Response delay, in milliseconds.
@@ -117,10 +115,10 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param authenticationManager Authentication manager.
      * @param clock Clock.
      * @param placementDriver Placement driver.
+     * @param clientConnectorConfiguration Configuration of the client connector.
      */
     public TestClientHandlerModule(
             Ignite ignite,
-            ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory,
             Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
@@ -130,13 +128,13 @@ public class TestClientHandlerModule implements IgniteComponent {
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             HybridClock clock,
-            PlacementDriver placementDriver) {
+            PlacementDriver placementDriver,
+            ClientConnectorConfiguration clientConnectorConfiguration
+    ) {
         assert ignite != null;
-        assert registry != null;
         assert bootstrapFactory != null;
 
         this.ignite = ignite;
-        this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.shouldDropConnection = shouldDropConnection;
         this.responseDelay = responseDelay;
@@ -147,6 +145,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.authenticationManager = authenticationManager;
         this.clock = clock;
         this.placementDriver = placementDriver;
+        this.clientConnectorConfiguration = clientConnectorConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -193,7 +192,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @throws IgniteException      When startup has failed.
      */
     private ChannelFuture startEndpoint() throws InterruptedException {
-        var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
+        var configuration = clientConnectorConfiguration.value();
 
         var requestCounter = new AtomicInteger();
         var connectionIdGen = new AtomicLong();

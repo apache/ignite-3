@@ -41,6 +41,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -145,22 +146,22 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     /**
      * Handles {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} of {@link IndexMessageGroup}.
      *
-     * @see NetworkMessageHandler#onReceived(NetworkMessage, String, Long)
+     * @see NetworkMessageHandler#onReceived(NetworkMessage, ClusterNode, Long)
      */
-    private void onReceiveIndexNetworkMessage(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+    private void onReceiveIndexNetworkMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
         inBusyLock(busyLock, () -> {
             if (!(message instanceof IsNodeFinishedRwTransactionsStartedBeforeRequest)) {
                 return;
             }
 
-            assert correlationId != null : senderConsistentId;
+            assert correlationId != null : sender;
 
             int targetCatalogVersion = ((IsNodeFinishedRwTransactionsStartedBeforeRequest) message).targetCatalogVersion();
 
             boolean finished = isNodeFinishedRwTransactionsStartedBefore(targetCatalogVersion);
 
             messagingService.respond(
-                    senderConsistentId,
+                    sender,
                     FACTORY.isNodeFinishedRwTransactionsStartedBeforeResponse().finished(finished).build(),
                     correlationId
             );

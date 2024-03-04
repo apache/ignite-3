@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.messaging;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.compute.ComputeUtils.cancelFromJobCancelResponse;
@@ -103,66 +104,56 @@ public class ComputeMessaging {
      * Start messaging service.
      */
     public void start(JobStarter starter) {
-        messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderConsistentId, correlationId) -> {
+        messagingService.addMessageHandler(ComputeMessageTypes.class, (message, sender, correlationId) -> {
             assert correlationId != null;
 
             if (!busyLock.enterBusy()) {
                 sendException(
                         message,
-                        senderConsistentId,
-                        correlationId,
+                        sender,
+                        requireNonNull(correlationId, "correlationId is null"),
                         new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException())
                 );
                 return;
             }
 
             try {
-                processRequest(message, senderConsistentId, correlationId, starter);
+                processRequest(message, sender, requireNonNull(correlationId), starter);
             } finally {
                 busyLock.leaveBusy();
             }
         });
     }
 
-    private void sendException(
-            NetworkMessage message,
-            String senderConsistentId,
-            long correlationId,
-            IgniteInternalException ex
-    ) {
+    private void sendException(NetworkMessage message, ClusterNode sender, long correlationId, IgniteInternalException ex) {
         if (message instanceof ExecuteRequest) {
-            sendExecuteResponse(null, ex, senderConsistentId, correlationId);
+            sendExecuteResponse(null, ex, sender, correlationId);
         } else if (message instanceof JobResultRequest) {
-            sendJobResultResponse(null, ex, senderConsistentId, correlationId);
+            sendJobResultResponse(null, ex, sender, correlationId);
         } else if (message instanceof JobStatusesRequest) {
-            sendJobStatusesResponse(null, ex, senderConsistentId, correlationId);
+            sendJobStatusesResponse(null, ex, sender, correlationId);
         } else if (message instanceof JobStatusRequest) {
-            sendJobStatusResponse(null, ex, senderConsistentId, correlationId);
+            sendJobStatusResponse(null, ex, sender, correlationId);
         } else if (message instanceof JobCancelRequest) {
-            sendJobCancelResponse(null, ex, senderConsistentId, correlationId);
+            sendJobCancelResponse(null, ex, sender, correlationId);
         } else if (message instanceof JobChangePriorityRequest) {
-            sendJobChangePriorityResponse(null, ex, senderConsistentId, correlationId);
+            sendJobChangePriorityResponse(null, ex, sender, correlationId);
         }
     }
 
-    private void processRequest(
-            NetworkMessage message,
-            String senderConsistentId,
-            long correlationId,
-            JobStarter starter
-    ) {
+    private void processRequest(NetworkMessage message, ClusterNode sender, long correlationId, JobStarter starter) {
         if (message instanceof ExecuteRequest) {
-            processExecuteRequest(starter, (ExecuteRequest) message, senderConsistentId, correlationId);
+            processExecuteRequest(starter, (ExecuteRequest) message, sender, correlationId);
         } else if (message instanceof JobResultRequest) {
-            processJobResultRequest((JobResultRequest) message, senderConsistentId, correlationId);
+            processJobResultRequest((JobResultRequest) message, sender, correlationId);
         } else if (message instanceof JobStatusesRequest) {
-            processJobStatusesRequest((JobStatusesRequest) message, senderConsistentId, correlationId);
+            processJobStatusesRequest((JobStatusesRequest) message, sender, correlationId);
         } else if (message instanceof JobStatusRequest) {
-            processJobStatusRequest((JobStatusRequest) message, senderConsistentId, correlationId);
+            processJobStatusRequest((JobStatusRequest) message, sender, correlationId);
         } else if (message instanceof JobCancelRequest) {
-            processJobCancelRequest((JobCancelRequest) message, senderConsistentId, correlationId);
+            processJobCancelRequest((JobCancelRequest) message, sender, correlationId);
         } else if (message instanceof JobChangePriorityRequest) {
-            processJobChangePriorityRequest((JobChangePriorityRequest) message, senderConsistentId, correlationId);
+            processJobChangePriorityRequest((JobChangePriorityRequest) message, sender, correlationId);
         }
     }
 
@@ -205,20 +196,20 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> jobIdFromExecuteResponse((ExecuteResponse) networkMessage));
     }
 
-    private void processExecuteRequest(JobStarter starter, ExecuteRequest request, String senderConsistentId, long correlationId) {
+    private void processExecuteRequest(JobStarter starter, ExecuteRequest request, ClusterNode sender, long correlationId) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
         JobExecution<Object> execution = starter.start(request.executeOptions(), units, request.jobClassName(), request.args());
-        execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, senderConsistentId, correlationId));
+        execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, sender, correlationId));
     }
 
-    private void sendExecuteResponse(@Nullable UUID jobId, @Nullable Throwable ex, String senderConsistentId, Long correlationId) {
+    private void sendExecuteResponse(@Nullable UUID jobId, @Nullable Throwable ex, ClusterNode sender, Long correlationId) {
         ExecuteResponse executeResponse = messagesFactory.executeResponse()
                 .jobId(jobId)
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(senderConsistentId, executeResponse, correlationId);
+        messagingService.respond(sender, executeResponse, correlationId);
     }
 
     /**
@@ -238,23 +229,18 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> resultFromJobResultResponse((JobResultResponse) networkMessage));
     }
 
-    private void processJobResultRequest(JobResultRequest request, String senderConsistentId, long correlationId) {
+    private void processJobResultRequest(JobResultRequest request, ClusterNode sender, long correlationId) {
         executionManager.resultAsync(request.jobId())
-                .whenComplete((result, err) -> sendJobResultResponse(result, err, senderConsistentId, correlationId));
+                .whenComplete((result, err) -> sendJobResultResponse(result, err, sender, correlationId));
     }
 
-    private void sendJobResultResponse(
-            @Nullable Object result,
-            @Nullable Throwable ex,
-            String senderConsistentId,
-            long correlationId
-    ) {
+    private void sendJobResultResponse(@Nullable Object result, @Nullable Throwable ex, ClusterNode sender, long correlationId) {
         JobResultResponse jobResultResponse = messagesFactory.jobResultResponse()
                 .result(result)
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(senderConsistentId, jobResultResponse, correlationId);
+        messagingService.respond(sender, jobResultResponse, correlationId);
     }
 
     CompletableFuture<Collection<JobStatus>> remoteStatusesAsync(ClusterNode remoteNode) {
@@ -265,15 +251,15 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> statusesFromJobStatusesResponse((JobStatusesResponse) networkMessage));
     }
 
-    private void processJobStatusesRequest(JobStatusesRequest message, String senderConsistentId, long correlationId) {
+    private void processJobStatusesRequest(JobStatusesRequest message, ClusterNode sender, long correlationId) {
         executionManager.localStatusesAsync()
-                .whenComplete((statuses, throwable) -> sendJobStatusesResponse(statuses, throwable, senderConsistentId, correlationId));
+                .whenComplete((statuses, throwable) -> sendJobStatusesResponse(statuses, throwable, sender, correlationId));
     }
 
     private void sendJobStatusesResponse(
             @Nullable Collection<JobStatus> statuses,
             @Nullable Throwable throwable,
-            String senderConsistentId,
+            ClusterNode sender,
             Long correlationId
     ) {
         JobStatusesResponse jobStatusResponse = messagesFactory.jobStatusesResponse()
@@ -281,7 +267,7 @@ public class ComputeMessaging {
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(senderConsistentId, jobStatusResponse, correlationId);
+        messagingService.respond(sender, jobStatusResponse, correlationId);
     }
 
     /**
@@ -300,27 +286,18 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> statusFromJobStatusResponse((JobStatusResponse) networkMessage));
     }
 
-    private void processJobStatusRequest(
-            JobStatusRequest request,
-            String senderConsistentId,
-            long correlationId
-    ) {
+    private void processJobStatusRequest(JobStatusRequest request, ClusterNode sender, long correlationId) {
         executionManager.statusAsync(request.jobId())
-                .whenComplete((status, throwable) -> sendJobStatusResponse(status, throwable, senderConsistentId, correlationId));
+                .whenComplete((status, throwable) -> sendJobStatusResponse(status, throwable, sender, correlationId));
     }
 
-    private void sendJobStatusResponse(
-            @Nullable JobStatus status,
-            @Nullable Throwable throwable,
-            String senderConsistentId,
-            Long correlationId
-    ) {
+    private void sendJobStatusResponse(@Nullable JobStatus status, @Nullable Throwable throwable, ClusterNode sender, Long correlationId) {
         JobStatusResponse jobStatusResponse = messagesFactory.jobStatusResponse()
                 .status(status)
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(senderConsistentId, jobStatusResponse, correlationId);
+        messagingService.respond(sender, jobStatusResponse, correlationId);
     }
 
     /**
@@ -340,23 +317,18 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> cancelFromJobCancelResponse((JobCancelResponse) networkMessage));
     }
 
-    private void processJobCancelRequest(JobCancelRequest request, String senderConsistentId, long correlationId) {
+    private void processJobCancelRequest(JobCancelRequest request, ClusterNode sender, long correlationId) {
         executionManager.cancelAsync(request.jobId())
-                .whenComplete((result, err) -> sendJobCancelResponse(result, err, senderConsistentId, correlationId));
+                .whenComplete((result, err) -> sendJobCancelResponse(result, err, sender, correlationId));
     }
 
-    private void sendJobCancelResponse(
-            @Nullable Boolean result,
-            @Nullable Throwable throwable,
-            String senderConsistentId,
-            Long correlationId
-    ) {
+    private void sendJobCancelResponse(@Nullable Boolean result, @Nullable Throwable throwable, ClusterNode sender, Long correlationId) {
         JobCancelResponse jobCancelResponse = messagesFactory.jobCancelResponse()
                 .result(result)
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(senderConsistentId, jobCancelResponse, correlationId);
+        messagingService.respond(sender, jobCancelResponse, correlationId);
     }
 
     /**
@@ -378,15 +350,15 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> changePriorityFromJobChangePriorityResponse((JobChangePriorityResponse) networkMessage));
     }
 
-    private void processJobChangePriorityRequest(JobChangePriorityRequest request, String senderConsistentId, long correlationId) {
+    private void processJobChangePriorityRequest(JobChangePriorityRequest request, ClusterNode sender, long correlationId) {
         executionManager.changePriorityAsync(request.jobId(), request.priority())
-                .whenComplete((result, err) -> sendJobChangePriorityResponse(result, err, senderConsistentId, correlationId));
+                .whenComplete((result, err) -> sendJobChangePriorityResponse(result, err, sender, correlationId));
     }
 
     private void sendJobChangePriorityResponse(
             @Nullable Boolean result,
             @Nullable Throwable throwable,
-            String senderConsistentId,
+            ClusterNode sender,
             Long correlationId
     ) {
         JobChangePriorityResponse jobChangePriorityResponse = messagesFactory.jobChangePriorityResponse()
@@ -394,7 +366,7 @@ public class ComputeMessaging {
                 .result(result)
                 .build();
 
-        messagingService.respond(senderConsistentId, jobChangePriorityResponse, correlationId);
+        messagingService.respond(sender, jobChangePriorityResponse, correlationId);
     }
 
     /**

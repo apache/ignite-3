@@ -103,7 +103,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
                 .executeAsync(Set.of(entryNode.node()), units(), jobClassName)
-                .resultAsync()
                 .get(1, TimeUnit.SECONDS));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
@@ -127,7 +126,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
                 .executeAsync(Set.of(node(1).node(), node(2).node()), units(), jobClassName)
-                .resultAsync()
                 .get(1, TimeUnit.SECONDS));
 
         assertTraceableException(ex, ComputeException.class, errorCode, msg);
@@ -138,7 +136,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
+                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
@@ -152,7 +150,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(node(1).node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
+                .submit(Set.of(node(1).node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
@@ -166,7 +164,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
+                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -178,7 +176,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute()
-                .executeAsync(Set.of(node(1).node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
+                .submit(Set.of(node(1).node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -193,17 +191,17 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         // Start 1 task in executor with 1 thread
         JobExecution<String> execution1 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
+                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         // Start one more task
         JobExecution<String> execution2 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
+                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Start third task
         JobExecution<String> execution3 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
+                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
         await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Task 1 and 2 are not competed, in queue state
@@ -235,18 +233,18 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         // Start 1 task in executor with 1 thread
         JobExecution<String> execution1 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
+                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         // Start one more task
         JobExecution<String> execution2 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
+                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
         JobExecution<String> execution3 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), WaitLatchThrowExceptionOnFirstExecutionJob.class.getName(),
+                .submit(Set.of(entryNode.node()), units(), WaitLatchThrowExceptionOnFirstExecutionJob.class.getName(),
                         options, countDownLatch);
         await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 

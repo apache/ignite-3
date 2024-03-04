@@ -457,7 +457,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         ClusterService clusterService = mock(ClusterService.class);
 
-        when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE.name()));
+        when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
@@ -517,12 +517,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Dummy messaging service for tests purposes. It does not provide any messaging functionality, but allows to trigger events.
      */
     private static class DummyMessagingService extends AbstractMessagingService {
-        private final String localNodeName;
+        private final ClusterNode localNode;
 
         private final AtomicLong correlationIdGenerator = new AtomicLong();
 
-        DummyMessagingService(String localNodeName) {
-            this.localNodeName = localNodeName;
+        DummyMessagingService(ClusterNode localNode) {
+            this.localNode = localNode;
         }
 
         /** {@inheritDoc} */
@@ -563,7 +563,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<NetworkMessage> invoke(String recipientNodeId, ChannelType type, NetworkMessage msg, long timeout) {
-            getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, localNodeName, correlationIdGenerator.getAndIncrement()));
+            getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, localNode, correlationIdGenerator.getAndIncrement()));
 
             return nullCompletedFuture();
         }

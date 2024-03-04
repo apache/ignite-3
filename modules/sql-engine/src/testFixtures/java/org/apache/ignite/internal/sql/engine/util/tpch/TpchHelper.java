@@ -65,24 +65,7 @@ public final class TpchHelper {
         }
     }
 
-    /**
-     * Returns a string representing DML statement to fill the given table with data.
-     */
-    public static String getDmlForTable(String tableName) {
-        String queryFile = String.format("tpch/%s_dml.sql", tableName.toLowerCase());
-
-        return loadFromResource(queryFile);
-    }
-
-    /**
-     * Returns a string representing DDL script with all the tables' and indexes' definitions
-     * required execute queries from TPC-H suite.
-     */
-    public static String getSchemaDefinitionScript() {
-        return loadFromResource("tpch/tpch_schema_ddl.sql");
-    }
-
-    private static String loadFromResource(String resource) {
+    static String loadFromResource(String resource) {
         try (InputStream is = TpchHelper.class.getClassLoader().getResourceAsStream(resource)) {
             if (is == null) {
                 throw new IllegalArgumentException("Resource does not exist: " + resource);

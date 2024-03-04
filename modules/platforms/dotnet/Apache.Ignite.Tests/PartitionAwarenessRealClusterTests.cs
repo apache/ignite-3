@@ -50,7 +50,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         {
             var keyTuple = new IgniteTuple { ["KEY"] = key };
 
-            var primaryNodeNameExec = await client.Compute.ExecuteColocatedAsync<string>(
+            var primaryNodeNameExec = await client.Compute.SubmitColocated<string>(
                 TableName,
                 keyTuple,
                 Array.Empty<DeploymentUnit>(),

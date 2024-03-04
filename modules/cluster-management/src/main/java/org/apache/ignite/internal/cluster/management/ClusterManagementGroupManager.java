@@ -213,17 +213,17 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         clusterService.messagingService().addMessageHandler(
                 CmgMessageGroup.class,
-                messageHandlerFactory.wrapHandler((message, senderConsistentId, correlationId) -> {
+                messageHandlerFactory.wrapHandler((message, sender, correlationId) -> {
                     if (message instanceof ClusterStateMessage) {
                         assert correlationId != null;
 
-                        handleClusterState((ClusterStateMessage) message, senderConsistentId, correlationId);
+                        handleClusterState((ClusterStateMessage) message, sender, correlationId);
                     } else if (message instanceof CancelInitMessage) {
                         handleCancelInit((CancelInitMessage) message);
                     } else if (message instanceof CmgInitMessage) {
                         assert correlationId != null;
 
-                        handleInit((CmgInitMessage) message, senderConsistentId, correlationId);
+                        handleInit((CmgInitMessage) message, sender, correlationId);
                     }
                 })
         );
@@ -275,7 +275,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      *     we simply check that the Raft state and the received message are the same.</li>
      * </ol>
      */
-    private void handleInit(CmgInitMessage msg, String senderConsistentId, long correlationId) {
+    private void handleInit(CmgInitMessage msg, ClusterNode sender, long correlationId) {
         synchronized (raftServiceLock) {
             CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
@@ -314,7 +314,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                             .build();
                                 }
 
-                                clusterService.messagingService().respond(senderConsistentId, response, correlationId);
+                                clusterService.messagingService().respond(sender, response, correlationId);
 
                                 return service;
                             }));
@@ -441,8 +441,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Handler for the {@link ClusterStateMessage}.
      */
-    private void handleClusterState(ClusterStateMessage msg, String senderConsistentId, long correlationId) {
-        clusterService.messagingService().respond(senderConsistentId, msgFactory.successResponseMessage().build(), correlationId);
+    private void handleClusterState(ClusterStateMessage msg, ClusterNode sender, long correlationId) {
+        clusterService.messagingService().respond(sender, msgFactory.successResponseMessage().build(), correlationId);
 
         ClusterState state = msg.clusterState();
 

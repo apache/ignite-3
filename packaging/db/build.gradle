@@ -34,7 +34,7 @@ import org.gradle.crypto.checksum.Checksum
 
 configurations {
     dbArtifacts
-    defaultsGenerator
+    defaultsGenerator.extendsFrom(dbArtifacts)
     dbZip {
         canBeConsumed = true
         canBeResolved = false
@@ -52,7 +52,6 @@ configurations {
 dependencies {
     dbArtifacts project(':ignite-runner')
 
-    defaultsGenerator configurations.dbArtifacts
     defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
 }
 
